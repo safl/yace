@@ -1,0 +1,9 @@
+/**
+ * Copyright (C) Simon A. F. Lund <os@safl.dk>
+ * SPDX-License-Identifier: BSD-3-CLAUSE
+ *
+ * @file {{ meta.prefix }}_spec.c
+ */
+#include "libxnvme_spec.h"
+
+{{ content }}

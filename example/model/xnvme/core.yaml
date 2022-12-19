@@ -1,0 +1,27 @@
+---
+enumerate_action:
+- symbol: enumate_action
+  brief: ""
+  full: ""
+  ltype: enum
+  members:
+  - {ltype: pod, val: 0x0, "enumerate_dev_keep_open": null, brief: "Keep device-handle open after callback returns", full: ""}
+
+options:
+- symbol: opts
+  brief: "xNVMe options"
+  full: "@see xnvme_dev_open()"
+  ltype: struct
+  members:
+  - {ltype: pod, dtype: "const char *", symbol: be, brief: "Backend/system interface to use"}
+  - {ltype: pod, dtype: "const char *", symbol: dev, brief: "Device manager/enumerator"}
+  - {ltype: pod, dtype: "const char *", symbol: mem, brief: "Memory allocator to use for buffers"}
+  - {ltype: pod, dtype: "const char *", symbol: sync, brief: "Synchronous Command-interface"}
+  - {ltype: pod, dtype: "const char *", symbol: async, brief: "Asynchronous Command-interface"}
+  - {ltype: pod, dtype: "const char *", symbol: admin, brief: "Administrative Command-interface"}
+  - {ltype: pod, dtype: "uint", width: 32, symbol: nsid, brief: "Namespace identifier"}
+
+  - {ltype: pod, dtype: "uint", width: 32, symbol: poll_io, brief: "io_uring: enable io-polling"}
+  - {ltype: pod, dtype: "uint", width: 8, symbol: poll_sq, brief: "io_uring: enable sqthread-polling"}
+  - {ltype: pod, dtype: "uint", width: 8, symbol: register_files, brief: "io_uring: enable file-registrations"}
+  - {ltype: pod, dtype: "uint", width: 8, symbol: register_buffers, brief: "io_uring: enable buffer-registrations"}

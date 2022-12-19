@@ -1,0 +1,3 @@
+{%- for member in topic.members %}
+{{ topic.dtype }} {{ member.symbol }} : {{ member.width }}; ///< {{ member.brief }}
+{%- endfor %}

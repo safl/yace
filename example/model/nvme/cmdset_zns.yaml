@@ -1,0 +1,49 @@
+---
+model:
+- symbol: opc_zns
+  brief: "Command Opcodes for the ZNS Command-Set"
+  full:
+  ltype: enum
+  members:
+  - {ltype: pod, val: 0x79, symbol: MGMT_SEND, brief: "Zone Management Send", full: null}
+  - {ltype: pod, val: 0x7a, symbol: MGMT_RECV, brief: "Zone Management Receive", full: null}
+  - {ltype: pod, val: 0x7d, symbol: APPEND, brief: "Zone Append", full: null}
+
+- symbol: zns_zsa
+  brief: "This is a brief description"
+  full: "This is a full description ..."
+  ltype: enum
+
+  members:
+  - {ltype: const, val: 0x0, symbol: CLOSE, brief: "..."}
+  - {ltype: const, val: 0x1, symbol: FINISH, brief: "..."}
+  - {ltype: const, val: 0x3, symbol: OPEN, brief: "..."}
+  - {ltype: const, val: 0x4, symbol: RESET, brief: "..."}
+  - {ltype: const, val: 0x5, symbol: OFFLINE, brief: "..."}
+  - {ltype: const, val: 0x10, symbol: SET_DESCR_EXTENSION, brief: "..."}
+  - {ltype: const, val: 0x11, symbol: ZRWA_FLUSH, brief: "..."}
+
+- symbol: zns_zra
+  brief: "This is a brief description"
+  full: "This is a full description ..."
+  ltype: enum
+
+  members:
+  - {ltype: const, val: 0x0, symbol: REPORT_ZONES, brief: "..."}
+  - {ltype: const, val: 0x1, symbol: EXTENDED_REPORT_ZONES, brief: "..."}
+
+- symbol: zns_zras
+  brief: "This is a brief description"
+  full: "This is a full description ..."
+  ltype: enum
+
+  members:
+  - {ltype: const, val: 0x0, symbol: LIST_ALL, brief: "List all zones"}
+  - {ltype: const, val: 0x1, symbol: LIST_EMPTY, brief: "List the zones in the ZSE:Empty state"}
+  - {ltype: const, val: 0x2, symbol: LIST_IOPEN, brief: "List all zones in the ZSIO:Implicitly Opened state"}
+  - {ltype: const, val: 0x3, symbol: LIST_EOPEN, brief: "List all zones in the ZSEO:Explicitly Opened state"}
+  - {ltype: const, val: 0x4, symbol: LIST_CLOSED, brief: "List all zones in the ZSC:Closed state"}
+  - {ltype: const, val: 0x5, symbol: LIST_FULL, brief: "List the zones in the ZSF:Full state"}
+  - {ltype: const, val: 0x6, symbol: LIST_READONLY, brief: "List the zones in the ZSRO: Read Only state"}
+  - {ltype: const, val: 0x7, symbol: LIST_OFFLINE, brief: "List the zones in the ZSO:Offline state"}
+  - {ltype: const, val: 0x9, symbol: LIST_ATTR, brief: "List all zones"}

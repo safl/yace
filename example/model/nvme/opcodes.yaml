@@ -1,0 +1,57 @@
+---
+model:
+- symbol: csi
+  brief: "Command Set Identifiers"
+  full: "This is a full description of Command Set Identifiers"
+  ltype: enum
+
+  members:
+  - {ltype: pod, val: 0x0, symbol: "NVM", brief: "NVM Command Set Identifier", full: null}
+  - {ltype: pod, val: 0x1, symbol: "KVS", brief: "KVS Command Set Identifier", full: null}
+  - {ltype: pod, val: 0x2, symbol: "ZNS", brief: "ZNS Command Set Identifier", full: null}
+
+- symbol: opc_adm
+  brief: "Command Opcodes -- for Admin Commands"
+  full:
+  ltype: enum
+  members:
+  - {ltype: pod, val: 0x00, symbol: "DELETE_IO_SQ", brief: "Delete I/O Submission Queue", full: null}
+  - {ltype: pod, val: 0x01, symbol: "CREATE_IO_SQ", brief: "Create I/O Submission Queue", full: null}
+  - {ltype: pod, val: 0x02, symbol: "GET_LOG_PAGE", brief: "Get Log Page", full: null}
+  - {ltype: pod, val: 0x04, symbol: "DELETE_IO_CQ", brief: "Delete I/O Completion Queue", full: null}
+  - {ltype: pod, val: 0x05, symbol: "CREATE_IO_CQ", brief: "Create I/O Completion Queue", full: null}
+  - {ltype: pod, val: 0x06, symbol: "IDENTIFY", brief: "Identify", full: null}
+  - {ltype: pod, val: 0x08, symbol: "ABORT", brief: "Abort", full: null}
+
+  - {ltype: pod, val: 0x09, symbol: "SFEAT", brief: "Set Features", full: null}
+  - {ltype: pod, val: 0x0a, symbol: "GFEAT", brief: "Get Features", full: null}
+
+  - {ltype: pod, val: 0x0c, symbol: "ASYNC_EVENT_REQUEST", brief: "Async Event Request", full: null}
+  - {ltype: pod, val: 0x0d, symbol: "NS_MANAGEMENT", brief: "Namespace Management", full: null}
+
+  - {ltype: pod, val: 0x10, symbol: "FIRMWARE_COMMIT", brief: "Firmware Commit", full: null}
+  - {ltype: pod, val: 0x11, symbol: "FIRMWARE_IMAGE_DOWNLOAD", brief: "Firmware Image Download", full: null}
+
+  - {ltype: pod, val: 0x14, symbol: "DEVICE_SELF_TEST", brief: "Device Self-test", full: null}
+  - {ltype: pod, val: 0x15, symbol: "NS_ATTACHMENT", brief: "Namespace Attachment", full: null}
+  - {ltype: pod, val: 0x16, symbol: "KEEP_ALIVE", brief: "Keep Alive", full: null}
+
+  - {ltype: pod, val: 0x19, symbol: "DSEND", brief: "Directive Send", full: null}
+  - {ltype: pod, val: 0x1a, symbol: "DRECV", brief: "Directive Receive", full: null}
+
+  - {ltype: pod, val: 0x1c, symbol: "VIRTUALIZATION_MGMT", brief: "Virtualization Management", full: null}
+
+  - {ltype: pod, val: 0x1d, symbol: "MI_SEND", brief: "NVMe-MI Send", full: null}
+  - {ltype: pod, val: 0x1e, symbol: "MI_RECV", brief: "NVMe-MI Receive", full: null}
+
+  - {ltype: pod, val: 0x20, symbol: "CAPACITY_MGMT", brief: "Capacity Management", full: null}
+  - {ltype: pod, val: 0x24, symbol: "LOCKDOWN", brief: "Lockdown", full: null}
+  - {ltype: pod, val: 0x7c, symbol: "DOORBELL_BUFFER_CONFIG", brief: "Doorbell buffer Config", full: null}
+  - {ltype: pod, val: 0x7f, symbol: "FABRICS_COMMANDS", brief: "Fabrics Commands", full: null}
+
+  - {ltype: pod, val: 0x80, symbol: "FORMAT", brief: "Format", full: null}
+  - {ltype: pod, val: 0x81, symbol: "SECURITY_SEND", brief: "Security Send", full: null}
+  - {ltype: pod, val: 0x82, symbol: "SECURITY_RECV", brief: "Security Recv", full: null}
+  - {ltype: pod, val: 0x84, symbol: "SANITIZE", brief: "Sanitize", full: null}
+
+  - {ltype: pod, val: 0x86, symbol: "GET_LBA_STATUS", brief: "Get LBA Status", full: null}

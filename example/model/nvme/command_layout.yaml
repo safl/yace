@@ -1,0 +1,114 @@
+---
+model:
+- symbol: nvm_read
+  brief: "NVM Read Command"
+  full: "Full"
+  ltype: struct
+  members:
+  - symbol:
+    brief:
+    full:
+    ltype: bitfield
+    dtype: uint
+    width: 16
+    members:
+    - {ltype: bits, width: 8, symbol: opcode, brief: "Command Opcode"}
+    - {ltype: bits, width: 2, symbol: fuse, brief: "Fused Operation"}
+    - {ltype: bits, width: 4, symbol: rsvd, brief: "Reserved"}
+    - {ltype: bits, width: 2, symbol: psdt, brief: "Brief"}
+  - {ltype: pod, dtype: uint, width: 16, symbol: cid, brief: "Command Identifier"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: nsid, brief: "Namespace Identifier"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw02, brief: "Command DWord 2"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw03, brief: "Command DWord 3"}
+  - {ltype: pod, dtype: uint, width: 64, symbol: mptr, brief: "Metadata pointer"}
+  - symbol: dptr
+    ltype: union
+    brief:
+    full:
+    members:
+    - symbol:
+      brief:
+      full:
+      ltype: struct
+      members:
+      - {ltype: pod, dtype: uint, width: 64, symbol: dptr1, brief: "Brief"}
+      - {ltype: pod, dtype: uint, width: 64, symbol: dptr2, brief: "Brief"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: ndt, brief: "Brief"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: ndm, brief: "Number of dwords"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw12, brief: "Command DWord 12"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw13, brief: "Command DWord 13"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw14, brief: "Command DWord 14"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw15, brief: "Command DWord 15"}
+
+- symbol: nvm_write
+  brief: "NVM Write Command"
+  full: "Full"
+  ltype: struct
+  members:
+  - symbol:
+    brief:
+    full:
+    ltype: bitfield
+    dtype: uint
+    width: 16
+    members:
+    - {ltype: bits, width: 8, symbol: opcode, brief: "Command Opcde"}
+    - {ltype: bits, width: 2, symbol: fuse, brief: "Fused Operation"}
+    - {ltype: bits, width: 4, symbol: rsvd, brief: "Reserved"}
+    - {ltype: bits, width: 2, symbol: psdt, brief: "Brief"}
+  - {ltype: pod, dtype: uint, width: 16, symbol: cid, brief: "Command Identifier"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: nsid, brief: "Namespace Identifier"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw02, brief: "Command DWord 2"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw03, brief: "Command DWord 3"}
+  - {ltype: pod, dtype: uint, width: 64, symbol: mptr, brief: "Metadata pointer"}
+  - symbol: dptr
+    ltype: union
+    brief:
+    full:
+    members:
+    - symbol:
+      brief:
+      full:
+      ltype: struct
+      members:
+      - {ltype: pod, dtype: uint, width: 64, symbol: dptr1, brief: "Brief"}
+      - {ltype: pod, dtype: uint, width: 64, symbol: dptr2, brief: "Brief"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: ndt, brief: "Brief"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: ndm, brief: "Number of dwords"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw12, brief: "Command DWord 12"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw13, brief: "Command DWord 13"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw14, brief: "Command DWord 14"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw15, brief: "Command DWord 15"}
+
+- symbol: nvm_sanitize
+  brief: "NVM Sanitize Command"
+  full: "Full"
+  ltype: struct
+  members:
+  - {ltype: pod, dtype: uint, width: 32, symbol: cwd01, brief: "Command DWord 01"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cwd02, brief: "Command DWord 02"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cwd03, brief: "Command DWord 03"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cwd04, brief: "Command DWord 04"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cwd05, brief: "Command DWord 05"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cwd06, brief: "Command DWord 06"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw07, brief: "Command DWord 07"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw08, brief: "Command DWord 08"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw09, brief: "Command DWord 09"}
+  - symbol:
+    brief:
+    full:
+    ltype: bitfield
+    dtype: uint
+    width: 32
+    members:
+    - {ltype: pod, width: 3, symbol: sanact, brief: "Sanitize Action"}
+    - {ltype: pod, width: 1, symbol: ause, brief: "Allow unrestr. san. exit"}
+    - {ltype: pod, width: 4, symbol: owpass, brief: "Overwrite pass count"}
+    - {ltype: pod, width: 1, symbol: oipbp, brief: "Overwrite invert"}
+    - {ltype: pod, width: 1, symbol: nodas, brief: "Brief"}
+    - {ltype: pod, width: 22, symbol: rsvd, brief: "Brief"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: ovrpat, brief: "Overwrite Pattern"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw12, brief: "Command DWord 12"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw13, brief: "Command DWord 13"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw14, brief: "Command DWord 14"}
+  - {ltype: pod, dtype: uint, width: 32, symbol: cdw15, brief: "Command DWord 15"}
