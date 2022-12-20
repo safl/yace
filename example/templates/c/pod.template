@@ -1,1 +1,0 @@
-{{ topic.val }} {{ topic.symbol }}; ///< {{ topic.brief }}

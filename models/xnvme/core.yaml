@@ -1,6 +1,6 @@
 ---
 enumerate_action:
-- symbol: enumate_action
+- symbol: enumerate_action
   brief: ""
   full: ""
   ltype: enum

@@ -1,0 +1,6 @@
+---
+language: 'c'
+license: 'BSD-3-Clause'
+prefix: 'xnvme'
+brief: 'Cross-platform I/O library for NVMe devices'
+full:

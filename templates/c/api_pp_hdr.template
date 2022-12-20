@@ -1,0 +1,17 @@
+/**
+ * Copyright (C) Simon A. F. Lund <os@safl.dk>
+ * SPDX-License-Identifier: BSD-3-CLAUSE
+ *
+ * @file lib{{ meta.prefix }}_pp.h
+ */
+{%- for topic in topics %}
+{% set ident=meta['prefix'] + '_' + topic['symbol'] %}
+{% if topic['ltype'] in ['enum'] %}
+/**
+ *
+ */
+const char * {{ ident }}_str(int enum_val);
+{% elif topic['ltype'] in ['struct', 'union'] %}
+int {{ ident }}_fpr(FILE *stream, const struct {{ ident }} *obj, int flags);
+{% endif %}
+{%- endfor %}

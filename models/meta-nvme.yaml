@@ -1,0 +1,9 @@
+---
+language: 'c'
+license: 'BSD-3-Clause'
+prefix: 'nvme'
+brief: 'NVMe structs, enum, values and helper function declarations'
+full: |
+  If an entity is defined in the NVMe specification, then an enum or struct should exist in this
+  header file. The purpose of this is to provide a single point of entry for spec. definitions for
+  the purpose of providing structs with accessors, and enums for values such as command opcodes.

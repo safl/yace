@@ -68,12 +68,12 @@ clean:
 
 .PHONY: emit-xnvme
 emit-xnvme:
-	yace --meta example/meta.yaml --model example/model/xnvme  --templates example/templates/c
+	yace --meta models/meta-xnvme.yaml --model models/xnvme  --templates templates/c
 	clang-format --style=file:toolbox/clang-format-h -i output/*.h
 
 .PHONY: emit-nvme
 emit-nvme:
-	yace --meta example/meta.yaml --model example/model/nvme  --templates example/templates/c
+	yace --meta models/meta-nvme.yaml --model models/nvme  --templates templates/c
 	clang-format --style=file:toolbox/clang-format-h -i output/*.h
 
 .PHONY: build

@@ -1,0 +1,30 @@
+/**
+ * {{ meta.brief }}
+ *
+ * {{ meta.full | replace("\n", " ") }}
+ *
+ * NOTE: This file is auto-generated using yace: https://github.com/safl/yace
+ *
+ * Copyright (C) Simon A. F. Lund <os@safl.dk>
+ * SPDX-License-Identifier: BSD-3-CLAUSE
+ *
+ * @file {{ meta.prefix }}.h
+ */
+#ifndef {{ meta.prefix | upper }}_H
+#define {{ meta.prefix | upper }}_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <assert.h>
+#include <stdint.h>
+#include <sys/types.h>
+
+{{ content }}
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* {{ meta.prefix | upper }}_H */

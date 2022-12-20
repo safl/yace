@@ -1,0 +1,12 @@
+---
+kvs_opcodes:
+- symbol: opc_kvs
+  brief: "Command Opcodes for the KVS Command-Set"
+  full:
+  ltype: enum
+  members:
+  - {ltype: pod, val: 0x01, symbol: STORE, brief: "Store Key-Value pair", full: null}
+  - {ltype: pod, val: 0x02, symbol: RETRIEVE, brief: "Retrieve Key-Value pair", full: null}
+  - {ltype: pod, val: 0x10, symbol: DELETE, brief: "Delete Key-Value pair", full: null}
+  - {ltype: pod, val: 0x14, symbol: EXIST, brief: "Check if key exists", full: null}
+  - {ltype: pod, val: 0x06, symbol: LIST, brief: "List keys", full: null}
