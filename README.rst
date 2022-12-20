@@ -37,12 +37,36 @@ utilizes to seperate the language-specifics for the code-emission into
 self-container files. Thus, adding addiotional templates should enable emitting
 definitions and helper functions for other languages.
 
+Installation
+------------
+
+The following assumes that you have system with recent versions of the
+following **tools** installed on your system:
+
+* ``clang-format`` (Version must be >= 13 to utilize style-files)
+* ``doxygen``
+* ``graphviz`` (The ``dot`` tool from this package is needed by ``doxygen``
+* ``make`` to do a lot of things in a more convenient way
+
+And a **Python** environment with
+
+* ``Python 3.7+`` and the moduless
+  - ``jinja2``
+  - ``yaml``
+
+There are scripts in ``toolbox/pkgs/`` installing the above-mentioned tools on
+Ubuntu and macOS. Once they are installed, then run::
+
+  make all
+
+This will build and install ``yace``, and its Python package dependencies,
+using ``python3 -m pip --user ...``, thus make sure that you have ``PATH``
+confidered to something like::
+
+  echo "export PATH=$(python -m site --user-base)/bin" >> $HOME/.bash_profile
+
 Usage
 -----
-
-The following assumes that you have recent versions of: **Python** with
-``jinja2`` + ``yaml``, ``clang-format``, ``doxygen`` + ``graphviz``, and
-``make``.
 
 Run the emitter::
 
