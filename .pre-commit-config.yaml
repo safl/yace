@@ -3,6 +3,16 @@ default_language_version:
   python: python3
 
 repos:
+# yamlfmt only works on valid YAML files, thus adding this linter
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.1.0
+  hooks:
+  - id: check-yaml
+    name: YAML-format-check
+    types: [file]
+    files: \.(yaml|yml)$
+
+# Both the yace-models as well as the github-action yaml gets formatted
 - repo: https://github.com/jumanjihouse/pre-commit-hook-yamlfmt
   rev: 0.2.2
   hooks:
@@ -14,15 +24,6 @@ repos:
     - '--offset=0'
     - '--width=120'
     - '--preserve-quotes'
-    types: [file]
-    files: \.(yaml|yml)$
-
-# Yaml: intended for the GitHUB Actions .yaml
-- repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v4.1.0
-  hooks:
-  - id: check-yaml # pre-commit-hook-yamlfmt only works on valid YAML files
-    name: YAML-format-check
     types: [file]
     files: \.(yaml|yml)$
 
