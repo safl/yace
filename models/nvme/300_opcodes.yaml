@@ -1,0 +1,47 @@
+---
+adm:
+- symbol: opc_adm
+  brief: "Command Opcodes -- for Admin Commands"
+  full:
+  cls: enum
+  members:
+  - {cls: const, val: 0x00, fmt: '0x%02x', symbol: DELETE_IO_SQ, brief: "Delete I/O Submission Queue", full: null}
+  - {cls: const, val: 0x01, fmt: '0x%02x', symbol: CREATE_IO_SQ, brief: "Create I/O Submission Queue", full: null}
+  - {cls: const, val: 0x02, fmt: '0x%02x', symbol: GET_LOG_PAGE, brief: "Get Log Page", full: null}
+  - {cls: const, val: 0x04, fmt: '0x%02x', symbol: DELETE_IO_CQ, brief: "Delete I/O Completion Queue", full: null}
+  - {cls: const, val: 0x05, fmt: '0x%02x', symbol: CREATE_IO_CQ, brief: "Create I/O Completion Queue", full: null}
+  - {cls: const, val: 0x06, fmt: '0x%02x', symbol: IDENTIFY, brief: "Identify", full: null}
+  - {cls: const, val: 0x08, fmt: '0x%02x', symbol: ABORT, brief: "Abort", full: null}
+
+  - {cls: const, val: 0x09, fmt: '0x%02x', symbol: SFEAT, brief: "Set Features", full: null}
+  - {cls: const, val: 0x0a, fmt: '0x%02x', symbol: GFEAT, brief: "Get Features", full: null}
+
+  - {cls: const, val: 0x0c, fmt: '0x%02x', symbol: ASYNC_EVENT_REQUEST, brief: "Async Event Request", full: null}
+  - {cls: const, val: 0x0d, fmt: '0x%02x', symbol: NS_MANAGEMENT, brief: "Namespace Management", full: null}
+
+  - {cls: const, val: 0x10, fmt: '0x%02x', symbol: FIRMWARE_COMMIT, brief: "Firmware Commit", full: null}
+  - {cls: const, val: 0x11, fmt: '0x%02x', symbol: FIRMWARE_IMAGE_DOWNLOAD, brief: "Firmware Image Download", full: null}
+
+  - {cls: const, val: 0x14, fmt: '0x%02x', symbol: DEVICE_SELF_TEST, brief: "Device Self-test", full: null}
+  - {cls: const, val: 0x15, fmt: '0x%02x', symbol: NS_ATTACHMENT, brief: "Namespace Attachment", full: null}
+  - {cls: const, val: 0x16, fmt: '0x%02x', symbol: KEEP_ALIVE, brief: "Keep Alive", full: null}
+
+  - {cls: const, val: 0x19, fmt: '0x%02x', symbol: DSEND, brief: "Directive Send", full: null}
+  - {cls: const, val: 0x1a, fmt: '0x%02x', symbol: DRECV, brief: "Directive Receive", full: null}
+
+  - {cls: const, val: 0x1c, fmt: '0x%02x', symbol: VIRTUALIZATION_MGMT, brief: "Virtualization Management", full: null}
+
+  - {cls: const, val: 0x1d, fmt: '0x%02x', symbol: MI_SEND, brief: "NVMe-MI Send", full: null}
+  - {cls: const, val: 0x1e, fmt: '0x%02x', symbol: MI_RECV, brief: "NVMe-MI Receive", full: null}
+
+  - {cls: const, val: 0x20, fmt: '0x%02x', symbol: CAPACITY_MGMT, brief: "Capacity Management", full: null}
+  - {cls: const, val: 0x24, fmt: '0x%02x', symbol: LOCKDOWN, brief: "Lockdown", full: null}
+  - {cls: const, val: 0x7c, fmt: '0x%02x', symbol: DOORBELL_BUFFER_CONFIG, brief: "Doorbell buffer Config", full: null}
+  - {cls: const, val: 0x7f, fmt: '0x%02x', symbol: FABRICS_COMMANDS, brief: "Fabrics Commands", full: null}
+
+  - {cls: const, val: 0x80, fmt: '0x%02x', symbol: FORMAT, brief: "Format", full: null}
+  - {cls: const, val: 0x81, fmt: '0x%02x', symbol: SECURITY_SEND, brief: "Security Send", full: null}
+  - {cls: const, val: 0x82, fmt: '0x%02x', symbol: SECURITY_RECV, brief: "Security Recv", full: null}
+  - {cls: const, val: 0x84, fmt: '0x%02x', symbol: SANITIZE, brief: "Sanitize", full: null}
+
+  - {cls: const, val: 0x86, fmt: '0x%02x', symbol: GET_LBA_STATUS, brief: "Get LBA Status", full: null}

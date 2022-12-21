@@ -1,10 +1,10 @@
-{%- for header in headers %}
 #include <inttypes.h>
+#include <stdio.h>
+{%- for header in headers %}
 #include <{{ header.filename }}>
 {%- endfor %}
 
 int main(int argc, char *argv[])
 {
-
 	return 0;
 }

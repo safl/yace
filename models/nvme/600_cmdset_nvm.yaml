@@ -1,0 +1,29 @@
+---
+nvm_layout_dsm:
+- symbol: dsm_range
+  cls: struct
+  brief: "brief..."
+  members:
+  - {cls: field, fmt: '%d', dtype: uint, width: 32, symbol: cattr, brief: "Context attributes"}
+  - {cls: field, fmt: '%d', dtype: uint, width: 32, symbol: nlb, brief: "Length in logical blocks"}
+  - {cls: field, fmt: '%d', dtype: uint, width: 64, symbol: slba, brief: "Starting LBA"}
+
+nvm_opcodes:
+- symbol: opc_nvm
+  brief: "Command Opcodes for the NVM Command-Set"
+  full:
+  cls: enum
+  members:
+  - {cls: const, val: 0x00, fmt: '0x%02x', symbol: FLUSH, brief: "Flush", full: null}
+  - {cls: const, val: 0x01, fmt: '0x%02x', symbol: WRITE, brief: "Write", full: null}
+  - {cls: const, val: 0x02, fmt: '0x%02x', symbol: READ, brief: "Read", full: null}
+  - {cls: const, val: 0x04, fmt: '0x%02x', symbol: WRITE_UNCORRECTABLE, brief: "Write Uncorrectable", full: null}
+  - {cls: const, val: 0x05, fmt: '0x%02x', symbol: COMPARE, brief: "Compare", full: null}
+  - {cls: const, val: 0x08, fmt: '0x%02x', symbol: WRITE_ZEROES, brief: "Write Zeroes", full: null}
+  - {cls: const, val: 0x09, fmt: '0x%02x', symbol: DATASET_MANAGEMENT, brief: "Dataset Management", full: null}
+  - {cls: const, val: 0x0c, fmt: '0x%02x', symbol: VERIFY, brief: "Verify", full: null}
+  - {cls: const, val: 0x0d, fmt: '0x%02x', symbol: RESERVATION_REGISTER, brief: "Reservation Register", full: null}
+  - {cls: const, val: 0x0e, fmt: '0x%02x', symbol: RESERVATION_REPORT, brief: "Reservation Report", full: null}
+  - {cls: const, val: 0x11, fmt: '0x%02x', symbol: RESERVATION_ACQUIRE, brief: "Reservation Acquire", full: null}
+  - {cls: const, val: 0x15, fmt: '0x%02x', symbol: RESERVATION_RELEASE, brief: "Reservation Release", full: null}
+  - {cls: const, val: 0x19, fmt: '0x%02x', symbol: SCOPY, brief: "Simple Copy", full: null}

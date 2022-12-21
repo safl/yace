@@ -1,0 +1,46 @@
+---
+model:
+- symbol: sct
+  brief: "Status Code Types"
+  full: "Status Code Types... elaborate description goes here"
+  cls: enum
+  members:
+  - {cls: const, val: 0x0, fmt: '0x%02x', symbol: GENERIC, brief: "Successful Completion"}
+  - {cls: const, val: 0x1, fmt: '0x%02x', symbol: CMDSPEC, brief: "Invalid Command Opcode"}
+  - {cls: const, val: 0x2, fmt: '0x%02x', symbol: MEDIA, brief: "Invalid Field in Command"}
+  - {cls: const, val: 0x3, fmt: '0x%02x', symbol: PATH, brief: "Invalid Command Opcode"}
+  - {cls: const, val: 0x7, fmt: '0x%02x', symbol: VENDOR, brief: "Invalid Command Opcode"}
+
+- symbol: sc_generic
+  brief: "Status Codes for for Status-Code-Type(0x0)"
+  full: "Status Codes for for Status-Code-Type(0x0)"
+  cls: enum
+  members:
+  - {cls: const, val: 0x0, fmt: '0x%02x', symbol: SUCCESS, brief: "Successful Completion"}
+  - {cls: const, val: 0x1, fmt: '0x%02x', symbol: INVALID_OPCODE, brief: "Invalid Command Opcode"}
+  - {cls: const, val: 0x2, fmt: '0x%02x', symbol: INVALID_FIELD, brief: "Invalid Field in Command"}
+  - {cls: const, val: 0x3, fmt: '0x%02x', symbol: COMMAND_ID_CONFLICT, brief: "Command ID Conflict"}
+  - {cls: const, val: 0x4, fmt: '0x%02x', symbol: DATA_TRANSFER_ERROR, brief: "Data Transfer Error"}
+  - {cls: const, val: 0x5, fmt: '0x%02x', symbol: ABORTED_POWER_LOSS, brief: "Commands Aborted due to Power Loss Notification"}
+
+- symbol: sc_cmdspec
+  brief: "Status Codes for Command-Specific aka Status-Code-Type(0x1)"
+  full: "Status Codes for Command-Specific aka Status-Code-Type(0x1)"
+  cls: enum
+  members:
+  - {cls: const, val: 0x0, fmt: '0x%02x', symbol: COMPLETION_QUEUE_INVALID, brief: "Completion Queue Invalid"}
+  - {cls: const, val: 0xb8, fmt: '0x%02x', symbol: ZONE_BOUNDARY_ERROR, brief: "Zone Boundary Error"}
+  - {cls: const, val: 0xb9, fmt: '0x%02x', symbol: ZONE_IS_FULL, brief: "Zone Is Full"}
+  - {cls: const, val: 0xba, fmt: '0x%02x', symbol: ZONE_IS_READ_ONLY, brief: "Zone Is Read Only"}
+  - {cls: const, val: 0xbb, fmt: '0x%02x', symbol: ZONE_IS_OFFLINE, brief: "Zone Is Offline"}
+  - {cls: const, val: 0xbc, fmt: '0x%02x', symbol: ZONE_INVALID_WRITE, brief: "Zone Invalid Write"}
+  - {cls: const, val: 0xbd, fmt: '0x%02x', symbol: TOO_MANY_ACTIVE_ZONES, brief: "Too Many Active Zones"}
+  - {cls: const, val: 0xbe, fmt: '0x%02x', symbol: TOO_MANY_OPEN_ZONES, brief: "Too Many Open Zones"}
+  - {cls: const, val: 0xbf, fmt: '0x%02x', symbol: INVALID_ZONE_STATE_TRANSITION, brief: "Invalid Zone State Transition"}
+
+- symbol: sc_media
+  brief: "Status Codes for INTERNAL_PATH_ERROR aka Status-Code-Type(0x2)"
+  full: "Status Codes for INTERNAL_PATH_ERROR aka Status-Code-Type(0x2)"
+  cls: enum
+  members:
+  - {cls: const, val: 0x0, fmt: '0x%02x', symbol: INTERNAL_PATH_ERROR, brief: "Internal Path Error"}

@@ -7,6 +7,8 @@ from pprint import pprint
 import yaml
 from jinja2 import Environment, FileSystemLoader
 
+from yace.model.interface import Interface
+
 
 def parse_args():
     """Parse command-line arguments"""
@@ -25,6 +27,12 @@ def parse_args():
         help="Path to directory containing the data model",
     )
     parser.add_argument(
+        "--targets",
+        choices=["c", "python"],
+        default=["c", "python"],
+        help="Targets",
+    )
+    parser.add_argument(
         "--templates",
         type=Path,
         default=Path("templates"),
@@ -40,56 +48,31 @@ def parse_args():
     return parser.parse_args()
 
 
-def model_from_path(path: Path):
-    """
-    Returns a dict composed of the merged content of all yaml-files in the
-    given 'path'
-    """
-
-    model = {}
-    for path in list(path.glob("**/*.yaml")):
-        with path.open() as sfd:
-            for key, val in yaml.safe_load(sfd).items():
-                if key not in model:
-                    model[key] = val
-                elif key in model and isinstance(val, list):
-                    model[key] += val
-                else:
-                    model[key].update(val)
-
-    logging.info("The loaded model has the following 'topics'")
-    for label in model.keys():
-        logging.info(f"label({label})")
-
-    return model
-
-
 def emit_code(templates, meta, current, parent):
     """
     Recursively emit code for the given 'current' model entity using the given
     'templates' for the given 'model'
     """
 
-    ltype = current["ltype"]
-
     content = []
 
-    if not parent:  # Top-level entities get a comment
+    # Top-level "container" entities get a comment
+    if not parent and current.cls in ["struct", "union", "enum"]:
         content.append(
-            templates["comment"].render(meta=meta, topic=current, parent=parent)
+            templates["comment"].render(meta=meta, entity=current, parent=parent)
         )
 
-    if ltype in ["struct", "union"]:
+    if current.cls in ["struct", "union"]:
         content.append(
-            templates[f"{ltype}_enter"].render(meta=meta, topic=current, parent=parent)
+            templates[f"{current.cls}_enter"].render(meta=meta, entity=current, parent=parent)
         )
-        for member in current["members"]:
+        for member in current.members:
             content += emit_code(templates, meta, member, current)
         content.append(
-            templates[f"{ltype}_exit"].render(meta=meta, topic=current, parent=parent)
+            templates[f"{current.cls}_exit"].render(meta=meta, entity=current, parent=parent)
         )
     else:
-        content.append(templates[ltype].render(meta=meta, topic=current, parent=parent))
+        content.append(templates[current.cls].render(meta=meta, entity=current, parent=parent))
 
     return content
 
@@ -98,8 +81,8 @@ def emit_api_def(args, templates, meta, model):
     """Emit header definitions"""
 
     content = []
-    for topic in (t for k in model.keys() for t in model[k]):
-        content.append("\n".join(emit_code(templates, meta, topic, None)))
+    for entity in model.entities:
+        content.append("\n".join(emit_code(templates, meta, entity, None)))
 
     with (args.output / f"lib{meta['prefix']}.h").open("w") as hfile:
         hfile.write(templates["api_hdr"].render(content="\n".join(content), meta=meta))
@@ -108,25 +91,60 @@ def emit_api_def(args, templates, meta, model):
 def emit_api_pp(args, templates, meta, model):
     """Emit pretty-printer functions"""
 
-    topics = [topic for topic in (t for k in model.keys() for t in model[k])]
-
     in_and_out = [
         ("api_pp_hdr", f"lib{meta['prefix']}_pp.h"),
         ("api_pp_src", f"{meta['prefix']}_pp.c"),
     ]
     for template_name, fname in in_and_out:
-        content = templates[template_name].render(meta=meta, topics=topics)
+        content = templates[template_name].render(
+            meta=meta,
+            entities=model.entities
+        )
         with (args.output / fname).open("w") as hfile:
             hfile.write(content)
+
+
+def emit_api_test(args, templates, meta, model):
+    """Emit test-program using definitions and pretty-printers"""
+
+    in_and_out = [
+        ("api_test_src", "test.c"),
+    ]
+    headers = [
+        {"filename": "libnvme.h"},
+        {"filename": "libnvme_pp.h"},
+        {"filename": "libxnvme.h"},
+        {"filename": "libxnvme_pp.h"},
+    ]
+    for template_name, fname in in_and_out:
+        content = templates[template_name].render(
+            meta=meta, entities=model.entities, headers=headers
+        )
+        with (args.output / fname).open("w") as hfile:
+            hfile.write(content)
+
+
+def emit_docgen(args, templates, meta, model):
+    """Emit test-program using definitions and pretty-printers"""
+
+    headers = [
+        {"filename": "libnvme.h"},
+        {"filename": "libnvme_pp.h"},
+        {"filename": "libxnvme.h"},
+        {"filename": "libxnvme_pp.h"},
+    ]
+    content = templates["doxygen"].render(meta=meta, entities=model.entities, headers=headers)
+    with (args.output / "doxy.cfg").open("w") as hfile:
+        hfile.write(content)
 
 
 def dtype_to_ctype(value):
     """Convert dtype to ctype"""
 
-    if "int" in value["dtype"]:
-        return f"{value['dtype']}{value['width']}_t"
+    if "int" in value.dtype:
+        return f"{value.dtype}{value.width}_t"
 
-    return value["dtype"]
+    return value.dtype
 
 
 def main():
@@ -149,8 +167,12 @@ def main():
     with args.meta.open() as sfd:
         meta.update(yaml.safe_load(sfd))
 
-    model = model_from_path(args.model)
+    model = Interface.from_path(args.model)
 
     emit_api_def(args, templates, meta, model)
 
     emit_api_pp(args, templates, meta, model)
+
+    emit_api_test(args, templates, meta, model)
+
+    emit_docgen(args, templates, meta, model)

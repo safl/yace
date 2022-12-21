@@ -1,0 +1,114 @@
+---
+model:
+- symbol: nvm_read
+  brief: "NVM Read Command"
+  full: "Full"
+  cls: struct
+  members:
+  - symbol:
+    brief:
+    full:
+    cls: bitfield
+    dtype: uint
+    width: 16
+    members:
+    - {cls: bits, width: 8, symbol: opcode, brief: "Command Opcode"}
+    - {cls: bits, width: 2, symbol: fuse, brief: "Fused Operation"}
+    - {cls: bits, width: 4, symbol: rsvd, brief: "Reserved"}
+    - {cls: bits, width: 2, symbol: psdt, brief: "Brief"}
+  - {cls: field, fmt: '%d', dtype: uint, width: 16, symbol: cid, brief: "Command Identifier"}
+  - {cls: field, fmt: '%d', dtype: uint, width: 32, symbol: nsid, brief: "Namespace Identifier"}
+  - {cls: field, fmt: '%d', dtype: uint, width: 32, symbol: cdw02, brief: "Command DWord 2"}
+  - {cls: field, fmt: '%d', dtype: uint, width: 32, symbol: cdw03, brief: "Command DWord 3"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 64, symbol: mptr, brief: "Metadata pointer"}
+  - symbol: dptr
+    cls: union
+    brief:
+    full:
+    members:
+    - symbol:
+      brief:
+      full:
+      cls: struct
+      members:
+      - {cls: field, fmt: '0x%x', dtype: uint, width: 64, symbol: dptr1, brief: "Brief"}
+      - {cls: field, fmt: '0x%x', dtype: uint, width: 64, symbol: dptr2, brief: "Brief"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: ndt, brief: "Brief"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: ndm, brief: "Number of dwords"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cdw12, brief: "Command DWord 12"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cdw13, brief: "Command DWord 13"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cdw14, brief: "Command DWord 14"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cdw15, brief: "Command DWord 15"}
+
+- symbol: nvm_write
+  brief: "NVM Write Command"
+  full: "Full"
+  cls: struct
+  members:
+  - symbol:
+    brief:
+    full:
+    cls: bitfield
+    dtype: uint
+    width: 16
+    members:
+    - {cls: bits, width: 8, symbol: opcode, brief: "Command Opcde"}
+    - {cls: bits, width: 2, symbol: fuse, brief: "Fused Operation"}
+    - {cls: bits, width: 4, symbol: rsvd, brief: "Reserved"}
+    - {cls: bits, width: 2, symbol: psdt, brief: "Brief"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 16, symbol: cid, brief: "Command Identifier"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: nsid, brief: "Namespace Identifier"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cdw02, brief: "Command DWord 2"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cdw03, brief: "Command DWord 3"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 64, symbol: mptr, brief: "Metadata pointer"}
+  - symbol: dptr
+    cls: union
+    brief:
+    full:
+    members:
+    - symbol:
+      brief:
+      full:
+      cls: struct
+      members:
+      - {cls: field, fmt: '0x%x', dtype: uint, width: 64, symbol: dptr1, brief: "Brief"}
+      - {cls: field, fmt: '0x%x', dtype: uint, width: 64, symbol: dptr2, brief: "Brief"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: ndt, brief: "Brief"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: ndm, brief: "Number of dwords"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cdw12, brief: "Command DWord 12"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cdw13, brief: "Command DWord 13"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cdw14, brief: "Command DWord 14"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cdw15, brief: "Command DWord 15"}
+
+- symbol: nvm_sanitize
+  brief: "NVM Sanitize Command"
+  full: "Full"
+  cls: struct
+  members:
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cwd01, brief: "Command DWord 01"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cwd02, brief: "Command DWord 02"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cwd03, brief: "Command DWord 03"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cwd04, brief: "Command DWord 04"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cwd05, brief: "Command DWord 05"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cwd06, brief: "Command DWord 06"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cdw07, brief: "Command DWord 07"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cdw08, brief: "Command DWord 08"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cdw09, brief: "Command DWord 09"}
+  - symbol:
+    brief:
+    full:
+    cls: bitfield
+    dtype: uint
+    width: 32
+    members:
+    - {cls: bits, width: 3, symbol: sanact, brief: "Sanitize Action"}
+    - {cls: bits, width: 1, symbol: ause, brief: "Allow unrestr. san. exit"}
+    - {cls: bits, width: 4, symbol: owpass, brief: "Overwrite pass count"}
+    - {cls: bits, width: 1, symbol: oipbp, brief: "Overwrite invert"}
+    - {cls: bits, width: 1, symbol: nodas, brief: "Brief"}
+    - {cls: bits, width: 22, symbol: rsvd, brief: "Brief"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: ovrpat, brief: "Overwrite Pattern"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cdw12, brief: "Command DWord 12"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cdw13, brief: "Command DWord 13"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cdw14, brief: "Command DWord 14"}
+  - {cls: field, fmt: '0x%x', dtype: uint, width: 32, symbol: cdw15, brief: "Command DWord 15"}

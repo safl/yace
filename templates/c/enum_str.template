@@ -1,10 +1,10 @@
 const char *
-{{ meta.prefix }}_{{ topic.symbol }}_str(enum {{ meta.prefix }}_{{ topic.symbol }} eval)
+{{ meta.prefix }}_{{ entity.symbol }}_str(enum {{ meta.prefix }}_{{ entity.symbol }} eval)
 {
 	switch (eval) {
-{%- for entity in topic.members %}
-	case {{ meta.prefix | upper }}_{{ topic.symbol | upper }}_{{ entity.symbol | upper }}:
-		return "{{ topic.symbol | upper }}_{{ entity.symbol | upper }}";
+{%- for member in entity.members %}
+	case {{ meta.prefix | upper }}_{{ entity.symbol | upper }}_{{ member.symbol | upper }}:
+		return "{{ entity.symbol | upper }}_{{ member.symbol | upper }}";
 {%- endfor %}
 	}
 

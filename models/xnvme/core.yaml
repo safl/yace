@@ -3,25 +3,26 @@ enumerate_action:
 - symbol: enumerate_action
   brief: ""
   full: ""
-  ltype: enum
+  cls: enum
   members:
-  - {ltype: pod, val: 0x0, "enumerate_dev_keep_open": null, brief: "Keep device-handle open after callback returns", full: ""}
+  - {cls: const, val: 0x0, fmt: "0x%02x", symbol: dev_keep_open, brief: "Keep device-handle open after callback returns"}
+  - {cls: const, val: 0x1, fmt: "0x%02x", symbol: dev_close, brief: "Close device-handle when callback returns"}
 
 options:
 - symbol: opts
   brief: "xNVMe options"
   full: "@see xnvme_dev_open()"
-  ltype: struct
+  cls: struct
   members:
-  - {ltype: pod, dtype: "const char *", symbol: be, brief: "Backend/system interface to use"}
-  - {ltype: pod, dtype: "const char *", symbol: dev, brief: "Device manager/enumerator"}
-  - {ltype: pod, dtype: "const char *", symbol: mem, brief: "Memory allocator to use for buffers"}
-  - {ltype: pod, dtype: "const char *", symbol: sync, brief: "Synchronous Command-interface"}
-  - {ltype: pod, dtype: "const char *", symbol: async, brief: "Asynchronous Command-interface"}
-  - {ltype: pod, dtype: "const char *", symbol: admin, brief: "Administrative Command-interface"}
-  - {ltype: pod, dtype: "uint", width: 32, symbol: nsid, brief: "Namespace identifier"}
+  - {cls: field, dtype: "const char *", fmt: "%s", width: none, symbol: be, brief: "Backend/system interface to use"}
+  - {cls: field, dtype: "const char *", fmt: "%s", width: none, symbol: dev, brief: "Device manager/enumerator"}
+  - {cls: field, dtype: "const char *", fmt: "%s", width: none, symbol: mem, brief: "Memory allocator to use for buffers"}
+  - {cls: field, dtype: "const char *", fmt: "%s", width: none, symbol: sync, brief: "Synchronous Command-interface"}
+  - {cls: field, dtype: "const char *", fmt: "%s", width: none, symbol: async, brief: "Asynchronous Command-interface"}
+  - {cls: field, dtype: "const char *", fmt: "%s", width: none, symbol: admin, brief: "Administrative Command-interface"}
+  - {cls: field, dtype: "uint", width: 32, fmt: "0x%x", symbol: nsid, brief: "Namespace identifier"}
 
-  - {ltype: pod, dtype: "uint", width: 32, symbol: poll_io, brief: "io_uring: enable io-polling"}
-  - {ltype: pod, dtype: "uint", width: 8, symbol: poll_sq, brief: "io_uring: enable sqthread-polling"}
-  - {ltype: pod, dtype: "uint", width: 8, symbol: register_files, brief: "io_uring: enable file-registrations"}
-  - {ltype: pod, dtype: "uint", width: 8, symbol: register_buffers, brief: "io_uring: enable buffer-registrations"}
+  - {cls: field, dtype: "uint", width: 32, fmt: "0x%x", symbol: poll_io, brief: "io_uring: enable io-polling"}
+  - {cls: field, dtype: "uint", width: 8, fmt: "0x%x", symbol: poll_sq, brief: "io_uring: enable sqthread-polling"}
+  - {cls: field, dtype: "uint", width: 8, fmt: "0x%x", symbol: register_files, brief: "io_uring: enable file-registrations"}
+  - {cls: field, dtype: "uint", width: 8, fmt: "0x%x", symbol: register_buffers, brief: "io_uring: enable buffer-registrations"}

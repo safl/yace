@@ -15,7 +15,7 @@ setup(
     ],
     python_requires=">=3.7",
     entry_points={"console_scripts": ["yace=yace.cli:main"]},
-    packages=["yace"],
+    packages=["yace", "yace.model"],
     package_dir={"": "src"},
     include_package_data=True,
     options={"bdist_wheel": {"universal": True}},

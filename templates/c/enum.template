@@ -1,6 +1,6 @@
-enum {{ meta.prefix }}_{{ topic.symbol }} {
-{%- for entity in topic.members %}
-	{{ meta.prefix | upper }}_{{ topic.symbol | upper }}_{{ entity.symbol }} = {{ '0x%0x' % entity.val }}, ///< {{ entity.brief }}
+enum {{ meta.prefix }}_{{ entity.symbol }} {
+{%- for member in entity.members %}
+	{{ meta.prefix | upper }}_{{ entity.symbol | upper }}_{{ member.symbol | upper }} = {{ '0x%0x' % member.val }}, ///< {{ member.brief }}
 {%- endfor %}
 };
 

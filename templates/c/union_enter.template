@@ -1,1 +1,1 @@
-struct {{ meta.prefix }}_{{ topic.symbol }} {
+union {% if not parent %}{{ meta.prefix }}_{{ entity.symbol }}{% endif %} {

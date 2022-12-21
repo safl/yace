@@ -1,1 +1,0 @@
-{{ topic | dtype_to_ctype }} {{ topic.symbol }}; ///< {{ topic.brief }}

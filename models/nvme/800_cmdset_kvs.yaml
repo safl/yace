@@ -1,0 +1,12 @@
+---
+kvs_opcodes:
+- symbol: opc_kvs
+  brief: "Command Opcodes for the KVS Command-Set"
+  full:
+  cls: enum
+  members:
+  - {cls: const, val: 0x01, fmt: "0x%02x", symbol: STORE, brief: "Store Key-Value pair", full: null}
+  - {cls: const, val: 0x02, fmt: "0x%02x", symbol: RETRIEVE, brief: "Retrieve Key-Value pair", full: null}
+  - {cls: const, val: 0x10, fmt: "0x%02x", symbol: DELETE, brief: "Delete Key-Value pair", full: null}
+  - {cls: const, val: 0x14, fmt: "0x%02x", symbol: EXIST, brief: "Check if key exists", full: null}
+  - {cls: const, val: 0x06, fmt: "0x%02x", symbol: LIST, brief: "List keys", full: null}

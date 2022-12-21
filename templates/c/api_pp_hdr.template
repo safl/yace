@@ -1,17 +1,59 @@
 /**
+ * Pretty-printers for the enums and structs
+ *
+ * NOTE: This file is auto-generated using yace: https://github.com/safl/yace
+ *
  * Copyright (C) Simon A. F. Lund <os@safl.dk>
  * SPDX-License-Identifier: BSD-3-CLAUSE
  *
  * @file lib{{ meta.prefix }}_pp.h
  */
-{%- for topic in topics %}
-{% set ident=meta['prefix'] + '_' + topic['symbol'] %}
-{% if topic['ltype'] in ['enum'] %}
+
 /**
+ * Options for pretty-printer (``*_pr``, ``*_fpr``) functions
  *
+ * Options determines the format the pretty-printer uses, e.g. Yaml or JSON
+ *
+ * @enum {{ meta.prefix }}_pr
+ */
+enum {{ meta.prefix }}_pr {
+	{{ meta.prefix | upper }}_PR_DEF = 0x0,
+	{{ meta.prefix | upper }}_PR_YAML = 0x1,
+	{{ meta.prefix | upper }}_PR_JSON = 0x2,
+};
+
+{%- for entity in entities %}
+{% set ident=meta['prefix'] + '_' + entity.symbol %}
+{% if entity.cls in ['enum'] %}
+/**
+ * Produces a string representation of the given ::{{ ident }}
+ *
+ * @param enum_val the enum value to produce a string representation of
+ *
+ * @return On success, a string representation is returned. On error, the string
+ * "ENOSYS" is returned.
  */
 const char * {{ ident }}_str(int enum_val);
-{% elif topic['ltype'] in ['struct', 'union'] %}
+{% elif entity['cls'] in ['struct', 'union'] %}
+/**
+ * Prints the given ::{{ ident }} 'obj' to the given output 'stream'
+ *
+ * @param stream output stream used for printing
+ * @param obj Pointer to the ::{{ ident }} to print
+ * @param flags Pretty-printer flags
+ *
+ * @return On success, the number of characters printed is returned.
+ */
 int {{ ident }}_fpr(FILE *stream, const struct {{ ident }} *obj, int flags);
+
+/**
+ * Prints the given ::{{ ident }} 'obj' to stdout
+ *
+ * @param obj Pointer to the ::{{ ident }} to print
+ * @param flags Pretty-printer flags
+ *
+ * @return On success, the number of characters printed is returned.
+ */
+int {{ ident }}_pr(const struct {{ ident }} *obj, int flags);
 {% endif %}
 {%- endfor %}

@@ -1,1 +1,1 @@
-struct {{ meta.prefix }}_{{ topic.symbol }} {
+struct {% if not parent %}{{ meta.prefix }}_{{ entity.symbol }}{% endif %} {

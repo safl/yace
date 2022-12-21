@@ -1,9 +1,9 @@
 /**
- * {{ topic.brief }}
-{%- if topic.full %}
+ * {{ entity.brief }}
+{%- if entity.full %}
  *
- * {{ topic.full }}
+ * {{ entity.full }}
 {%- endif %}
  *
- * @{{ topic.ltype }} {{meta.prefix}}_{{ topic.symbol }}
+ * @{{ entity.cls }} {{meta.prefix}}_{{ entity.symbol }}
  */

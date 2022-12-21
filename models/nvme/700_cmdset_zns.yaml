@@ -1,0 +1,49 @@
+---
+model:
+- symbol: opc_zns
+  brief: "Command Opcodes for the ZNS Command-Set"
+  full:
+  cls: enum
+  members:
+  - {cls: const, val: 0x79, fmt: "0x%02x", symbol: MGMT_SEND, brief: "Zone Management Send", full: null}
+  - {cls: const, val: 0x7a, fmt: "0x%02x", symbol: MGMT_RECV, brief: "Zone Management Receive", full: null}
+  - {cls: const, val: 0x7d, fmt: "0x%02x", symbol: APPEND, brief: "Zone Append", full: null}
+
+- symbol: zns_zsa
+  brief: "This is a brief description"
+  full: "This is a full description ..."
+  cls: enum
+
+  members:
+  - {cls: const, val: 0x0, fmt: "0x%02x", symbol: CLOSE, brief: "..."}
+  - {cls: const, val: 0x1, fmt: "0x%02x", symbol: FINISH, brief: "..."}
+  - {cls: const, val: 0x3, fmt: "0x%02x", symbol: OPEN, brief: "..."}
+  - {cls: const, val: 0x4, fmt: "0x%02x", symbol: RESET, brief: "..."}
+  - {cls: const, val: 0x5, fmt: "0x%02x", symbol: OFFLINE, brief: "..."}
+  - {cls: const, val: 0x10, fmt: "0x%02x", symbol: SET_DESCR_EXTENSION, brief: "..."}
+  - {cls: const, val: 0x11, fmt: "0x%02x", symbol: ZRWA_FLUSH, brief: "..."}
+
+- symbol: zns_zra
+  brief: "This is a brief description"
+  full: "This is a full description ..."
+  cls: enum
+
+  members:
+  - {cls: const, val: 0x0, fmt: "0x%02x", symbol: REPORT_ZONES, brief: "..."}
+  - {cls: const, val: 0x1, fmt: "0x%02x", symbol: EXTENDED_REPORT_ZONES, brief: "..."}
+
+- symbol: zns_zras
+  brief: "This is a brief description"
+  full: "This is a full description ..."
+  cls: enum
+
+  members:
+  - {cls: const, val: 0x0, fmt: "0x%02x", symbol: LIST_ALL, brief: "List all zones"}
+  - {cls: const, val: 0x1, fmt: "0x%02x", symbol: LIST_EMPTY, brief: "List the zones in the ZSE:Empty state"}
+  - {cls: const, val: 0x2, fmt: "0x%02x", symbol: LIST_IOPEN, brief: "List all zones in the ZSIO:Implicitly Opened state"}
+  - {cls: const, val: 0x3, fmt: "0x%02x", symbol: LIST_EOPEN, brief: "List all zones in the ZSEO:Explicitly Opened state"}
+  - {cls: const, val: 0x4, fmt: "0x%02x", symbol: LIST_CLOSED, brief: "List all zones in the ZSC:Closed state"}
+  - {cls: const, val: 0x5, fmt: "0x%02x", symbol: LIST_FULL, brief: "List the zones in the ZSF:Full state"}
+  - {cls: const, val: 0x6, fmt: "0x%02x", symbol: LIST_READONLY, brief: "List the zones in the ZSRO: Read Only state"}
+  - {cls: const, val: 0x7, fmt: "0x%02x", symbol: LIST_OFFLINE, brief: "List the zones in the ZSO:Offline state"}
+  - {cls: const, val: 0x9, fmt: "0x%02x", symbol: LIST_ATTR, brief: "List all zones"}

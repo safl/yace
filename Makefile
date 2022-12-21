@@ -85,7 +85,7 @@ view:
 
 .PHONY: doxy
 doxy:
-	doxygen toolbox/doxy.cfg
+	doxygen output/doxy.cfg
 	mv doxyreport output/
 
 .PHONY: release-build
@@ -100,6 +100,12 @@ release-upload:
 .PHONY: release
 release: clean release-build release-upload
 	@echo -n "# rel: "; date
+
+.PHONY: docs
+docs:
+	cd docs && rm -rf build
+	cd docs && make html
+	open docs/build/html/index.html
 
 .PHONY: format
 format:
