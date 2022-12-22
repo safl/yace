@@ -44,13 +44,14 @@ The following assumes that you have system with recent versions of the
 following **tools** installed on your system:
 
 * ``clang-format`` (Version must be >= 13 to utilize style-files)
+* ``gcc`` or ``clang``
 * ``doxygen``
 * ``graphviz`` (The ``dot`` tool from this package is needed by ``doxygen``
 * ``make`` to do a lot of things in a more convenient way
 
 And a **Python** environment with
 
-* ``Python 3.7+`` and the moduless
+* ``Python 3.7+`` and the modules
   - ``jinja2``
   - ``yaml``
 
