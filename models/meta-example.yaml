@@ -1,0 +1,9 @@
+---
+language: 'c'
+license: 'BSD-3-Clause'
+project: 'example'
+version: '0.0.1'
+prefix: 'example'
+brief: 'yace example'
+full: |
+  This example is intended for documentation as well as testing

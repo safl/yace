@@ -76,8 +76,10 @@ emit-nvme:
 	yace --meta models/meta-nvme.yaml --model models/nvme  --templates templates/c
 	clang-format --style=file:toolbox/clang-format-h -i output/*.h
 
-.PHONY: build
-emit: emit-xnvme emit-nvme
+.PHONY: emit
+emit:
+	yace --meta models/meta-example.yaml --model models/example  --templates templates/c
+	clang-format --style=file:toolbox/clang-format-h -i output/*.h
 
 .PHONY: view
 view:
