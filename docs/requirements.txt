@@ -1,0 +1,6 @@
+furo
+jinja2
+pyyaml
+sphinx
+twine
+wheel
