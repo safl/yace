@@ -103,11 +103,17 @@ release-upload:
 release: clean release-build release-upload
 	@echo -n "# rel: "; date
 
-.PHONY: docs
-docs:
+.PHONY: docs-build
+docs-build:
 	cd docs && rm -rf build
 	cd docs && make html
+
+.PHONY: docs-view
+docs-view:
 	open docs/build/html/index.html
+
+.PHONY: docs
+docs: docs-build docs-view
 
 .PHONY: format
 format:
