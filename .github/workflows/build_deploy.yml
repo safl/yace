@@ -57,7 +57,7 @@ jobs:
     - name: Upload generated sources and doxygen
       uses: actions/upload-artifact@v3.1.1
       with:
-        name: archive
+        name: 'archive-${{ matrix.os.name }}-${{ matrix.os.version }}-py${{ matrix.python-version }}'
         path: output/*
         if-no-files-found: error
 
