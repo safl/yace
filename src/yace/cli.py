@@ -7,7 +7,7 @@ from pprint import pprint
 import yaml
 
 from yace.emitter import Emitter
-from yace.model.interface import Interface
+from yace.model.interface import InterfaceModel
 
 
 def parse_args():
@@ -61,7 +61,7 @@ def main():
     with args.meta.open() as sfd:
         meta.update(yaml.safe_load(sfd))
 
-    model = Interface.from_path(args.model)
+    model = InterfaceModel.from_path(args.model)
 
     emitter = Emitter(model, meta, args.templates, args.output)
     emitter.emit_api_def()

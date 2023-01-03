@@ -10,28 +10,38 @@ Curabitur turpis lacus, consectetur sit amet massa et, porta blandit mi.
 Aenean elementum eros tempor, gravida elit ac, faucibus mauris. Maecenas
 commodo eleifend ante, nec vestibulum sem aliquam at.
 """
-import yaml
 import logging
 import typing
 from dataclasses import dataclass
 from pathlib import Path
-from yace.model.entities import *
 
-class Interface(object):
+import yaml
+
+from yace.model.entities import (
+    Bitfield,
+    Bits,
+    Constant,
+    Define,
+    Enumeration,
+    Field,
+    Struct,
+    Union,
+)
+
+
+class InterfaceModel(object):
     """
     The interface serves as the root of the data-model "tree". The data-model
     is populated by a collection of YAML-files via the classmethod
-    Interface.from_data().
+    InterfaceModel.from_data().
     """
 
     mapping = {
         "define": Define,
         "const": Constant,
         "enum": Enumeration,
-
         "bits": Bits,
         "bitfield": Bitfield,
-
         "field": Field,
         "struct": Struct,
         "union": Union,
@@ -45,18 +55,16 @@ class Interface(object):
     def entity_from_data(cls, data: dict):
         """Factory function instantiating entities from data"""
 
-        entity = Interface.mapping.get(data["cls"])
+        entity = InterfaceModel.mapping.get(data["cls"])
         if not entity:
             return None
 
         if "members" in data:
             data["members"] = [
-                cls.entity_from_data(member_data)
-                for member_data in data["members"]
+                cls.entity_from_data(member_data) for member_data in data["members"]
             ]
 
         return entity(**data)
-
 
     @classmethod
     def from_data(cls, data: dict):

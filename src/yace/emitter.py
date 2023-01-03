@@ -8,7 +8,7 @@ from pprint import pprint
 from jinja2 import Environment, FileSystemLoader
 
 from yace.model.entities import Entity
-from yace.model.interface import Interface
+from yace.model.interface import InterfaceModel
 
 
 def dtype_to_ctype(value):
@@ -21,9 +21,11 @@ def dtype_to_ctype(value):
 
 
 class Emitter(object):
-    """Produces code from :class:`yace.model.Interface`"""
+    """Produces code from :class:`yace.model.InterfaceModel`"""
 
-    def __init__(self, model: Interface, meta: dict, templates: Path, output: Path):
+    def __init__(
+        self, model: InterfaceModel, meta: dict, templates: Path, output: Path
+    ):
         jenv = Environment(loader=FileSystemLoader(searchpath=templates))
         jenv.filters["dtype_to_ctype"] = dtype_to_ctype
 

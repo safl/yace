@@ -10,11 +10,12 @@ Curabitur turpis lacus, consectetur sit amet massa et, porta blandit mi.
 Aenean elementum eros tempor, gravida elit ac, faucibus mauris. Maecenas
 commodo eleifend ante, nec vestibulum sem aliquam at.
 """
-import yaml
 import logging
 import typing
 from dataclasses import dataclass
 from pathlib import Path
+
+import yaml
 
 
 @dataclass
@@ -139,6 +140,3 @@ class Union(Entity):
     cls: str = "union"
     brief: typing.Optional[str] = None
     full: typing.Optional[str] = None
-
-
-
