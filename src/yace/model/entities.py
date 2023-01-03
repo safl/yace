@@ -60,7 +60,7 @@ class Constant(Entity):
 class Enumeration(Entity):
     """Representation of enumerations / collections of constants"""
 
-    members: list[Constant]
+    members: typing.List[Constant]
 
     cls: str = "enum"
     brief: typing.Optional[str] = None
@@ -110,7 +110,7 @@ class Bits(Entity):
 class Bitfield(Entity):
     """Representation of enumerations / collections of constants"""
 
-    members: list[Bits]
+    members: typing.List[Bits]
     dtype: str
     width: int
 
@@ -123,7 +123,7 @@ class Bitfield(Entity):
 class Struct(Entity):
     """Representation of enumerations / collections of constants"""
 
-    members: list
+    members: typing.List
 
     cls: str = "struct"
     brief: typing.Optional[str] = None
@@ -134,7 +134,7 @@ class Struct(Entity):
 class Union(Entity):
     """Representation of enumerations / collections of constants"""
 
-    members: list
+    members: typing.List
 
     cls: str = "union"
     brief: typing.Optional[str] = None
