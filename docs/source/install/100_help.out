@@ -1,0 +1,14 @@
+usage: yace [-h]
+            [--targets {capi,cpp,ctypes,cython,gorust} [{capi,cpp,ctypes,cython,gorust} ...]]
+            [--output OUTPUT]
+            model [model ...]
+
+positional arguments:
+  model                 Path to Yace Interface Model (yim) file
+
+options:
+  -h, --help            show this help message and exit
+  --targets {capi,cpp,ctypes,cython,gorust} [{capi,cpp,ctypes,cython,gorust} ...]
+                        Code generator targets
+  --output OUTPUT       Path to output directory, for emitted code / artifacts
+

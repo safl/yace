@@ -1,0 +1,34 @@
+---
+meta:
+  project: 'xNVMe'
+  version: '0.6.0'
+  lic: 'BSD-3-Clause'
+  prefix: 'xnvme'
+  brief: 'Cross-platform I/O library for NVMe devices'
+  full:
+
+enumerate_action:
+- symbol: enumerate_action
+  brief: "When enumerating, the enumerate_action instructs what should happen with each discovered device"
+  cls: enum
+  members:
+  - {cls: enum_value, symbol: dev_keep_open, lit: 0x0, brief: "Keep device-handle open after callback returns"}
+  - {cls: enum_value, symbol: dev_close, lit: 0x1, brief: "Close device-handle when callback returns"}
+
+options:
+- symbol: opts
+  brief: "xNVMe options"
+  cls: struct
+  members:
+  - {cls: field, symbol: be, dtype: string, fmt: "%s", brief: "Backend/system interface to use"}
+  - {cls: field, symbol: dev, dtype: string, fmt: "%s", brief: "Device manager/enumerator"}
+  - {cls: field, symbol: mem, dtype: string, fmt: "%s", brief: "Memory allocator to use for buffers"}
+  - {cls: field, symbol: sync, dtype: string, fmt: "%s", brief: "Synchronous Command-interface"}
+  - {cls: field, symbol: async, dtype: string, fmt: "%s", brief: "Asynchronous Command-interface"}
+  - {cls: field, symbol: admin, dtype: string, fmt: "%s", brief: "Administrative Command-interface"}
+  - {cls: field, symbol: nsid, dtype: u32, fmt: "0x%x", brief: "Namespace identifier"}
+
+  - {cls: field, symbol: poll_io, dtype: u32, fmt: "0x%x", brief: "io_uring: enable io-polling"}
+  - {cls: field, symbol: poll_sq, dtype: u8, fmt: "0x%x", brief: "io_uring: enable sqthread-polling"}
+  - {cls: field, symbol: register_files, dtype: u8, fmt: "0x%x", brief: "io_uring: enable file-registrations"}
+  - {cls: field, symbol: register_buffers, dtype: u8, fmt: "0x%x", brief: "io_uring: enable buffer-registrations"}

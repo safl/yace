@@ -1,8 +1,0 @@
----
-language: 'c'
-license: 'BSD-3-Clause'
-project: 'xNVMe'
-version: '0.6.0'
-prefix: 'xnvme'
-brief: 'Cross-platform I/O library for NVMe devices'
-full:

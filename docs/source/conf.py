@@ -35,9 +35,14 @@ html_theme_options = {
 html_static_path = ["_static"]
 
 extlinks = {
+    "Python": ("https://www.python.org/%s", None),
     "autopxd2": ("https://github.com/elijahr/python-autopxd2%s", None),
+    "cookiecutter": ("https://cookiecutter.readthedocs.io/en/stable/%s", None),
     "ctypeslib2": ("https://github.com/trolldbois/ctypeslib%s", None),
     "doxygen": ("https://www.doxygen.nl/%s", None),
+    "github-yace-issues": ("https://github.com/safl/yace/issues/%s", None),
+    "jinja2": ("https://jinja.palletsprojects.com/%s", None),
+    "pyyaml": ("https://pyyaml.org/%s", None),
     "rust-bindgen": ("https://github.com/rust-lang/rust-bindgen%s", None),
     "swig": ("https://www.swig.org/%s", None),
 }

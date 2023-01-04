@@ -1,0 +1,22 @@
+---
+meta:
+  project: 'example'
+  version: '0.0.1'
+  lic: 'BSD-3-Clause'
+  prefix: 'example'
+  brief: 'yace example'
+  full: This example is intended for documentation as well as testing
+
+foo:
+- {cls: define}
+- {cls: define}
+- {cls: define}
+
+bar:
+- {cls: enum}
+- {cls: enum}
+
+baz:
+- {cls: struct}
+- {cls: struct}
+- {cls: union}

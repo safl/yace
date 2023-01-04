@@ -3,34 +3,29 @@ YAML ==> Interface(List[Entities]) ==> Emitter() ==> CodeTarget
 """
 import typing
 from pathlib import Path
-from pprint import pprint
 
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, PackageLoader
 
-from yace.model.entities import Entity
-from yace.model.interface import InterfaceModel
-
-
-def dtype_to_ctype(value):
-    """Convert dtype to ctype"""
-
-    if "int" in value.dtype:
-        return f"{value.dtype}{value.width}_t"
-
-    return value.dtype
+from .model.entities import Entity
+from .model.interface import InterfaceModel, Meta
 
 
 class Emitter(object):
     """Produces code from :class:`yace.model.InterfaceModel`"""
 
     def __init__(
-        self, model: InterfaceModel, meta: dict, templates: Path, output: Path
+        self,
+        model: InterfaceModel,
+        meta: Meta,
+        templates: typing.List[Path],
+        output: Path,
     ):
-        jenv = Environment(loader=FileSystemLoader(searchpath=templates))
-        jenv.filters["dtype_to_ctype"] = dtype_to_ctype
+        jenv = Environment(loader=PackageLoader("yace", "templates"))
 
         self.templates = {
-            Path(f).stem: jenv.get_template(f) for f in jenv.list_templates()
+            Path(f).stem: jenv.get_template(f)
+            for f in jenv.list_templates()
+            if f.endswith(".template")
         }
         self.model = model
         self.meta = meta
@@ -81,7 +76,7 @@ class Emitter(object):
         for entity in self.model.entities:
             content.append("\n".join(self.emit_code(entity, None)))
 
-        with (self.output / f"lib{self.meta['prefix']}.h").open("w") as hfile:
+        with (self.output / f"lib{self.meta.prefix}.h").open("w") as hfile:
             hfile.write(
                 self.templates["api_hdr"].render(
                     content="\n\n".join(content), meta=self.meta
@@ -92,8 +87,8 @@ class Emitter(object):
         """Emit pretty-printer functions"""
 
         in_and_out = [
-            ("api_pp_hdr", f"lib{self.meta['prefix']}_pp.h"),
-            ("api_pp_src", f"{self.meta['prefix']}_pp.c"),
+            ("api_pp_hdr", f"lib{self.meta.prefix}_pp.h"),
+            ("api_pp_src", f"{self.meta.prefix}_pp.c"),
         ]
         for template_name, fname in in_and_out:
             content = self.templates[template_name].render(

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from setuptools import find_namespace_packages, setup
 
 setup(
@@ -15,9 +17,19 @@ setup(
     ],
     python_requires=">=3.7",
     entry_points={"console_scripts": ["yace=yace.cli:main"]},
-    packages=["yace", "yace.model"],
+    packages=[
+        "yace",
+        "yace.model",
+        "yace.templates",
+        "yace.templates.c",
+        "yace.templates.ctypes",
+    ],
     package_dir={"": "src"},
-    include_package_data=True,
+    zip_safe=False,
+    package_data={
+        "": ["*.template"],
+    },
+    #include_package_data=True,
     options={"bdist_wheel": {"universal": True}},
     classifiers=[
         "Development Status :: 4 - Beta",

@@ -62,16 +62,16 @@ define clean-help
 endef
 .PHONY: clean
 clean:
-	rm build/* || true
-	rm dist/* || true
-	rm -r output/* || true
+	rm -r build || true
+	rm -r dist || true
+	rm -r output || true
 
 define emit-xnvme-help
 # Emit code using the xNVMe interface model
 endef
 .PHONY: emit-xnvme
 emit-xnvme:
-	yace --meta models/meta-xnvme.yaml --model models/xnvme  --templates templates/c
+	yace models/xnvme.yaml
 	clang-format --style=file:$(TOOLBOX_PATH)/clang-format-h -i output/*.h
 
 define emit-nvme-help
@@ -79,7 +79,7 @@ define emit-nvme-help
 endef
 .PHONY: emit-nvme
 emit-nvme:
-	yace --meta models/meta-nvme.yaml --model models/nvme  --templates templates/c
+	yace models/nvme.yaml
 	clang-format --style=file:$(TOOLBOX_PATH)/clang-format-h -i output/*.h
 
 define emit-help
@@ -87,7 +87,7 @@ define emit-help
 endef
 .PHONY: emit
 emit:
-	yace --meta models/meta-example.yaml --model models/example  --templates templates/c
+	yace models/example.yaml
 	clang-format --style=file:$(TOOLBOX_PATH)/clang-format-h -i output/*.h
 
 define view-help

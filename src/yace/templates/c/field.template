@@ -1,0 +1,13 @@
+{%- if entity.dtype.static -%}static {% endif %}
+{%- if entity.dtype.const -%}const {% endif %}
+{%- if entity.dtype.cls in ["string", "char"] -%}
+char
+{%- elif entity.dtype.cls == "void" -%}
+void
+{%- elif entity.dtype.width -%}
+int{{ entity.dtype.width }}_t
+{%- endif -%}
+{%- for _ in range(entity.dtype.pointer) -%}*{% endfor %}
+{{ entity.symbol }}
+{%- if entity.dtype.array -%}[{{ entity.dtype.array }}]{% endif %}
+; ///< {{ entity.brief }}

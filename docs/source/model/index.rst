@@ -1,8 +1,8 @@
 .. _sec-model:
 
-=================
- Interface Model
-=================
+===========================
+ Interface Model (``yim``)
+===========================
 
 .. automodule:: yace.model
 
@@ -10,6 +10,6 @@
    :maxdepth: 2
    :hidden:
 
-   entities.rst
-   interface.rst
    yaml.rst
+   entities/index.rst
+   interface.rst

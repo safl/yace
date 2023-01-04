@@ -1,3 +1,0 @@
-{%- for member in entity.members %}
-{{ entity | dtype_to_ctype }} {{ member.symbol }} : {{ member.width }}; ///< {{ member.brief }}
-{%- endfor %}

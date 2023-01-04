@@ -14,35 +14,32 @@ def parse_args():
     """Parse command-line arguments"""
 
     parser = argparse.ArgumentParser()
+
     parser.add_argument(
-        "--meta",
+        "model",
+        nargs="+",
         type=Path,
-        default=Path("meta.yaml"),
-        help="Path to meta definitions such as namespace prefix",
-    )
-    parser.add_argument(
-        "--model",
-        type=Path,
-        default=Path("model"),
-        help="Path to directory containing the data model",
+        help="Path to Yace Interface Model (yim) file",
     )
     parser.add_argument(
         "--targets",
-        choices=["c", "python"],
-        default=["c", "python"],
-        help="Targets",
-    )
-    parser.add_argument(
-        "--templates",
-        type=Path,
-        default=Path("templates"),
-        help="Path directory containing code-emitter-templates",
+        nargs="+",
+        choices=[
+            "capi",
+            "cpp",
+            "ctypes",
+            "cython",
+            "go",
+            "rust",
+        ],
+        default=["capi"],
+        help="Code generator targets",
     )
     parser.add_argument(
         "--output",
         type=Path,
         default=Path("output"),
-        help="Path to store emitted code in",
+        help="Path to output directory, for emitted code / artifacts",
     )
 
     return parser.parse_args()
@@ -57,14 +54,9 @@ def main():
 
     args.output.mkdir(parents=True, exist_ok=True)
 
-    meta = {}
-    with args.meta.open() as sfd:
-        meta.update(yaml.safe_load(sfd))
-
-    model = InterfaceModel.from_path(args.model)
-
-    emitter = Emitter(model, meta, args.templates, args.output)
-    emitter.emit_api_def()
-    emitter.emit_api_pp()
-    emitter.emit_api_test()
-    emitter.emit_docgen()
+    for model in [InterfaceModel.from_path(model) for model in args.model]:
+        emitter = Emitter(model, model.meta, args.targets, args.output)
+        emitter.emit_api_def()
+        emitter.emit_api_pp()
+        emitter.emit_api_test()
+        emitter.emit_docgen()
