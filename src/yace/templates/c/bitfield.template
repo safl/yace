@@ -2,8 +2,8 @@
 struct {
 {%- endif -%}
 {%- for member in entity.members %}
-uint{{ entity.dtype.width }}_t {{ member.symbol }} : {{ member.width }}; ///< {{ member.brief }}
+uint{{ entity.dtype.width }}_t {{ member.symbol }} : {{ member.width }}; ///< {{ member.doc }}
 {%- endfor %}
 {%- if entity.symbol %}
-} {{ entity.symbol }}; ///< {{ entity.brief }}
+} {{ entity.symbol }}; ///< {{ entity.doc }}
 {%- endif -%}

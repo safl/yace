@@ -47,4 +47,4 @@ class Entity:
     """Base class for entities containing common fields"""
 
     symbol: str
-    brief: typing.Optional[str]
+    doc: typing.Optional[str]

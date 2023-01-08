@@ -8,59 +8,59 @@ meta:
   full: This example is intended for documentation as well as testing
 
 macros_explicit_literal:
-- {cls: define, symbol: max_x, lit: {cls: "dec", val: 128}, brief: "Maximum value of X"}
-- {cls: define, symbol: max_y, lit: {cls: "dec", val: 64}, brief: "Maximum value of Y"}
-- {cls: define, symbol: max_z, lit: {cls: "dec", val: 64}, brief: "Maximum value of Z"}
+- {cls: define, symbol: max_x, lit: {cls: "dec", val: 128}, doc: "Maximum value of X"}
+- {cls: define, symbol: max_y, lit: {cls: "dec", val: 64}, doc: "Maximum value of Y"}
+- {cls: define, symbol: max_z, lit: {cls: "dec", val: 64}, doc: "Maximum value of Z"}
 
 macros_implicit_literal:
-- {cls: define, symbol: min_x, lit: 128, brief: "Maximum value of X"}
-- {cls: define, symbol: min_y, lit: 64, brief: "Maximum value of Y"}
-- {cls: define, symbol: min_z, lit: 64, brief: "Maximum value of Z"}
+- {cls: define, symbol: min_x, lit: 128, doc: "Maximum value of X"}
+- {cls: define, symbol: min_y, lit: 64, doc: "Maximum value of Y"}
+- {cls: define, symbol: min_z, lit: 64, doc: "Maximum value of Z"}
 
 enumtypes_implicit_literal:
 - cls: enum
   symbol: ops
-  brief: "Opcodes for point operation processor"
+  doc: "Opcodes for point operation processor"
   members:
-  - {cls: enum_value, symbol: add, lit: {cls: "hex", val: 0}, brief: "Add two points"}
-  - {cls: enum_value, symbol: sub, lit: {cls: "hex", val: 1}, brief: "Substract two points"}
-  - {cls: enum_value, symbol: mul, lit: {cls: "hex", val: 2}, brief: "Multple two points"}
+  - {cls: enum_value, symbol: add, lit: {cls: "hex", val: 0}, doc: "Add two points"}
+  - {cls: enum_value, symbol: sub, lit: {cls: "hex", val: 1}, doc: "Substract two points"}
+  - {cls: enum_value, symbol: mul, lit: {cls: "hex", val: 2}, doc: "Multple two points"}
 
 enumtypes_explicit_literal:
 - cls: enum
   symbol: ops
-  brief: "Opcodes for point operation processor"
+  doc: "Opcodes for point operation processor"
   members:
-  - {cls: enum_value, symbol: add, lit: {cls: "hex", val: 0}, brief: "Add two points"}
-  - {cls: enum_value, symbol: sub, lit: {cls: "hex", val: 1}, brief: "Substract two points"}
-  - {cls: enum_value, symbol: mul, lit: {cls: "hex", val: 2}, brief: "Multple two points"}
+  - {cls: enum_value, symbol: add, lit: {cls: "hex", val: 0}, doc: "Add two points"}
+  - {cls: enum_value, symbol: sub, lit: {cls: "hex", val: 1}, doc: "Substract two points"}
+  - {cls: enum_value, symbol: mul, lit: {cls: "hex", val: 2}, doc: "Multple two points"}
 
 structtypes_plain:
 - cls: struct
   symbol: point
-  brief: "Point in three dimensional space"
+  doc: "Point in three dimensional space"
   members:
-  - {cls: field, symbol: x, dtype: u32, fmt: '%d', brief: "X Coordinate"}
-  - {cls: field, symbol: y, dtype: u32, fmt: '%d', brief: "Y Coordinate"}
-  - {cls: field, symbol: z, dtype: u32, fmt: '%d', brief: "Z Coordinate"}
+  - {cls: field, symbol: x, dtype: u32, fmt: '%d', doc: "X Coordinate"}
+  - {cls: field, symbol: y, dtype: u32, fmt: '%d', doc: "Y Coordinate"}
+  - {cls: field, symbol: z, dtype: u32, fmt: '%d', doc: "Z Coordinate"}
 
 structtypes_bitfield:
 - cls: struct
   symbol: payload
-  brief: "Instruction format for point operation processor"
+  doc: "Instruction format for point operation processor"
 
   members:
-  - {cls: field, symbol: opc, dtype: u8, fmt: '0x%x', brief: 'Point Processing Opcode'}
-  - {cls: field, symbol: tag, dtype: u8, fmt: '0x%x', brief: 'Instruction Tag'}
-  - {cls: field, symbol: ecc, dtype: u8, fmt: '0x%x', brief: 'Error-correction Seed'}
+  - {cls: field, symbol: opc, dtype: u8, fmt: '0x%x', doc: 'Point Processing Opcode'}
+  - {cls: field, symbol: tag, dtype: u8, fmt: '0x%x', doc: 'Instruction Tag'}
+  - {cls: field, symbol: ecc, dtype: u8, fmt: '0x%x', doc: 'Error-correction Seed'}
   - cls: bitfield
     symbol: opts
-    brief: 'Operation options'
+    doc: 'Operation options'
     dtype: u8
     members:
-    - {cls: bits, symbol: pack, width: 1, brief: 'Pack stuff'}
-    - {cls: bits, symbol: foo, width: 3, brief: 'Something foo'}
-    - {cls: bits, symbol: bar, width: 4, brief: 'Something bar'}
-  - {cls: field, symbol: input_a, dtype: u64, fmt: '0x%x', brief: 'Input operand a'}
-  - {cls: field, symbol: input_b, dtype: u64, fmt: '0x%x', brief: 'Input operand b'}
-  - {cls: field, symbol: output, dtype: u64, fmt: '0x%x', brief: 'Output operand'}
+    - {cls: bits, symbol: pack, width: 1, doc: 'Pack stuff'}
+    - {cls: bits, symbol: foo, width: 3, doc: 'Something foo'}
+    - {cls: bits, symbol: bar, width: 4, doc: 'Something bar'}
+  - {cls: field, symbol: input_a, dtype: u64, fmt: '0x%x', doc: 'Input operand a'}
+  - {cls: field, symbol: input_b, dtype: u64, fmt: '0x%x', doc: 'Input operand b'}
+  - {cls: field, symbol: output, dtype: u64, fmt: '0x%x', doc: 'Output operand'}

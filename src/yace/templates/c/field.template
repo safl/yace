@@ -10,4 +10,4 @@ int{{ entity.dtype.width }}_t
 {%- for _ in range(entity.dtype.pointer) -%}*{% endfor %}
 {{ entity.symbol }}
 {%- if entity.dtype.array -%}[{{ entity.dtype.array }}]{% endif %}
-; ///< {{ entity.brief }}
+; ///< {{ entity.doc }}

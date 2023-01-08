@@ -1,9 +1,5 @@
 /**
- * {{ entity.brief }}
-{%- if entity.full %}
- *
- * {{ entity.full }}
-{%- endif %}
+ * {{ entity.doc }}
  *
  * @{{ entity.cls }} {{meta.prefix}}_{{ entity.symbol }}
  */
