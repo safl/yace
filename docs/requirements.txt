@@ -1,5 +1,6 @@
 furo
 jinja2
+kmdo
 pyyaml
 sphinx
 sphinxcontrib-gtagjs

@@ -55,5 +55,5 @@ Additional Examples
 
 For more elaborate examples, then take a look at the models in the **yace**
 repository at https://github.com/safl/yace/tree/main/models. Additionally, the
-artifacts produces by **yace's** on the :github-yace-issues:`GitHUB Actions
+artifacts produces by **yace's** on the :github-yace-actions:`GitHUB Actions
 Page <>` has the output from all the models.
