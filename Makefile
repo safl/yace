@@ -71,24 +71,30 @@ define emit-xnvme-help
 endef
 .PHONY: emit-xnvme
 emit-xnvme:
-	yace models/xnvme.yaml
-	clang-format --style=file:$(TOOLBOX_PATH)/clang-format-h -i output/*.h
+	yace models/xnvme.yaml --output output/xnvme
+	clang-format --style=file:$(TOOLBOX_PATH)/clang-format-h -i output/xnvme/*.h
 
 define emit-nvme-help
 # Emit code using the NVMe interface model
 endef
 .PHONY: emit-nvme
 emit-nvme:
-	yace models/nvme.yaml
-	clang-format --style=file:$(TOOLBOX_PATH)/clang-format-h -i output/*.h
+	yace models/nvme.yaml --output output/nvme
+	clang-format --style=file:$(TOOLBOX_PATH)/clang-format-h -i output/nvme/*.h
 
-define emit-help
+define emit-example-help
 # Emit code using the example interface model
 endef
+.PHONY: emit-example
+emit-example:
+	yace models/example.yaml --output output/example
+	clang-format --style=file:$(TOOLBOX_PATH)/clang-format-h -i output/example/*.h
+
+define emit-help
+# Emit code for all examples
+endef
 .PHONY: emit
-emit:
-	yace models/example.yaml
-	clang-format --style=file:$(TOOLBOX_PATH)/clang-format-h -i output/*.h
+emit: emit-example emit-xnvme emit-nvme
 
 define view-help
 # Inspect generated code
@@ -102,8 +108,8 @@ define doxy-help
 endef
 .PHONY: doxy
 doxy:
-	doxygen output/doxy.cfg
-	mv doxyreport output/
+	doxygen output/example/doxy.cfg
+	mv doxyreport output/example/
 
 define release-build-help
 # Produce Python distribution (sdist, bdist_wheel)
