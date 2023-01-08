@@ -2,5 +2,6 @@ furo
 jinja2
 pyyaml
 sphinx
+sphinxcontrib-gtagjs
 twine
 wheel

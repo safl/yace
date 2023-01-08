@@ -17,8 +17,13 @@ release = "0.3.1"
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.coverage",
-    "sphinx.ext.githubpages",
     "sphinx.ext.extlinks",
+    "sphinx.ext.githubpages",
+    "sphinxcontrib.gtagjs",
+]
+
+gtagjs_ids = [
+    'UA-222706364-1',
 ]
 
 templates_path = ["_templates"]
