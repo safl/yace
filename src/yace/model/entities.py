@@ -31,6 +31,8 @@ class Typedecl:
     pointer: int = 0
     array: int = 0
 
+    label: str = "typedecl"
+
 
 @dataclass
 class Void(Typedecl):

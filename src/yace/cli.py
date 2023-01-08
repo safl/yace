@@ -5,6 +5,7 @@ from pathlib import Path
 from pprint import pprint
 
 import yaml
+
 from yace import __version__ as version
 from yace.emitter import Emitter
 from yace.model.interface import InterfaceModel

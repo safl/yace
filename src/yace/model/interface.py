@@ -82,7 +82,12 @@ class InterfaceModel(object):
             if isinstance(adata, dict):
                 data[attr] = cls.entity_from_data(adata)
             elif isinstance(adata, str) and attr == "dtype":
-                data[attr] = InterfaceModel.MAPPING.get(adata)()
+                constructor_dtype = InterfaceModel.MAPPING.get(adata)
+                if not constructor_dtype:
+                    raise InvalidInterfaceModelData(
+                        f"No mapping for dtype shorthand: {adata}"
+                    )
+                data[attr] = constructor_dtype()
             elif isinstance(adata, int) and attr == "lit":
                 data[attr] = literals.LiteralDec(val=adata)
             elif isinstance(adata, str) and attr == "lit":
@@ -109,7 +114,9 @@ class InterfaceModel(object):
             interface.meta = Meta(**meta_data)
 
         for label, ents in data.items():
-            for entity_data in ents:
+            total = len(ents)
+            for count, entity_data in enumerate(ents, 1):
+                logging.info(f"Processing entity {count} / {total} in {label}")
                 entity = cls.entity_from_data(entity_data)
                 interface.entities.append(entity)
 

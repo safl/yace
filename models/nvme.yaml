@@ -108,8 +108,7 @@ logs:
       \ Event Aggregate"}
   - {cls: enum_value, lit: {cls: hex, val: 0x0c}, symbol: ASSYMETRIC_NAMESPACE_ACCESS, brief: "Asymmetric Namespace Access"}
   - {cls: enum_value, lit: {cls: hex, val: 0x0d}, symbol: PERSISTENT_EVENT_LOG, brief: "Persistent Event Log"}
-  - {cls: enum_value, lit: {cls: hex, val: 0x0f}, symbol: ENDURANCE_GROUP_EVENT_AGGREGATE, brief: "Endurance Group Event\
-      \ Aggregate"}
+  - {cls: enum_value, lit: {cls: hex, val: 0x0f}, symbol: ENDURANCE_GROUP_EVENT_AGGREGATE, brief: "Endurance Group Event Aggregate"}
   - {cls: enum_value, lit: {cls: hex, val: 0x70}, symbol: LOG_DISCOVERY, brief: "Predictable Latency Per NVM Set"}
   - {cls: enum_value, lit: {cls: hex, val: 0x80}, symbol: RESERVATION_NOTIFICATION, brief: "Predictable Latency Event Aggregate"}
   - {cls: enum_value, lit: {cls: hex, val: 0x81}, symbol: SANITIZE_STATUS, brief: "Asymmetric Namespace Access"}
@@ -302,17 +301,16 @@ nvm:
   brief: "NVM Read Command"
   cls: struct
   members:
-  - symbol:
-    brief:
+  - symbol: bits
+    brief: "Bitfield accessor"
     cls: bitfield
-    dtype: uint
-    width: 16
+    dtype: u16
     members:
     - {cls: bits, width: 8, symbol: opcode, brief: "Command Opcode"}
     - {cls: bits, width: 2, symbol: fuse, brief: "Fused Operation"}
     - {cls: bits, width: 4, symbol: rsvd, brief: "Reserved"}
     - {cls: bits, width: 2, symbol: psdt, brief: "Brief"}
-  - {cls: field, fmt: '%d', dtype: uint, width: 16, symbol: cid, brief: "Command Identifier"}
+  - {cls: field, fmt: '%d', dtype: u16, symbol: cid, brief: "Command Identifier"}
   - {cls: field, fmt: '%d', dtype: u32, symbol: nsid, brief: "Namespace Identifier"}
   - {cls: field, fmt: '%d', dtype: u32, symbol: cdw02, brief: "Command DWord 2"}
   - {cls: field, fmt: '%d', dtype: u32, symbol: cdw03, brief: "Command DWord 3"}
@@ -341,8 +339,7 @@ nvm:
   - symbol:
     brief:
     cls: bitfield
-    dtype: uint
-    width: 16
+    dtype: u16
     members:
     - {cls: bits, width: 8, symbol: opcode, brief: "Command Opcde"}
     - {cls: bits, width: 2, symbol: fuse, brief: "Fused Operation"}
