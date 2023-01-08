@@ -4,6 +4,18 @@
 Welcome to yace
 ===============
 
+.. image:: https://img.shields.io/pypi/v/yace.svg
+   :target: https://pypi.org/project/yace
+   :alt: PyPI
+
+.. image:: https://github.com/safl/yace/actions/workflows/build_deploy.yml/badge.svg
+   :target: https://github.com/safl/yace/actions
+   :alt: Build Status
+
+.. image:: https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit
+   :target: https://github.com/safl/yace/blob/main/.pre-commit-config.yaml
+   :alt: pre-commit
+
 **yace** is a foreign-function-interface (FFI) compiler designed to ease the
 development and maintenance of C APIs, their libraries and the
 FFI-bindings/wrappers using them.
