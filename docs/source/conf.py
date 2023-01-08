@@ -49,4 +49,5 @@ extlinks = {
     "pyyaml": ("https://pyyaml.org/%s", None),
     "rust-bindgen": ("https://github.com/rust-lang/rust-bindgen%s", None),
     "swig": ("https://www.swig.org/%s", None),
+    "xnvme": ("https://xnvme.io/%s", None),
 }
