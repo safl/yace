@@ -29,3 +29,4 @@ plenty of things to do.
    usage/index.rst
    model/index.rst
    targets/index.rst
+   todo/index.rst
