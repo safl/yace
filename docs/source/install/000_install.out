@@ -1,6 +1,6 @@
 Requirement already satisfied: yace in /Users/safl/Library/Python/3.10/lib/python/site-packages (0.3.1)
+Requirement already satisfied: pyyaml in /opt/homebrew/lib/python3.10/site-packages (from yace) (6.0)
 Requirement already satisfied: setuptools>=60 in /opt/homebrew/lib/python3.10/site-packages (from yace) (65.6.3)
 Requirement already satisfied: jinja2 in /opt/homebrew/lib/python3.10/site-packages (from yace) (3.1.2)
-Requirement already satisfied: pyyaml in /opt/homebrew/lib/python3.10/site-packages (from yace) (6.0)
 Requirement already satisfied: MarkupSafe>=2.0 in /opt/homebrew/lib/python3.10/site-packages (from jinja2->yace) (2.1.1)
 
