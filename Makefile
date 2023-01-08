@@ -96,6 +96,14 @@ endef
 .PHONY: emit
 emit: emit-example emit-xnvme emit-nvme
 
+define coverage-help
+# Run emitter with coverage
+endef
+.PHONY: coverage
+coverage:
+	coverage run --source=yace -m yace models/example.yaml
+	coverage report
+
 define view-help
 # Inspect generated code
 endef
