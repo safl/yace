@@ -5,7 +5,7 @@ from pathlib import Path
 from pprint import pprint
 
 import yaml
-
+from yace import __version__ as version
 from yace.emitter import Emitter
 from yace.model.interface import InterfaceModel
 
@@ -40,6 +40,11 @@ def parse_args():
         type=Path,
         default=Path("output"),
         help="Path to output directory, for emitted code / artifacts",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {version}",
     )
 
     return parser.parse_args()

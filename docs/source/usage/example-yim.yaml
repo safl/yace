@@ -1,0 +1,21 @@
+---
+meta:
+  project: 'example'
+  version: '0.0.1'
+  lic: 'BSD-3-Clause'
+  prefix: 'example'
+  brief: 'yace example'
+  full: This example is intended for documentation as well as testing
+
+entities:
+- {cls: define, symbol: max_x, lit: {cls: "dec", val: 128}, brief: "Maximum value of X"}
+- {cls: define, symbol: max_y, lit: {cls: "dec", val: 64}, brief: "Maximum value of Y"}
+- {cls: define, symbol: max_z, lit: {cls: "dec", val: 64}, brief: "Maximum value of Z"}
+
+- cls: struct
+  symbol: point
+  brief: "Point in three dimensional space"
+  members:
+  - {cls: field, symbol: x, dtype: u32, fmt: '%d', brief: "X Coordinate"}
+  - {cls: field, symbol: y, dtype: u32, fmt: '%d', brief: "Y Coordinate"}
+  - {cls: field, symbol: z, dtype: u32, fmt: '%d', brief: "Z Coordinate"}

@@ -40,6 +40,10 @@ extlinks = {
     "cookiecutter": ("https://cookiecutter.readthedocs.io/en/stable/%s", None),
     "ctypeslib2": ("https://github.com/trolldbois/ctypeslib%s", None),
     "doxygen": ("https://www.doxygen.nl/%s", None),
+    "github-yace-actions": (
+        "https://github.com/safl/yace/actions/workflows/build_deploy.yml%s",
+        None,
+    ),
     "github-yace-issues": ("https://github.com/safl/yace/issues/%s", None),
     "jinja2": ("https://jinja.palletsprojects.com/%s", None),
     "pyyaml": ("https://pyyaml.org/%s", None),

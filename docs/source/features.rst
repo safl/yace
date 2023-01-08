@@ -63,3 +63,6 @@ With wrapper code for the following target languages:
 * Python / Cython [wip]
 * Python / ctypes [wip]
 * Rust [wip]
+
+For details on the emitter targets, then have a look at the **yace**
+:ref:`sec-targets` section.

@@ -18,11 +18,10 @@ Once installed, you should be able to run **yace** via the command-line, e.g.:
    :language: bash
    :lines: 1-
 
-The command above should print the output below:
+The above should produce the output below:
 
 .. literalinclude:: 100_help.out
-   :language: bash
-   :lines: 1-
+   :lines: 1-1
 
 In case it does not, then check your :Python:`Python <>` environment, in case
 it is due to an error with **yace** then please submit an issue on
@@ -38,6 +37,10 @@ it is due to an error with **yace** then please submit an issue on
 The above is all that is needed for the code-emission functionality of
 **yace**, however, to take things a bit further then **yace** utilizes a
 handful of other tools, compilers, build-systems and documentation generators.
+
+Installing these are describe in the following :ref:`sec-install-system`
+section. However, these are not needed to get started with **yace**, so you can
+skip it and go directory to the :ref:`sec-usage` section.
 
 .. toctree::
    :maxdepth: 2

@@ -1,1 +1,1 @@
-yace --help
+yace --version

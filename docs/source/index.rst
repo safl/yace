@@ -8,9 +8,14 @@ Welcome to yace
 development and maintenance of C APIs, their libraries and the
 FFI-bindings/wrappers using them.
 
-* The **yace** repository is hosted on `GitHUB`_
+* The project is hosted on `GitHUB`_
 
-* The **yace** documentation is available at `safl.dk/yace`_
+* Documentation is available at `safl.dk/yace`_
+
+**yace** is a new project, with a bunch of things it want to get done, why?
+Because there are some projects that need a better way to handle C headers and
+libraries bindings. If you want to help out, then don't be shy, there are
+plenty of things to do.
 
 .. _GitHUB: https://github.com/safl/yace
 .. _safl.dk/yace: https://safl.dk/yace
