@@ -147,6 +147,8 @@ endef
 .PHONY: docs-build
 docs-build:
 	cd docs && rm -rf build
+	cd docs/source/install && kmdo .
+	cd docs/source/usage && kmdo .
 	cd docs && make html
 
 define docs-view-help
