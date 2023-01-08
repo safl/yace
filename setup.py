@@ -29,7 +29,6 @@ setup(
     package_data={
         "": ["*.template"],
     },
-    #include_package_data=True,
     options={"bdist_wheel": {"universal": True}},
     classifiers=[
         "Development Status :: 4 - Beta",
