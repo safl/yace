@@ -2,11 +2,19 @@ from pathlib import Path
 
 from setuptools import find_namespace_packages, setup
 
+try:
+    with open("README.rst", "r") as f:
+        long_description = f.read()
+except FileNotFoundError:
+    long_description = ""
+
 setup(
     name="yace",
     version="0.2.0",
     author="Simon A. F. Lund",
     author_email="os@safl.dk",
+    long_description=long_description,
+    long_description_content_type="text/x-rst",
     url="https://github.com/safl/yace",
     license="BSD",
     setup_requires=["wheel"],
