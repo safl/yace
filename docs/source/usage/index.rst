@@ -3,6 +3,11 @@
 Usage
 =====
 
+Running **yace** requires that you have:
+
+1. Installed **yace**, see :ref:`sec-install`
+2. A **yace** :ref:`sec-model` file ready to provide as input
+
 Run the emitter::
 
   yace \
