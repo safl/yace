@@ -1,6 +1,6 @@
 /**
- *
- *
+ * yace example*
+ * This example is intended for documentation as well as testing*
  * NOTE: This file is auto-generated using yace: https://github.com/safl/yace
  *
  * Copyright (C) Simon A. F. Lund <os@safl.dk>
