@@ -11,7 +11,7 @@ from .literals import LiteralDec, LiteralHex, LiteralString
 
 
 @dataclass
-class EnumValue:
+class EnumValue(Entity):
     """
     Representation of values in :class:`.Enum`.
 
@@ -21,9 +21,6 @@ class EnumValue:
 
     for the :class:`EnumValue``.
     """
-
-    symbol: str
-    brief: typing.Optional[str]
 
     lit: typing.Union[LiteralDec, LiteralHex, LiteralString] = None
 
