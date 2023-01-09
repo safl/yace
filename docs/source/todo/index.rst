@@ -38,3 +38,11 @@ This is a quick'n'dirty notes on things to do:
 
   * Via invocation: ``yace example-yim.yaml --visualize``
   * This should yield a visualization of the ``yim`` with relatations
+
+* Add a node-visitor
+
+  * The string-template based code-emitter is great for the emitters for now,
+    however, there will probably be things which are harder to emit, for those
+    a node-visitor based emitter might be better. E.g. when the emitted code
+    must have certain indentation-level like in Python code etc.
+  * Thus, add a node-visitorr
