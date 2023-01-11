@@ -26,7 +26,7 @@ extern "C" {
 #include <stdbool.h>
 
 {%- for header in headers %}
-#include <{{header}}>
+#include <{{ header.name }}>
 {%- endfor %}
 
 #ifdef __cplusplus

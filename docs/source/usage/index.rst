@@ -38,17 +38,22 @@ emitted code and artifacts:
 
 The C API header generated from the above looks like:
 
-.. literalinclude:: output/libexample.h
+.. literalinclude:: output/libexample_core.h
    :language: c
    :caption:
    :lines: 1-
 
 The emitted C header above has been modified by ``clang-format`` after it was
-emitted. When you run this locally, expect the emitted code to look slightly
-different, or just run ``clang-format`` using the definitions in the **yace**
-repository::
+emitted. This is one of the **stages** that a **yace** target goes through by
+default, you can control the stages via the cli, e.g. to skip the format-stage
+then do:
 
-  clang-format --style=file:../clang-format-h -i output/*.h
+.. literalinclude:: 100_example_nofmt.cmd
+   :language: bash
+   :lines: 1-
+
+The above will do nothing else but emit code. See ``yace --help`` for the
+different stages.
 
 Additional Examples
 ===================

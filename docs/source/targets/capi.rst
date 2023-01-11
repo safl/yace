@@ -3,7 +3,7 @@
 capi
 ====
 
-.. automodule:: yace.emitters.capi
+.. automodule:: yace.targets.capi.target
    :inherited-members:
    :members:
    :undoc-members:

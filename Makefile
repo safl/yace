@@ -13,13 +13,13 @@ define all-help
 # Do all: clean uninstall build install
 endef
 .PHONY: all
-all: uninstall clean build install emit doxy
+all: uninstall clean build install emit
 
 define all-system-help
 # Do all: clean uninstall build install-system
 endef
 .PHONY: all-system
-all-system: uninstall clean build install emit doxy
+all-system: uninstall clean build install emit
 
 define build-help
 # Build the package (source distribution package)
@@ -72,7 +72,6 @@ endef
 .PHONY: emit-xnvme
 emit-xnvme:
 	yace models/xnvme.yaml --output output/xnvme
-	clang-format --style=file:$(TOOLBOX_PATH)/clang-format-h -i output/xnvme/*.h
 
 define emit-nvme-help
 # Emit code using the NVMe interface model
@@ -80,7 +79,6 @@ endef
 .PHONY: emit-nvme
 emit-nvme:
 	yace models/nvme.yaml --output output/nvme
-	clang-format --style=file:$(TOOLBOX_PATH)/clang-format-h -i output/nvme/*.h
 
 define emit-example-help
 # Emit code using the example interface model
@@ -88,7 +86,6 @@ endef
 .PHONY: emit-example
 emit-example:
 	yace models/example.yaml --output output/example
-	clang-format --style=file:$(TOOLBOX_PATH)/clang-format-h -i output/example/*.h
 
 define emit-help
 # Emit code for all examples
@@ -112,14 +109,6 @@ endef
 .PHONY: view
 view:
 	less output/*
-
-define doxy-help
-# Inspect generated code
-endef
-.PHONY: doxy
-doxy:
-	doxygen output/example/doxygen.conf
-	mv doxyreport output/example/
 
 define release-build-help
 # Produce Python distribution (sdist, bdist_wheel)

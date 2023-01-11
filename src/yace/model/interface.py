@@ -91,6 +91,21 @@ class InterfaceModel(object):
         self.meta = Meta(lic="UNLICENSED")
         self.entities = []
 
+    def traverse(
+        self,
+        current: entities.Entity,
+        parent: typing.Optional[entities.Entity],
+        depth: int = 0,
+    ) -> str:
+        """
+        Recursive walk of the 'current' entity
+        """
+
+        self.func(current.cls, parent, depth)
+        if getattr(current, "members", None):
+            for member in getattr(current, "members"):
+                self.traverse(member, current, depth + 1)
+
     @classmethod
     def entity_from_data(cls, cur: dict, parent=None, depth=0):
         """

@@ -4,18 +4,34 @@
  TODO
 ======
 
-This is a quick'n'dirty notes on things to do:
+Here you will find functional expansions on the roadmap for **yace**. They are
+jotted down here in a quick-n-dirty fashion, as it is somewhat simpler than
+tracking this on e.g. GitHUB issues. Thus, the issue-tracker is reserved for
+issue-reports, feature-requests etc. and the todo/roadmap is here:
 
 * Add function-pointer-declarations
 
   * Must be added to yim
   * And added to ``yet``
 
-* Add a model-checker
+* Add model-checking
 
   * Check that no duplicate symbols exists
   * Check that bitfields are within bounds and matching their parent type
-  * Add runtime-checkig of the types in the dataclasses
+  * Add runtime-checking of the types in the dataclasses
+
+* Add transformation
+
+  * To achieve simple code-emitters, then the IDL / ``yim`` needs to be close
+    in representation to the generated code. Otherwise, then the **target**
+    needs to take differences into account.
+    One example are nested structures / unions in C, e specially with anonymous
+    structs/unions. Equivalent definitions are not support by e.g. Rust.
+    Consequently, then the ``yet`` needs to this into account when emitting
+    code.
+    A nicer approach would be to transform the IDL / ``yim`` by expanding the
+    nested structs / unions. This is neat, since this is also useful for more
+    than a single ``yet``.,
 
 * Add negative-tests
 
@@ -45,4 +61,4 @@ This is a quick'n'dirty notes on things to do:
     however, there will probably be things which are harder to emit, for those
     a node-visitor based emitter might be better. E.g. when the emitted code
     must have certain indentation-level like in Python code etc.
-  * Thus, add a node-visitorr
+  * Thus, add a node-visitor

@@ -28,15 +28,13 @@ setup(
     packages=[
         "yace",
         "yace.model",
-        "yace.emitters",
-        "yace.templates",
-        "yace.templates.c",
-        "yace.templates.ctypes",
+        "yace.targets.capi",
+        "yace.targets.ctypes",
     ],
     package_dir={"": "src"},
     zip_safe=False,
     package_data={
-        "": ["*.template"],
+        "": ["*.template", "*.clang-format"],
     },
     options={"bdist_wheel": {"universal": True}},
     classifiers=[
