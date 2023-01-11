@@ -40,7 +40,6 @@ html_theme_options = {
 html_static_path = ["_static"]
 
 extlinks = {
-    "Python": ("https://www.python.org/%s", None),
     "autopxd2": ("https://github.com/elijahr/python-autopxd2%s", None),
     "cookiecutter": ("https://cookiecutter.readthedocs.io/en/stable/%s", None),
     "ctypeslib2": ("https://github.com/trolldbois/ctypeslib%s", None),
@@ -50,7 +49,14 @@ extlinks = {
         None,
     ),
     "github-yace-issues": ("https://github.com/safl/yace/issues/%s", None),
+    "idl": ("https://en.wikipedia.org/wiki/Interface_description_language/%s", None),
     "jinja2": ("https://jinja.palletsprojects.com/%s", None),
+    "lang-c": ("https://en.wikipedia.org/wiki/C_(programming_language)%s", None),
+    "lang-cpp": ("https://www.cpp-lang.net/%s", None),
+    "lang-go": ("https://go.dev/%s", None),
+    "lang-rust": ("https://www.rust-lang.org/%s", None),
+    "lang-zig": ("https://ziglang.org/%s", None),
+    "lang-python": ("https://www.python.org/%s", None),
     "pyyaml": ("https://pyyaml.org/%s", None),
     "rust-bindgen": ("https://github.com/rust-lang/rust-bindgen%s", None),
     "swig": ("https://www.swig.org/%s", None),
