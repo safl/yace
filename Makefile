@@ -118,7 +118,7 @@ define doxy-help
 endef
 .PHONY: doxy
 doxy:
-	doxygen output/example/doxy.cfg
+	doxygen output/example/doxygen.conf
 	mv doxyreport output/example/
 
 define release-build-help
