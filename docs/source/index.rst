@@ -12,6 +12,9 @@ Welcome to yace
    :target: https://github.com/safl/yace/actions
    :alt: Build Status
 
+.. image:: https://coveralls.io/repos/github/safl/yace/badge.svg?branch=main
+   :target: https://coveralls.io/github/safl/yace?branch=main
+
 .. image:: https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit
    :target: https://github.com/safl/yace/blob/main/.pre-commit-config.yaml
    :alt: pre-commit

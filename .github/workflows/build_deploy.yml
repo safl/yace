@@ -41,6 +41,7 @@ jobs:
 
     - name: Install dependencies
       run: |
+        python -m pip install coverage
         python -m pip install --upgrade pip
         python -m pip install -r requirements.txt
         ./toolbox/pkgs/${{ matrix.os.name }}.sh
@@ -60,6 +61,15 @@ jobs:
         name: 'archive-${{ matrix.os.name }}-${{ matrix.os.version }}-py${{ matrix.python-version }}'
         path: output/*
         if-no-files-found: error
+
+    - name: Produce coverage report
+      run: make coverage
+
+    - name: Coveralls
+      uses: coverallsapp/github-action@master
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        path-to-lcov: coverage.lcov
 
     - name: Publish
       if: (startsWith(github.ref, 'refs/tags/v') && (matrix.os.name == 'ubuntu') && (matrix.python-version == '3.7'))

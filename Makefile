@@ -103,6 +103,8 @@ endef
 coverage:
 	coverage run --source=yace -m yace models/example.yaml
 	coverage report
+	coverage html
+	coverage lcov
 
 define view-help
 # Inspect generated code
