@@ -23,7 +23,7 @@ extensions = [
 ]
 
 gtagjs_ids = [
-    'UA-222706364-1',
+    "UA-222706364-1",
 ]
 
 templates_path = ["_templates"]
