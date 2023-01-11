@@ -1,1 +1,0 @@
-union {% if not parent %}{{ meta.prefix }}_{{ entity.symbol }}{% endif %} {

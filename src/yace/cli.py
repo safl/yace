@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 import argparse
 import logging
+from dataclasses import asdict
 from pathlib import Path
 from pprint import pprint
 
 import yaml
 
 from yace import __version__ as version
-from yace.emitter import Emitter
-from yace.model.interface import InterfaceModel
+from yace.emitters.capi import CAPI
+from yace.model.interface import InterfaceModel, data_from_yaml
 
 
 def parse_args():
@@ -43,6 +44,11 @@ def parse_args():
         help="Path to output directory, for emitted code / artifacts",
     )
     parser.add_argument(
+        "--visualize",
+        action="store_true",
+        help="Path to output directory, for emitted code / artifacts",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"%(prog)s {version}",
@@ -60,9 +66,15 @@ def main():
 
     args.output.mkdir(parents=True, exist_ok=True)
 
-    for model in [InterfaceModel.from_path(model) for model in args.model]:
-        emitter = Emitter(model, model.meta, args.targets, args.output)
-        emitter.emit_api_def()
-        emitter.emit_api_pp()
-        emitter.emit_api_test()
-        emitter.emit_docgen()
+    for model in [InterfaceModel.from_path(path) for path in args.model]:
+        emitter = CAPI(model, args.output)
+
+        if args.visualize:
+            print("# Visualize")
+            for entity in model.entities:
+                emitter.traverse(entity, None)
+            continue
+
+        emitter.emit()
+        emitter.format()
+        emitter.check()

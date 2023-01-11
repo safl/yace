@@ -19,3 +19,4 @@
    enumtypes.rst
    structtypes.rst
    uniontypes.rst
+   functiontypes.rst

@@ -35,3 +35,4 @@ class Define(Entity):
     lit: typing.Union[LiteralHex, LiteralDec, LiteralString]
 
     cls: str = "define"
+    label: str = "default"

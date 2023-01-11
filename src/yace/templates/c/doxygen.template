@@ -1,6 +1,6 @@
 DOXYFILE_ENCODING      = UTF-8
 PROJECT_NAME           = "{{ meta.project }}"
-PROJECT_NUMBER         = 0.0.15
+PROJECT_NUMBER         = {{ meta.version }}
 PROJECT_BRIEF          = "{{ meta.brief }}"
 PROJECT_LOGO           =
 
@@ -254,7 +254,7 @@ WARN_LOGFILE           =
 # spaces. See also FILE_PATTERNS and EXTENSION_MAPPING
 # Note: If this tag is empty the current directory is searched.
 
-INPUT                  = output/
+INPUT                  = output/{{ meta.prefix }}
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses
@@ -713,7 +713,7 @@ DOCSET_FEEDNAME        = "Doxygen generated docs"
 # The default value is: org.doxygen.Project.
 # This tag requires that the tag GENERATE_DOCSET is set to YES.
 
-DOCSET_BUNDLE_ID       = org.xnvme.libxnvme
+DOCSET_BUNDLE_ID       = org.{{ meta.project }}.lib{{ meta.prefix }}
 
 # The DOCSET_PUBLISHER_ID tag specifies a string that should uniquely identify
 # the documentation publisher. This should be a reverse domain-name style

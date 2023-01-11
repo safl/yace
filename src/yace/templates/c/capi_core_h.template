@@ -1,0 +1,59 @@
+/**
+ * {{ meta.brief }}
+ *
+{%- if meta.full %}
+ * {{ meta.full | replace("\n", " ") }}
+ *
+{%- endif %}
+ * NOTE: This file is auto-generated using yace: https://github.com/safl/yace
+ *
+ * Copyright (C) {{ meta.author }}
+ * SPDX-License-Identifier: {{ meta.lic }}
+ *
+ * @file lib{{ meta.prefix }}.h
+ */
+
+{% for entity in entities recursive %}
+{%- if entity.doc and entity.cls in ["enum", "struct", "union"] and not loop.depth0 -%}
+/**
+ * {{ entity.doc }}
+ *
+ * @{{ entity.cls }} {{ meta.prefix }}_{{ entity.symbol }}
+ */
+{%- endif -%}
+{% if entity.cls in ["define"] -%}
+#define {{ meta.prefix | upper }}_{{ entity.symbol | upper }} = {{ entity.lit.val }} ///< {{ entity.doc }}
+{%- elif entity.cls in ["enum"] %}
+enum {{ meta.prefix }}_{{ entity.symbol }} {
+{% for member in entity.members %}
+	{{ meta.prefix | upper }}_{{ entity.symbol | upper }}_{{ member.symbol | upper }} = {{ '0x%0x' % member.lit.val }}, ///< {{ member.doc }}
+{% endfor %}
+};
+{% elif entity.cls in ["struct", "union"] and not loop.depth0 %}
+{{ entity.cls }} {{ meta.prefix }}_{{ entity.symbol }} {
+	{{ loop(entity.members) }}
+};
+{% elif entity.cls in ["struct", "union"] and loop.depth0%}
+{{ entity.cls }} {
+	{{ loop(entity.members) }}
+}{% if entity.symbol %} {{ meta.prefix }}_{{ entity.symbol }}{% endif %};
+{% elif entity.cls in ["bitfield"] %}
+{% if entity.symbol %} struct { {% endif %}
+	{% for member in entity.members %}
+	uint{{ entity.dtype.width }}_t {{ member.symbol }} : {{ member.width }}; ///< {{ member.doc }}
+	{% endfor %}
+{% if entity.symbol %}} {{ entity.symbol }};{% endif %}
+{% elif entity.cls in ["field"] %}
+{{ entity.dtype | render("typedecl") }} {{ entity.symbol }}; ///< {{ entity.doc }}
+{% elif entity.cls in ["fun"] %}
+/**
+ * {{ entity.doc }}
+ *
+{%- for parameter in entity.parameters %}
+ * @param {{ parameter.symbol }} {{ parameter.doc }}
+{%- endfor %}
+ */
+{{ entity.ret | render("typedecl") }} {{ entity.symbol }}
+({% for parameter in entity.parameters %}{{ parameter | render("param") }}{{ ", " if not loop.last else "" }}{% endfor %});
+{% endif %}
+{% endfor %}

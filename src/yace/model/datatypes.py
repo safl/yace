@@ -230,6 +230,22 @@ class Char(Typedecl):
 
 
 @dataclass
+class Int(Typedecl):
+    """
+    The integer commonly used for error-handling, non-fixed width.
+
+    The C emitter produces::
+
+        int
+
+    for the :class:`Int` entity.
+    """
+
+    cls: str = "int"
+    width: int = 32  # This should be something else than an actual assignmment
+
+
+@dataclass
 class String(Typedecl):
     """
     A string pointer

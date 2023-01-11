@@ -31,3 +31,4 @@ documentation placeholders as they are yet to be written.
    cython.rst
    go.rst
    rust.rst
+   zig.rst

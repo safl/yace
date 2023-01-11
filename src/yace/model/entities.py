@@ -31,6 +31,8 @@ class Typedecl:
     pointer: int = 0
     array: int = 0
 
+    doc: str = ""
+
     label: str = "typedecl"
 
 

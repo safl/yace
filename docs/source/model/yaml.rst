@@ -4,7 +4,16 @@ YAML
 ====
 
 A **yace** Interface Model (``yim``) file, is YAML formated document where some
-keys in the document have *special* meaning. The document is layed out as:
+keys in the document have *special* meaning. This is what one might call an
+interface definition language (:idl:`idl <>`). By design this is similar to the
+module definitions you find in projects like :swig:`swig <>`.
+
+However, unlike other **IDLs**, then ``yim`` does not define a new grammer that
+you have to learn. Rather it is object-oriented description of the entities
+formated in YAML. Each document in the ``yim`` thus refers to a class described
+in section ...
+
+The document is layed out as:
 
 .. literalinclude:: 000_layout.yaml
    :language: yaml

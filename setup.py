@@ -28,6 +28,7 @@ setup(
     packages=[
         "yace",
         "yace.model",
+        "yace.emitters",
         "yace.templates",
         "yace.templates.c",
         "yace.templates.ctypes",

@@ -1,9 +1,0 @@
-{%- if entity.symbol %}
-struct {
-{%- endif -%}
-{%- for member in entity.members %}
-uint{{ entity.dtype.width }}_t {{ member.symbol }} : {{ member.width }}; ///< {{ member.doc }}
-{%- endfor %}
-{%- if entity.symbol %}
-} {{ entity.symbol }}; ///< {{ entity.doc }}
-{%- endif -%}

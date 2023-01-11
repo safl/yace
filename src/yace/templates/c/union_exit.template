@@ -1,1 +1,0 @@
-}{% if parent and entity.symbol %}{{ entity.symbol }}{% endif %};

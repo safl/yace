@@ -3,8 +3,8 @@
 Install
 =======
 
-The **yace** command-line tool is implemented in :Python:`Python <>`. It
-requires :Python:`Python <>` 3.7+ along with the third-party modules:
+The **yace** command-line tool is implemented in :lang-python:`Python <>`. It
+requires :lang-python:`Python <>` 3.7+ along with the third-party modules:
 :pyyaml:`pyyaml <>` and :jinja2:`jinja2 <>`. **yace** is distributed via the
 Python Package Index and thus installable by:
 
@@ -23,7 +23,7 @@ The above should produce the output below:
 .. literalinclude:: 100_help.out
    :lines: 1-1
 
-In case it does not, then check your :Python:`Python <>` environment, in case
+In case it does not, then check your :lang-python:`Python <>` environment, in case
 it is due to an error with **yace** then please submit an issue on
 :github-yace-issues:`GitHUB <>`.
 

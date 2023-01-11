@@ -59,3 +59,4 @@ class Struct(Entity):
     members: typing.List
 
     cls: str = "struct"
+    label: str = "default"

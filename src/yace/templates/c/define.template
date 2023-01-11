@@ -1,1 +1,0 @@
-#define {{ entity.symbol | upper }} {{ entity.lit.val }}

@@ -8,24 +8,55 @@ import logging
 import typing
 from dataclasses import dataclass
 from pathlib import Path
+from pprint import pprint
 
 import yaml
 
 from ..errors import InvalidInterfaceModelData
-from . import datatypes, entities, enumtypes, literals, macros, structtypes, uniontypes
+from . import (
+    datatypes,
+    entities,
+    enumtypes,
+    functiontypes,
+    literals,
+    macros,
+    structtypes,
+    uniontypes,
+)
+
+
+def data_from_yaml(path: Path) -> (dict, list):
+    """
+    Returns data from YAML (yim) file as (meta, entities)
+    """
+
+    meta = {}
+    entities = []
+
+    with path.open() as yamlfile:
+        for label, data in yaml.safe_load(yamlfile).items():
+            if label == "meta":
+                meta = data
+                continue
+
+            for entity in data:
+                entity["label"] = label
+                entities.append(entity)
+
+    return meta, entities
 
 
 @dataclass
 class Meta:
     """
-    Meta data used by the :class:`.emitter.Emitter` to describe attributes of
-    the generated C API and bindings/wrappers, such as license, version, and
-    documentation
+    Meta data used by the to describe attributes of the generated C API and
+    bindings/wrappers, such as license, version, and documentation
     """
 
     lic: str  # License string, this is utilized for SPDX
-    project: str = "example"
     version: str = "0.0.1"
+    author: str = "Foo Bar <foo@example.com>"
+    project: str = "Example"
     prefix: str = "ex"
     brief: str = "yace example"
     full: str = (
@@ -50,6 +81,7 @@ class InterfaceModel(object):
             + inspect.getmembers(enumtypes)
             + inspect.getmembers(structtypes)
             + inspect.getmembers(uniontypes)
+            + inspect.getmembers(functiontypes)
         )
         if inspect.isclass(obj) and hasattr(obj, "cls")
     }
@@ -60,65 +92,74 @@ class InterfaceModel(object):
         self.entities = []
 
     @classmethod
-    def entity_from_data(cls, data: dict):
+    def entity_from_data(cls, cur: dict, parent=None, depth=0):
         """
-        Factory function instantiating entities from data
+        Walk 'cur' recursively with depth-count and "short-hand" expansion
 
-        The entities are constructed using the mapping in
-        InterfaceModel.MAPPING, e.g.::
+        A tree-walk is needed as just invoking the dataclass-constructor::
 
             entity = InterfaceModel.MAPPING["struct"](data)
+
+        Would not instantiate members, parameters, dtype, etc. additionally,
+        the short-hands are expanded:
+
+        - Integer literals
+
+          - {dtype: 10} instead of {dtype: {cls: dec, val: 10}}
+
+        - Data Types
+
+          - {dtype: u16} instead of {dtype: {cls: u16}}
+
+        Foo...
         """
 
-        constructor = InterfaceModel.MAPPING.get(data["cls"])
+        if type(cur) not in [int, str, dict]:
+            raise InvalidInterfaceModelData(f"Invalid type: {cur}")
+        elif type(cur) in [dict] and "cls" not in cur:
+            raise InvalidInterfaceModelData(f"Missing 'cls' in {cur}")
+
+        if isinstance(cur, int):  # short-hand for integer-literal
+            return literals.LiteralDec(val=cur)
+        elif isinstance(cur, str):  # short-hand for dtype
+            dtype = InterfaceModel.MAPPING.get(cur)
+            if not dtype:
+                raise InvalidInterfaceModelData(f"dtype !short-hand: '{cur}'")
+
+            return dtype()
+
+        constructor = InterfaceModel.MAPPING.get(cur["cls"])
         if not constructor:
-            raise InvalidInterfaceModelData(f"No mapping for {data}")
+            raise InvalidInterfaceModelData(f"No constructor for '{cur}'")
 
-        for attr in ["dtype", "lit"]:
-            if attr not in data:
-                continue
-
-            adata = data.get(attr)
-            if isinstance(adata, dict):
-                data[attr] = cls.entity_from_data(adata)
-            elif isinstance(adata, str) and attr == "dtype":
-                constructor_dtype = InterfaceModel.MAPPING.get(adata)
-                if not constructor_dtype:
-                    raise InvalidInterfaceModelData(
-                        f"No mapping for dtype shorthand: {adata}"
-                    )
-                data[attr] = constructor_dtype()
-            elif isinstance(adata, int) and attr == "lit":
-                data[attr] = literals.LiteralDec(val=adata)
-            elif isinstance(adata, str) and attr == "lit":
-                data[attr] = literals.LiteralString(val=adata)
+        attributes = {}
+        for attr, attr_data in cur.items():
+            if attr in ["dtype", "ret", "lit"]:
+                attributes[attr] = InterfaceModel.entity_from_data(
+                    attr_data, cur, depth
+                )
+            elif attr in ["members", "parameters"]:
+                attributes[attr] = [
+                    InterfaceModel.entity_from_data(child, cur, depth + 1)
+                    for child in cur.get(attr)
+                ]
             else:
-                raise InvalidInterfaceModelData(f"Invalid {data}")
+                attributes[attr] = attr_data
 
-        if "members" in data:
-            data["members"] = [cls.entity_from_data(mdata) for mdata in data["members"]]
-            if None in data["members"]:
-                raise InvalidInterfaceModelData(f"Issues with {data}")
-
-        return constructor(**data)
+        return constructor(**attributes)
 
     @classmethod
-    def from_data(cls, data: dict):
-        """Construct an InterfaceModel using the given 'data'"""
+    def from_data(cls, meta: dict, entities: list):
+        """Construct an InterfaceModel using the given 'meta' and 'entities'"""
 
         interface = cls()
+        interface.meta = Meta(**meta)
 
-        meta_data = data.get("meta", None)
-        if meta_data:
-            del data["meta"]
-            interface.meta = Meta(**meta_data)
-
-        for label, ents in data.items():
-            total = len(ents)
-            for count, entity_data in enumerate(ents, 1):
-                logging.info(f"Processing entity {count} / {total} in {label}")
-                entity = cls.entity_from_data(entity_data)
-                interface.entities.append(entity)
+        total = len(entities)
+        for count, entity_data in enumerate(entities, 1):
+            logging.debug(f"Processing {count} / {total} in {entity_data['label']}")
+            entity = cls.entity_from_data(entity_data)
+            interface.entities.append(entity)
 
         return interface
 
@@ -129,14 +170,4 @@ class InterfaceModel(object):
         given 'path'
         """
 
-        raw = {}
-        with path.open() as sfd:
-            for key, val in yaml.safe_load(sfd).items():
-                if key not in raw:
-                    raw[key] = val
-                elif key in raw and isinstance(val, list):
-                    raw[key] += val
-                else:
-                    raw[key].update(val)
-
-        return cls.from_data(raw)
+        return cls.from_data(*data_from_yaml(path))

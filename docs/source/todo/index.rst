@@ -6,7 +6,7 @@
 
 This is a quick'n'dirty notes on things to do:
 
-* Add function-declarations
+* Add function-pointer-declarations
 
   * Must be added to yim
   * And added to ``yet``

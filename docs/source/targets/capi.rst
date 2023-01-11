@@ -3,4 +3,7 @@
 capi
 ====
 
-... no docs written ...
+.. automodule:: yace.emitters.capi
+   :inherited-members:
+   :members:
+   :undoc-members:

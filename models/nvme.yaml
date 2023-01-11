@@ -3,6 +3,7 @@ meta:
   project: 'NVMe'
   version: '0.0.1'
   lic: 'BSD-3-Clause'
+  author: Simon A. F. Lund <os@safl.dk>
   prefix: 'nvme'
   brief: 'NVMe structs, enum, values and helper function declarations'
   full: |
@@ -300,8 +301,8 @@ nvm:
   cls: struct
   members:
   - symbol: bits
-    doc: "Bitfield accessor"
     cls: bitfield
+    doc: "Bitfield accessor"
     dtype: u16
     members:
     - {cls: bits, width: 8, symbol: opcode, doc: "Command Opcode"}
@@ -318,8 +319,8 @@ nvm:
     doc:
     members:
     - symbol:
-      doc:
       cls: struct
+      doc:
       members:
       - {cls: field, symbol: dptr1, dtype: u64, fmt: '0x%x', doc: "Brief"}
       - {cls: field, symbol: dptr2, dtype: u64, fmt: '0x%x', doc: "Brief"}
@@ -334,9 +335,9 @@ nvm:
   doc: "NVM Write Command"
   cls: struct
   members:
-  - symbol:
-    doc:
+  - symbol: bits
     cls: bitfield
+    doc:
     dtype: u16
     members:
     - {cls: bits, width: 8, symbol: opcode, doc: "Command Opcde"}

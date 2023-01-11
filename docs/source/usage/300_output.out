@@ -1,9 +1,13 @@
 output
+├── check.c
 ├── doxy.cfg
+├── doxygen.conf
+├── example_check.c
 ├── example_pp.c
 ├── libexample.h
+├── libexample_core.h
 ├── libexample_pp.h
 └── test.c
 
-0 directories, 5 files
+0 directories, 9 files
 

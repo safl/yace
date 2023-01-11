@@ -1,5 +1,0 @@
-/**
- * {{ entity.doc }}
- *
- * @{{ entity.cls }} {{meta.prefix}}_{{ entity.symbol }}
- */

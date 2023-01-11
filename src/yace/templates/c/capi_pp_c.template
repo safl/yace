@@ -1,32 +1,27 @@
 /**
- * Copyright (C) Simon A. F. Lund <os@safl.dk>
- * SPDX-License-Identifier: BSD-3-CLAUSE
+ * Copyright (C) {{ meta.author }}
+ * SPDX-License-Identifier: {{ meta.lic }}
  *
- * @file {{ meta.prefix }}_spec.c
+ * @file {{ meta.prefix }}_pp.c
  */
-#include <inttypes.h>
-#include <stdio.h>
-#include <errno.h>
 #include <lib{{ meta.prefix }}.h>
-#include <lib{{ meta.prefix }}_pp.h>
 
-{%- for ent in entities %}
-{% set ident=meta['prefix'] + '_' + ent['symbol'] %}
-{%- if ent['cls'] in ['enum'] %}
+{%- for entity in entities %}
+{% set ident=meta["prefix"] + "_" + entity["symbol"] %}
+{%- if entity["cls"] in ["enum"] %}
 const char *
 {{ ident }}_str(int enum_val)
 {
 	switch (enum_val) {
-	{%- for member in ent['members'] %}
-	case {{ ident | upper }}_{{ member['symbol'] | upper }}:
-		return "{{ member['symbol'] }}";
+	{%- for member in entity["members"] %}
+	case {{ ident | upper }}_{{ member["symbol"] | upper }}:
+		return "{{ member["symbol"] }}";
 	{%- endfor %}
 	}
 
 	return "ENOSYS";
-
 }
-{%- elif ent['cls'] in ['struct', 'union'] %}
+{%- elif entity["cls"] in ["struct", "union"] %}
 static int
 {{ ident }}_yaml(FILE *stream, const struct {{ ident }} *obj, int flags)
 {

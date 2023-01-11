@@ -25,6 +25,7 @@ class EnumValue(Entity):
     lit: typing.Union[LiteralDec, LiteralHex, LiteralString] = None
 
     cls: str = "enum_value"
+    label: str = "default"
 
 
 @dataclass
@@ -55,3 +56,4 @@ class Enum(Entity):
     members: typing.List[EnumValue]
 
     cls: str = "enum"
+    label: str = "default"

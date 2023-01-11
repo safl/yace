@@ -1,10 +1,11 @@
 ---
 meta:
-  project: 'example'
+  project: example
   version: '0.0.1'
-  lic: 'BSD-3-Clause'
-  prefix: 'example'
-  brief: 'yace example'
+  lic: BSD-3-Clause
+  author: Simon A. F. Lund <os@safl.dk>
+  prefix: example
+  brief: yace example
   full: This example is intended for documentation as well as testing
 
 foo:

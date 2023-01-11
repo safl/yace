@@ -1,0 +1,36 @@
+/**
+ * Library bundle header for {{ meta.project }}
+ *
+ * The bundle-header provides a single point of entry for library users to include. This is done
+ * such that all the other headers do not have to:
+ *
+ * - Include other headers (See Rob Pike)
+ * - Use include-guard
+ * - Use C++ extern
+ *
+ * Additionally, this allows for composition when using the {{ meta.project }} library. In case the
+ * library user have another definition for e.g. integer types, or only wants a subset etc. then
+ * they can compose utilization that serves them best.
+ */
+#ifndef __LIB{{ meta.prefix | upper }}_H
+#define __LIB{{ meta.prefix | upper }}_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <assert.h>
+#include <stdint.h>
+#include <sys/types.h>
+#include <inttypes.h>
+#include <stdbool.h>
+
+{%- for header in headers %}
+#include <{{header}}>
+{%- endfor %}
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __LIB{{ meta.prefix | upper }}_H */
