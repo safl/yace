@@ -13,13 +13,13 @@ define all-help
 # Do all: clean uninstall build install
 endef
 .PHONY: all
-all: uninstall clean build install emit
+all: uninstall clean build install emit docs
 
 define all-system-help
 # Do all: clean uninstall build install-system
 endef
 .PHONY: all-system
-all-system: uninstall clean build install emit
+all-system: uninstall clean build install emit docs
 
 define build-help
 # Build the package (source distribution package)
