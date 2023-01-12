@@ -26,16 +26,16 @@ The 'format' stage also emits the files:
 
 Thus, the above files are what you should expect to see in the output-directory
 """
-import logging
+import logging as log
 import shutil
 import typing
 from pathlib import Path
 
 from yace.emitters import Emitter
-from yace.tools import clang_format
+from yace.tools import ClangFormat, Doxygen, Gcc
 
 
-class CAPI(Emitter):
+class CAPI(Emitter, ClangFormat, Doxygen, Gcc):
     """
     Several helper functions
     """
@@ -47,8 +47,15 @@ class CAPI(Emitter):
         self.sources = []  # Resolved paths to emitted sources
         self.aux = []  # Resolved paths to auxilary files e.g. Doxy Conf
 
+    def lint(self):
+        """Lint..."""
+
+        log.info("lint ...")
+
     def emit(self):
         """Emit code"""
+
+        log.info("emit ...")
 
         files = [
             (f"lib{self.meta.prefix}_core.h", "capi_core_h", self.headers),
@@ -56,7 +63,7 @@ class CAPI(Emitter):
             (f"lib{self.meta.prefix}.h", "capi_bundle_h", self.headers),
             (f"{self.meta.prefix}_pp.c", "capi_pp_c", self.sources),
             (f"{self.meta.prefix}_check.c", "capi_check_c", self.sources),
-            ("doxygen.conf", "doxygen", self.sources),
+            ("doxygen.conf", "doxygen", self.aux),
         ]
         for filename, template, container in files:
             path = (self.output / filename).resolve()
@@ -76,17 +83,24 @@ class CAPI(Emitter):
         invokes the clang-formater
         """
 
+        log.info("format ...")
+
         path = Path(__file__).parent
-        for files, rules in [
-            (self.headers, "hdr.clang-format"),
-            (self.sources, "src.clang-format"),
+        for rules in [
+            ClangFormat.CLANGFORMAT_STYLE_H,
+            ClangFormat.CLANGFORMAT_STYLE_C,
         ]:
             shutil.copyfile(path / rules, self.output / rules)
-            result = clang_format(self.headers, self.output / rules)
-            if result.returncode:
-                print("bad mojo")
+
+        self.format_clang_format()
+        self.docs_doxygen()
 
     def check(self):
         """Run the generated test-program"""
 
-        pass
+        log.info("check ...")
+
+        cmd = ["-I", str(self.output)] + [str(p) for p in self.sources]
+        log.info("cmd(%s)", " ".join(cmd))
+
+        self.gcc(cmd)

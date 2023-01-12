@@ -44,7 +44,7 @@ class Emitter(object):
     def __init__(self, model: InterfaceModel, output: Path, name: str = "base"):
         self.model = model
         self.meta = model.meta
-        self.output = output
+        self.output = output.resolve()
         self.name = name
 
         filter_jenv = Environment(

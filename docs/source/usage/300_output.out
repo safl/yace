@@ -1,5 +1,6 @@
 output
 ├── doxygen.conf
+├── doxyreport
 ├── example_check.c
 ├── example_pp.c
 ├── hdr.clang-format
@@ -8,5 +9,5 @@ output
 ├── libexample_pp.h
 └── src.clang-format
 
-0 directories, 8 files
+1 directory, 8 files
 

@@ -13,6 +13,22 @@ To satisfy the first point, then see :ref:`sec-install`. For the second point,
 then you can consult :ref:`sec-model` for reference to define a ``yim`` from
 scratch.
 
+Command-Line Interface
+======================
+
+Invoking the command-line interface of **yace**:
+
+.. literalinclude:: 050_yace_help.cmd
+   :language: yaml
+   :lines: 1-
+
+looks like
+
+.. literalinclude:: 050_yace_help.out
+   :language: yaml
+   :lines: 1-
+
+
 Example
 =======
 

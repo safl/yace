@@ -48,7 +48,7 @@ def parse_args():
         "--stage",
         nargs="+",
         default=["emit", "format"],
-        choices=["check", "emit", "format", "test"],
+        choices=["lint", "emit", "format", "test"],
     )
     parser.add_argument(
         "--output",
@@ -95,14 +95,11 @@ def main():
     for model in [InterfaceModel.from_path(path) for path in args.model]:
         target = CAPI(model, args.output)
 
-        if args.visualize:
-            print("# Visualize")
-            for entity in model.entities:
-                target.traverse(entity, None)
-            continue
-
+        if "lint" in args.stage:
+            target.lint()
         if "emit" in args.stage:
             target.emit()
+
         if "format" in args.stage:
             target.format()
         if "check" in args.stage:

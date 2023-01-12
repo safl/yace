@@ -20,10 +20,12 @@ extern "C" {
 #endif
 
 #include <assert.h>
-#include <stdint.h>
-#include <sys/types.h>
+#include <errno.h>
 #include <inttypes.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <sys/types.h>
 
 {%- for header in headers %}
 #include <{{ header.name }}>

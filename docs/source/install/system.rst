@@ -14,3 +14,19 @@ It is assumed that the following tools are available on the system where
 
 There are scripts in ``toolbox/pkgs/`` installing the above-mentioned tools on
 Ubuntu and macOS.
+
+Development
+~~~~~~~~~~~
+
+The toolbox and Makefile-helper requires that ``make`` is available. See the
+utilities provided by running:
+
+.. literalinclude:: 900_make.txt
+   :language: bash
+   :lines: 1-
+
+This should output:
+
+.. literalinclude:: 900_make.out
+   :language: bash
+   :lines: 1-

@@ -14,7 +14,7 @@
  */
 
 {% for entity in entities recursive %}
-{%- if entity.doc and entity.cls in ["enum", "struct", "union"] and not loop.depth0 -%}
+{%- if entity.doc and entity.cls in ["enum", "struct", "union"] and not loop.depth0 %}
 /**
  * {{ entity.doc }}
  *
