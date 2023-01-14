@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument(
         "--stage",
         nargs="+",
-        default=["emit", "format"],
+        default=["lint", "emit", "format", "test"],
         choices=["lint", "emit", "format", "test"],
     )
     parser.add_argument(
