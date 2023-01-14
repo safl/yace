@@ -16,7 +16,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/x-rst",
     url="https://github.com/safl/yace",
-    license="BSD",
+    license="GPL-2.0",
     setup_requires=["wheel"],
     install_requires=[
         "jinja2",
@@ -44,7 +44,7 @@ setup(
         "Framework :: Pytest",
         "Intended Audience :: Developers",
         "Intended Audience :: System Administrators",
-        "License :: OSI Approved :: BSD License",
+        "License :: OSI Approved :: GNU General Public License v2 (GPLV2)",
         "Programming Language :: Python",
         "Topic :: Software Development :: Testing",
         "Topic :: Software Development",
