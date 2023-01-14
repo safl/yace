@@ -25,27 +25,23 @@
 #define {{ meta.prefix | upper }}_{{ entity.symbol | upper }} = {{ entity.lit.val }} ///< {{ entity.doc }}
 {%- elif entity.cls in ["enum"] %}
 enum {{ meta.prefix }}_{{ entity.symbol }} {
-{% for member in entity.members %}
+{%- for member in entity.members %}
 	{{ meta.prefix | upper }}_{{ entity.symbol | upper }}_{{ member.symbol | upper }} = {{ '0x%0x' % member.lit.val }}, ///< {{ member.doc }}
-{% endfor %}
+{%- endfor %}
 };
-{% elif entity.cls in ["struct", "union"] and not loop.depth0 %}
-{{ entity.cls }} {{ meta.prefix }}_{{ entity.symbol }} {
-	{{ loop(entity.members) }}
-};
-{% elif entity.cls in ["struct", "union"] and loop.depth0%}
-{{ entity.cls }} {
-	{{ loop(entity.members) }}
-}{% if entity.symbol %} {{ meta.prefix }}_{{ entity.symbol }}{% endif %};
+{%- elif entity.cls in ["struct", "union"] and not loop.depth0 -%}
+{{ entity.cls }} {{ meta.prefix }}_{{ entity.symbol }} { {{ loop(entity.members) }} };
+{%- elif entity.cls in ["struct", "union"] and loop.depth0 -%}
+{{ entity.cls }} { {{ loop(entity.members) }} }{% if entity.symbol %} {{ meta.prefix }}_{{ entity.symbol }}{% endif %};
 {% elif entity.cls in ["bitfield"] %}
 {% if entity.symbol %} struct { {% endif %}
-	{% for member in entity.members %}
+	{%- for member in entity.members %}
 	uint{{ entity.dtype.width }}_t {{ member.symbol }} : {{ member.width }}; ///< {{ member.doc }}
-	{% endfor %}
+	{%- endfor %}
 {% if entity.symbol %}} {{ entity.symbol }};{% endif %}
-{% elif entity.cls in ["field"] %}
+{%- elif entity.cls in ["field"] %}
 {{ entity.dtype | render("typedecl") }} {{ entity.symbol }}; ///< {{ entity.doc }}
-{% elif entity.cls in ["fun"] %}
+{%- elif entity.cls in ["fun"] %}
 /**
  * {{ entity.doc }}
  *
