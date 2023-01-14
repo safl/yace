@@ -10,7 +10,7 @@ except FileNotFoundError:
 
 setup(
     name="yace",
-    version="0.4.1",
+    version="0.4.2",
     author="Simon A. F. Lund",
     author_email="os@safl.dk",
     long_description=long_description,
@@ -43,7 +43,7 @@ setup(
         "Framework :: Pytest",
         "Intended Audience :: Developers",
         "Intended Audience :: System Administrators",
-        "License :: OSI Approved :: GNU General Public License v2 (GPLV2)",
+        "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "Programming Language :: Python",
         "Topic :: Software Development :: Testing",
         "Topic :: Software Development",
