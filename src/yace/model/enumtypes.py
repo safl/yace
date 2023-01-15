@@ -22,7 +22,7 @@ class EnumValue(Entity):
     for the :class:`EnumValue``.
     """
 
-    lit: typing.Union[LiteralDec, LiteralHex, LiteralString] = None
+    val: typing.Union[LiteralDec, LiteralHex, LiteralString] = None
 
     cls: str = "enum_value"
     label: str = "default"

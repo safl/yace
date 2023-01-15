@@ -8,9 +8,9 @@ meta:
   full: This example is intended for documentation as well as testing
 
 entities:
-- {cls: define, symbol: max_x, lit: {cls: dec, val: 128}, doc: "Maximum value of X"}
-- {cls: define, symbol: max_y, lit: {cls: dec, val: 64}, doc: "Maximum value of Y"}
-- {cls: define, symbol: max_z, lit: 64, doc: "Maximum value of Z"}
+- {cls: define, symbol: max_x, val: {cls: dec, lit: 128}, doc: "Maximum value of X"}
+- {cls: define, symbol: max_y, val: {cls: dec, lit: 64}, doc: "Maximum value of Y"}
+- {cls: define, symbol: max_z, val: 64, doc: "Maximum value of Z"}
 
 - cls: struct
   symbol: point

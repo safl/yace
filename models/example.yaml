@@ -9,23 +9,23 @@ meta:
   full: This example is intended for documentation as well as testing
 
 macros_explicit_literal:
-- {cls: define, symbol: max_x, lit: {cls: dec, val: 128}, doc: "Maximum value of X"}
-- {cls: define, symbol: max_y, lit: {cls: dec, val: 64}, doc: "Maximum value of Y"}
-- {cls: define, symbol: max_z, lit: {cls: dec, val: 64}, doc: "Maximum value of Z"}
+- {cls: define, symbol: max_x, val: {cls: dec, lit: 128}, doc: "Maximum value of X"}
+- {cls: define, symbol: max_y, val: {cls: dec, lit: 64}, doc: "Maximum value of Y"}
+- {cls: define, symbol: max_z, val: {cls: dec, lit: 64}, doc: "Maximum value of Z"}
 
 macros_implicit_literal:
-- {cls: define, symbol: min_x, lit: 128, doc: "Maximum value of X"}
-- {cls: define, symbol: min_y, lit: 64, doc: "Maximum value of Y"}
-- {cls: define, symbol: min_z, lit: 64, doc: "Maximum value of Z"}
+- {cls: define, symbol: min_x, val: 128, doc: "Maximum value of X"}
+- {cls: define, symbol: min_y, val: 64, doc: "Maximum value of Y"}
+- {cls: define, symbol: min_z, val: 64, doc: "Maximum value of Z"}
 
 enumtypes_implicit_literal:
 - cls: enum
   symbol: ops
   doc: Opcodes for point operation processor
   members:
-  - {cls: enum_value, symbol: add, lit: {cls: hex, val: 0}, doc: "Add two points"}
-  - {cls: enum_value, symbol: sub, lit: {cls: hex, val: 1}, doc: "Substract two points"}
-  - {cls: enum_value, symbol: mul, lit: {cls: hex, val: 2}, doc: "Multple two points"}
+  - {cls: enum_value, symbol: add, val: {cls: hex, lit: 0}, doc: "Add two points"}
+  - {cls: enum_value, symbol: sub, val: {cls: hex, lit: 1}, doc: "Substract two points"}
+  - {cls: enum_value, symbol: mul, val: {cls: hex, lit: 2}, doc: "Multple two points"}
 
 structtypes_plain:
 - cls: struct

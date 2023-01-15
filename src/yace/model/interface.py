@@ -135,7 +135,7 @@ class InterfaceModel(object):
             raise InvalidInterfaceModelData(f"Missing 'cls' in {cur}")
 
         if isinstance(cur, int):  # short-hand for integer-literal
-            return literals.LiteralDec(val=cur)
+            return literals.LiteralDec(lit=cur)
         elif isinstance(cur, str):  # short-hand for dtype
             dtype = InterfaceModel.MAPPING.get(cur)
             if not dtype:
@@ -149,7 +149,7 @@ class InterfaceModel(object):
 
         attributes = {}
         for attr, attr_data in cur.items():
-            if attr in ["dtype", "ret", "lit"]:
+            if attr in ["dtype", "ret", "val"]:
                 attributes[attr] = InterfaceModel.entity_from_data(
                     attr_data, cur, depth
                 )

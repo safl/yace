@@ -22,11 +22,11 @@
  */
 {%- endif -%}
 {% if entity.cls in ["define"] -%}
-#define {{ meta.prefix | upper }}_{{ entity.symbol | upper }} = {{ entity.lit.val }} ///< {{ entity.doc }}
+#define {{ meta.prefix | upper }}_{{ entity.symbol | upper }} = {{ entity.val.lit }} ///< {{ entity.doc }}
 {%- elif entity.cls in ["enum"] %}
 enum {{ meta.prefix }}_{{ entity.symbol }} {
 {%- for member in entity.members %}
-	{{ meta.prefix | upper }}_{{ entity.symbol | upper }}_{{ member.symbol | upper }} = {{ '0x%0x' % member.lit.val }}, ///< {{ member.doc }}
+	{{ meta.prefix | upper }}_{{ entity.symbol | upper }}_{{ member.symbol | upper }} = {{ '0x%0x' % member.val.lit }}, ///< {{ member.doc }}
 {%- endfor %}
 };
 {%- elif entity.cls in ["struct", "union"] and not loop.depth0 -%}

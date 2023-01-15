@@ -32,7 +32,7 @@ class Define(Entity):
     The other code-emitters will generate similar globally scoped definitions.
     """
 
-    lit: typing.Union[LiteralHex, LiteralDec, LiteralString]
+    val: typing.Union[LiteralHex, LiteralDec, LiteralString]
 
     cls: str = "define"
     label: str = "default"

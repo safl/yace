@@ -13,8 +13,8 @@ enumerate_action:
   doc: When enumerating, the enumerate_action instructs what should happen with each discovered device
   cls: enum
   members:
-  - {cls: enum_value, symbol: dev_keep_open, lit: 0x0, doc: "Keep device-handle open after callback returns"}
-  - {cls: enum_value, symbol: dev_close, lit: 0x1, doc: "Close device-handle when callback returns"}
+  - {cls: enum_value, symbol: dev_keep_open, val: 0x0, doc: "Keep device-handle open after callback returns"}
+  - {cls: enum_value, symbol: dev_close, val: 0x1, doc: "Close device-handle when callback returns"}
 
 options:
 - symbol: opts

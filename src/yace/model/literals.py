@@ -35,15 +35,24 @@ class LiteralString:
 
     """
 
-    val: str
+    lit: str
     cls: str = "str"
 
 
 @dataclass
 class LiteralHex:
-    """Representation of a an integer literal"""
+    """
+    Representation of a an integer literal
 
-    val: int
+    The emitted C code should be hexidecimal notation of literal integer
+    values, such as those used by :class:`yace.model.macros.Define` and
+    :class:`yace.model.enumtypes.Enum`::
+
+        #define FOO 0xACDC
+
+    """
+
+    lit: int
     cls: str = "hex"
 
 
@@ -51,5 +60,5 @@ class LiteralHex:
 class LiteralDec:
     """Representation of a an integer literal in decimal"""
 
-    val: int
+    lit: int
     cls: str = "dec"
