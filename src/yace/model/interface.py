@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-A single class (:class:`.InterfaceModel`) is provided it encapsulates the
+A single class (:class:`.Model`) is provided it encapsulates the
 loading of the interface model from YAML files into a Pythonic representation
 """
 import inspect
@@ -12,7 +12,7 @@ from pprint import pprint
 
 import yaml
 
-from ..errors import InvalidInterfaceModelData
+from ..errors import InvalidModelData
 from . import (
     datatypes,
     entities,
@@ -66,9 +66,9 @@ class Meta:
     )
 
 
-class InterfaceModel(object):
+class Model(object):
     """
-    The :class:`.InterfaceModel` serves as the root of the "tree" describing
+    The :class:`.Model` serves as the root of the "tree" describing
     the interface to generate C API and bindings for.
     """
 
@@ -91,21 +91,6 @@ class InterfaceModel(object):
         self.meta = Meta(lic="UNLICENSED")
         self.entities = []
 
-    def traverse(
-        self,
-        current: entities.Entity,
-        parent: typing.Optional[entities.Entity],
-        depth: int = 0,
-    ) -> str:
-        """
-        Recursive walk of the 'current' entity
-        """
-
-        self.func(current.cls, parent, depth)
-        if getattr(current, "members", None):
-            for member in getattr(current, "members"):
-                self.traverse(member, current, depth + 1)
-
     @classmethod
     def entity_from_data(cls, cur: dict, parent=None, depth=0):
         """
@@ -113,7 +98,7 @@ class InterfaceModel(object):
 
         A tree-walk is needed as just invoking the dataclass-constructor::
 
-            entity = InterfaceModel.MAPPING["struct"](data)
+            entity = Model.MAPPING["struct"](data)
 
         Would not instantiate members, parameters, dtype, etc. additionally,
         the short-hands are expanded:
@@ -130,32 +115,30 @@ class InterfaceModel(object):
         """
 
         if type(cur) not in [int, str, dict]:
-            raise InvalidInterfaceModelData(f"Invalid type: {cur}")
+            raise InvalidModelData(f"Invalid type: {cur}")
         elif type(cur) in [dict] and "cls" not in cur:
-            raise InvalidInterfaceModelData(f"Missing 'cls' in {cur}")
+            raise InvalidModelData(f"Missing 'cls' in {cur}")
 
         if isinstance(cur, int):  # short-hand for integer-literal
             return literals.LiteralDec(lit=cur)
         elif isinstance(cur, str):  # short-hand for dtype
-            dtype = InterfaceModel.MAPPING.get(cur)
+            dtype = Model.MAPPING.get(cur)
             if not dtype:
-                raise InvalidInterfaceModelData(f"dtype !short-hand: '{cur}'")
+                raise InvalidModelData(f"dtype !short-hand: '{cur}'")
 
             return dtype()
 
-        constructor = InterfaceModel.MAPPING.get(cur["cls"])
+        constructor = Model.MAPPING.get(cur["cls"])
         if not constructor:
-            raise InvalidInterfaceModelData(f"No constructor for '{cur}'")
+            raise InvalidModelData(f"No constructor for '{cur}'")
 
         attributes = {}
         for attr, attr_data in cur.items():
             if attr in ["dtype", "ret", "val"]:
-                attributes[attr] = InterfaceModel.entity_from_data(
-                    attr_data, cur, depth
-                )
+                attributes[attr] = Model.entity_from_data(attr_data, cur, depth)
             elif attr in ["members", "parameters"]:
                 attributes[attr] = [
-                    InterfaceModel.entity_from_data(child, cur, depth + 1)
+                    Model.entity_from_data(child, cur, depth + 1)
                     for child in cur.get(attr)
                 ]
             else:
@@ -164,14 +147,14 @@ class InterfaceModel(object):
         return constructor(**attributes)
 
     @classmethod
-    def from_data(cls, meta: dict, entities: list):
-        """Construct an InterfaceModel using the given 'meta' and 'entities'"""
+    def from_data(cls, meta: dict, ents: list):
+        """Construct a :class:`Model` using the given 'meta' and 'entities'"""
 
         interface = cls()
         interface.meta = Meta(**meta)
 
-        total = len(entities)
-        for count, entity_data in enumerate(entities, 1):
+        total = len(ents)
+        for count, entity_data in enumerate(ents, 1):
             logging.debug(f"Processing {count} / {total} in {entity_data['label']}")
             entity = cls.entity_from_data(entity_data)
             interface.entities.append(entity)
@@ -186,3 +169,49 @@ class InterfaceModel(object):
         """
 
         return cls.from_data(*data_from_yaml(path))
+
+
+class ModelWalker(object):
+    """
+    Base-class for walking the interface-model, sub-class this and implement
+    the visit() method!
+    """
+
+    def _traverse(
+        self,
+        current: entities.Entity,
+        parent: typing.Optional[entities.Entity],
+        depth: int = 0,
+    ) -> str:
+        """
+        Recursive walk of the 'current' entity, returning a list of visit()
+        results.
+        """
+
+        res = [self.visit(current, parent, depth)]
+        for attr in ["members", "parameters", "dtype", "ret", "val"]:
+            other = getattr(current, attr, None)
+            if other is None:
+                continue
+
+            if attr in ["members", "parameters"]:
+                for child in other:
+                    res += self._traverse(child, current, depth + 1)
+            else:
+                res += self._traverse(other, current, depth + 1)
+
+        return res
+
+    def walk(self, model):
+        """Walks the :class:`.Model` invoking visit()"""
+
+        status = []
+        for entity in model.entities:
+            status += self._traverse(entity, None, 0)
+
+        return status
+
+    def visit(self):
+        """This is the thing which class should implement"""
+
+        return (True, None)

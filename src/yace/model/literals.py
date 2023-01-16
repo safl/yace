@@ -38,6 +38,13 @@ class LiteralString:
     lit: str
     cls: str = "str"
 
+    def is_valid(self):
+
+        if not isinstance(self.lit, str):
+            return (False, f"Unsupported lit[{self.lit}]")
+
+        return (True, None)
+
 
 @dataclass
 class LiteralHex:
@@ -55,6 +62,12 @@ class LiteralHex:
     lit: int
     cls: str = "hex"
 
+    def is_valid(self):
+        if not isinstance(self.lit, int):
+            return (False, f"Unsupported lit[{self.lit}]")
+
+        return (True, None)
+
 
 @dataclass
 class LiteralDec:
@@ -62,3 +75,9 @@ class LiteralDec:
 
     lit: int
     cls: str = "dec"
+
+    def is_valid(self):
+        if not isinstance(self.lit, int):
+            return (False, f"Unsupported lit[{self.lit}]")
+
+        return (True, None)

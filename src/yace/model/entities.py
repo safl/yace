@@ -6,8 +6,8 @@ Two baseclasses are provided:
 * :class:`.Typedecl`, a base class for type definitions
 
 Entities are the base classes representing the language constructs of C APIs in
-the :class:`yace.model.interface.InterfaceModel`. The entities serve as
-encapsulated type-checking of YAML-definitions of the language model.
+the :class:`yace.model.interface.Model`. The entities serve as encapsulated
+type-checking of YAML-definitions of the language model.
 """
 import typing
 from dataclasses import dataclass, field
@@ -35,6 +35,11 @@ class Typedecl:
 
     label: str = "typedecl"
 
+    def is_valid(self):
+        """Perform an integrity check of the :class:`.Typedecl`"""
+
+        return (True, None)
+
 
 @dataclass
 class Void(Typedecl):
@@ -50,3 +55,8 @@ class Entity:
 
     symbol: str
     doc: typing.Optional[str]
+
+    def is_valid(self):
+        """Perform an integrity check of the :class:`.Entity`"""
+
+        return (True, None)

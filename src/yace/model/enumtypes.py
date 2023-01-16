@@ -22,10 +22,21 @@ class EnumValue(Entity):
     for the :class:`EnumValue``.
     """
 
-    val: typing.Union[LiteralDec, LiteralHex, LiteralString] = None
+    val: typing.Union[LiteralDec, LiteralHex] = None
 
     cls: str = "enum_value"
     label: str = "default"
+
+    def is_valid(self):
+        """Checks whether the :class:`.EnumValue` is valid"""
+
+        if not isinstance(self.val, (LiteralDec, LiteralHex)):
+            return (
+                False,
+                f"EnumValue[{self.symbol}][Unsupported Instance]: {self.val}",
+            )
+
+        return (True, None)
 
 
 @dataclass
@@ -57,3 +68,19 @@ class Enum(Entity):
 
     cls: str = "enum"
     label: str = "default"
+
+    def is_valid(self):
+        """Checks whether the :class:`.Enum` is valid"""
+
+        invalid_types = [type(m) for m in self.members if not isinstance(m, EnumValue)]
+        if len(invalid_types):
+            return (
+                False,
+                f"Invalid types in {self.symbol}.members; "
+                "expecting: EnumValue, got: [{invalid_types}]",
+            )
+
+        if LiteralString in [type(m) for m in self.members]:
+            return (False, "Enum-values must be numeral-types")
+
+        return (True, None)

@@ -7,13 +7,13 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, PackageLoader, Template
 
 from yace.model.entities import Entity
-from yace.model.interface import InterfaceModel, Meta
+from yace.model.interface import Meta, Model
 
 
 class Emitter(object):
     """
     The default approach to transforming :class:`.Entity` in
-    :class:`.InterfaceModel: to source-code-text is inheriting **this** class
+    :class:`.Model: to source-code-text is inheriting **this** class
     and utilizing the Jinja templates made available in self.templates. It
     might seem naive to utilize templating-engine like Jinja for a
     code-emitter, however, so far it seems to be the an incredibly simple
@@ -41,7 +41,7 @@ class Emitter(object):
     Is by default handled in one place: the Jinja templates.
     """
 
-    def __init__(self, model: InterfaceModel, output: Path, name: str = "base"):
+    def __init__(self, model: Model, output: Path, name: str = "base"):
         self.model = model
         self.meta = model.meta
         self.output = output.resolve()

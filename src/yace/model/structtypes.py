@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Entities are the base classes representing the language constructs of C APIs in
-the :class:`yace.model.interface.InterfaceModel`. The entities serve as
-encapsulated type-checking of YAML-definitions of the language model.
+the :class:`yace.model.interface.Model`. The entities serve as encapsulated
+type-checking of YAML-definitions of the language model.
 """
 import typing
 from dataclasses import dataclass, field
@@ -27,6 +27,23 @@ class Bitfield(Entity):
     dtype: Typedecl
 
     cls: str = "bitfield"
+
+    def is_valid(self):
+        """Checks whether the bitfield members match the width"""
+
+        invalid_types = [type(m) for m in self.members if not isinstance(m, Bits)]
+        if len(invalid_types):
+            return (
+                False,
+                f"Invalid types in {self.symbol}.members; "
+                "expecting: Bits, got: [{invalid_types}]",
+            )
+
+        acc = sum([m.width for m in self.members])
+        if acc != self.dtype.width:
+            return (False, f"Aacumulated width({acc}) != {self.dtype.width}")
+
+        return (True, None)
 
 
 @dataclass

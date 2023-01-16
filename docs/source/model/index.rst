@@ -13,3 +13,4 @@
    yaml.rst
    entities/index.rst
    interface.rst
+   linter.rst

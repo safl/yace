@@ -47,11 +47,6 @@ class CAPI(Emitter, ClangFormat, Doxygen, Gcc):
         self.sources = []  # Resolved paths to emitted sources
         self.aux = []  # Resolved paths to auxilary files e.g. Doxy Conf
 
-    def lint(self):
-        """Lint..."""
-
-        log.info("lint ...")
-
     def emit(self):
         """Emit code"""
 
