@@ -98,4 +98,4 @@ class CAPI(Emitter, ClangFormat, Doxygen, Gcc):
         cmd = ["-I", str(self.output)] + [str(p) for p in self.sources]
         log.info("cmd(%s)", " ".join(cmd))
 
-        self.gcc_build_check(cmd)
+        self.gcc(cmd)

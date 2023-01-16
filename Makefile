@@ -98,7 +98,9 @@ define coverage-help
 endef
 .PHONY: coverage
 coverage:
-	coverage run --source=yace -m yace models/example.yaml
+	coverage erase
+	coverage run -a --source=yace -m yace models/example.yaml
+	coverage run -a --source=yace -m pytest tests/compiler.py || true
 	coverage report
 	coverage html
 	coverage lcov

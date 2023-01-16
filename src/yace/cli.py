@@ -15,9 +15,7 @@ import logging as log
 from pathlib import Path
 
 from yace import __version__ as version
-from yace.model.interface import Model
-from yace.model.linter import Linter
-from yace.targets.capi.target import CAPI
+from yace.compiler import Compiler
 
 
 def parse_args():
@@ -91,24 +89,6 @@ def main():
         ],
     )
 
-    args.output.mkdir(parents=True, exist_ok=True)
-
-    linter = Linter()
-
-    for model in [Model.from_path(path) for path in args.model]:
-        if "lint" in args.stage:
-            nerrors = linter.check(model)
-            log.info("Stage[Linter] found #errors: %d", nerrors)
-            if nerrors:
-                log.error("Skipping remaining stages, due to linter-errors")
-                continue
-
-        target = CAPI(model, args.output)
-
-        if "emit" in args.stage:
-            target.emit()
-
-        if "format" in args.stage:
-            target.format()
-        if "check" in args.stage:
-            target.check()
+    yace = Compiler(args.stage, args.target, args.output)
+    for path in args.model:
+        yace.compile(path)

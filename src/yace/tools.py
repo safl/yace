@@ -118,11 +118,6 @@ class Gcc(Tool):
         if result.returncode:
             log.error(f"gcc: failed{result})")
 
-    def gcc_build_check(self):
-        """Run gcc using the given args"""
-
-        self.gcc(self.sources)
-
 
 class Isort(Tool):
     """
