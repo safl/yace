@@ -34,6 +34,7 @@ class Compiler(object):
             log.info("Stage[Linter] found #errors: %d", nerrors)
             if nerrors:
                 log.error("Skipping remaining stages, due to linter-errors")
+                return
 
         # STAGE[Emit]
         target = CAPI(model, self.output)
