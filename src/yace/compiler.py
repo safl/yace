@@ -21,31 +21,31 @@ class Compiler(object):
         self.stages = stages
         self.targets = targets
 
-    def compile(self, path: Path):
+    def process(self, path: Path):
         """Compile the model given at 'path' into C API and FFIs"""
 
+        log.info("Path: '%s'", path)
         self.output.mkdir(parents=True, exist_ok=True)
 
-        # STAGE[Parse]
+        log.info("Stage: 'parse'")
         model = Model.from_path(path)
 
-        # STAGE[Lint]
         if "lint" in self.stages:
+            log.info("Stage: 'lint'")
             nerrors = Linter().check(model)
-            log.info("Stage[Linter] found #errors: %d", nerrors)
             if nerrors:
                 log.error("Skipping remaining stages, due to linter-errors")
                 return
 
-        # STAGE[Emit]
         target = CAPI(model, self.output)
         if "emit" in self.stages:
+            log.info("Stage: 'emit'")
             target.emit()
 
-        # STAGE[Format]
         if "format" in self.stages:
+            log.info("Stage: 'format'")
             target.format()
 
-        # STAGE[Check]
         if "check" in self.stages:
+            log.info("Stage: 'check'")
             target.check()

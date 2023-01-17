@@ -82,9 +82,9 @@ class CAPI(Target):
                     },
                 )
                 file.write(content)
-            container.append(path)
 
-        log.info(self.sources)
+            log.info("produced: %s", path)
+            container.append(path)
 
     def format(self):
         """

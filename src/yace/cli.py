@@ -78,5 +78,6 @@ def main():
     )
 
     yace = Compiler(args.stage, args.target, args.output)
+
     for path in args.model:
-        yace.compile(path)
+        yace.process(path)
