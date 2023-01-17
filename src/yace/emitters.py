@@ -7,7 +7,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, PackageLoader, Template
 
 from yace.model.entities import Entity
-from yace.model.interface import Meta, Model
+from yace.model.model import Meta, Model
 
 
 class Emitter(object):

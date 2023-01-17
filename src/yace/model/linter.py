@@ -1,6 +1,6 @@
 import logging as log
 
-from yace.model.interface import ModelWalker
+from yace.model.model import ModelWalker
 
 
 class Linter(ModelWalker):

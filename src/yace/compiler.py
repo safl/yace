@@ -3,8 +3,8 @@ import typing
 from pathlib import Path
 
 from yace import __version__ as version
-from yace.model.interface import Model
 from yace.model.linter import Linter
+from yace.model.model import Model
 from yace.targets.capi.target import CAPI
 
 

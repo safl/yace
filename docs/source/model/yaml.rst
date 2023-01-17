@@ -20,7 +20,7 @@ The document is layed out as:
    :lines: 1-
 
 The key ``meta`` is a *special key* described in greater detail in the
-:py:class:`yace.model.interface.Meta`.
+:py:class:`yace.model.model.Meta`.
 
 The remainder of a ``yim`` document consists of lists under keys with arbitrary
 names. These other top-level keys have no special meaning / signifinance, they

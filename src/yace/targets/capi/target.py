@@ -33,8 +33,8 @@ from pathlib import Path
 
 from yace.emitters import Emitter
 from yace.errors import ToolError
-from yace.tools import ClangFormat, Doxygen, Gcc
 from yace.targets.target import Target
+from yace.tools import ClangFormat, Doxygen, Gcc
 
 
 class CAPI(Target):
