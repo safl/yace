@@ -10,6 +10,9 @@ class Target(ABC):
     documentation for what is needed when adding a **yet** to **yace**.
     """
 
+    def __init__(self, name):
+        self.name = name
+
     @abstractmethod
     def emit(self):
         """

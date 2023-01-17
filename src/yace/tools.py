@@ -67,7 +67,8 @@ class Tool(object):
         cmd = [self.executable] + args
 
         with logpath.open("a") as logfile:
-            logfile.write(f"# cmd({cmd}")
+            logfile.write(f"# cmd({' '.join(cmd)})\n")
+            logfile.write(f"# cwd({self.cwd})\n")
             logfile.flush()
 
             proc = run(

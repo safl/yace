@@ -28,6 +28,7 @@ setup(
     packages=[
         "yace",
         "yace.model",
+        "yace.targets",
         "yace.targets.capi",
         "yace.targets.ctypes",
     ],

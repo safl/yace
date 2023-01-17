@@ -12,11 +12,12 @@ class Compiler(object):
     """Encapsulation of **yace** compiler stages"""
 
     STAGES = ["parse", "lint", "emit", "format", "check"]
+    TARGETS = [CAPI]
 
     def __init__(
         self, stages: typing.List[str], targets: typing.List[str], output: Path
     ):
-        self.output = output
+        self.output = output.resolve()
         self.stages = stages
         self.targets = targets
 

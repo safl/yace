@@ -34,15 +34,24 @@ from pathlib import Path
 from yace.emitters import Emitter
 from yace.errors import ToolError
 from yace.tools import ClangFormat, Doxygen, Gcc
+from yace.targets.target import Target
 
 
-class CAPI(Emitter):
+class CAPI(Target):
     """
     Several helper functions
     """
 
     def __init__(self, model, output):
-        super().__init__(model, output, "capi")
+        self.name = "capi"
+        self.model = model
+        self.output = output
+
+        self.headers = []  # Resolved paths to emitted headers
+        self.sources = []  # Resolved paths to emitted sources
+        self.aux = []  # Resolved paths to auxilary files e.g. Doxy Conf
+
+        self.emitter = Emitter(self.model, self.output, self.name)
 
         self.tools = {
             "clang-format": ClangFormat(output),
@@ -50,32 +59,32 @@ class CAPI(Emitter):
             "gcc": Gcc(output),
         }
 
-        self.headers = []  # Resolved paths to emitted headers
-        self.sources = []  # Resolved paths to emitted sources
-        self.aux = []  # Resolved paths to auxilary files e.g. Doxy Conf
-
     def emit(self):
         """Emit code"""
 
         files = [
-            (f"lib{self.meta.prefix}_core.h", "capi_core_h", self.headers),
-            (f"lib{self.meta.prefix}_pp.h", "capi_pp_h", self.headers),
-            (f"lib{self.meta.prefix}.h", "capi_bundle_h", self.headers),
-            (f"{self.meta.prefix}_pp.c", "capi_pp_c", self.sources),
-            (f"{self.meta.prefix}_check.c", "capi_check_c", self.sources),
+            (f"lib{self.model.meta.prefix}_core.h", "capi_core_h", self.headers),
+            (f"lib{self.model.meta.prefix}_pp.h", "capi_pp_h", self.headers),
+            (f"lib{self.model.meta.prefix}.h", "capi_bundle_h", self.headers),
+            (f"{self.model.meta.prefix}_pp.c", "capi_pp_c", self.sources),
+            (f"{self.model.meta.prefix}_check.c", "capi_check_c", self.sources),
             ("doxygen.conf", "doxygen", self.aux),
         ]
         for filename, template, container in files:
             path = (self.output / filename).resolve()
             with (path).open("w") as file:
-                file.write(
-                    self.templates[template].render(
-                        meta=self.meta,
-                        entities=self.model.entities,
-                        headers=self.headers,
-                    )
+                content = self.emitter.render(
+                    template,
+                    {
+                        "meta": self.model.meta,
+                        "entities": self.model.entities,
+                        "headers": self.headers,
+                    },
                 )
+                file.write(content)
             container.append(path)
+
+        log.info(self.sources)
 
     def format(self):
         """

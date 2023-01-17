@@ -67,4 +67,7 @@ class Emitter(object):
             if f.endswith(".template") and not f.startswith("filter_")
         }
 
-        self.func = lambda cls, parent, depth: print(f"%s{cls}" % ("\t" * depth))
+    def render(self, template, args):
+        """Renders the given template, passing args..."""
+
+        return self.templates[template].render(**args)
