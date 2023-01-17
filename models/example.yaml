@@ -61,7 +61,7 @@ function_types:
 - cls: fun
   symbol: hw
   doc: Print hello world
-  ret: int
+  ret: {cls: int, doc: "On succes, 0 is returned. On error, -1 is returned and errno set to indicate the error"}
   parameters:
   - {cls: param, symbol: argc, dtype: int, doc: 'Number of command-line arguments'}
   - {cls: param, symbol: argv, dtype: {cls: char, const: true, pointer: 2}, doc: 'Number of command-line arguments'}

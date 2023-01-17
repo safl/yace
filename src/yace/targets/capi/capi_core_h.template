@@ -40,7 +40,7 @@ enum {{ meta.prefix }}_{{ entity.symbol }} {
 	{%- endfor %}
 {% if entity.symbol %}} {{ entity.symbol }};{% endif %}
 {%- elif entity.cls in ["field"] %}
-{{ entity.dtype | render("typedecl") }} {{ entity.symbol }}; ///< {{ entity.doc }}
+{{ entity | render("typedecl") }}; ///< {{ entity.doc }}
 {%- elif entity.cls in ["fun"] %}
 /**
  * {{ entity.doc }}
@@ -48,8 +48,12 @@ enum {{ meta.prefix }}_{{ entity.symbol }} {
 {%- for parameter in entity.parameters %}
  * @param {{ parameter.symbol }} {{ parameter.doc }}
 {%- endfor %}
+{%- if entity.ret and entity.ret.doc %}
+ *
+ * @return {{ entity.ret.doc }}
+{%- endif %}
  */
-{{ entity.ret | render("typedecl") }} {{ entity.symbol }}
-({% for parameter in entity.parameters %}{{ parameter | render("param") }}{{ ", " if not loop.last else "" }}{% endfor %});
+{{ entity.ret | render("retdecl") }} {{ entity.symbol }}
+({% for parameter in entity.parameters %}{{ parameter | render("typedecl") }}{{ ", " if not loop.last else "" }}{% endfor %});
 {% endif %}
 {% endfor %}

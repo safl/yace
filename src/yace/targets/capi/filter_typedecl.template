@@ -1,14 +1,14 @@
-{%- if entity.static -%}static {% endif %}
-{%- if entity.const -%}const {% endif %}
-{%- if entity.cls in ["string", "char"] -%}
+{%- if entity.dtype.static -%}static {% endif %}
+{%- if entity.dtype.const -%}const {% endif %}
+{%- if entity.dtype.cls in ["string", "char"] -%}
 char
-{%- elif entity.cls == "int" -%}
+{%- elif entity.dtype.cls == "int" -%}
 int
-{%- elif entity.cls == "void" -%}
+{%- elif entity.dtype.cls == "void" -%}
 void
-{%- elif entity.width -%}
-{%- if "u" in entity.cls -%}u{%- endif -%}int{{ entity.width }}_t
+{%- elif entity.dtype.width -%}
+{%- if "u" in entity.dtype.cls -%}u{%- endif -%}int{{ entity.dtype.width }}_t
 {%- endif -%}
-{%- if entity.pointer -%}{%- for n in range(entity.pointer) -%}*{% endfor %}{%- endif -%}
-{%- if entity.symbol -%}{{ entity.symbol }}{%- endif -%}
-{%- if entity.array -%}[{{ entity.array }}]{%- endif -%}
+{%- if entity.dtype.pointer -%}{%- for n in range(entity.dtype.pointer) -%}*{% endfor %}{%- endif -%}
+{%- if entity.symbol %} {{ entity.symbol }}{%- endif -%}
+{%- if entity.dtype.array -%}[{{ entity.dtype.array }}]{%- endif -%}

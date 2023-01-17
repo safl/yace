@@ -1,0 +1,13 @@
+{%- if entity.static -%}static {% endif %}
+{%- if entity.const -%}const {% endif %}
+{%- if entity.cls in ["string", "char"] -%}
+char
+{%- elif entity.cls == "int" -%}
+int
+{%- elif entity.cls == "void" -%}
+void
+{%- elif entity.width -%}
+{%- if "u" in entity.cls -%}u{%- endif -%}int{{ entity.width }}_t
+{%- endif -%}
+{%- if entity.pointer -%}{%- for n in range(entity.pointer) -%}*{% endfor %}{%- endif -%}
+{%- if entity.array -%}[{{ entity.array }}]{%- endif -%}
