@@ -11,13 +11,6 @@ class Target(ABC):
     """
 
     @abstractmethod
-    def lint(self):
-        """
-        Check the integrity of the **yace* Interface Model.
-        """
-        pass
-
-    @abstractmethod
     def emit(self):
         """
         Emit code using your weapons of choice, common choice would be to
