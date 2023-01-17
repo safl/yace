@@ -34,13 +34,13 @@ def data_from_yaml(path: Path) -> (dict, list):
     entities = []
 
     with path.open() as yamlfile:
-        for label, data in yaml.safe_load(yamlfile).items():
-            if label == "meta":
+        for lbl, data in yaml.safe_load(yamlfile).items():
+            if lbl == "meta":
                 meta = data
                 continue
 
             for entity in data:
-                entity["label"] = label
+                entity["lbl"] = lbl
                 entities.append(entity)
 
     return meta, entities
@@ -61,7 +61,7 @@ class Meta:
     brief: str = "yace example"
     full: str = (
         "This description is provided with the default model-meta, to "
-        "change it, then make sure you have a meta-label in your model. "
+        "change it, then make sure you have a meta-lbl in your model. "
         "meta: {lic: '"
     )
 
@@ -155,7 +155,7 @@ class Model(object):
 
         total = len(ents)
         for count, entity_data in enumerate(ents, 1):
-            logging.debug(f"Processing {count} / {total} in {entity_data['label']}")
+            logging.debug(f"Processing {count} / {total} in {entity_data['lbl']}")
             entity = cls.entity_from_data(entity_data)
             interface.entities.append(entity)
 

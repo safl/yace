@@ -25,15 +25,13 @@ class Typedecl:
     """
 
     cls: str
+    doc: str = ""
+    lbl: str = "typedecl"
 
     const: bool = False
     static: bool = False
     pointer: int = 0
     array: int = 0
-
-    doc: str = ""
-
-    label: str = "typedecl"
 
     def is_valid(self):
         """Perform an integrity check of the :class:`.Typedecl`"""

@@ -21,7 +21,7 @@ class Parameter(Entity):
 
     dtype: typing.Type[Typedecl]
     cls: str = "param"
-    label: str = "default"
+    lbl: str = "default"
 
 
 @dataclass
@@ -34,7 +34,7 @@ class FunctionDecl(Entity):
     parameters: typing.List[Parameter]
 
     cls: str = "fun"
-    label: str = "default"
+    lbl: str = "default"
 
 
 @dataclass
@@ -47,4 +47,4 @@ class FunctionPtrDecl(Entity):
     parameters: typing.List[Typedecl]
 
     cls: str = "fun_ptr"
-    label: str = "default"
+    lbl: str = "default"

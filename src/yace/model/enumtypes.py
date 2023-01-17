@@ -25,7 +25,7 @@ class EnumValue(Entity):
     val: typing.Union[LiteralDec, LiteralHex] = None
 
     cls: str = "enum_value"
-    label: str = "default"
+    lbl: str = "default"
 
     def is_valid(self):
         """Checks whether the :class:`.EnumValue` is valid"""
@@ -67,7 +67,7 @@ class Enum(Entity):
     members: typing.List[EnumValue]
 
     cls: str = "enum"
-    label: str = "default"
+    lbl: str = "default"
 
     def is_valid(self):
         """Checks whether the :class:`.Enum` is valid"""
