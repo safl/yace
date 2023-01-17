@@ -32,10 +32,11 @@ import typing
 from pathlib import Path
 
 from yace.emitters import Emitter
+from yace.errors import ToolError
 from yace.tools import ClangFormat, Doxygen, Gcc
 
 
-class CAPI(Emitter, ClangFormat, Doxygen, Gcc):
+class CAPI(Emitter):
     """
     Several helper functions
     """
@@ -43,14 +44,18 @@ class CAPI(Emitter, ClangFormat, Doxygen, Gcc):
     def __init__(self, model, output):
         super().__init__(model, output, "capi")
 
+        self.tools = {
+            "clang-format": ClangFormat(output),
+            "doxygen": Doxygen(output),
+            "gcc": Gcc(output),
+        }
+
         self.headers = []  # Resolved paths to emitted headers
         self.sources = []  # Resolved paths to emitted sources
         self.aux = []  # Resolved paths to auxilary files e.g. Doxy Conf
 
     def emit(self):
         """Emit code"""
-
-        log.info("emit ...")
 
         files = [
             (f"lib{self.meta.prefix}_core.h", "capi_core_h", self.headers),
@@ -78,24 +83,19 @@ class CAPI(Emitter, ClangFormat, Doxygen, Gcc):
         invokes the clang-formater
         """
 
-        log.info("format ...")
-
         path = Path(__file__).parent
-        for rules in [
-            ClangFormat.CLANGFORMAT_STYLE_H,
-            ClangFormat.CLANGFORMAT_STYLE_C,
+        for rules, container in [
+            (ClangFormat.CLANGFORMAT_STYLE_C, self.sources),
+            (ClangFormat.CLANGFORMAT_STYLE_H, self.headers),
         ]:
             shutil.copyfile(path / rules, self.output / rules)
+            self.tools["clang-format"].run(
+                [f"--style=file:{rules}", "-i"] + [str(f) for f in container],
+            )
 
-        self.format_clang_format()
-        self.docs_doxygen()
+        self.tools["doxygen"].run([Doxygen.DOXYGEN_CONF])
 
     def check(self):
-        """Run the generated test-program"""
+        """Build generated sources and run the generated test-program"""
 
-        log.info("check ...")
-
-        cmd = ["-I", str(self.output)] + [str(p) for p in self.sources]
-        log.info("cmd(%s)", " ".join(cmd))
-
-        self.gcc(cmd)
+        self.tools["gcc"].run(["-I", str(self.output)] + [str(p) for p in self.sources])

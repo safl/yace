@@ -9,6 +9,12 @@ The errors are usually il-formated YAML-files, incorrect
 """
 
 
+class ToolError(Exception):
+    """Exception raised when a tool exists with non-zero returncode"""
+
+    pass
+
+
 class InvalidModelData(Exception):
     """The data given to entity instantion is not valid"""
 

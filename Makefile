@@ -71,21 +71,21 @@ define emit-xnvme-help
 endef
 .PHONY: emit-xnvme
 emit-xnvme:
-	yace models/xnvme.yaml --output output/xnvme
+	yace models/xnvme.yaml -l --output output/xnvme
 
 define emit-nvme-help
 # Emit code using the NVMe interface model
 endef
 .PHONY: emit-nvme
 emit-nvme:
-	yace models/nvme.yaml --output output/nvme
+	yace models/nvme.yaml -l --output output/nvme
 
 define emit-example-help
 # Emit code using the example interface model
 endef
 .PHONY: emit-example
 emit-example:
-	yace models/example.yaml --output output/example
+	yace models/example.yaml -l --output output/example
 
 define emit-help
 # Emit code for all examples

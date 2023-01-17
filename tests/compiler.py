@@ -1,5 +1,7 @@
 from pathlib import Path
+
 import pytest
+
 from yace.compiler import Compiler
 
 VALID = [
@@ -11,6 +13,7 @@ VALID = [
 INVALID = [
     Path("models") / "example_invalid.yaml",
 ]
+
 
 @pytest.mark.parametrize("path", VALID)
 def test_valid(path):

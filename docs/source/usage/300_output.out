@@ -1,13 +1,17 @@
 output
+├── a.out
+├── clang-format-c.clang-format
+├── clang-format-h.clang-format
+├── clang-format.log
 ├── doxygen.conf
+├── doxygen.log
 ├── doxyreport
 ├── example_check.c
 ├── example_pp.c
-├── hdr.clang-format
+├── gcc.log
 ├── libexample.h
 ├── libexample_core.h
-├── libexample_pp.h
-└── src.clang-format
+└── libexample_pp.h
 
-1 directory, 8 files
+1 directory, 12 files
 

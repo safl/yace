@@ -46,8 +46,8 @@ def parse_args():
     parser.add_argument(
         "--stage",
         nargs="+",
-        default=["lint", "emit", "format", "test"],
-        choices=["lint", "emit", "format", "test"],
+        default=Compiler.STAGES,
+        choices=Compiler.STAGES,
     )
     parser.add_argument(
         "--output",
@@ -63,11 +63,6 @@ def parse_args():
         help="Increase log-level.",
     )
 
-    parser.add_argument(
-        "--visualize",
-        action="store_true",
-        help="Produce model visualization in in output directory",
-    )
     parser.add_argument(
         "--version",
         action="version",
