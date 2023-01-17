@@ -9,65 +9,65 @@ meta:
   full: This example is intended for documentation as well as testing
 
 macros_explicit_literal:
-- {cls: define, symbol: max_x, val: {cls: dec, lit: 128}, doc: "Maximum value of X"}
-- {cls: define, symbol: max_y, val: {cls: dec, lit: 64}, doc: "Maximum value of Y"}
-- {cls: define, symbol: max_z, val: {cls: dec, lit: 64}, doc: "Maximum value of Z"}
+- {cls: define, sym: max_x, val: {cls: dec, lit: 128}, doc: "Maximum value of X"}
+- {cls: define, sym: max_y, val: {cls: dec, lit: 64}, doc: "Maximum value of Y"}
+- {cls: define, sym: max_z, val: {cls: dec, lit: 64}, doc: "Maximum value of Z"}
 
 macros_implicit_literal:
-- {cls: define, symbol: min_x, val: 128, doc: "Maximum value of X"}
-- {cls: define, symbol: min_y, val: 64, doc: "Maximum value of Y"}
-- {cls: define, symbol: min_z, val: 64, doc: "Maximum value of Z"}
+- {cls: define, sym: min_x, val: 128, doc: "Maximum value of X"}
+- {cls: define, sym: min_y, val: 64, doc: "Maximum value of Y"}
+- {cls: define, sym: min_z, val: 64, doc: "Maximum value of Z"}
 
 enumtypes_implicit_literal:
 - cls: enum
-  symbol: ops
+  sym: ops
   doc: Opcodes for point operation processor
   members:
-  - {cls: enum_value, symbol: add, val: {cls: hex, lit: 0}, doc: "Add two points"}
-  - {cls: enum_value, symbol: sub, val: {cls: hex, lit: 1}, doc: "Substract two points"}
-  - {cls: enum_value, symbol: mul, val: {cls: hex, lit: 2}, doc: "Multple two points"}
+  - {cls: enum_value, sym: add, val: {cls: hex, lit: 0}, doc: "Add two points"}
+  - {cls: enum_value, sym: sub, val: {cls: hex, lit: 1}, doc: "Substract two points"}
+  - {cls: enum_value, sym: mul, val: {cls: hex, lit: 2}, doc: "Multple two points"}
 
 structtypes_plain:
 - cls: struct
-  symbol: point
+  sym: point
   doc: Point in three dimensional space
   members:
-  - {cls: field, symbol: x, dtype: u32, fmt: '%d', doc: "X Coordinate"}
-  - {cls: field, symbol: y, dtype: u32, fmt: '%d', doc: "Y Coordinate"}
-  - {cls: field, symbol: z, dtype: u32, fmt: '%d', doc: "Z Coordinate"}
+  - {cls: field, sym: x, dtype: u32, fmt: '%d', doc: "X Coordinate"}
+  - {cls: field, sym: y, dtype: u32, fmt: '%d', doc: "Y Coordinate"}
+  - {cls: field, sym: z, dtype: u32, fmt: '%d', doc: "Z Coordinate"}
 
 structtypes_bitfield:
 - cls: struct
-  symbol: payload
+  sym: payload
   doc: Instruction format for point operation processor
 
   members:
-  - {cls: field, symbol: opc, dtype: u8, fmt: '0x%x', doc: 'Point Processing Opcode'}
-  - {cls: field, symbol: tag, dtype: u8, fmt: '0x%x', doc: 'Instruction Tag'}
-  - {cls: field, symbol: ecc, dtype: u8, fmt: '0x%x', doc: 'Error-correction Seed'}
+  - {cls: field, sym: opc, dtype: u8, fmt: '0x%x', doc: 'Point Processing Opcode'}
+  - {cls: field, sym: tag, dtype: u8, fmt: '0x%x', doc: 'Instruction Tag'}
+  - {cls: field, sym: ecc, dtype: u8, fmt: '0x%x', doc: 'Error-correction Seed'}
   - cls: bitfield
-    symbol: opts
+    sym: opts
     doc: Operation options
     dtype: u8
     members:
-    - {cls: bits, symbol: pack, width: 1, doc: 'Pack stuff'}
-    - {cls: bits, symbol: foo, width: 3, doc: 'Something foo'}
-    - {cls: bits, symbol: bar, width: 4, doc: 'Something bar'}
-  - {cls: field, symbol: input_a, dtype: u64, fmt: '0x%x', doc: 'Input operand a'}
-  - {cls: field, symbol: input_b, dtype: u64, fmt: '0x%x', doc: 'Input operand b'}
-  - {cls: field, symbol: output, dtype: u64, fmt: '0x%x', doc: 'Output operand'}
+    - {cls: bits, sym: pack, width: 1, doc: 'Pack stuff'}
+    - {cls: bits, sym: foo, width: 3, doc: 'Something foo'}
+    - {cls: bits, sym: bar, width: 4, doc: 'Something bar'}
+  - {cls: field, sym: input_a, dtype: u64, fmt: '0x%x', doc: 'Input operand a'}
+  - {cls: field, sym: input_b, dtype: u64, fmt: '0x%x', doc: 'Input operand b'}
+  - {cls: field, sym: output, dtype: u64, fmt: '0x%x', doc: 'Output operand'}
 
 function_types:
 - cls: fun
-  symbol: hw
+  sym: hw
   doc: Print hello world
   ret: {cls: int, doc: "On succes, 0 is returned. On error, -1 is returned and errno set to indicate the error"}
   parameters:
-  - {cls: param, symbol: argc, dtype: int, doc: 'Number of command-line arguments'}
-  - {cls: param, symbol: argv, dtype: {cls: char, const: true, pointer: 2}, doc: 'Number of command-line arguments'}
+  - {cls: param, sym: argc, dtype: int, doc: 'Number of command-line arguments'}
+  - {cls: param, sym: argv, dtype: {cls: char, const: true, pointer: 2}, doc: 'Number of command-line arguments'}
 
 - cls: fun
-  symbol: hw_void
+  sym: hw_void
   doc: Print hello world
   ret: void
   parameters: []

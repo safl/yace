@@ -10,10 +10,10 @@ meta:
 
 invalid_enum:
 - cls: enum
-  symbol: invalid_enum
+  sym: invalid_enum
   doc: This enum should fail the integrity check as it has mixed literals
   members:
-  - {cls: enum_value, symbol: add, val: {cls: hex, lit: 0}, doc: "Add two points"}
-  - {cls: enum_value, symbol: sub, val: {cls: dec, lit: 1}, doc: "Substract two points"}
-  - {cls: enum_value, symbol: mul, val: {cls: str, lit: "foo"}, doc: "Multple two points"}
+  - {cls: enum_value, sym: add, val: {cls: hex, lit: 0}, doc: "Add two points"}
+  - {cls: enum_value, sym: sub, val: {cls: dec, lit: 1}, doc: "Substract two points"}
+  - {cls: enum_value, sym: mul, val: {cls: str, lit: "foo"}, doc: "Multple two points"}
 

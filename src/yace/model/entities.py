@@ -51,7 +51,7 @@ class Void(Typedecl):
 class Entity:
     """Base class for entities containing common fields"""
 
-    symbol: str
+    sym: str
     doc: typing.Optional[str]
 
     def is_valid(self):

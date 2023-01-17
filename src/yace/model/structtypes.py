@@ -35,7 +35,7 @@ class Bitfield(Entity):
         if len(invalid_types):
             return (
                 False,
-                f"Invalid types in {self.symbol}.members; "
+                f"Invalid types in {self.sym}.members; "
                 "expecting: Bits, got: [{invalid_types}]",
             )
 

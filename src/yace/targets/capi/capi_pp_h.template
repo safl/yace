@@ -23,7 +23,7 @@ enum {{ meta.prefix }}_pr {
 };
 
 {%- for entity in entities %}
-{% set ident=meta['prefix'] + '_' + entity.symbol %}
+{% set ident=meta['prefix'] + '_' + entity.sym %}
 {% if entity.cls in ['enum'] %}
 /**
  * Produces a string representation of the given ::{{ ident }}

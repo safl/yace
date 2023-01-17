@@ -7,15 +7,15 @@
 #include <lib{{ meta.prefix }}.h>
 
 {%- for entity in entities %}
-{% set ident=meta["prefix"] + "_" + entity["symbol"] %}
+{% set ident=meta["prefix"] + "_" + entity["sym"] %}
 {%- if entity["cls"] in ["enum"] %}
 const char *
 {{ ident }}_str(int enum_val)
 {
 	switch (enum_val) {
 	{%- for member in entity["members"] %}
-	case {{ ident | upper }}_{{ member["symbol"] | upper }}:
-		return "{{ member["symbol"] }}";
+	case {{ ident | upper }}_{{ member["sym"] | upper }}:
+		return "{{ member["sym"] }}";
 	{%- endfor %}
 	}
 

@@ -12,386 +12,386 @@ meta:
     the purpose of providing structs with accessors, and enums for values such as command opcodes.
 
 constants:
-- {cls: define, val: 20, symbol: CTRLR_SN_LEN, doc: "Brief description"}
-- {cls: define, val: 40, symbol: CTRLR_MN_LEN, doc: "Brief description"}
-- {cls: define, val: 8, symbol: CTRLR_FR_LEN, doc: "Brief description"}
-- {cls: define, val: {cls: hex, lit: 0xffffffff}, symbol: NSID_ALL, doc: ""}
-- {cls: define, val: 0, symbol: NSID_NONE, doc: ""}
-- {cls: define, val: 0, symbol: UUID_NONE, doc: ""}
-- {cls: define, val: 0, symbol: CNTLID_NONE, doc: ""}
-- {cls: define, val: 0, symbol: CNSSPECID_NONE, doc: ""}
-- {cls: define, val: 0, symbol: LOG_LSP_NONE, doc: ""}
-- {cls: define, val: 0, symbol: LOG_LSI_NONE, doc: ""}
-- {cls: define, val: 0, symbol: LOG_LPO_NONE, doc: ""}
-- {cls: define, val: 4096, symbol: IDENTIFY_DATA_SIZE, doc: ""}
-- {cls: define, val: 256, symbol: LOG_SUPPORTED_LOG_PAGES_MAX, doc: ""}
-- {cls: define, val: 31, symbol: ID_NVMSET_LIST_MAX, doc: ""}
-- {cls: define, val: 127, symbol: ID_UUID_LIST_MAX, doc: ""}
-- {cls: define, val: 2047, symbol: ID_CTRL_LIST_MAX, doc: ""}
-- {cls: define, val: 1024, symbol: ID_NS_LIST_MAX, doc: ""}
-- {cls: define, val: 127, symbol: ID_SECONDARY_CTRL_MAX, doc: ""}
-- {cls: define, val: 31, symbol: ID_DOMAIN_LIST_MAX, doc: ""}
-- {cls: define, val: 2047, symbol: ID_ENDURANCE_GROUP_LIST_MAX, doc: ""}
-- {cls: define, val: 16, symbol: ID_ND_DESCRIPTOR_MAX, doc: ""}
-- {cls: define, val: 64, symbol: FEAT_LBA_RANGE_MAX, doc: ""}
-- {cls: define, val: 20, symbol: LOG_ST_MAX_RESULTS, doc: ""}
-- {cls: define, val: 512, symbol: LOG_TELEM_BLOCK_SIZE, doc: ""}
-- {cls: define, val: 256, symbol: LOG_FID_SUPPORTED_EFFECTS_MAX, doc: ""}
-- {cls: define, val: 256, symbol: LOG_MI_CMD_SUPPORTED_EFFECTS_MAX, doc: ""}
-- {cls: define, val: 768, symbol: LOG_MI_CMD_SUPPORTED_EFFECTS_RESERVED, doc: ""}
-- {cls: define, val: 256, symbol: DSM_MAX_RANGES, doc: ""}
-- {cls: define, val: 256, symbol: NQN_LENGTH, doc: ""}
-- {cls: define, val: 256, symbol: NVMF_TRADDR_SIZE, doc: ""}
-- {cls: define, val: 256, symbol: NVMF_TSAS_SIZE, doc: ""}
-- {cls: define, val: 511, symbol: ZNS_CHANGED_ZONES_MAX, doc: ""}
+- {cls: define, val: 20, sym: CTRLR_SN_LEN, doc: "Brief description"}
+- {cls: define, val: 40, sym: CTRLR_MN_LEN, doc: "Brief description"}
+- {cls: define, val: 8, sym: CTRLR_FR_LEN, doc: "Brief description"}
+- {cls: define, val: {cls: hex, lit: 0xffffffff}, sym: NSID_ALL, doc: ""}
+- {cls: define, val: 0, sym: NSID_NONE, doc: ""}
+- {cls: define, val: 0, sym: UUID_NONE, doc: ""}
+- {cls: define, val: 0, sym: CNTLID_NONE, doc: ""}
+- {cls: define, val: 0, sym: CNSSPECID_NONE, doc: ""}
+- {cls: define, val: 0, sym: LOG_LSP_NONE, doc: ""}
+- {cls: define, val: 0, sym: LOG_LSI_NONE, doc: ""}
+- {cls: define, val: 0, sym: LOG_LPO_NONE, doc: ""}
+- {cls: define, val: 4096, sym: IDENTIFY_DATA_SIZE, doc: ""}
+- {cls: define, val: 256, sym: LOG_SUPPORTED_LOG_PAGES_MAX, doc: ""}
+- {cls: define, val: 31, sym: ID_NVMSET_LIST_MAX, doc: ""}
+- {cls: define, val: 127, sym: ID_UUID_LIST_MAX, doc: ""}
+- {cls: define, val: 2047, sym: ID_CTRL_LIST_MAX, doc: ""}
+- {cls: define, val: 1024, sym: ID_NS_LIST_MAX, doc: ""}
+- {cls: define, val: 127, sym: ID_SECONDARY_CTRL_MAX, doc: ""}
+- {cls: define, val: 31, sym: ID_DOMAIN_LIST_MAX, doc: ""}
+- {cls: define, val: 2047, sym: ID_ENDURANCE_GROUP_LIST_MAX, doc: ""}
+- {cls: define, val: 16, sym: ID_ND_DESCRIPTOR_MAX, doc: ""}
+- {cls: define, val: 64, sym: FEAT_LBA_RANGE_MAX, doc: ""}
+- {cls: define, val: 20, sym: LOG_ST_MAX_RESULTS, doc: ""}
+- {cls: define, val: 512, sym: LOG_TELEM_BLOCK_SIZE, doc: ""}
+- {cls: define, val: 256, sym: LOG_FID_SUPPORTED_EFFECTS_MAX, doc: ""}
+- {cls: define, val: 256, sym: LOG_MI_CMD_SUPPORTED_EFFECTS_MAX, doc: ""}
+- {cls: define, val: 768, sym: LOG_MI_CMD_SUPPORTED_EFFECTS_RESERVED, doc: ""}
+- {cls: define, val: 256, sym: DSM_MAX_RANGES, doc: ""}
+- {cls: define, val: 256, sym: NQN_LENGTH, doc: ""}
+- {cls: define, val: 256, sym: NVMF_TRADDR_SIZE, doc: ""}
+- {cls: define, val: 256, sym: NVMF_TSAS_SIZE, doc: ""}
+- {cls: define, val: 511, sym: ZNS_CHANGED_ZONES_MAX, doc: ""}
 
 status_codes:
-- symbol: sct
+- sym: sct
   doc: "Status Code Types"
   cls: enum
   members:
-  - {cls: enum_value, symbol: GENERIC, val: {cls: hex, lit: 0x0}, doc: "Successful Completion"}
-  - {cls: enum_value, symbol: CMDSPEC, val: {cls: hex, lit: 0x1}, doc: "Invalid Command Opcode"}
-  - {cls: enum_value, symbol: MEDIA, val: {cls: hex, lit: 0x2}, doc: "Invalid Field in Command"}
-  - {cls: enum_value, symbol: PATH, val: {cls: hex, lit: 0x3}, doc: "Invalid Command Opcode"}
-  - {cls: enum_value, symbol: VENDOR, val: {cls: hex, lit: 0x7}, doc: "Invalid Command Opcode"}
+  - {cls: enum_value, sym: GENERIC, val: {cls: hex, lit: 0x0}, doc: "Successful Completion"}
+  - {cls: enum_value, sym: CMDSPEC, val: {cls: hex, lit: 0x1}, doc: "Invalid Command Opcode"}
+  - {cls: enum_value, sym: MEDIA, val: {cls: hex, lit: 0x2}, doc: "Invalid Field in Command"}
+  - {cls: enum_value, sym: PATH, val: {cls: hex, lit: 0x3}, doc: "Invalid Command Opcode"}
+  - {cls: enum_value, sym: VENDOR, val: {cls: hex, lit: 0x7}, doc: "Invalid Command Opcode"}
 
-- symbol: sc_generic
+- sym: sc_generic
   doc: "Status Codes for for Status-Code-Type(0x0)"
   cls: enum
   members:
-  - {cls: enum_value, symbol: SUCCESS, val: {cls: hex, lit: 0x0}, doc: "Successful Completion"}
-  - {cls: enum_value, symbol: INVALID_OPCODE, val: {cls: hex, lit: 0x1}, doc: "Invalid Command Opcode"}
-  - {cls: enum_value, symbol: INVALID_FIELD, val: {cls: hex, lit: 0x2}, doc: "Invalid Field in Command"}
-  - {cls: enum_value, symbol: COMMAND_ID_CONFLICT, val: {cls: hex, lit: 0x3}, doc: "Command ID Conflict"}
-  - {cls: enum_value, symbol: DATA_TRANSFER_ERROR, val: {cls: hex, lit: 0x4}, doc: "Data Transfer Error"}
-  - {cls: enum_value, symbol: ABORTED_POWER_LOSS, val: {cls: hex, lit: 0x5}, doc: "Commands Aborted due to Power Loss Notification"}
+  - {cls: enum_value, sym: SUCCESS, val: {cls: hex, lit: 0x0}, doc: "Successful Completion"}
+  - {cls: enum_value, sym: INVALID_OPCODE, val: {cls: hex, lit: 0x1}, doc: "Invalid Command Opcode"}
+  - {cls: enum_value, sym: INVALID_FIELD, val: {cls: hex, lit: 0x2}, doc: "Invalid Field in Command"}
+  - {cls: enum_value, sym: COMMAND_ID_CONFLICT, val: {cls: hex, lit: 0x3}, doc: "Command ID Conflict"}
+  - {cls: enum_value, sym: DATA_TRANSFER_ERROR, val: {cls: hex, lit: 0x4}, doc: "Data Transfer Error"}
+  - {cls: enum_value, sym: ABORTED_POWER_LOSS, val: {cls: hex, lit: 0x5}, doc: "Commands Aborted due to Power Loss Notification"}
 
-- symbol: sc_cmdspec
+- sym: sc_cmdspec
   doc: "Status Codes for Command-Specific aka Status-Code-Type(0x1)"
   cls: enum
   members:
-  - {cls: enum_value, symbol: COMPLETION_QUEUE_INVALID, val: {cls: hex, lit: 0x0}, doc: "Completion Queue Invalid"}
-  - {cls: enum_value, symbol: ZONE_BOUNDARY_ERROR, val: {cls: hex, lit: 0xb8}, doc: "Zone Boundary Error"}
-  - {cls: enum_value, symbol: ZONE_IS_FULL, val: {cls: hex, lit: 0xb9}, doc: "Zone Is Full"}
-  - {cls: enum_value, symbol: ZONE_IS_READ_ONLY, val: {cls: hex, lit: 0xba}, doc: "Zone Is Read Only"}
-  - {cls: enum_value, symbol: ZONE_IS_OFFLINE, val: {cls: hex, lit: 0xbb}, doc: "Zone Is Offline"}
-  - {cls: enum_value, symbol: ZONE_INVALID_WRITE, val: {cls: hex, lit: 0xbc}, doc: "Zone Invalid Write"}
-  - {cls: enum_value, symbol: TOO_MANY_ACTIVE_ZONES, val: {cls: hex, lit: 0xbd}, doc: "Too Many Active Zones"}
-  - {cls: enum_value, symbol: TOO_MANY_OPEN_ZONES, val: {cls: hex, lit: 0xbe}, doc: "Too Many Open Zones"}
-  - {cls: enum_value, symbol: INVALID_ZONE_STATE_TRANSITION, val: {cls: hex, lit: 0xbf}, doc: "Invalid Zone State Transition"}
+  - {cls: enum_value, sym: COMPLETION_QUEUE_INVALID, val: {cls: hex, lit: 0x0}, doc: "Completion Queue Invalid"}
+  - {cls: enum_value, sym: ZONE_BOUNDARY_ERROR, val: {cls: hex, lit: 0xb8}, doc: "Zone Boundary Error"}
+  - {cls: enum_value, sym: ZONE_IS_FULL, val: {cls: hex, lit: 0xb9}, doc: "Zone Is Full"}
+  - {cls: enum_value, sym: ZONE_IS_READ_ONLY, val: {cls: hex, lit: 0xba}, doc: "Zone Is Read Only"}
+  - {cls: enum_value, sym: ZONE_IS_OFFLINE, val: {cls: hex, lit: 0xbb}, doc: "Zone Is Offline"}
+  - {cls: enum_value, sym: ZONE_INVALID_WRITE, val: {cls: hex, lit: 0xbc}, doc: "Zone Invalid Write"}
+  - {cls: enum_value, sym: TOO_MANY_ACTIVE_ZONES, val: {cls: hex, lit: 0xbd}, doc: "Too Many Active Zones"}
+  - {cls: enum_value, sym: TOO_MANY_OPEN_ZONES, val: {cls: hex, lit: 0xbe}, doc: "Too Many Open Zones"}
+  - {cls: enum_value, sym: INVALID_ZONE_STATE_TRANSITION, val: {cls: hex, lit: 0xbf}, doc: "Invalid Zone State Transition"}
 
-- symbol: sc_media
+- sym: sc_media
   doc: "Status Codes for INTERNAL_PATH_ERROR aka Status-Code-Type(0x2)"
   cls: enum
   members:
-  - {cls: enum_value, symbol: INTERNAL_PATH_ERROR, val: {cls: hex, lit: 0x0}, doc: "Internal Path Error"}
+  - {cls: enum_value, sym: INTERNAL_PATH_ERROR, val: {cls: hex, lit: 0x0}, doc: "Internal Path Error"}
 
 logs:
-- symbol: log_lpi
+- sym: log_lpi
   doc: "Log Page identifiers"
   cls: enum
 
   members:
-  - {cls: enum_value, val: {cls: hex, lit: 0x00}, symbol: SUPPORTED, doc: "Supported Log Pages"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x01}, symbol: ERROR, doc: "Error Information"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x02}, symbol: HEALTH_INFORMATION, doc: "SMART / Health Information"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x03}, symbol: FIRMWARE_SLOT, doc: "Firmware Slot Information"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x04}, symbol: CHANGED_NS_LIST, doc: "Changed Namespace List"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x05}, symbol: COMMAND_EFFECTS_LOG, doc: "Commands Supported and Effects"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x06}, symbol: DEVICE_SELF_TEST, doc: "Device Self-test"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x07}, symbol: TELEMETRY_HOST_INITIATED, doc: "Telemetry Host-Initiated"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x08}, symbol: TELEMETRY_CTRLR_INITIATED, doc: "Telemetry Controller-Initiated"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x09}, symbol: ENDURANCE_GROUP_INFORMATION, doc: "Endurance Group Information"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x0a}, symbol: PREDICTABLE_LATENCY_PER_NVM_SET, doc: "Predictable Latency Per NVM\
+  - {cls: enum_value, val: {cls: hex, lit: 0x00}, sym: SUPPORTED, doc: "Supported Log Pages"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x01}, sym: ERROR, doc: "Error Information"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x02}, sym: HEALTH_INFORMATION, doc: "SMART / Health Information"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x03}, sym: FIRMWARE_SLOT, doc: "Firmware Slot Information"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x04}, sym: CHANGED_NS_LIST, doc: "Changed Namespace List"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x05}, sym: COMMAND_EFFECTS_LOG, doc: "Commands Supported and Effects"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x06}, sym: DEVICE_SELF_TEST, doc: "Device Self-test"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x07}, sym: TELEMETRY_HOST_INITIATED, doc: "Telemetry Host-Initiated"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x08}, sym: TELEMETRY_CTRLR_INITIATED, doc: "Telemetry Controller-Initiated"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x09}, sym: ENDURANCE_GROUP_INFORMATION, doc: "Endurance Group Information"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x0a}, sym: PREDICTABLE_LATENCY_PER_NVM_SET, doc: "Predictable Latency Per NVM\
       \ Set"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x0b}, symbol: PREDICTABLE_LATENCY_EVENT_AGGREGATE, doc: "Predictable Latency Event\
+  - {cls: enum_value, val: {cls: hex, lit: 0x0b}, sym: PREDICTABLE_LATENCY_EVENT_AGGREGATE, doc: "Predictable Latency Event\
       \ Aggregate"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x0c}, symbol: ASSYMETRIC_NAMESPACE_ACCESS, doc: "Asymmetric Namespace Access"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x0d}, symbol: PERSISTENT_EVENT_LOG, doc: "Persistent Event Log"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x0f}, symbol: ENDURANCE_GROUP_EVENT_AGGREGATE, doc: "Endurance Group Event Aggregate"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x70}, symbol: LOG_DISCOVERY, doc: "Predictable Latency Per NVM Set"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x80}, symbol: RESERVATION_NOTIFICATION, doc: "Predictable Latency Event Aggregate"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x81}, symbol: SANITIZE_STATUS, doc: "Asymmetric Namespace Access"}
-  - {cls: enum_value, val: {cls: hex, lit: 0xc0}, symbol: VENDOR_SPECIFIC_START, doc: "Vendor Specific start"}
-  - {cls: enum_value, val: {cls: hex, lit: 0xff}, symbol: VENDOR_SPECIFIC_END, doc: "Vendor Specific start"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x0c}, sym: ASSYMETRIC_NAMESPACE_ACCESS, doc: "Asymmetric Namespace Access"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x0d}, sym: PERSISTENT_EVENT_LOG, doc: "Persistent Event Log"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x0f}, sym: ENDURANCE_GROUP_EVENT_AGGREGATE, doc: "Endurance Group Event Aggregate"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x70}, sym: LOG_DISCOVERY, doc: "Predictable Latency Per NVM Set"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x80}, sym: RESERVATION_NOTIFICATION, doc: "Predictable Latency Event Aggregate"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x81}, sym: SANITIZE_STATUS, doc: "Asymmetric Namespace Access"}
+  - {cls: enum_value, val: {cls: hex, lit: 0xc0}, sym: VENDOR_SPECIFIC_START, doc: "Vendor Specific start"}
+  - {cls: enum_value, val: {cls: hex, lit: 0xff}, sym: VENDOR_SPECIFIC_END, doc: "Vendor Specific start"}
 
-- symbol: health_entry
+- sym: health_entry
   doc: "Device Health"
   cls: struct
   members:
-  - {cls: field, symbol: crit_warn, dtype: u8, doc: "Critical Warning"}
-  - {cls: field, symbol: comp_temp, dtype: u16, doc: "Composite Temperature (Temp.)"}
-  - {cls: field, symbol: avail_spare, dtype: u8, doc: "Available Spare (pct)"}
-  - {cls: field, symbol: avail_spare_thresh, dtype: u8, doc: "Available Spare Threshold (pct)"}
-  - {cls: field, symbol: pct_used, dtype: u8, doc: "Percentage used (pct), can exceed 100"}
-  - {cls: field, symbol: eg_crit_warn_sum, dtype: u8, doc: "Endurance Group Critical Warning Summary"}
-  - {cls: field, symbol: rsvd7, dtype: {cls: u8, array: 25}, doc: "Reserved..."}
-  - {cls: field, symbol: rsvd8, dtype: u8, doc: "Reserved..."}
+  - {cls: field, sym: crit_warn, dtype: u8, doc: "Critical Warning"}
+  - {cls: field, sym: comp_temp, dtype: u16, doc: "Composite Temperature (Temp.)"}
+  - {cls: field, sym: avail_spare, dtype: u8, doc: "Available Spare (pct)"}
+  - {cls: field, sym: avail_spare_thresh, dtype: u8, doc: "Available Spare Threshold (pct)"}
+  - {cls: field, sym: pct_used, dtype: u8, doc: "Percentage used (pct), can exceed 100"}
+  - {cls: field, sym: eg_crit_warn_sum, dtype: u8, doc: "Endurance Group Critical Warning Summary"}
+  - {cls: field, sym: rsvd7, dtype: {cls: u8, array: 25}, doc: "Reserved..."}
+  - {cls: field, sym: rsvd8, dtype: u8, doc: "Reserved..."}
 
 opcodes_adm:
-- symbol: opc_adm
+- sym: opc_adm
   doc: "Command Opcodes -- for Admin Commands"
   cls: enum
   members:
-  - {cls: enum_value, val: {cls: hex, lit: 0x00}, symbol: DELETE_IO_SQ, doc: "Delete I/O Submission Queue"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x01}, symbol: CREATE_IO_SQ, doc: "Create I/O Submission Queue"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x02}, symbol: GET_LOG_PAGE, doc: "Get Log Page"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x04}, symbol: DELETE_IO_CQ, doc: "Delete I/O Completion Queue"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x05}, symbol: CREATE_IO_CQ, doc: "Create I/O Completion Queue"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x06}, symbol: IDENTIFY, doc: "Identify"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x08}, symbol: ABORT, doc: "Abort"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x00}, sym: DELETE_IO_SQ, doc: "Delete I/O Submission Queue"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x01}, sym: CREATE_IO_SQ, doc: "Create I/O Submission Queue"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x02}, sym: GET_LOG_PAGE, doc: "Get Log Page"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x04}, sym: DELETE_IO_CQ, doc: "Delete I/O Completion Queue"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x05}, sym: CREATE_IO_CQ, doc: "Create I/O Completion Queue"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x06}, sym: IDENTIFY, doc: "Identify"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x08}, sym: ABORT, doc: "Abort"}
 
-  - {cls: enum_value, val: {cls: hex, lit: 0x09}, symbol: SFEAT, doc: "Set Features"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x0a}, symbol: GFEAT, doc: "Get Features"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x09}, sym: SFEAT, doc: "Set Features"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x0a}, sym: GFEAT, doc: "Get Features"}
 
-  - {cls: enum_value, val: {cls: hex, lit: 0x0c}, symbol: ASYNC_EVENT_REQUEST, doc: "Async Event Request"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x0d}, symbol: NS_MANAGEMENT, doc: "Namespace Management"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x0c}, sym: ASYNC_EVENT_REQUEST, doc: "Async Event Request"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x0d}, sym: NS_MANAGEMENT, doc: "Namespace Management"}
 
-  - {cls: enum_value, val: {cls: hex, lit: 0x10}, symbol: FIRMWARE_COMMIT, doc: "Firmware Commit"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x11}, symbol: FIRMWARE_IMAGE_DOWNLOAD, doc: "Firmware Image Download"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x10}, sym: FIRMWARE_COMMIT, doc: "Firmware Commit"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x11}, sym: FIRMWARE_IMAGE_DOWNLOAD, doc: "Firmware Image Download"}
 
-  - {cls: enum_value, val: {cls: hex, lit: 0x14}, symbol: DEVICE_SELF_TEST, doc: "Device Self-test"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x15}, symbol: NS_ATTACHMENT, doc: "Namespace Attachment"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x16}, symbol: KEEP_ALIVE, doc: "Keep Alive"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x14}, sym: DEVICE_SELF_TEST, doc: "Device Self-test"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x15}, sym: NS_ATTACHMENT, doc: "Namespace Attachment"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x16}, sym: KEEP_ALIVE, doc: "Keep Alive"}
 
-  - {cls: enum_value, val: {cls: hex, lit: 0x19}, symbol: DSEND, doc: "Directive Send"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x1a}, symbol: DRECV, doc: "Directive Receive"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x19}, sym: DSEND, doc: "Directive Send"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x1a}, sym: DRECV, doc: "Directive Receive"}
 
-  - {cls: enum_value, val: {cls: hex, lit: 0x1c}, symbol: VIRTUALIZATION_MGMT, doc: "Virtualization Management"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x1c}, sym: VIRTUALIZATION_MGMT, doc: "Virtualization Management"}
 
-  - {cls: enum_value, val: {cls: hex, lit: 0x1d}, symbol: MI_SEND, doc: "NVMe-MI Send"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x1e}, symbol: MI_RECV, doc: "NVMe-MI Receive"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x1d}, sym: MI_SEND, doc: "NVMe-MI Send"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x1e}, sym: MI_RECV, doc: "NVMe-MI Receive"}
 
-  - {cls: enum_value, val: {cls: hex, lit: 0x20}, symbol: CAPACITY_MGMT, doc: "Capacity Management"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x24}, symbol: LOCKDOWN, doc: "Lockdown"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x7c}, symbol: DOORBELL_BUFFER_CONFIG, doc: "Doorbell buffer Config"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x7f}, symbol: FABRICS_COMMANDS, doc: "Fabrics Commands"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x20}, sym: CAPACITY_MGMT, doc: "Capacity Management"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x24}, sym: LOCKDOWN, doc: "Lockdown"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x7c}, sym: DOORBELL_BUFFER_CONFIG, doc: "Doorbell buffer Config"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x7f}, sym: FABRICS_COMMANDS, doc: "Fabrics Commands"}
 
-  - {cls: enum_value, val: {cls: hex, lit: 0x80}, symbol: FORMAT, doc: "Format"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x81}, symbol: SECURITY_SEND, doc: "Security Send"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x82}, symbol: SECURITY_RECV, doc: "Security Recv"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x84}, symbol: SANITIZE, doc: "Sanitize"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x80}, sym: FORMAT, doc: "Format"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x81}, sym: SECURITY_SEND, doc: "Security Send"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x82}, sym: SECURITY_RECV, doc: "Security Recv"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x84}, sym: SANITIZE, doc: "Sanitize"}
 
-  - {cls: enum_value, val: {cls: hex, lit: 0x86}, symbol: GET_LBA_STATUS, doc: "Get LBA Status"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x86}, sym: GET_LBA_STATUS, doc: "Get LBA Status"}
 
 identify:
-- symbol: 'idfy'
+- sym: 'idfy'
   doc: "Controller or Namespace Structure (CNS)"
   cls: enum
 
   members:
-  - {cls: enum_value, val: {cls: hex, lit: 0x0}, symbol: NS, doc: "Identify namespace"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x1}, symbol: CTRLR, doc: "Identify controller"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x2}, symbol: NSLIST, doc: "Active Namespace ID list"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x3}, symbol: NSDSCR, doc: "Namespace ident. descr. list for active ns"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x4}, symbol: SETL, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x5}, symbol: NS_IOCS, doc: "Identify namespace, command-set specific"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x6}, symbol: CTRLR_IOCS, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x7}, symbol: NSLIST_IOCS, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x10}, symbol: NSLIST_ALLOC, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x11}, symbol: NS_ALLOC, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x12}, symbol: CTRLR_NS, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x13}, symbol: CTRLR_SUB, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x14}, symbol: CTRLR_PRI, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x15}, symbol: CTRLR_SEC, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x16}, symbol: NSGRAN, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x17}, symbol: UUIDL, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x1a}, symbol: NSLIST_ALLOC_IOCS, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x1b}, symbol: NS_ALLOC_IOCS, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x1c}, symbol: IOCS, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x0}, sym: NS, doc: "Identify namespace"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x1}, sym: CTRLR, doc: "Identify controller"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x2}, sym: NSLIST, doc: "Active Namespace ID list"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x3}, sym: NSDSCR, doc: "Namespace ident. descr. list for active ns"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x4}, sym: SETL, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x5}, sym: NS_IOCS, doc: "Identify namespace, command-set specific"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x6}, sym: CTRLR_IOCS, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x7}, sym: NSLIST_IOCS, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x10}, sym: NSLIST_ALLOC, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x11}, sym: NS_ALLOC, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x12}, sym: CTRLR_NS, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x13}, sym: CTRLR_SUB, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x14}, sym: CTRLR_PRI, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x15}, sym: CTRLR_SEC, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x16}, sym: NSGRAN, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x17}, sym: UUIDL, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x1a}, sym: NSLIST_ALLOC_IOCS, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x1b}, sym: NS_ALLOC_IOCS, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x1c}, sym: IOCS, doc: "..."}
 
 command_set_identifiers:
-- symbol: csi
+- sym: csi
   doc: "Command Set Identifiers"
   cls: enum
 
   members:
-  - {cls: enum_value, symbol: NVM, val: {cls: hex, lit: 0x0}, doc: "NVM Command Set Identifier"}
-  - {cls: enum_value, symbol: KVS, val: {cls: hex, lit: 0x1}, doc: "KVS Command Set Identifier"}
-  - {cls: enum_value, symbol: ZNS, val: {cls: hex, lit: 0x2}, doc: "ZNS Command Set Identifier"}
+  - {cls: enum_value, sym: NVM, val: {cls: hex, lit: 0x0}, doc: "NVM Command Set Identifier"}
+  - {cls: enum_value, sym: KVS, val: {cls: hex, lit: 0x1}, doc: "KVS Command Set Identifier"}
+  - {cls: enum_value, sym: ZNS, val: {cls: hex, lit: 0x2}, doc: "ZNS Command Set Identifier"}
 
 nvm_layout_dsm:
-- symbol: dsm_range
+- sym: dsm_range
   cls: struct
   doc: "doc..."
   members:
-  - {cls: field, symbol: cattr, dtype: u32, fmt: '%d', doc: "Context attributes"}
-  - {cls: field, symbol: nlb, dtype: u32, fmt: '%d', doc: "Length in logical blocks"}
-  - {cls: field, symbol: slba, dtype: u64, fmt: '%d', doc: "Starting LBA"}
+  - {cls: field, sym: cattr, dtype: u32, fmt: '%d', doc: "Context attributes"}
+  - {cls: field, sym: nlb, dtype: u32, fmt: '%d', doc: "Length in logical blocks"}
+  - {cls: field, sym: slba, dtype: u64, fmt: '%d', doc: "Starting LBA"}
 
 nvm_opcodes:
-- symbol: opc_nvm
+- sym: opc_nvm
   doc: "Command Opcodes for the NVM Command-Set"
   cls: enum
   members:
-  - {cls: enum_value, symbol: FLUSH, val: {cls: hex, lit: 0x00}, doc: "Flush"}
-  - {cls: enum_value, symbol: WRITE, val: {cls: hex, lit: 0x01}, doc: "Write"}
-  - {cls: enum_value, symbol: READ, val: {cls: hex, lit: 0x02}, doc: "Read"}
-  - {cls: enum_value, symbol: WRITE_UNCORRECTABLE, val: {cls: hex, lit: 0x04}, doc: "Write Uncorrectable"}
-  - {cls: enum_value, symbol: COMPARE, val: {cls: hex, lit: 0x05}, doc: "Compare"}
-  - {cls: enum_value, symbol: WRITE_ZEROES, val: {cls: hex, lit: 0x08}, doc: "Write Zeroes"}
-  - {cls: enum_value, symbol: DATASET_MANAGEMENT, val: {cls: hex, lit: 0x09}, doc: "Dataset Management"}
-  - {cls: enum_value, symbol: VERIFY, val: {cls: hex, lit: 0x0c}, doc: "Verify"}
-  - {cls: enum_value, symbol: RESERVATION_REGISTER, val: {cls: hex, lit: 0x0d}, doc: "Reservation Register"}
-  - {cls: enum_value, symbol: RESERVATION_REPORT, val: {cls: hex, lit: 0x0e}, doc: "Reservation Report"}
-  - {cls: enum_value, symbol: RESERVATION_ACQUIRE, val: {cls: hex, lit: 0x11}, doc: "Reservation Acquire"}
-  - {cls: enum_value, symbol: RESERVATION_RELEASE, val: {cls: hex, lit: 0x15}, doc: "Reservation Release"}
-  - {cls: enum_value, symbol: SCOPY, val: {cls: hex, lit: 0x19}, doc: "Simple Copy"}
+  - {cls: enum_value, sym: FLUSH, val: {cls: hex, lit: 0x00}, doc: "Flush"}
+  - {cls: enum_value, sym: WRITE, val: {cls: hex, lit: 0x01}, doc: "Write"}
+  - {cls: enum_value, sym: READ, val: {cls: hex, lit: 0x02}, doc: "Read"}
+  - {cls: enum_value, sym: WRITE_UNCORRECTABLE, val: {cls: hex, lit: 0x04}, doc: "Write Uncorrectable"}
+  - {cls: enum_value, sym: COMPARE, val: {cls: hex, lit: 0x05}, doc: "Compare"}
+  - {cls: enum_value, sym: WRITE_ZEROES, val: {cls: hex, lit: 0x08}, doc: "Write Zeroes"}
+  - {cls: enum_value, sym: DATASET_MANAGEMENT, val: {cls: hex, lit: 0x09}, doc: "Dataset Management"}
+  - {cls: enum_value, sym: VERIFY, val: {cls: hex, lit: 0x0c}, doc: "Verify"}
+  - {cls: enum_value, sym: RESERVATION_REGISTER, val: {cls: hex, lit: 0x0d}, doc: "Reservation Register"}
+  - {cls: enum_value, sym: RESERVATION_REPORT, val: {cls: hex, lit: 0x0e}, doc: "Reservation Report"}
+  - {cls: enum_value, sym: RESERVATION_ACQUIRE, val: {cls: hex, lit: 0x11}, doc: "Reservation Acquire"}
+  - {cls: enum_value, sym: RESERVATION_RELEASE, val: {cls: hex, lit: 0x15}, doc: "Reservation Release"}
+  - {cls: enum_value, sym: SCOPY, val: {cls: hex, lit: 0x19}, doc: "Simple Copy"}
 
 zns:
-- symbol: opc_zns
+- sym: opc_zns
   doc: "Command Opcodes for the ZNS Command-Set"
   cls: enum
   members:
-  - {cls: enum_value, val: {cls: hex, lit: 0x79}, symbol: MGMT_SEND, doc: "Zone Management Send"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x7a}, symbol: MGMT_RECV, doc: "Zone Management Receive"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x7d}, symbol: APPEND, doc: "Zone Append"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x79}, sym: MGMT_SEND, doc: "Zone Management Send"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x7a}, sym: MGMT_RECV, doc: "Zone Management Receive"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x7d}, sym: APPEND, doc: "Zone Append"}
 
-- symbol: zns_zsa
+- sym: zns_zsa
   doc: "This is a doc description"
   cls: enum
 
   members:
-  - {cls: enum_value, val: {cls: hex, lit: 0x0}, symbol: CLOSE, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x1}, symbol: FINISH, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x3}, symbol: OPEN, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x4}, symbol: RESET, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x5}, symbol: OFFLINE, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x10}, symbol: SET_DESCR_EXTENSION, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x11}, symbol: ZRWA_FLUSH, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x0}, sym: CLOSE, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x1}, sym: FINISH, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x3}, sym: OPEN, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x4}, sym: RESET, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x5}, sym: OFFLINE, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x10}, sym: SET_DESCR_EXTENSION, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x11}, sym: ZRWA_FLUSH, doc: "..."}
 
-- symbol: zns_zra
+- sym: zns_zra
   doc: "This is a doc description"
   cls: enum
 
   members:
-  - {cls: enum_value, val: {cls: hex, lit: 0x0}, symbol: REPORT_ZONES, doc: "..."}
-  - {cls: enum_value, val: {cls: hex, lit: 0x1}, symbol: EXTENDED_REPORT_ZONES, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x0}, sym: REPORT_ZONES, doc: "..."}
+  - {cls: enum_value, val: {cls: hex, lit: 0x1}, sym: EXTENDED_REPORT_ZONES, doc: "..."}
 
-- symbol: zns_zras
+- sym: zns_zras
   doc: "This is a doc description"
   cls: enum
 
   members:
-  - {cls: enum_value, val: {cls: hex, lit: 0x0}, symbol: LIST_ALL, doc: "List all zones"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x1}, symbol: LIST_EMPTY, doc: "List the zones in the ZSE:Empty state"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x2}, symbol: LIST_IOPEN, doc: "List all zones in the ZSIO:Implicitly Opened state"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x3}, symbol: LIST_EOPEN, doc: "List all zones in the ZSEO:Explicitly Opened state"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x4}, symbol: LIST_CLOSED, doc: "List all zones in the ZSC:Closed state"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x5}, symbol: LIST_FULL, doc: "List the zones in the ZSF:Full state"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x6}, symbol: LIST_READONLY, doc: "List the zones in the ZSRO: Read Only state"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x7}, symbol: LIST_OFFLINE, doc: "List the zones in the ZSO:Offline state"}
-  - {cls: enum_value, val: {cls: hex, lit: 0x9}, symbol: LIST_ATTR, doc: "List all zones"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x0}, sym: LIST_ALL, doc: "List all zones"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x1}, sym: LIST_EMPTY, doc: "List the zones in the ZSE:Empty state"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x2}, sym: LIST_IOPEN, doc: "List all zones in the ZSIO:Implicitly Opened state"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x3}, sym: LIST_EOPEN, doc: "List all zones in the ZSEO:Explicitly Opened state"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x4}, sym: LIST_CLOSED, doc: "List all zones in the ZSC:Closed state"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x5}, sym: LIST_FULL, doc: "List the zones in the ZSF:Full state"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x6}, sym: LIST_READONLY, doc: "List the zones in the ZSRO: Read Only state"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x7}, sym: LIST_OFFLINE, doc: "List the zones in the ZSO:Offline state"}
+  - {cls: enum_value, val: {cls: hex, lit: 0x9}, sym: LIST_ATTR, doc: "List all zones"}
 
 kvs_opcodes:
-- symbol: opc_kvs
+- sym: opc_kvs
   doc: "Command Opcodes for the KVS Command-Set"
   cls: enum
   members:
-  - {cls: enum_value, symbol: STORE, val: {cls: hex, lit: 0x01}, doc: "Store Key-Value pair"}
-  - {cls: enum_value, symbol: RETRIEVE, val: {cls: hex, lit: 0x02}, doc: "Retrieve Key-Value pair"}
-  - {cls: enum_value, symbol: DELETE, val: {cls: hex, lit: 0x10}, doc: "Delete Key-Value pair"}
-  - {cls: enum_value, symbol: EXIST, val: {cls: hex, lit: 0x14}, doc: "Check if key exists"}
-  - {cls: enum_value, symbol: LIST, val: {cls: hex, lit: 0x06}, doc: "List keys"}
+  - {cls: enum_value, sym: STORE, val: {cls: hex, lit: 0x01}, doc: "Store Key-Value pair"}
+  - {cls: enum_value, sym: RETRIEVE, val: {cls: hex, lit: 0x02}, doc: "Retrieve Key-Value pair"}
+  - {cls: enum_value, sym: DELETE, val: {cls: hex, lit: 0x10}, doc: "Delete Key-Value pair"}
+  - {cls: enum_value, sym: EXIST, val: {cls: hex, lit: 0x14}, doc: "Check if key exists"}
+  - {cls: enum_value, sym: LIST, val: {cls: hex, lit: 0x06}, doc: "List keys"}
 
 nvm:
-- symbol: nvm_read
+- sym: nvm_read
   doc: "NVM Read Command"
   cls: struct
   members:
-  - symbol: bits
+  - sym: bits
     cls: bitfield
     doc: "Bitfield accessor"
     dtype: u16
     members:
-    - {cls: bits, width: 8, symbol: opcode, doc: "Command Opcode"}
-    - {cls: bits, width: 2, symbol: fuse, doc: "Fused Operation"}
-    - {cls: bits, width: 4, symbol: rsvd, doc: "Reserved"}
-    - {cls: bits, width: 2, symbol: psdt, doc: "Brief"}
-  - {cls: field, fmt: '%d', dtype: u16, symbol: cid, doc: "Command Identifier"}
-  - {cls: field, fmt: '%d', dtype: u32, symbol: nsid, doc: "Namespace Identifier"}
-  - {cls: field, fmt: '%d', dtype: u32, symbol: cdw02, doc: "Command DWord 2"}
-  - {cls: field, fmt: '%d', dtype: u32, symbol: cdw03, doc: "Command DWord 3"}
-  - {cls: field, fmt: '0x%x', dtype: u64, symbol: mptr, doc: "Metadata pointer"}
-  - symbol: dptr
+    - {cls: bits, width: 8, sym: opcode, doc: "Command Opcode"}
+    - {cls: bits, width: 2, sym: fuse, doc: "Fused Operation"}
+    - {cls: bits, width: 4, sym: rsvd, doc: "Reserved"}
+    - {cls: bits, width: 2, sym: psdt, doc: "Brief"}
+  - {cls: field, fmt: '%d', dtype: u16, sym: cid, doc: "Command Identifier"}
+  - {cls: field, fmt: '%d', dtype: u32, sym: nsid, doc: "Namespace Identifier"}
+  - {cls: field, fmt: '%d', dtype: u32, sym: cdw02, doc: "Command DWord 2"}
+  - {cls: field, fmt: '%d', dtype: u32, sym: cdw03, doc: "Command DWord 3"}
+  - {cls: field, fmt: '0x%x', dtype: u64, sym: mptr, doc: "Metadata pointer"}
+  - sym: dptr
     cls: union
     doc:
     members:
-    - symbol:
+    - sym:
       cls: struct
       doc:
       members:
-      - {cls: field, symbol: dptr1, dtype: u64, fmt: '0x%x', doc: "Brief"}
-      - {cls: field, symbol: dptr2, dtype: u64, fmt: '0x%x', doc: "Brief"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: ndt, doc: "Brief"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: ndm, doc: "Number of dwords"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cdw12, doc: "Command DWord 12"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cdw13, doc: "Command DWord 13"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cdw14, doc: "Command DWord 14"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cdw15, doc: "Command DWord 15"}
+      - {cls: field, sym: dptr1, dtype: u64, fmt: '0x%x', doc: "Brief"}
+      - {cls: field, sym: dptr2, dtype: u64, fmt: '0x%x', doc: "Brief"}
+  - {cls: field, fmt: '0x%x', dtype: u32, sym: ndt, doc: "Brief"}
+  - {cls: field, fmt: '0x%x', dtype: u32, sym: ndm, doc: "Number of dwords"}
+  - {cls: field, fmt: '0x%x', dtype: u32, sym: cdw12, doc: "Command DWord 12"}
+  - {cls: field, fmt: '0x%x', dtype: u32, sym: cdw13, doc: "Command DWord 13"}
+  - {cls: field, fmt: '0x%x', dtype: u32, sym: cdw14, doc: "Command DWord 14"}
+  - {cls: field, fmt: '0x%x', dtype: u32, sym: cdw15, doc: "Command DWord 15"}
 
-- symbol: nvm_write
+- sym: nvm_write
   doc: "NVM Write Command"
   cls: struct
   members:
-  - symbol: bits
+  - sym: bits
     cls: bitfield
     doc:
     dtype: u16
     members:
-    - {cls: bits, width: 8, symbol: opcode, doc: "Command Opcde"}
-    - {cls: bits, width: 2, symbol: fuse, doc: "Fused Operation"}
-    - {cls: bits, width: 4, symbol: rsvd, doc: "Reserved"}
-    - {cls: bits, width: 2, symbol: psdt, doc: "Brief"}
-  - {cls: field, fmt: '0x%x', dtype: u16, symbol: cid, doc: "Command Identifier"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: nsid, doc: "Namespace Identifier"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cdw02, doc: "Command DWord 2"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cdw03, doc: "Command DWord 3"}
-  - {cls: field, fmt: '0x%x', dtype: u64, symbol: mptr, doc: "Metadata pointer"}
-  - symbol: dptr
+    - {cls: bits, width: 8, sym: opcode, doc: "Command Opcde"}
+    - {cls: bits, width: 2, sym: fuse, doc: "Fused Operation"}
+    - {cls: bits, width: 4, sym: rsvd, doc: "Reserved"}
+    - {cls: bits, width: 2, sym: psdt, doc: "Brief"}
+  - {cls: field, fmt: '0x%x', dtype: u16, sym: cid, doc: "Command Identifier"}
+  - {cls: field, fmt: '0x%x', dtype: u32, sym: nsid, doc: "Namespace Identifier"}
+  - {cls: field, fmt: '0x%x', dtype: u32, sym: cdw02, doc: "Command DWord 2"}
+  - {cls: field, fmt: '0x%x', dtype: u32, sym: cdw03, doc: "Command DWord 3"}
+  - {cls: field, fmt: '0x%x', dtype: u64, sym: mptr, doc: "Metadata pointer"}
+  - sym: dptr
     cls: union
     doc:
     members:
-    - symbol:
+    - sym:
       doc:
       cls: struct
       members:
-      - {cls: field, fmt: '0x%x', dtype: u64, symbol: dptr1, doc: "Brief"}
-      - {cls: field, fmt: '0x%x', dtype: u64, symbol: dptr2, doc: "Brief"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: ndt, doc: "Brief"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: ndm, doc: "Number of dwords"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cdw12, doc: "Command DWord 12"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cdw13, doc: "Command DWord 13"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cdw14, doc: "Command DWord 14"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cdw15, doc: "Command DWord 15"}
+      - {cls: field, sym: dptr1, fmt: '0x%x', dtype: u64, doc: "Brief"}
+      - {cls: field, sym: dptr2, fmt: '0x%x', dtype: u64, doc: "Brief"}
+  - {cls: field, fmt: '0x%x', dtype: u32, sym: ndt, doc: "Brief"}
+  - {cls: field, fmt: '0x%x', dtype: u32, sym: ndm, doc: "Number of dwords"}
+  - {cls: field, fmt: '0x%x', dtype: u32, sym: cdw12, doc: "Command DWord 12"}
+  - {cls: field, fmt: '0x%x', dtype: u32, sym: cdw13, doc: "Command DWord 13"}
+  - {cls: field, fmt: '0x%x', dtype: u32, sym: cdw14, doc: "Command DWord 14"}
+  - {cls: field, fmt: '0x%x', dtype: u32, sym: cdw15, doc: "Command DWord 15"}
 
-- symbol: nvm_sanitize
+- sym: nvm_sanitize
   doc: "NVM Sanitize Command"
   cls: struct
   members:
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cwd01, doc: "Command DWord 01"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cwd02, doc: "Command DWord 02"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cwd03, doc: "Command DWord 03"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cwd04, doc: "Command DWord 04"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cwd05, doc: "Command DWord 05"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cwd06, doc: "Command DWord 06"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cdw07, doc: "Command DWord 07"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cdw08, doc: "Command DWord 08"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cdw09, doc: "Command DWord 09"}
-  - symbol:
+  - {cls: field, sym: cwd01, dtype: u32, fmt: '0x%x', doc: "Command DWord 01"}
+  - {cls: field, sym: cwd02, dtype: u32, fmt: '0x%x', doc: "Command DWord 02"}
+  - {cls: field, sym: cwd03, dtype: u32, fmt: '0x%x', doc: "Command DWord 03"}
+  - {cls: field, sym: cwd04, dtype: u32, fmt: '0x%x', doc: "Command DWord 04"}
+  - {cls: field, sym: cwd05, dtype: u32, fmt: '0x%x', doc: "Command DWord 05"}
+  - {cls: field, sym: cwd06, dtype: u32, fmt: '0x%x', doc: "Command DWord 06"}
+  - {cls: field, sym: cdw07, dtype: u32, fmt: '0x%x', doc: "Command DWord 07"}
+  - {cls: field, sym: cdw08, dtype: u32, fmt: '0x%x', doc: "Command DWord 08"}
+  - {cls: field, sym: cdw09, dtype: u32, fmt: '0x%x', doc: "Command DWord 09"}
+  - sym:
     doc:
     cls: bitfield
     dtype: u32
     members:
-    - {cls: bits, width: 3, symbol: sanact, doc: "Sanitize Action"}
-    - {cls: bits, width: 1, symbol: ause, doc: "Allow unrestr. san. exit"}
-    - {cls: bits, width: 4, symbol: owpass, doc: "Overwrite pass count"}
-    - {cls: bits, width: 1, symbol: oipbp, doc: "Overwrite invert"}
-    - {cls: bits, width: 1, symbol: nodas, doc: "Brief"}
-    - {cls: bits, width: 22, symbol: rsvd, doc: "Brief"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: ovrpat, doc: "Overwrite Pattern"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cdw12, doc: "Command DWord 12"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cdw13, doc: "Command DWord 13"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cdw14, doc: "Command DWord 14"}
-  - {cls: field, fmt: '0x%x', dtype: u32, symbol: cdw15, doc: "Command DWord 15"}
+    - {cls: bits, sym: sanact, width: 3, doc: "Sanitize Action"}
+    - {cls: bits, sym: ause, width: 1, doc: "Allow unrestr. san. exit"}
+    - {cls: bits, sym: owpass, width: 4, doc: "Overwrite pass count"}
+    - {cls: bits, sym: oipbp, width: 1, doc: "Overwrite invert"}
+    - {cls: bits, sym: nodas, width: 1, doc: "Brief"}
+    - {cls: bits, sym: rsvd, width: 22, doc: "Brief"}
+  - {cls: field, sym: ovrpat, dtype: u32, fmt: '0x%x', doc: "Overwrite Pattern"}
+  - {cls: field, sym: cdw12, dtype: u32, fmt: '0x%x', doc: "Command DWord 12"}
+  - {cls: field, sym: cdw13, dtype: u32, fmt: '0x%x', doc: "Command DWord 13"}
+  - {cls: field, sym: cdw14, dtype: u32, fmt: '0x%x', doc: "Command DWord 14"}
+  - {cls: field, sym: cdw15, dtype: u32, fmt: '0x%x', doc: "Command DWord 15"}

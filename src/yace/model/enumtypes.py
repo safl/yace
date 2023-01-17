@@ -33,7 +33,7 @@ class EnumValue(Entity):
         if not isinstance(self.val, (LiteralDec, LiteralHex)):
             return (
                 False,
-                f"EnumValue[{self.symbol}][Unsupported Instance]: {self.val}",
+                f"EnumValue[{self.sym}][Unsupported Instance]: {self.val}",
             )
 
         return (True, None)
@@ -76,7 +76,7 @@ class Enum(Entity):
         if len(invalid_types):
             return (
                 False,
-                f"Invalid types in {self.symbol}.members; "
+                f"Invalid types in {self.sym}.members; "
                 "expecting: EnumValue, got: [{invalid_types}]",
             )
 
