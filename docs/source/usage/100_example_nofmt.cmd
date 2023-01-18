@@ -1,1 +1,1 @@
-  yace example-yim.yaml --stage emit
+  yace example-yim.yaml --lint

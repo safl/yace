@@ -37,12 +37,6 @@ def parse_args():
         help="Yace Emitter Targets (yets)",
     )
     parser.add_argument(
-        "--stage",
-        nargs="+",
-        default=Compiler.STAGES,
-        choices=Compiler.STAGES,
-    )
-    parser.add_argument(
         "--output",
         type=Path,
         default=Path("output"),
@@ -54,6 +48,11 @@ def parse_args():
         action="append_const",
         const=1,
         help="Increase log-level.",
+    )
+    parser.add_argument(
+        "--lint",
+        action="store_true",
+        help="Parse and check the given model-files, then exit",
     )
 
     parser.add_argument(
@@ -77,7 +76,6 @@ def main():
         ],
     )
 
-    yace = Compiler(args.stage, args.target, args.output)
-
+    yace = Compiler(args.target, args.output)
     for path in args.model:
-        yace.process(path)
+        yace.process(path, ["parse", "lint"] if args.lint else Compiler.STAGES)

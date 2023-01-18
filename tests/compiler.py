@@ -16,16 +16,16 @@ INVALID = [
 
 
 @pytest.mark.parametrize("path", VALID)
-def test_valid(path):
+def test_compiler_with_valid_model(path):
     """Test **yace** via the cli using valid **yims**"""
 
-    yace = Compiler(Compiler.STAGES, ["capi"], Path("/tmp") / "foo")
-    yace.compile(path)
+    yace = Compiler(["capi"], Path("/tmp") / "foo")
+    yace.process(path)
 
 
 @pytest.mark.parametrize("path", INVALID)
-def test_invalid(path):
+def test_compiler_with_invalid_model(path):
     """Test **yace** via the cli using invalid **yims**"""
 
-    yace = Compiler(Compiler.STAGES, ["capi"], Path("/tmp") / "foo")
-    yace.compile(path)
+    yace = Compiler(["capi"], Path("/tmp") / "foo")
+    yace.process(path)
