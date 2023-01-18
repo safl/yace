@@ -7,7 +7,6 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, PackageLoader, Template
 
 from yace.model.entities import Entity
-from yace.model.model import Meta, Model
 
 
 class Emitter(object):
@@ -41,11 +40,9 @@ class Emitter(object):
     Is by default handled in one place: the Jinja templates.
     """
 
-    def __init__(self, model: Model, output: Path, name: str = "base"):
-        self.model = model
-        self.meta = model.meta
-        self.output = output.resolve()
+    def __init__(self, output: Path, name: str = "base"):
         self.name = name
+        self.output = output.resolve()
 
         filter_jenv = Environment(
             loader=PackageLoader(f"yace.targets.{self.name}", ".")

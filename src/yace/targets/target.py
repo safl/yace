@@ -10,16 +10,19 @@ class Target(ABC):
     documentation for what is needed when adding a **yet** to **yace**.
     """
 
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, name, output):
+        self.name = name  # Name of the compiler-target
+        self.output = output  # Location to emit code to
+        self.headers = []  # Resolved paths to emitted headers
+        self.sources = []  # Resolved paths to emitted sources
+        self.aux = []  # Resolved paths to auxilary files e.g. Doxy Conf
 
     @abstractmethod
-    def emit(self):
+    def emit(self, model):
         """
-        Emit code using your weapons of choice, common choice would be to
-        utilize an instance of the class:`.Emitter`.
+        Emit code for the given model, using your weapons of choice, common
+        choice would be to utilize an instance of the class:`.Emitter`.
         """
-        pass
 
     @abstractmethod
     def format(self):
@@ -28,7 +31,6 @@ class Target(ABC):
         black, isort, rustfmt, etc. depending of what applies to the generated
         code.
         """
-        pass
 
     @abstractmethod
     def check(self):
@@ -37,4 +39,3 @@ class Target(ABC):
         language just execute something verifying the generated code. This
         could for example be a test-program emitted earlier.
         """
-        pass

@@ -42,16 +42,12 @@ class CAPI(Target):
     Several helper functions
     """
 
-    def __init__(self, model, output):
-        self.name = "capi"
-        self.model = model
-        self.output = output
+    NAME = "capi"
 
-        self.headers = []  # Resolved paths to emitted headers
-        self.sources = []  # Resolved paths to emitted sources
-        self.aux = []  # Resolved paths to auxilary files e.g. Doxy Conf
+    def __init__(self, output):
+        super().__init__(CAPI.NAME, output)
 
-        self.emitter = Emitter(self.model, self.output, self.name)
+        self.emitter = Emitter(self.output, CAPI.NAME)
 
         self.tools = {
             "clang-format": ClangFormat(output),
@@ -59,15 +55,15 @@ class CAPI(Target):
             "gcc": Gcc(output),
         }
 
-    def emit(self):
+    def emit(self, model):
         """Emit code"""
 
         files = [
-            (f"lib{self.model.meta.prefix}_core.h", "capi_core_h", self.headers),
-            (f"lib{self.model.meta.prefix}_pp.h", "capi_pp_h", self.headers),
-            (f"lib{self.model.meta.prefix}.h", "capi_bundle_h", self.headers),
-            (f"{self.model.meta.prefix}_pp.c", "capi_pp_c", self.sources),
-            (f"{self.model.meta.prefix}_check.c", "capi_check_c", self.sources),
+            (f"lib{model.meta.prefix}_core.h", "capi_core_h", self.headers),
+            (f"lib{model.meta.prefix}_pp.h", "capi_pp_h", self.headers),
+            (f"lib{model.meta.prefix}.h", "capi_bundle_h", self.headers),
+            (f"{model.meta.prefix}_pp.c", "capi_pp_c", self.sources),
+            (f"{model.meta.prefix}_check.c", "capi_check_c", self.sources),
             ("doxygen.conf", "doxygen", self.aux),
         ]
         for filename, template, container in files:
@@ -76,8 +72,8 @@ class CAPI(Target):
                 content = self.emitter.render(
                     template,
                     {
-                        "meta": self.model.meta,
-                        "entities": self.model.entities,
+                        "meta": model.meta,
+                        "entities": model.entities,
                         "headers": self.headers,
                     },
                 )
