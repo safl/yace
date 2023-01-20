@@ -25,7 +25,7 @@ class Compiler(object):
     TARGETS = [CAPI]
 
     def __init__(self, targets: typing.List[str], output: Path):
-        self.targets = targets
+        self.targets = [target for target in Compiler.TARGETS if target.NAME in targets]
         self.output = output.resolve()
 
     def process(self, path: Path, stages: typing.List[str] = None):

@@ -32,8 +32,8 @@ def parse_args():
     parser.add_argument(
         "--target",
         nargs="+",
-        choices=["capi"],
-        default=["capi"],
+        choices=[target.NAME for target in Compiler.TARGETS],
+        default=[target.NAME for target in Compiler.TARGETS][0],
         help="Yace Emitter Targets (yets)",
     )
     parser.add_argument(
