@@ -49,8 +49,9 @@ class Bitfield(Entity):
 @dataclass
 class Field(Entity):
     """
-    :class:`.Field` represents members of :class:`.Struct` and :class:`.Union`,
-    utilized by compiler to emit code in the C API similar to::
+    :class:`yace.model.Field` represents members of :class:`yace.model.Struct`
+    and :class:`yace.model.Union`, utilized by compiler to emit code in the C
+    API similar to::
 
         uint32_t bar;
 
