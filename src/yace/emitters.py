@@ -9,6 +9,18 @@ from jinja2 import Environment, FileSystemLoader, PackageLoader, Template
 from yace.model.entities import Entity
 
 
+def camelcase(symbol, pascalcase=True):
+    """Format the given 'symbol' as (C|c)amelCase"""
+
+    camelized = "".join(
+        [part[0].upper() + part[1:].lower() for part in symbol.split("_")]
+    )
+    if pascalcase:
+        return camelized
+
+    return camelized[0].lower() + camelized[1:]
+
+
 class Emitter(object):
     """
     The default approach to transforming :class:`.Entity` in
@@ -57,6 +69,7 @@ class Emitter(object):
         jenv.filters["render"] = lambda entity, template_name: self.filter_templates[
             f"filter_{template_name}"
         ].render(entity=entity)
+        jenv.filters["camelcase"] = camelcase
 
         self.templates = {
             Path(f).stem: jenv.get_template(f)
