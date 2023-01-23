@@ -1,3 +1,4 @@
+from itertools import product
 from pathlib import Path
 
 import pytest
@@ -15,17 +16,17 @@ INVALID = [
 ]
 
 
-@pytest.mark.parametrize("path", VALID)
-def test_compiler_with_valid_model(path):
+@pytest.mark.parametrize("path,target", product(VALID, Compiler.TARGETS))
+def test_compiler_with_valid_model(path, target):
     """Test **yace** via the cli using valid **yims**"""
 
-    yace = Compiler(["capi"], Path("/tmp") / "foo")
+    yace = Compiler([target.NAME], Path("/tmp") / "foo")
     yace.process(path)
 
 
-@pytest.mark.parametrize("path", INVALID)
-def test_compiler_with_invalid_model(path):
+@pytest.mark.parametrize("path,target", product(INVALID, Compiler.TARGETS))
+def test_compiler_with_invalid_model(path, target):
     """Test **yace** via the cli using invalid **yims**"""
 
-    yace = Compiler(["capi"], Path("/tmp") / "foo")
+    yace = Compiler([target.NAME], Path("/tmp") / "foo")
     yace.process(path)
