@@ -49,15 +49,20 @@ class Compiler(object):
                 log.error("Skipping remaining stages, due to linter-errors")
                 return
 
-        target = CAPI(self.output)
-        if "emit" in stages:
-            log.info("Stage: 'emit'")
-            target.emit(model)
+        for cls in self.targets:
 
-        if "format" in stages:
-            log.info("Stage: 'format'")
-            target.format()
+            log.info("Target: %s", cls.NAME)
 
-        if "check" in stages:
-            log.info("Stage: 'check'")
-            target.check()
+            target = cls(self.output)
+
+            if "emit" in stages:
+                log.info("Stage: 'emit'")
+                target.emit(model)
+
+            if "format" in stages:
+                log.info("Stage: 'format'")
+                target.format()
+
+            if "check" in stages:
+                log.info("Stage: 'check'")
+                target.check()
