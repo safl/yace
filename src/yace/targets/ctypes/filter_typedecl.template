@@ -1,0 +1,20 @@
+{%- if entity.dtype.cls == "string" %}
+ctypes.c_char_p
+{%- elif entity.dtype.cls == "char" and entity.dtype.pointer == 1 -%}
+ctypes.c_char_p
+{%- elif entity.dtype.cls == "void" and entity.dtype.pointer == 1 -%}
+ctypes.c_void_p
+{%- else -%}
+{%- if entity.dtype.pointer -%}{%- for n in range(entity.dtype.pointer) -%}ctypes.POINTER({% endfor %}{%- endif -%}
+{%- if entity.dtype.cls == "char" -%}
+ctypes.c_char
+{%- elif entity.dtype.cls == "int" -%}
+ctypes.c_int
+{%- elif entity.dtype.cls == "void" -%}
+void
+{%- elif entity.dtype.width -%}
+ctypes.c_{%- if "u" in entity.dtype.cls -%}u{%- endif -%}int{{ entity.dtype.width }}
+{%- endif -%}
+{%- if entity.dtype.pointer -%}{%- for n in range(entity.dtype.pointer) -%}){% endfor %}{%- endif -%}
+{%- if entity.dtype.array -%}[{{ entity.dtype.array }}]{%- endif -%}
+{%- endif -%}

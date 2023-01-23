@@ -1,17 +1,21 @@
 output
 ├── a.out
+├── black.log
 ├── clang-format-c.clang-format
 ├── clang-format-h.clang-format
 ├── clang-format.log
+├── ctypes_sugar.py
 ├── doxygen.conf
 ├── doxygen.log
 ├── doxyreport
+├── example.py
 ├── example_check.c
 ├── example_pp.c
 ├── gcc.log
+├── isort.log
 ├── libexample.h
 ├── libexample_core.h
 └── libexample_pp.h
 
-1 directory, 12 files
+1 directory, 16 files
 

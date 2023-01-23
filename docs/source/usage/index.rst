@@ -52,6 +52,9 @@ emitted code and artifacts:
    :language: bash
    :lines: 1-
 
+Example: capi
+-------------
+
 The C API header generated from the above looks like:
 
 .. literalinclude:: output/libexample_core.h
@@ -70,6 +73,18 @@ then do:
 
 The above will do nothing else but emit code. See ``yace --help`` for the
 different stages.
+
+Example: ctypes
+---------------
+
+The ``ctypes`` target produces the following:
+
+.. literalinclude:: output/example.py
+   :language: Python
+   :caption:
+   :lines: 1-
+
+Note, this is early stage of the :ref:`sec-targets-ctypes` target.
 
 Additional Examples
 ===================

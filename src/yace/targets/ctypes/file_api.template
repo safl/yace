@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+{{ meta.brief }}
+
+{%- if meta.full %}
+{{ meta.full | replace("\n", " ") }}
+{%- endif %}
+
+Copyright (C) {{ meta.author }}
+SPDX-License-Identifier: {{ meta.lic }}
+-------------------------------------------------------------------------------
+NOTE: This file was generated using yace: https://github.com/safl/yace
+"""
+from ctypes_sugar import Enum, Structure, Union
+
+{% for entity in entities %}
+{%- if entity.cls in ["define"] -%}
+{{ entity.sym | upper }} = {{ entity.val.lit }} # {{ entity.doc }}
+{%- elif entity.cls in ["enum"] -%}
+class {{ entity.sym | camelcase }}Enum(Enum):
+	"""{{ entity.doc }}"""
+
+{%- for member in entity.members %}
+	{{ member.sym | upper }} = {{ '0x%0x' % member.val.lit }} # {{ member.doc }}
+{%- endfor %}
+{%- elif entity.cls in ["struct"] -%}
+class {{ entity.sym | camelcase }}Struct(Structure):
+	"""{{ entity.doc }}"""
+	pass
+{{ entity.sym | camelcase }}Struct._pack_ = 1
+{{ entity.sym | camelcase }}Struct._fields_ [
+{%- for member in entity.members %}
+	{% if member.cls == "field" %}("{{ member.sym }}", {{ member | render("typedecl") }}),{% endif %}
+{%- endfor %}
+]
+{%- elif entity.cls in ["union"] -%}
+class {{ entity.sym | camelcase }}Struct(Union):
+	"""{{ entity.doc }}"""
+	pass
+{{ entity.sym | camelcase }}Struct._pack_ = 1
+{{ entity.sym | camelcase }}Struct._fields_ [
+{%- for member in entity.members %}
+	{% if member.cls == "field" %}("{{ member.sym }}", {{ member | render("typedecl") }}),{% endif %}
+{%- endfor %}
+]
+{%- endif %}
+{% endfor %}

@@ -6,6 +6,7 @@ from yace import __version__ as version
 from yace.model.linter import Linter
 from yace.model.model import Model
 from yace.targets.capi.target import CAPI
+from yace.targets.ctypes.target import Ctypes
 
 
 class Compiler(object):
@@ -22,7 +23,7 @@ class Compiler(object):
     """
 
     STAGES = ["parse", "lint", "emit", "format", "check"]
-    TARGETS = [CAPI]
+    TARGETS = [CAPI, Ctypes]
 
     def __init__(self, targets: typing.List[str], output: Path):
         self.targets = [target for target in Compiler.TARGETS if target.NAME in targets]
