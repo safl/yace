@@ -1,4 +1,6 @@
+black
 furo
+isort
 jinja2
 kmdo
 pyyaml
