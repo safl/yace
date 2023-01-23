@@ -1,3 +1,5 @@
+.. _sec-model-functiontypes:
+
 Function Types
 ==============
 

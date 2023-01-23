@@ -1,3 +1,5 @@
+.. _sec-model-structtypes:
+
 Struct Types
 ============
 
