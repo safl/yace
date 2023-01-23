@@ -143,3 +143,12 @@ class Isort(Tool):
 
     def __init__(self, cwd):
         super().__init__("isort", cwd)
+
+
+class Python3(Tool):
+    """
+    Wrapper for ``python3``
+    """
+
+    def __init__(self, cwd):
+        super().__init__("python3", cwd)
