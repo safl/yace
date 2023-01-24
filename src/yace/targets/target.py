@@ -1,21 +1,28 @@
 """
 
 """
+import os
 from abc import ABC, abstractmethod
 
 
 class Target(ABC):
     """
     Encapsulation of a **yace** Emitter Target (yet). This serves as
-    documentation for what is needed when adding a **yet** to **yace**.
+    documentation for what is needed when adding a target to **yace**.
+    Additionally, the Target-constructur sets up commonly used attributes of
+    the Target and creates the sub-directory for artifacts produced by the
+    target. Labelled, as artifacts, as it is not just for the emitted code, but
+    also log-files from running tools, and other similar side-effects.
     """
 
     def __init__(self, name, output):
         self.name = name  # Name of the compiler-target
-        self.output = output  # Location to emit code to
+        self.output = output / name  # Location to emit code to
         self.headers = []  # Resolved paths to emitted headers
         self.sources = []  # Resolved paths to emitted sources
         self.aux = []  # Resolved paths to auxilary files e.g. Doxy Conf
+
+        os.makedirs(self.output, exist_ok=True)
 
     @abstractmethod
     def emit(self, model):

@@ -14,12 +14,6 @@ issue-reports, feature-requests etc. and the todo/roadmap is here:
   * Must be added to yim
   * And added to ``yet``
 
-* Add target-output to target-specific subdir of args.output / compiler.output
-
-  * Currently, all files are dumped into compiler.out, .c/.h/.py, everything...
-  * This should be organized by a each target getting an output-directory
-    each...
-
 * Add model-checking
 
   * Check that no duplicate symbols exists

@@ -27,9 +27,9 @@ class Ctypes(Target):
         self.emitter = Emitter(self.output, Ctypes.NAME)
 
         self.tools = {
-            "black": Black(output),
-            "isort": Isort(output),
-            "python": Python3(output),
+            "black": Black(self.output),
+            "isort": Isort(self.output),
+            "python": Python3(self.output),
         }
 
     def emit(self, model):

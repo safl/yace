@@ -50,9 +50,9 @@ class CAPI(Target):
         self.emitter = Emitter(self.output, CAPI.NAME)
 
         self.tools = {
-            "clang-format": ClangFormat(output),
-            "doxygen": Doxygen(output),
-            "gcc": Gcc(output),
+            "clang-format": ClangFormat(self.output),
+            "doxygen": Doxygen(self.output),
+            "gcc": Gcc(self.output),
         }
 
     def emit(self, model):

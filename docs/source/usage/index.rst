@@ -57,7 +57,7 @@ Example: capi
 
 The C API header generated from the above looks like:
 
-.. literalinclude:: output/libexample_core.h
+.. literalinclude:: output/capi/libexample_core.h
    :language: c
    :caption:
    :lines: 1-
@@ -79,7 +79,7 @@ Example: ctypes
 
 The ``ctypes`` target produces the following:
 
-.. literalinclude:: output/example.py
+.. literalinclude:: output/ctypes/example.py
    :language: Python
    :caption:
    :lines: 1-
