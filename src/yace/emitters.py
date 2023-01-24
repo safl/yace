@@ -6,8 +6,6 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, PackageLoader, Template
 
-from yace.model.entities import Entity
-
 
 def camelcase(symbol, pascalcase=True):
     """Format the given 'symbol' as (C|c)amelCase"""

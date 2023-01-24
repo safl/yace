@@ -14,12 +14,10 @@ import yaml
 
 from ..errors import InvalidModelData
 from . import (
+    base,
+    constants,
     datatypes,
-    entities,
-    enumtypes,
     functiontypes,
-    literals,
-    macros,
     structtypes,
     uniontypes,
 )
@@ -40,7 +38,9 @@ def data_from_yaml(path: Path) -> (dict, list):
                 continue
 
             for entity in data:
-                entity["lbl"] = lbl
+                if "lbl" not in entity:
+                    entity["lbl"] = []
+                entity["lbl"].append(lbl)
                 entities.append(entity)
 
     return meta, entities
@@ -75,10 +75,9 @@ class Model(object):
     MAPPING = {
         obj.cls: obj
         for _, obj in (
-            inspect.getmembers(entities)
-            + inspect.getmembers(macros)
+            inspect.getmembers(base)
+            + inspect.getmembers(constants)
             + inspect.getmembers(datatypes)
-            + inspect.getmembers(enumtypes)
             + inspect.getmembers(structtypes)
             + inspect.getmembers(uniontypes)
             + inspect.getmembers(functiontypes)
@@ -120,13 +119,13 @@ class Model(object):
             raise InvalidModelData(f"Missing 'cls' in {cur}")
 
         if isinstance(cur, int):  # short-hand for integer-literal
-            return literals.LiteralDec(lit=cur)
+            return constants.Dec({"lit": cur})
         elif isinstance(cur, str):  # short-hand for dtype
             dtype = Model.MAPPING.get(cur)
             if not dtype:
                 raise InvalidModelData(f"dtype !short-hand: '{cur}'")
 
-            return dtype()
+            return dtype({})
 
         constructor = Model.MAPPING.get(cur["cls"])
         if not constructor:
@@ -144,7 +143,7 @@ class Model(object):
             else:
                 attributes[attr] = attr_data
 
-        return constructor(**attributes)
+        return constructor(attributes)
 
     @classmethod
     def from_data(cls, meta: dict, ents: list):
@@ -179,8 +178,8 @@ class ModelWalker(object):
 
     def _traverse(
         self,
-        cur: entities.Entity,
-        ancestors: typing.List[entities.Entity],
+        cur,
+        ancestors: typing.List,
         depth: int = 0,
     ) -> str:
         """

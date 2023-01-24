@@ -20,44 +20,32 @@ types with known and fixed storage
 
 """
 import typing
-from dataclasses import dataclass, field
 
-from .entities import Typedecl
+from .base import Typespec
 
 
-@dataclass
-class Datatype(Typedecl):
+class I8(Typespec):
     """
-    These types should have a known and well-defined storage-width, e.g. an
-    unsigned 32-bit integer should consume 4 bytes of memory. Modifiers are
-    available:
-    """
+    A basic data type: signed fixed-width integer; 8 bits wide.
 
-    width: int = 8
-
-
-@dataclass
-class I8(Typedecl):
-    """
-    A signed integer, 8 bits wide.
-
-    The C emitter produces::
+    A C emitter could for example produce::
 
         int8_t
 
-    for the :class:`I64` entity.
+    for the :class:`I8` entity.
     """
 
     cls: str = "i8"
+    integer: bool = True
+    signed: bool = True
     width: int = 8
 
 
-@dataclass
-class I16(Typedecl):
+class I16(Typespec):
     """
-    A signed integer, 16 bits wide.
+    A basic data type: signed fixed-width integer; 16 bits wide.
 
-    The C emitter produces::
+    A C emitter could for example produce::
 
         int16_t
 
@@ -65,15 +53,16 @@ class I16(Typedecl):
     """
 
     cls: str = "i16"
+    integer: bool = True
+    signed: bool = True
     width: int = 16
 
 
-@dataclass
-class I32(Typedecl):
+class I32(Typespec):
     """
-    A signed integer, 32 bits wide.
+    A basic data type: signed fixed-width integer; 32 bits wide.
 
-    The C emitter produces::
+    A C emitter could for example produce::
 
         int32_t
 
@@ -81,15 +70,16 @@ class I32(Typedecl):
     """
 
     cls: str = "i32"
+    integer: bool = True
+    signed: bool = True
     width: int = 32
 
 
-@dataclass
-class I64(Typedecl):
+class I64(Typespec):
     """
-    A signed integer, 64 bits wide.
+    A basic data type: signed fixed-width integer; 64 bits wide.
 
-    The C emitter produces::
+    A C emitter could for example produce::
 
         int64_t
 
@@ -97,15 +87,16 @@ class I64(Typedecl):
     """
 
     cls: str = "i64"
+    integer: bool = True
+    signed: bool = True
     width: int = 64
 
 
-@dataclass
-class U8(Typedecl):
+class U8(Typespec):
     """
-    A unsigned integer, 8 bits wide.
+    A basic data type: signed fixed-width integer; 8 bits wide.
 
-    The C emitter produces::
+    A C emitter could for example produce::
 
         uint8_t
 
@@ -113,15 +104,16 @@ class U8(Typedecl):
     """
 
     cls: str = "u8"
+    integer: bool = True
+    signed: bool = False
     width: int = 8
 
 
-@dataclass
-class U16(Typedecl):
+class U16(Typespec):
     """
-    A unsigned integer, 16 bits wide".
+    A basic data type: signed fixed-width integer; 16 bits wide.
 
-    The C emitter produces::
+    A C emitter could for example produce::
 
         uint16_t
 
@@ -129,15 +121,16 @@ class U16(Typedecl):
     """
 
     cls: str = "u16"
+    integer: bool = True
+    signed: bool = False
     width: int = 16
 
 
-@dataclass
-class U32(Typedecl):
+class U32(Typespec):
     """
-    An unsigned integer, 32 bits wide.
+    A basic data type: unsigned fixed-width integer; 32 bits wide.
 
-    The C emitter produces::
+    A C emitter could for example produce::
 
         uint32_t
 
@@ -145,15 +138,16 @@ class U32(Typedecl):
     """
 
     cls: str = "u32"
+    integer: bool = True
+    signed: bool = False
     width: int = 32
 
 
-@dataclass
-class U64(Typedecl):
+class U64(Typespec):
     """
-    A unsigned integer, 64 bits wide.
+    A basic data type: unsigned fixed-width integer; 64 bits wide.
 
-    The C emitter produces::
+    A C emitter could for example produce::
 
         uint64_t
 
@@ -161,11 +155,12 @@ class U64(Typedecl):
     """
 
     cls: str = "u64"
+    integer: bool = True
+    signed: bool = False
     width: int = 64
 
 
-@dataclass
-class F32(Typedecl):
+class F32(Typespec):
     """
     A floating point numerical value, possibly 32 bits wide
 
@@ -177,11 +172,11 @@ class F32(Typedecl):
     """
 
     cls: str = "f32"
+    real: bool = True
     width: int = 32
 
 
-@dataclass
-class F64(Typedecl):
+class F64(Typespec):
     """
     A floating point numerical value, possibly 64 bits wide
 
@@ -193,11 +188,11 @@ class F64(Typedecl):
     """
 
     cls: str = "f64"
+    real: bool = True
     width: int = 64
 
 
-@dataclass
-class Bool(Typedecl):
+class Bool(Typespec):
     """
     A boolean, at least 8 bits wide, equivalent to the C99 "_Bool" and available
     as "bool" as defined by the standardized "stdbool.h" header.
@@ -210,11 +205,11 @@ class Bool(Typedecl):
     """
 
     cls: str = "bool"
+    boolean: bool = True
     width: int = 8
 
 
-@dataclass
-class Char(Typedecl):
+class Char(Typespec):
     """
     A character, at least 8 bits wide.
 
@@ -226,11 +221,11 @@ class Char(Typedecl):
     """
 
     cls: str = "char"
+    character: bool = True
     width: int = 8
 
 
-@dataclass
-class Int(Typedecl):
+class Int(Typespec):
     """
     The integer commonly used for error-handling, non-fixed width.
 
@@ -242,11 +237,12 @@ class Int(Typedecl):
     """
 
     cls: str = "int"
-    width: int = 32  # This should be something else than an actual assignmment
+    integer: bool = True
+    signed: bool = True
+    width: typing.Optional[int] = 0
 
 
-@dataclass
-class String(Typedecl):
+class String(Typespec):
     """
     A string pointer
 

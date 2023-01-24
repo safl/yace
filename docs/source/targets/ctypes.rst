@@ -15,7 +15,7 @@ What is produced:
 * C API Wrapper (``{meta.prefix}.py``)
 
   * Python module mapping the :ref:`sec-model` to :class:`yace.target.ctypes`
-  * :ref:`sec-model-macros` become global variables in the ``{prefix}`` module,
+  * :ref:`sec-model-constants` become global variables in the ``{prefix}`` module,
     such as ``{prefix}.MIN_X``.
   * :ref:`sec-model-enumtypes` mapped to :class:`yace.targets.ctypes.ctypes_sugar.Enum`
   * :ref:`sec-model-structtypes` mapped to :class:`yace.targets.ctypes.ctypes_sugar.Structure`

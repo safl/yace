@@ -4,7 +4,7 @@
  Entities
 ==========
 
-.. automodule:: yace.model.entities
+.. automodule:: yace.model.base
    :inherited-members:
    :members:
    :undoc-members:
@@ -13,10 +13,8 @@
    :maxdepth: 2
    :hidden:
 
-   literals.rst
-   macros.rst
+   constants.rst
    datatypes.rst
-   enumtypes.rst
    structtypes.rst
    uniontypes.rst
    functiontypes.rst

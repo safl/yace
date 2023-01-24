@@ -5,28 +5,21 @@ the :class:`yace.model.interface.Model`. The entities serve as encapsulated
 type-checking of YAML-definitions of the language model.
 """
 import typing
-from dataclasses import dataclass, field
 
-from .entities import Entity, Typedecl
+from .base import Declaration, Typespec
 
 
-@dataclass
-class Bits(Entity):
+class Bits(Declaration):
     """Representation of a :class:`.Bitfield` member."""
-
-    width: int
 
     cls: str = "bits"
 
 
-@dataclass
-class Bitfield(Entity):
+class Bitfield(Declaration):
     """Representation of enumerations / collections of constants"""
 
-    members: typing.List[Bits]
-    dtype: Typedecl
-
     cls: str = "bitfield"
+    members: typing.List[Bits] = []
 
     def is_valid(self):
         """Checks whether the bitfield members match the width"""
@@ -46,8 +39,7 @@ class Bitfield(Entity):
         return (True, None)
 
 
-@dataclass
-class Field(Entity):
+class Field(Declaration):
     """
     :class:`yace.model.Field` represents members of :class:`yace.model.Struct`
     and :class:`yace.model.Union`, utilized by compiler to emit code in the C
@@ -65,16 +57,12 @@ class Field(Entity):
     type-declaration for the target language, as in the examples above for C.
     """
 
-    dtype: Typedecl
     cls: str = "field"
     fmt: str = "%u"
 
 
-@dataclass
-class Struct(Entity):
+class Struct(Declaration):
     """Representation of enumerations / collections of constants"""
 
-    members: typing.List
-
     cls: str = "struct"
-    lbl: str = "default"
+    members: typing.List = []

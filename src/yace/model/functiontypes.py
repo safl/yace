@@ -8,43 +8,42 @@ The function types consists of:
 This needs a bit more work..
 """
 import typing
-from dataclasses import dataclass, field
 
-from .entities import Entity, Typedecl
+from .base import Typespec
 
 
-@dataclass
-class Parameter(Entity):
+class Parameter(Typespec):
     """
     Function parameter
     """
 
-    dtype: typing.Type[Typedecl]
+    sym: str = "nope"
+    doc: str = ""
     cls: str = "param"
     lbl: str = "default"
 
 
-@dataclass
-class FunctionDecl(Entity):
+class FunctionDecl(Typespec):
     """
     Function declarations
     """
 
-    ret: typing.Type[Typedecl]
-    parameters: typing.List[Parameter]
+    sym: str = "nope"
+    doc: str = ""
+
+    parameters: typing.List[Parameter] = []
 
     cls: str = "fun"
     lbl: str = "default"
 
 
-@dataclass
-class FunctionPtrDecl(Entity):
+class FunctionPtrDecl(Typespec):
     """
     Function pointer declarations
     """
 
-    ret: typing.Type[Typedecl]
-    parameters: typing.List[Typedecl]
+    ret: typing.Type[Typespec] = None
+    parameters: typing.List[Typespec] = []
 
     cls: str = "fun_ptr"
     lbl: str = "default"
