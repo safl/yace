@@ -26,6 +26,7 @@ The 'format' stage also emits the files:
 
 Thus, the above files are what you should expect to see in the output-directory
 """
+import copy
 import logging as log
 import shutil
 import typing
@@ -54,6 +55,13 @@ class CAPI(Target):
             "doxygen": Doxygen(self.output),
             "gcc": Gcc(self.output),
         }
+
+    def transform(self, model):
+        """Transform the given model"""
+
+        log.info("This is is noop in target '%s'", CAPI.NAME)
+
+        return copy.deepcopy(model)
 
     def emit(self, model):
         """Emit code"""

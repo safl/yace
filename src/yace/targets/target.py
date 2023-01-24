@@ -25,6 +25,12 @@ class Target(ABC):
         os.makedirs(self.output, exist_ok=True)
 
     @abstractmethod
+    def transform(self, model):
+        """
+        Transform the given 'model' for code-emission.
+        """
+
+    @abstractmethod
     def emit(self, model):
         """
         Emit code for the given model, using your weapons of choice, common

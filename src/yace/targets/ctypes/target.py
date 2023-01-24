@@ -3,6 +3,7 @@ What to do about "static" and "const"? The filter_typedecl.template currently
 ignores them, except for the special-case "c_char_p".
 
 """
+import copy
 import logging as log
 import shutil
 import typing
@@ -31,6 +32,13 @@ class Ctypes(Target):
             "isort": Isort(self.output),
             "python": Python3(self.output),
         }
+
+    def transform(self, model):
+        """Transform the given model, flatten nested structs/unions"""
+
+        log.info("This is noop in target '%s'", Ctypes.NAME)
+
+        return copy.deepcopy(model)
 
     def emit(self, model):
         """Emit code"""

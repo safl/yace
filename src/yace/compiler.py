@@ -1,3 +1,4 @@
+import copy
 import logging as log
 import typing
 from pathlib import Path
@@ -15,14 +16,17 @@ class Compiler(object):
 
     * Parse
     * Lint
+    * Transform
     * Emit
     * Format
     * Check
 
-    The first two stages are generic, the last three are target-specific.
+    The first two stages are generic, the third is generic however is usually
+    performed for target-specific-reasons such as re-structuring the IDL to
+    make the code-emitter simpler, the last three are target-specific.
     """
 
-    STAGES = ["parse", "lint", "emit", "format", "check"]
+    STAGES = ["parse", "lint", "transform", "emit", "format", "check"]
     TARGETS = [CAPI, Ctypes]
 
     def __init__(self, targets: typing.List[str], output: Path):
@@ -41,20 +45,24 @@ class Compiler(object):
         self.output.mkdir(parents=True, exist_ok=True)
 
         log.info("Stage: 'parse'")
-        model = Model.from_path(path)
+        model_orig = Model.from_path(path)
 
         if "lint" in stages:
             log.info("Stage: 'lint'")
-            nerrors = Linter().check(model)
+            nerrors = Linter().check(model_orig)
             if nerrors:
                 log.error("Skipping remaining stages, due to linter-errors")
                 return
 
         for cls in self.targets:
-
             log.info("Target: %s", cls.NAME)
 
+            model = copy.deepcopy(model_orig)
             target = cls(self.output)
+
+            if "transform" in stages:
+                log.info("Stage: 'transform'")
+                model = target.transform(model)
 
             if "emit" in stages:
                 log.info("Stage: 'emit'")
