@@ -6,7 +6,7 @@ from yace.model.uniontypes import Union
 class HoistAnonMembers(ModelWalker):
     """Transforms the model"""
 
-    def visit(self, current, parent, depth):
+    def visit(self, current, ancestors, depth):
         if depth != 0:
             return (True, None)
 

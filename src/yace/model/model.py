@@ -179,26 +179,26 @@ class ModelWalker(object):
 
     def _traverse(
         self,
-        current: entities.Entity,
-        parent: typing.Optional[entities.Entity],
+        cur: entities.Entity,
+        ancestors: typing.List[entities.Entity],
         depth: int = 0,
     ) -> str:
         """
-        Recursive walk of the 'current' entity, returning a list of visit()
+        Recursive walk of the 'cur' entity, returning a list of visit()
         results.
         """
 
-        res = [self.visit(current, parent, depth)]
+        res = [self.visit(cur, ancestors, depth)]
         for attr in ["members", "parameters", "dtype", "ret", "val"]:
-            other = getattr(current, attr, None)
+            other = getattr(cur, attr, None)
             if other is None:
                 continue
 
             if attr in ["members", "parameters"]:
                 for child in other:
-                    res += self._traverse(child, current, depth + 1)
+                    res += self._traverse(child, ancestors + [cur], depth + 1)
             else:
-                res += self._traverse(other, current, depth + 1)
+                res += self._traverse(other, ancestors + [cur], depth + 1)
 
         return res
 
@@ -207,11 +207,11 @@ class ModelWalker(object):
 
         status = []
         for entity in model.entities:
-            status += self._traverse(entity, None, 0)
+            status += self._traverse(entity, [], 0)
 
         return status
 
-    def visit(self):
+    def visit(self, current, ancestors, depth):
         """This is the thing which class should implement"""
 
         return (True, None)
