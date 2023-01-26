@@ -19,6 +19,7 @@ class Bitfield(Declaration):
     """Representation of enumerations / collections of constants"""
 
     cls: str = "bitfield"
+    struct: int = 1
     members: typing.List[Bits] = []
 
     def is_valid(self):
