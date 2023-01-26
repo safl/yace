@@ -1,6 +1,7 @@
 """
 YAML ==> Interface(List[Entities]) ==> Emitter() ==> CodeTarget
 """
+import logging as log
 import typing
 from pathlib import Path
 
@@ -33,12 +34,16 @@ class Emitter(object):
     allowing you to render a Jinja template **within** a Jinja template, via a
     custom-filter-function. For example, like so::
 
-        {{ entity | render("typedecl") }}
+        {{ entity | emit_entity }}
+
+    And available::
+
+        {{ entity | emit_typespec }}
 
     This works by seperating Jinja templates by filename-convention,
-    template-names starting with "filter_{name}.template" are usable by this
+    template-names starting with "entity_{name}.template" are usable by this
     in-template renderer. Thus, for the example above, the template file is
-    named ``filter_typedecl``.
+    named ``entity_typedecl``.
 
     It assumes that 'entity' is an instance of :class:`.Entity` and uses a
     Jinja template to render it. This behavior is added as a means to keep
@@ -54,28 +59,49 @@ class Emitter(object):
         self.name = name
         self.output = output.resolve()
 
-        filter_jenv = Environment(
-            loader=PackageLoader(f"yace.targets.{self.name}", ".")
-        )
-        self.filter_templates = {
-            Path(f).stem: filter_jenv.get_template(f)
-            for f in filter_jenv.list_templates()
-            if f.endswith(".template") and f.startswith("filter_")
-        }
-
-        jenv = Environment(loader=PackageLoader(f"yace.targets.{self.name}", "."))
-        jenv.filters["render"] = lambda entity, template_name: self.filter_templates[
-            f"filter_{template_name}"
-        ].render(entity=entity)
-        jenv.filters["camelcase"] = camelcase
-
-        self.templates = {
-            Path(f).stem: jenv.get_template(f)
-            for f in jenv.list_templates()
-            if f.endswith(".template") and not f.startswith("filter_")
-        }
-
     def render(self, template, args):
         """Renders the given template, passing args..."""
 
-        return self.templates[template].render(**args)
+        typespec_jenv = Environment(
+            loader=PackageLoader(f"yace.targets.{self.name}", ".")
+        )
+        typespec_templates = {
+            Path(f).stem: typespec_jenv.get_template(f)
+            for f in typespec_jenv.list_templates()
+            if f.endswith(".template") and f.startswith("typespec")
+        }
+
+        def emit_typespec(entity, anon: bool = False):
+            args["entity"] = entity
+            template = "typespec_anon" if anon else "typespec"
+
+            return typespec_templates[template].render(**args)
+
+        entity_jenv = Environment(
+            loader=PackageLoader(f"yace.targets.{self.name}", ".")
+        )
+        entity_jenv.filters["camelcase"] = camelcase
+        entity_jenv.filters["emit_typespec"] = emit_typespec
+        entity_templates = {
+            Path(f).stem: entity_jenv.get_template(f)
+            for f in entity_jenv.list_templates()
+            if f.endswith(".template") and f.startswith("entity_")
+        }
+
+        def emit_entity(entity, depth: int = 0):
+            args["entity"] = entity
+            args["depth"] = depth
+
+            return entity_templates[f"entity_{entity.cls}"].render(**args)
+
+        file_jenv = Environment(loader=PackageLoader(f"yace.targets.{self.name}", "."))
+        file_jenv.filters["camelcase"] = camelcase
+        file_jenv.filters["emit_typespec"] = emit_typespec
+        file_jenv.filters["emit_entity"] = emit_entity
+        file_templates = {
+            Path(f).stem: file_jenv.get_template(f)
+            for f in file_jenv.list_templates()
+            if f.endswith(".template") and not f.startswith("entity_")
+        }
+
+        return file_templates[template].render(**args)

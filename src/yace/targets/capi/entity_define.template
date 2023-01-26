@@ -1,0 +1,1 @@
+#define {{ meta.prefix | upper }}_{{ entity.sym | upper }} = {{ entity.val.lit }} ///< {{ entity.doc }}

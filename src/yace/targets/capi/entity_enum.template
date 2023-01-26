@@ -1,0 +1,10 @@
+/**
+ * {{ entity.doc }}
+ *
+ * @{{ entity.cls }} {{ meta.prefix }}_{{ entity.sym }}
+ */
+enum {{ meta.prefix }}_{{ entity.sym }} {
+{%- for member in entity.members %}
+	{{ meta.prefix | upper }}_{{ entity.sym | upper }}_{{ member.sym | upper }} = {{ '0x%0x' % member.val.lit }}, ///< {{ member.doc }}
+{%- endfor %}
+};

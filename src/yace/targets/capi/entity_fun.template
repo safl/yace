@@ -1,0 +1,13 @@
+/**
+ * {{ entity.doc }}
+ *
+{%- for parameter in entity.parameters %}
+ * @param {{ parameter.sym }} {{ parameter.doc }}
+{%- endfor %}
+{%- if entity.ret and entity.ret.doc %}
+ *
+ * @return {{ entity.ret.doc }}
+{%- endif %}
+ */
+{{ entity.ret | emit_typespec(anon=True) }} {{ entity.sym }}
+({% for parameter in entity.parameters %}{{ parameter | emit_typespec }}{{ ", " if not loop.last else "" }}{% endfor %});

@@ -1,0 +1,32 @@
+{%- for ent in [entity] recursive %}
+{%- set outer = loop.depth0 == 0 -%}
+{%- set inner = loop.depth0 != 0 -%}
+{%- if ent.cls in ["struct", "union", "bitfield"] and outer %}
+/**
+ * {{ ent.doc }}
+ *
+ * @{{ ent.cls }}
+ */
+{{ ent.cls | replace("bitfield", "struct") }} {{ meta.prefix }}_{{ ent.sym }} {
+{%- if ent.cls in ["bitfield"] %}
+{%- for member in ent.members %}
+	uint{{ ent.dtype.width }}_t {{ member.sym }} : {{ member.width }}; ///< {{ member.doc }}
+{%- endfor %}
+{%- else -%}
+	{{ loop(ent.members) }}
+{%- endif %}
+};
+{%- elif ent.cls in ["struct", "union", "bitfield"] and inner %}
+{{ ent.cls | replace("bitfield", "struct") }} {
+{%- if ent.cls in ["bitfield"] %}
+{%- for member in ent.members %}
+	uint{{ ent.dtype.width }}_t {{ member.sym }} : {{ member.width }}; ///< {{ member.doc }}
+{%- endfor %}
+{%- else -%}
+	{{ loop(ent.members) }}
+{%- endif %}
+} {% if ent.sym %}{{ meta.prefix }}_{{ ent.sym }}{% endif %};
+{%- elif ent.cls in ["field"] %}
+	{{ ent | emit_typespec }}; ///< {{ ent.doc }}
+{%- endif %}
+{%- endfor %}

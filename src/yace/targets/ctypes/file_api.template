@@ -31,7 +31,7 @@ class {{ entity.sym | camelcase }}Struct(Structure):
 {{ entity.sym | camelcase }}Struct._pack_ = 1
 {{ entity.sym | camelcase }}Struct._fields_ [
 {%- for member in entity.members %}
-	{% if member.cls == "field" %}("{{ member.sym }}", {{ member | render("typedecl") }}),{% endif %}
+	{% if member.cls == "field" %}("{{ member.sym }}", {{ member | emit_typespec }}),{% endif %}
 {%- endfor %}
 ]
 {%- elif entity.cls in ["union"] -%}
@@ -41,7 +41,7 @@ class {{ entity.sym | camelcase }}Struct(Union):
 {{ entity.sym | camelcase }}Struct._pack_ = 1
 {{ entity.sym | camelcase }}Struct._fields_ [
 {%- for member in entity.members %}
-	{% if member.cls == "field" %}("{{ member.sym }}", {{ member | render("typedecl") }}),{% endif %}
+	{% if member.cls == "field" %}("{{ member.sym }}", {{ member | emit_typespec }}),{% endif %}
 {%- endfor %}
 ]
 {%- endif %}
