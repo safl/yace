@@ -14,9 +14,9 @@ macros_explicit_literal:
 - {cls: define, sym: max_z, val: {cls: dec, lit: 64}, doc: "Maximum value of Z"}
 
 macros_implicit_literal:
-- {cls: define, sym: min_x, val: 128, doc: "Maximum value of X"}
-- {cls: define, sym: min_y, val: 64, doc: "Maximum value of Y"}
-- {cls: define, sym: min_z, val: 64, doc: "Maximum value of Z"}
+- {cls: define, sym: min_x, val: 128, doc: "Minimum value of X"}
+- {cls: define, sym: min_y, val: 64, doc: "Minimum value of Y"}
+- {cls: define, sym: min_z, val: 64, doc: "Minimum value of Z"}
 
 enumtypes_implicit_literal:
 - cls: enum
