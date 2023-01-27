@@ -48,12 +48,20 @@ class Entity(object):
                 self.required.append(attr)
 
         missing = list(set(self.required) - set(list(args)))
-        if missing:
+        unexpected = list(set(args) - set(self.all))
+
+        if missing or unexpected:
             log.info(f"ant: {self.annotations}")
             log.info(f"all: {self.all}")
             log.info(f"req: {self.required}")
             log.info(f"opt: {self.optional}")
-            raise ValueError(f"{self.__class__.__name__}() constr. missing: {missing}")
+            log.info(f"missing: {missing}")
+            log.info(f"unexpected: {unexpected}")
+            raise ValueError(
+                f"{self.__class__.__name__}() constructor arguments; "
+                f"is missing: {missing}, "
+                f"got unexpected: {unexpected}"
+            )
 
         for key, val in args.items():
             setattr(self, key, val)

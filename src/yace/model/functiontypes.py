@@ -23,7 +23,7 @@ class Parameter(Typespec):
     lbl: str = "default"
 
 
-class FunctionDecl(Typespec):
+class Function(Typespec):
     """
     Function declarations
     """
@@ -37,7 +37,7 @@ class FunctionDecl(Typespec):
     lbl: str = "default"
 
 
-class FunctionPtrDecl(Typespec):
+class FunctionPointer(Typespec):
     """
     Function pointer declarations
     """

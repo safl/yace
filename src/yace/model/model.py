@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """
-A single class (:class:`.Model`) is provided it encapsulates the
-loading of the interface model from YAML files into a Pythonic representation
+The :class:`.Model` provides the root-node for the **Yace** Interface Model, it
+provides helper-functions for loading **Yace** Interface Definition Language
+files from their ``.yaml`` format on the file-system, into the representation
+offered by the **Yace** Interface Model entities.
+
+* :class:`.Meta`,
+* :class:`.Model`
+* :class:`.ModelWalker`
+
 """
 import inspect
 import logging
