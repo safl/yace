@@ -64,8 +64,7 @@ The C API header generated from the above looks like:
 
 The emitted C header above has been modified by ``clang-format`` after it was
 emitted. This is one of the **stages** that a **yace** target goes through by
-default, you can control the stages via the cli, e.g. to skip the format-stage
-then do:
+default.
 
 .. literalinclude:: 100_example_nofmt.cmd
    :language: bash
