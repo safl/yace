@@ -3,7 +3,7 @@
 Constants
 =========
 
-These entities described here cover the C keywords ``define``, ``enum``, and
+The entities described here cover the C keywords ``define``, ``enum``, and
 constants such as string-literals an numerical values.
 
 * Constant Values
