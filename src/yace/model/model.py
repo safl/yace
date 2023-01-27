@@ -13,14 +13,7 @@ from pprint import pprint
 import yaml
 
 from ..errors import InvalidModelData
-from . import (
-    base,
-    constants,
-    datatypes,
-    functiontypes,
-    structtypes,
-    uniontypes,
-)
+from . import base, constants, datatypes, functiontypes, structtypes, uniontypes
 
 
 def data_from_yaml(path: Path) -> (dict, list):
