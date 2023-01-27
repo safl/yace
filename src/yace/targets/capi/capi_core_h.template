@@ -1,16 +1,19 @@
 /**
+ * {{ meta.project }}; Core API
+ *
  * {{ meta.brief }}
  *
 {%- if meta.full %}
  * {{ meta.full | replace("\n", " ") }}
  *
 {%- endif %}
- * NOTE: This file is auto-generated using yace: https://github.com/safl/yace
- *
+ * ------------------------------------------------------------------------------------------------
  * Copyright (C) {{ meta.author }}
  * SPDX-License-Identifier: {{ meta.lic }}
  *
  * @file lib{{ meta.prefix }}.h
+ * ------------------------------------------------------------------------------------------------
+ * NOTE: This file is auto-generated using yace: https://github.com/safl/yace
  */
 
 {% for entity in entities -%}

@@ -1,12 +1,13 @@
 /**
- * {{ meta.prefix }}; Pretty-printers
+ * {{ meta.project }}; Pretty Printer Implementation
  *
- * NOTE: This file is auto-generated using yace: https://github.com/safl/yace
- *
- * Copyright (C) {{ meta.prefix }}
+ * ------------------------------------------------------------------------------------------------
+ * Copyright (C) {{ meta.author }}
  * SPDX-License-Identifier: {{ meta.lic }}
  *
  * @file lib{{ meta.prefix }}_pp.h
+ * ------------------------------------------------------------------------------------------------
+ * NOTE: This file is auto-generated using yace: https://github.com/safl/yace
  */
 
 /**

@@ -1,3 +1,14 @@
+/**
+ * {{ meta.project }}
+ *
+ * ------------------------------------------------------------------------------------------------
+ * Copyright (C) {{ meta.author }}
+ * SPDX-License-Identifier: {{ meta.lic }}
+ *
+ * @file {{ meta.prefix }}_check.c
+ * ------------------------------------------------------------------------------------------------
+ * NOTE: This file is auto-generated using yace: https://github.com/safl/yace
+ */
 #include <stdio.h>
 #include <lib{{ meta.prefix }}.h>
 

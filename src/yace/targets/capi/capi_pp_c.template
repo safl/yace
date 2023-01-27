@@ -1,8 +1,13 @@
 /**
+ * {{ meta.project }}; Pretty Printer Implementation
+ *
+ * ------------------------------------------------------------------------------------------------
  * Copyright (C) {{ meta.author }}
  * SPDX-License-Identifier: {{ meta.lic }}
  *
  * @file {{ meta.prefix }}_pp.c
+ * ------------------------------------------------------------------------------------------------
+ * NOTE: This file is auto-generated using yace: https://github.com/safl/yace
  */
 #include <lib{{ meta.prefix }}.h>
 

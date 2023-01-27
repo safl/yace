@@ -1,4 +1,6 @@
 /**
+ * {{ meta.project }}
+ *
  * Library bundle header for {{ meta.project }}
  *
  * The bundle-header provides a single point of entry for library users to include. This is done
@@ -11,6 +13,14 @@
  * Additionally, this allows for composition when using the {{ meta.project }} library. In case the
  * library user have another definition for e.g. integer types, or only wants a subset etc. then
  * they can compose utilization that serves them best.
+ *
+ * ------------------------------------------------------------------------------------------------
+ * Copyright (C) {{ meta.author }}
+ * SPDX-License-Identifier: {{ meta.lic }}
+ *
+ * @file lib{{ meta.prefix }}.h
+ * ------------------------------------------------------------------------------------------------
+ * NOTE: This file is auto-generated using yace: https://github.com/safl/yace
  */
 #ifndef __LIB{{ meta.prefix | upper }}_H
 #define __LIB{{ meta.prefix | upper }}_H
