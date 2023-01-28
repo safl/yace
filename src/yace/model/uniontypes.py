@@ -5,12 +5,10 @@ simply that they represent the declaration of a C Union rather than a C Struct.
 """
 import typing
 
-from .base import Typespec
+from .structtypes import Struct
 
 
-class Union(Typespec):
+class Union(Struct):
     """Representation of enumerations / collections of constants"""
-
-    members: typing.List = []
 
     cls: str = "union"

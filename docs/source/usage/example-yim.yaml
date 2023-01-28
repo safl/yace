@@ -16,6 +16,6 @@ entities:
   sym: point
   doc: A point in three dimensional space
   members:
-  - {cls: field, sym: x, dtype: u32, fmt: "%d", doc: "X Coordinate"}
-  - {cls: field, sym: y, dtype: u32, fmt: "%d", doc: "Y Coordinate"}
-  - {cls: field, sym: z, dtype: u32, fmt: "%d", doc: "Z Coordinate"}
+  - {cls: field, sym: x, typ: u32, fmt: "%d", doc: "X Coordinate"}
+  - {cls: field, sym: y, typ: u32, fmt: "%d", doc: "Y Coordinate"}
+  - {cls: field, sym: z, typ: u32, fmt: "%d", doc: "Z Coordinate"}

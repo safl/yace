@@ -10,7 +10,7 @@
 {{ ent.cls | replace("bitfield", "struct") }} {{ meta.prefix }}_{{ ent.sym }} {
 {%- if ent.cls in ["bitfield"] %}
 {%- for member in ent.members %}
-	uint{{ ent.dtype.width }}_t {{ member.sym }} : {{ member.width }}; ///< {{ member.doc }}
+	uint{{ ent.width }}_t {{ member.sym }} : {{ member.width }}; ///< {{ member.doc }}
 {%- endfor %}
 {%- else -%}
 	{{ loop(ent.members) }}
@@ -20,7 +20,7 @@
 {{ ent.cls | replace("bitfield", "struct") }} {
 {%- if ent.cls in ["bitfield"] %}
 {%- for member in ent.members %}
-	uint{{ ent.dtype.width }}_t {{ member.sym }} : {{ member.width }}; ///< {{ member.doc }}
+	uint{{ ent.width }}_t {{ member.sym }} : {{ member.width }}; ///< {{ member.doc }}
 {%- endfor %}
 {%- else -%}
 	{{ loop(ent.members) }}

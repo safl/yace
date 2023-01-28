@@ -32,9 +32,9 @@ structtypes_plain:
   sym: point
   doc: Point in three dimensional space
   members:
-  - {cls: field, sym: x, dtype: u32, fmt: '%d', doc: "X Coordinate"}
-  - {cls: field, sym: y, dtype: u32, fmt: '%d', doc: "Y Coordinate"}
-  - {cls: field, sym: z, dtype: u32, fmt: '%d', doc: "Z Coordinate"}
+  - {cls: field, sym: x, typ: u32, fmt: '%d', doc: "X Coordinate"}
+  - {cls: field, sym: y, typ: u32, fmt: '%d', doc: "Y Coordinate"}
+  - {cls: field, sym: z, typ: u32, fmt: '%d', doc: "Z Coordinate"}
 
 structtypes_bitfield:
 - cls: struct
@@ -42,32 +42,38 @@ structtypes_bitfield:
   doc: Instruction format for point operation processor
 
   members:
-  - {cls: field, sym: opc, dtype: u8, fmt: '0x%x', doc: 'Point Processing Opcode'}
-  - {cls: field, sym: tag, dtype: u8, fmt: '0x%x', doc: 'Instruction Tag'}
-  - {cls: field, sym: ecc, dtype: u8, fmt: '0x%x', doc: 'Error-correction Seed'}
+  - {cls: field, sym: opc, typ: u8, fmt: '0x%x', doc: 'Point Processing Opcode'}
+  - {cls: field, sym: tag, typ: u8, fmt: '0x%x', doc: 'Instruction Tag'}
+  - {cls: field, sym: ecc, typ: u8, fmt: '0x%x', doc: 'Error-correction Seed'}
   - cls: bitfield
     sym: opts
     doc: Operation options
-    dtype: u8
+    width: 8
     members:
     - {cls: bits, sym: pack, width: 1, doc: 'Pack stuff'}
     - {cls: bits, sym: foo, width: 3, doc: 'Something foo'}
     - {cls: bits, sym: bar, width: 4, doc: 'Something bar'}
-  - {cls: field, sym: input_a, dtype: u64, fmt: '0x%x', doc: 'Input operand a'}
-  - {cls: field, sym: input_b, dtype: u64, fmt: '0x%x', doc: 'Input operand b'}
-  - {cls: field, sym: output, dtype: u64, fmt: '0x%x', doc: 'Output operand'}
+  - {cls: field, sym: input_a, typ: u64, fmt: '0x%x', doc: 'Input operand a'}
+  - {cls: field, sym: input_b, typ: u64, fmt: '0x%x', doc: 'Input operand b'}
+  - {cls: field, sym: output, typ: u64, fmt: '0x%x', doc: 'Output operand'}
 
 function_types:
 - cls: fun
   sym: hw
   doc: Print hello world
-  ret: {cls: int, doc: "On succes, 0 is returned. On error, -1 is returned and errno set to indicate the error"}
+  ret:
+    cls: ret
+    typ: int
+    doc: On succes, 0 is returned. On error, -1 is returned and errno set to indicate the error
   parameters:
-  - {cls: param, sym: argc, dtype: int, doc: 'Number of command-line arguments'}
-  - {cls: param, sym: argv, dtype: {cls: char, const: true, pointer: 2}, doc: 'Number of command-line arguments'}
+  - {cls: param, sym: argc, typ: int, doc: 'Number of command-line arguments'}
+  - {cls: param, sym: argv, typ: {cls: char, const: true, pointer: 2}, doc: 'Number of command-line arguments'}
 
 - cls: fun
   sym: hw_void
   doc: Print hello world
-  ret: void
+  ret:
+    cls: ret
+    typ: void
+    doc: Nothing, void.
   parameters: []

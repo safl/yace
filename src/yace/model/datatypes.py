@@ -9,6 +9,12 @@ types with known and fixed storage
 
 * Numerical
 
+  * Integers: :class:`.Int`
+  * TODO: ``size_t``
+  * TODO: ``ssize_t``
+
+* Numerical -- Fixed Width
+
   * Unsigned Integers: :class:`.U8`, :class:`.U16`, :class:`.U32`, :class:`.U64`
   * Signed Integers: :class:`.I8`, :class:`.I16`, :class:`.I32`, :class:`.I64`
   * Floating Point: :class:`.F32`, :class:`.F64`
@@ -18,6 +24,11 @@ types with known and fixed storage
   * :class:`.Char`
   * :class:`.String`
 
+* No type or parameter
+
+  * :class:`.Void`
+
+... fooo ...
 """
 import typing
 
@@ -239,7 +250,7 @@ class Int(Typespec):
     cls: str = "int"
     integer: bool = True
     signed: bool = True
-    width: typing.Optional[int] = 0
+    width: typing.Optional[int] = None
 
 
 class String(Typespec):

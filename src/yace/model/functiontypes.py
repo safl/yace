@@ -2,48 +2,53 @@
 """
 The function types consists of:
 
-* Function Declarations: :class:`FunctionDecl`
-* Function Pointer Declarations: :class:`FunctionPtrDecl`
+* Function Declarations: :class:`.Function`
+* Function Pointer Declarations: :class:`.FunctionPointer`
+* Both of the above make use of
+
+  * :class:`.Parameter`
+  * :class:`.ReturnType`
 
 This needs a bit more work..
 """
 import typing
 
-from .base import Typespec
+from .base import Documented, Entity, Named, Typed, Typespec
 
 
-class Parameter(Typespec):
+class ReturnType(Entity, Documented, Typed):
+    """
+    Function return type
+    """
+
+    cls: str = "ret"
+
+
+class Parameter(Entity, Named, Documented, Typed):
     """
     Function parameter
     """
 
-    sym: str = "nope"
-    doc: str = ""
     cls: str = "param"
-    lbl: str = "default"
 
 
-class Function(Typespec):
+class Function(Entity, Named, Documented):
     """
     Function declarations
     """
 
-    sym: str = "nope"
-    doc: str = ""
-
-    parameters: typing.List[Parameter] = []
-
     cls: str = "fun"
-    lbl: str = "default"
+    ret: ReturnType
+
+    parameters: typing.List[Parameter]
 
 
-class FunctionPointer(Typespec):
+class FunctionPointer(Entity, Named, Documented, Typed):
     """
     Function pointer declarations
     """
 
-    ret: typing.Type[Typespec] = None
-    parameters: typing.List[Typespec] = []
-
     cls: str = "fun_ptr"
-    lbl: str = "default"
+    ret: ReturnType
+
+    parameters: typing.List[Parameter]

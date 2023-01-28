@@ -1,44 +1,24 @@
 #!/usr/bin/env python3
 """
-Constants, Literal Strings, and Symbolic Constants
+The constant entities consists of:
 
-C MACROS, one of biggest headaches when it comes to FFI interfaces, especially
-for interpreted languages such as Python, since MACRO-expressions have no
-symbols to "call" as these are all pre-preprocossed and gone thus, no longer
-available.
+* Constant Values
 
-Thus, **yace** only support the definition of MACRO values, such as::
+  * :class:`.String` / :class:`.Dec` / :class:`.Hex`
 
-    #define SOME_GLOBALLY_CONSTANT 0xACDC
+* Symbolic Constants
 
-Definitions such as these to translate fairly when into equivalent globally
-available and constant constructs in other languages.
+  * :class:`.Define`
 
-Literals are at the heart of every language, with **yace** the following are
-expressed:
+* Enum Types
 
-* :class:`String`
-* :class:`Dec`
-* :class:`Hex`
+  * :class:`.Enum` and its members :class:`.EnumValue`
 
-These emit the usual suspects::
-
-    #define PROJECT_DESCRIPTION "This is a literal string"
-
-    enum jazz {
-        FOO = 0xACDC,
-        BAR = 0x1337,
-        BAZ = 0xBEEF,
-    };
-
-    #define THRESHOLD 1337
-
-The intent of these literals is just add a level of control to the values in
-the entities :class:`.enumtypes.EnumValue` and :class:`entities.Define`.
+... something ...
 """
 import typing
 
-from .base import Declaration, Entity
+from .base import Documented, Entity, Named
 
 
 class String(Entity):
@@ -95,23 +75,26 @@ class Dec(Entity):
         return True, None
 
 
-class Define(Declaration):
+class Define(Entity, Named, Documented):
     """
-    Representation of simple MACROs / definitions
+    C MACROS, one of biggest headaches when it comes to FFI interfaces,
+    especially for interpreted languages such as Python, since
+    MACRO-expressions have no symbols to "call" as these are all
+    pre-preprocossed and gone thus, no longer available.
 
-    When emitting the C API, the Define holds information to generate things
-    like::
+    Thus, **yace** only support the definition of MACRO values, such as::
 
-        #define MAX_SOMETHING 128
+        #define SOME_GLOBALLY_CONSTANT 0xACDC
 
-    The other code-emitters will generate similar globally scoped definitions.
+    Definitions such as these to translate fairly when into equivalent globally
+    available and constant constructs in other languages
     """
 
     cls: str = "define"
     val: typing.Union[Dec, Hex, String]
 
 
-class EnumValue(Declaration):
+class EnumValue(Entity, Named, Documented):
     """
     Representation of values in :class:`.Enum`.
 
@@ -137,7 +120,7 @@ class EnumValue(Declaration):
         return (True, None)
 
 
-class Enum(Declaration):
+class Enum(Entity, Named, Documented):
     """
     Representation of enumeration values, note that literals on the
     :class:`.EnumValue` are optional, an :class:`.Enum` with **non** literal

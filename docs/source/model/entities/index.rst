@@ -5,7 +5,6 @@
 ==========
 
 .. automodule:: yace.model.base
-   :inherited-members:
    :members:
    :undoc-members:
 

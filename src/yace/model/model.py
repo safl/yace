@@ -99,16 +99,16 @@ class Model(object):
 
             entity = Model.MAPPING["struct"](data)
 
-        Would not instantiate members, parameters, dtype, etc. additionally,
+        Would not instantiate members, parameters, typ, etc. additionally,
         the short-hands are expanded:
 
         - Integer literals
 
-          - {dtype: 10} instead of {dtype: {cls: dec, val: 10}}
+          - {typ: 10} instead of {typ: {cls: dec, val: 10}}
 
         - Data Types
 
-          - {dtype: u16} instead of {dtype: {cls: u16}}
+          - {typ: u16} instead of {typ: {cls: u16}}
 
         Foo...
         """
@@ -120,12 +120,12 @@ class Model(object):
 
         if isinstance(cur, int):  # short-hand for integer-literal
             return constants.Dec({"lit": cur})
-        elif isinstance(cur, str):  # short-hand for dtype
-            dtype = Model.MAPPING.get(cur)
-            if not dtype:
-                raise InvalidModelData(f"dtype !short-hand: '{cur}'")
+        elif isinstance(cur, str):  # short-hand for typ
+            typ = Model.MAPPING.get(cur)
+            if not typ:
+                raise InvalidModelData(f"typ !short-hand: '{cur}'")
 
-            return dtype({})
+            return typ({})
 
         constructor = Model.MAPPING.get(cur["cls"])
         if not constructor:
@@ -133,7 +133,7 @@ class Model(object):
 
         attributes = {}
         for attr, attr_data in cur.items():
-            if attr in ["dtype", "ret", "val"]:
+            if attr in ["typ", "ret", "val"]:
                 attributes[attr] = Model.entity_from_data(attr_data, cur, depth)
             elif attr in ["members", "parameters"]:
                 attributes[attr] = [
@@ -188,7 +188,7 @@ class ModelWalker(object):
         """
 
         res = [self.visit(cur, ancestors, depth)]
-        for attr in ["members", "parameters", "dtype", "ret", "val"]:
+        for attr in ["members", "parameters", "typ", "ret", "val"]:
             other = getattr(cur, attr, None)
             if other is None:
                 continue

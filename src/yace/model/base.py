@@ -1,3 +1,13 @@
+"""
+TODO
+
+Turn the 'sym' into a mixin-class with a validation-function extending super,
+checking identifiers, requiring "snake-case" in addition to the C requirements
+for identifiers
+
+Remote the manual annotation of 'lbl', it should just be managed by the YDL
+loader, not set and type explicitly
+"""
 import logging as log
 import operator
 import typing
@@ -106,8 +116,6 @@ class Typespec(Entity):
     pointer: int = 0  # Pointer-type for all types: '*'
     array: int = 0  # Array-type for all types: '[]'
 
-    lbl: typing.List[str] = ["typespec"]
-
 
 class Void(Typespec):
     """A void, that is, the type signaling no type"""
@@ -116,8 +124,25 @@ class Void(Typespec):
     width: int = 0
 
 
-class Declaration(Typespec):
-    """Base-class for Derived Types and fields"""
+class Documented(object):
+    """
+    Attribute-mixin; adding a required 'doc' describing the :class:`.Entity`
+    """
+
+    doc: str
+
+
+class Named(object):
+    """
+    Attribute-mixin; adding a required 'sym' to be used as identifier
+    """
 
     sym: str
-    doc: str
+
+
+class Typed(object):
+    """
+    Attribute-mixin; adding a reqried "has-a" relation to :class:`.Typespec`
+    """
+
+    typ: Typespec

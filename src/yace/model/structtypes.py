@@ -1,26 +1,55 @@
 #!/usr/bin/env python3
 """
-Entities are the base classes representing the language constructs of C APIs in
-the :class:`yace.model.interface.Model`. The entities serve as encapsulated
-type-checking of YAML-definitions of the language model.
+The struct types consist of:
+
+* :class:`.Struct`
+
+  * :class:`.Field`
+
+* :class:`.Bitfield`
+
+  * :class:`.Bits`
+
 """
 import typing
 
-from .base import Declaration, Typespec
+from .base import Documented, Entity, Named, Typed, Typespec
 
 
-class Bits(Declaration):
+class Bits(Entity, Named, Documented):
     """Representation of a :class:`.Bitfield` member."""
 
     cls: str = "bits"
+    width: int
 
 
-class Bitfield(Declaration):
-    """Representation of enumerations / collections of constants"""
+class Bitfield(Entity, Named, Documented):
+    """
+    Representation of a bitfield, that is a partitioning of a fixed-width
+    datatype (such as uint32_t) into a subset of named bit-ranges. Commonly
+    encapsualted in C struct. For example::
+
+        struct {
+            uint8_t foo : 2;
+            uint8_t bar : 3;
+            uint8_t baz : 3;
+        }
+
+    By doing so, then a struct-accessor is provided at less-than
+    byte-addressability, which is very convenient. By providing a semanticly
+    rich representation in **yace** then the actual implementation in a given
+    language can be something better fitted.
+
+    For example, the above code in C is not portable, whereas other languages
+    might support portable representations. By providing the abstract
+    bit-field, then the code-emitter can generate what is best-suited for a
+    given language, rather than translating C-representation-idioms as the
+    above into something sub-optimal.
+    """
 
     cls: str = "bitfield"
-    struct: int = 1
-    members: typing.List[Bits] = []
+    width: int
+    members: typing.List[Bits]
 
     def is_valid(self):
         """Checks whether the bitfield members match the width"""
@@ -34,17 +63,17 @@ class Bitfield(Declaration):
             )
 
         acc = sum([m.width for m in self.members])
-        if acc != self.dtype.width:
-            return (False, f"Aacumulated width({acc}) != {self.dtype.width}")
+        if acc != self.width:
+            return (False, f"Aacumulated width({acc}) != {self.width}")
 
         return (True, None)
 
 
-class Field(Declaration):
+class Field(Entity, Named, Documented, Typed):
     """
-    :class:`yace.model.Field` represents members of :class:`yace.model.Struct`
-    and :class:`yace.model.Union`, utilized by compiler to emit code in the C
-    API similar to::
+    A representation of :class:`yace.model.Struct` and
+    :class:`yace.model.Union`, utilized by compiler to emit code in the C API
+    similar to::
 
         uint32_t bar;
 
@@ -54,16 +83,22 @@ class Field(Declaration):
             uint32_t bar;
         };
 
-    The 'dtype' and 'width' members are utilized to produce a fitting
-    type-declaration for the target language, as in the examples above for C.
+    The 'typ' and 'typ.width' members inherited from :class:`.Typed` are
+    utilized to produce a fitting type-declaration for the target language, as
+    in the examples above for C.
+
+    The 'fmt' attribute provides a format-char/string for a code-emitter to
+    utlize when emitting a pretty-printer.
     """
 
     cls: str = "field"
-    fmt: str = "%u"
+    fmt: str
 
 
-class Struct(Declaration):
-    """Representation of enumerations / collections of constants"""
+class Struct(Entity, Named, Documented):
+    """
+    A representation of a struct definition
+    """
 
     cls: str = "struct"
-    members: typing.List = []
+    members: typing.List[Field]

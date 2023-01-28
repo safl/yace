@@ -21,15 +21,15 @@ options:
   doc: xNVMe options
   cls: struct
   members:
-  - {cls: field, sym: be, dtype: string, fmt: "%s", doc: "Backend/system interface to use"}
-  - {cls: field, sym: dev, dtype: string, fmt: "%s", doc: "Device manager/enumerator"}
-  - {cls: field, sym: mem, dtype: string, fmt: "%s", doc: "Memory allocator to use for buffers"}
-  - {cls: field, sym: sync, dtype: string, fmt: "%s", doc: "Synchronous Command-interface"}
-  - {cls: field, sym: async, dtype: string, fmt: "%s", doc: "Asynchronous Command-interface"}
-  - {cls: field, sym: admin, dtype: string, fmt: "%s", doc: "Administrative Command-interface"}
-  - {cls: field, sym: nsid, dtype: u32, fmt: "0x%x", doc: "Namespace identifier"}
+  - {cls: field, sym: be, typ: string, fmt: "%s", doc: "Backend/system interface to use"}
+  - {cls: field, sym: dev, typ: string, fmt: "%s", doc: "Device manager/enumerator"}
+  - {cls: field, sym: mem, typ: string, fmt: "%s", doc: "Memory allocator to use for buffers"}
+  - {cls: field, sym: sync, typ: string, fmt: "%s", doc: "Synchronous Command-interface"}
+  - {cls: field, sym: async, typ: string, fmt: "%s", doc: "Asynchronous Command-interface"}
+  - {cls: field, sym: admin, typ: string, fmt: "%s", doc: "Administrative Command-interface"}
+  - {cls: field, sym: nsid, typ: u32, fmt: "0x%x", doc: "Namespace identifier"}
 
-  - {cls: field, sym: poll_io, dtype: u32, fmt: "0x%x", doc: "io_uring: enable io-polling"}
-  - {cls: field, sym: poll_sq, dtype: u8, fmt: "0x%x", doc: "io_uring: enable sqthread-polling"}
-  - {cls: field, sym: register_files, dtype: u8, fmt: "0x%x", doc: "io_uring: enable file-registrations"}
-  - {cls: field, sym: register_buffers, dtype: u8, fmt: "0x%x", doc: "io_uring: enable buffer-registrations"}
+  - {cls: field, sym: poll_io, typ: u32, fmt: "0x%x", doc: "io_uring: enable io-polling"}
+  - {cls: field, sym: poll_sq, typ: u8, fmt: "0x%x", doc: "io_uring: enable sqthread-polling"}
+  - {cls: field, sym: register_files, typ: u8, fmt: "0x%x", doc: "io_uring: enable file-registrations"}
+  - {cls: field, sym: register_buffers, typ: u8, fmt: "0x%x", doc: "io_uring: enable buffer-registrations"}
