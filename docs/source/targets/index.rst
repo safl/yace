@@ -25,10 +25,10 @@ documentation placeholders as they are yet to be written.
    :maxdepth: 2
    :hidden:
 
-   capi.rst
-   cpp.rst
-   ctypes.rst
-   cython.rst
-   go.rst
-   rust.rst
-   zig.rst
+   capi/index.rst
+   cgo/index.rst
+   cpp/index.rst
+   ctypes/index.rst
+   cython/index.rst
+   rust/index.rst
+   zig/index.rst

@@ -1,6 +1,6 @@
 .. _sec-targets-cython:
 
-cython
+Cython
 ======
 
 ... no docs written ...
