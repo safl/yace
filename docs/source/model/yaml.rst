@@ -1,4 +1,4 @@
-.. _model-yaml:
+.. _sec-model-yaml:
 
 YAML
 ====

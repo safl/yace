@@ -37,6 +37,8 @@ verify it:
 * :class:`yace.tools.Isort`
 * :class:`yace.tools.Python3`
 
+.. _sec-targets-ctypes-implementation:
+
 Implementation
 --------------
 
@@ -48,7 +50,7 @@ Implementation
 .. _sec-targets-ctypes-sugar:
 
 sugar
------
+~~~~~
 
 .. automodule:: yace.targets.ctypes.ctypes_sugar
    :inherited-members:

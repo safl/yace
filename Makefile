@@ -142,6 +142,7 @@ docs-build:
 	cd docs && rm -rf build
 	cd docs/source/install && kmdo .
 	cd docs/source/usage && kmdo .
+	cd docs/source/targets/capi && kmdo .
 	cd docs && make html
 
 define docs-view-help
