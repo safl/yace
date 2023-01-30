@@ -7,11 +7,11 @@ format, these are described
 * Entities
 * Interface
 
-The interface model was initially just a collection of YAML-files, globbed for
+The interface idl was initially just a collection of YAML-files, globbed for
 and merged together by the copiler using a YAML-parser. This left for two
 things to be done:
 
-* Documentation of the interface model
-* Validation of the interface model
+* Documentation of the interface idl
+* Validation of the interface idl
 
 """

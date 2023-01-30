@@ -6,12 +6,12 @@
 
 Running **yace** requires that you have:
 
-1. Installed **yace**
-2. A **yace** :ref:`sec-model` file ready to provide as input
+1. Installed **yace** and auxilary :ref:`sec-tools`
+2. A :ref:`sec-idl` file describing your C API
 
 To satisfy the first point, then see :ref:`sec-install`. For the second point,
-then you can consult :ref:`sec-model` for reference to define a ``yim`` from
-scratch.
+then you can consult :ref:`sec-idl` for reference to define a
+:ref:`sec-idl-files` from scratch.
 
 Command-Line Interface
 ======================
@@ -88,7 +88,9 @@ Note, this is early stage of the :ref:`sec-targets-ctypes` target.
 Additional Examples
 ===================
 
-For more elaborate examples, then take a look at the models in the **yace**
-repository at https://github.com/safl/yace/tree/main/models. Additionally, the
-artifacts produces by **yace's** on the :github-yace-actions:`GitHUB Actions
-Page <>` has the output from all the models.
+For more elaborate examples, then take a look at:
+
+* The idls in the **yace** repository at
+  https://github.com/safl/yace/tree/main/models
+* The target-specific output in the :ref:`sec-targets` section
+* The artifacts produces on the :github-yace-actions:`GitHUB Actions Page <>`

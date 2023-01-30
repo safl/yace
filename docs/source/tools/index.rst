@@ -1,8 +1,8 @@
 .. _sec-tools:
 
-==============
- System Tools
-==============
+=======
+ Tools
+=======
 
 The tools are used by the **yace** Emitter Targets via Mix-In classes in the
 module ``yace.tools``.

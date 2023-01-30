@@ -21,7 +21,7 @@ The **yace** data types consists of:
 
   * :class:`.Char`, :class:`.String`
 
-Their model representation follows below.
+Their idl representation follows below.
 """
 import typing
 

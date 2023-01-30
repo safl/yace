@@ -24,17 +24,17 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "model",
+        "idl",
         nargs="+",
         type=Path,
-        help="Path to Yace Interface Model (yim) file",
+        help="Path to Yace IDL (yidl) file",
     )
     parser.add_argument(
         "--target",
         nargs="+",
         choices=[target.NAME for target in Compiler.TARGETS],
         default=[target.NAME for target in Compiler.TARGETS][0],
-        help="Yace Emitter Targets (yets)",
+        help="Targets",
     )
     parser.add_argument(
         "--output",
@@ -52,7 +52,7 @@ def parse_args():
     parser.add_argument(
         "--lint",
         action="store_true",
-        help="Parse and check the given model-files, then exit",
+        help="Parse and check the given idl-files, then exit",
     )
 
     parser.add_argument(
@@ -77,5 +77,5 @@ def main():
     )
 
     yace = Compiler(args.target, args.output)
-    for path in args.model:
+    for path in args.idl:
         yace.process(path, ["parse", "lint"] if args.lint else Compiler.STAGES)

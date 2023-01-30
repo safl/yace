@@ -1,10 +1,10 @@
-from yace.model.model import ModelWalker
-from yace.model.structtypes import Bitfield, Bits, Field, Struct
-from yace.model.uniontypes import Union
+from yace.idl.model import ModelWalker
+from yace.idl.structtypes import Bitfield, Bits, Field, Struct
+from yace.idl.uniontypes import Union
 
 
 class HoistAnonMembers(ModelWalker):
-    """Transforms the model"""
+    """Transforms the idl"""
 
     def visit(self, current, ancestors, depth):
         if depth != 0:

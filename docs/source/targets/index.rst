@@ -1,13 +1,17 @@
 .. _sec-targets:
 
-===========================
- Emitter Targets (``yet``)
-===========================
+=========
+ Targets
+=========
 
-The **yace** Emitter Targets (``yet``/``yets``) are encapsulations of the
-various components needed in **yace** to add support for code emission target.
+The **yace** emitter targets are encapsulations of the various components
+needed in **yace** to add support for a foreign-function-interface or a C
+API/ABI variant.
 
-This part of **yace** is not yet implemented. However, the idea is to:
+Ideally, then targets could be defined externally from the yace code-base and
+possibly just be small variations to the targets provided with yace. However,
+at the moment, such pluggable infratructure is not implemented, and one has to
+add the target as part of the targets in the yace package.
 
 * Ensure that ``yets`` are pluggable
 

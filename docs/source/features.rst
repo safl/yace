@@ -10,7 +10,7 @@ needed? And the answer is that related code-emitters such as
 they are wrapping / producing language bindings for.
 
 **yace** in turn does not use the library C header, instead it uses an
-:ref:`sec-model`, and rather than consuming the C header, then it
+:ref:`sec-idl`, and rather than consuming the C header, then it
 **produces** it!
 
 This is useful for systems libraries where header definitions are
@@ -26,11 +26,11 @@ This is where **yace** steps in and provides bindings those bindings. As
 mentioned before, then other code emitters can do this as well, however,
 **yace** introduces some niceties:
 
-* **Documentation**; the :ref:`sec-model` requires documentation of all symbols,
+* **Documentation**; the :ref:`sec-idl` requires documentation of all symbols,
   this means that generated wrappers/bindings also get documentation, e.g. in
   DoxyGen format for C code, in PyDoc for Python etc.
 
-* **Sugar**; the :ref:`sec-model` is very close to C code, yet, it has some
+* **Sugar**; the :ref:`sec-idl` is very close to C code, yet, it has some
   higher-level constructs which enables it to exploit the semantics emit code
   which is slightly more **Pythonic**, **idiomatic Go / Rust**, and **Modern
   C++**.
@@ -38,11 +38,11 @@ mentioned before, then other code emitters can do this as well, however,
   sanding down the rough edges of the raw FFI interface of the language.
 
 * **Pretty-printers**; since **yace** knows the data-structures via the
-  :ref:`sec-model`, then the emitter can produce helper-functions
+  :ref:`sec-idl`, then the emitter can produce helper-functions
   pretty-printing those enums, structs, and unions in **YAML**, **JSON**.
 
 For a quick introduction to using **yace** then jump to the :ref:`sec-usage`
-section. For details and reference see the :ref:`sec-model`.
+section. For details and reference see the :ref:`sec-idl`.
 
 .. _sec-features-codegen:
 

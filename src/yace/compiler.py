@@ -4,8 +4,8 @@ import typing
 from pathlib import Path
 
 from yace import __version__ as version
-from yace.model.linter import Linter
-from yace.model.model import Model
+from yace.idl.linter import Linter
+from yace.idl.model import Model
 from yace.targets.capi.target import CAPI
 from yace.targets.ctypes.target import Ctypes
 

@@ -16,14 +16,14 @@ And, not part of the API itself is:
 * ``{meta.prefix}_check.c``     -- ``main()`` program checking generated code
 
 The following section shows the details of how to generate a C API from a
-**yace** interface definition language :ref:`sec-model-yaml` file.
+**yace** interface definition language :ref:`sec-idl-files` file.
 
 .. _sec-targets-capi-example:
 
 Example
 -------
 
-Below, **yace** is invoked on the ``models/example.yaml`` from the **yace**
+Below, **yace** is invoked on the ``idls/example.yaml`` from the **yace**
 git-repository.
 
 .. literalinclude:: 200_yace.cmd

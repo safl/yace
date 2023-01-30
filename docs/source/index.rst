@@ -42,7 +42,7 @@ plenty of things to do.
    features.rst
    install/index.rst
    usage/index.rst
-   model/index.rst
+   idl/index.rst
    targets/index.rst
    tools/index.rst
    todo/index.rst

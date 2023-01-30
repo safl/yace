@@ -57,7 +57,7 @@ class CAPI(Target):
         }
 
     def transform(self, model):
-        """Transform the given model"""
+        """Transform the given idl"""
 
         log.info("This is is noop in target '%s'", CAPI.NAME)
 

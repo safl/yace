@@ -27,7 +27,7 @@ setup(
     entry_points={"console_scripts": ["yace=yace.cli:main"]},
     packages=[
         "yace",
-        "yace.model",
+        "yace.idl",
         "yace.targets",
         "yace.targets.capi",
         "yace.targets.ctypes",

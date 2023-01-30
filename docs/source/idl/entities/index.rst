@@ -1,10 +1,10 @@
-.. _sec-model-entities:
+.. _sec-idl-entities:
 
 ==========
  Entities
 ==========
 
-.. automodule:: yace.model.base
+.. automodule:: yace.idl.base
    :members:
    :undoc-members:
 

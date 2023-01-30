@@ -9,7 +9,7 @@ offered by the **Yace** Interface Model entities.
 * :class:`.Model`
 * :class:`.ModelWalker`
 
-Their model representation follows below.
+Their **yidl** representation follows below.
 """
 import inspect
 import logging
@@ -61,9 +61,8 @@ class Meta:
     prefix: str = "ex"
     brief: str = "yace example"
     full: str = (
-        "This description is provided with the default model-meta, to "
-        "change it, then make sure you have a meta-lbl in your model. "
-        "meta: {lic: '"
+        "This description is provided with the default idl-meta, to "
+        "change it, then make sure you have a meta-lbl in your yidl"
     )
 
 
@@ -173,8 +172,9 @@ class Model(object):
 
 class ModelWalker(object):
     """
-    Base-class for walking the interface-model, sub-class this and implement
-    the visit() method!
+    Base-class for walking the :class:`.Model`
+
+    **HOWTO**: sub-class this and implement the visit() method
     """
 
     def _traverse(

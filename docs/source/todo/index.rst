@@ -14,7 +14,7 @@ issue-reports, feature-requests etc. and the todo/roadmap is here:
   * Must be added to yim
   * And added to ``yet``
 
-* Add model-checking
+* Add idl-checking
 
   * Check that no duplicate symbols exists
   * Check that bitfields are within bounds and matching their parent type

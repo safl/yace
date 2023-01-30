@@ -1,31 +1,31 @@
-.. _sec-model-derivedtypes:
+.. _sec-idl-derivedtypes:
 
 Derived Types
 =============
 
 The **yace** derived types consists of:
 
-* :ref:`sec-model-structtypes`
+* :ref:`sec-idl-structtypes`
 
   * :class:`.Struct`
   * :class:`.Bitfield`
 
-* :ref:`sec-model-uniontypes`
+* :ref:`sec-idl-uniontypes`
 
-.. _sec-model-structtypes:
+.. _sec-idl-structtypes:
 
 Struct Types
 ------------
 
-.. automodule:: yace.model.structtypes
+.. automodule:: yace.idl.structtypes
    :members:
    :undoc-members:
 
-.. _sec-model-uniontypes:
+.. _sec-idl-uniontypes:
 
 Union Types
 -----------
 
-.. automodule:: yace.model.uniontypes
+.. automodule:: yace.idl.uniontypes
    :members:
    :undoc-members:

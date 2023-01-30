@@ -1,7 +1,7 @@
 Model
 =====
 
-.. automodule:: yace.model.model
+.. automodule:: yace.idl.model
    :inherited-members:
    :members:
    :undoc-members:

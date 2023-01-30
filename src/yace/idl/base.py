@@ -31,7 +31,7 @@ def all_annotations(cls) -> ChainMap:
 class Entity(object):
     """
     This is the baseclass for all entities in the Yace Interface Model
-    (:class:`yace.model.model.Model`)
+    (:class:`yace.idl.model.Model`)
 
     It is defined as the Python dataclasses got in the way, this instead as a
     fixed set of functionality:

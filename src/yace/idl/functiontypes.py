@@ -9,7 +9,7 @@ The **yace** function types consists of:
   * :class:`.Parameter`
   * :class:`.ReturnType`
 
-Their model representation follows below.
+Their idl representation follows below.
 """
 import typing
 

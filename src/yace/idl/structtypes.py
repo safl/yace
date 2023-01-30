@@ -6,7 +6,7 @@ The struct types consist of:
 
 * :class:`.Bitfield` with :class:`.Bits` members
 
-Their model representation follows below.
+Their idl representation follows below.
 """
 import typing
 
@@ -68,8 +68,8 @@ class Bitfield(Entity, Named, Documented):
 
 class Field(Entity, Named, Documented, Typed):
     """
-    A representation of :class:`yace.model.Struct` and
-    :class:`yace.model.Union`, utilized by compiler to emit code in the C API
+    A representation of :class:`yace.idl.Struct` and
+    :class:`yace.idl.Union`, utilized by compiler to emit code in the C API
     similar to::
 
         uint32_t bar;

@@ -16,7 +16,7 @@ The **yace** constants consists of:
 
   * :class:`.Enum` and its members :class:`.EnumValue`
 
-Their model representation follows below.
+Their idl representation follows below.
 """
 import typing
 
@@ -47,8 +47,8 @@ class Hex(Entity):
     Representation of a hexi-decimal constant
 
     The emitted C code should be hexidecimal notation of literal integer
-    values, such as those used by :class:`yace.model.macros.Define` and
-    :class:`yace.model.enumtypes.Enum`::
+    values, such as those used by :class:`yace.idl.macros.Define` and
+    :class:`yace.idl.enumtypes.Enum`::
 
         #define FOO 0xACDC
 

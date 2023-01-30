@@ -34,7 +34,7 @@ class Ctypes(Target):
         }
 
     def transform(self, model):
-        """Transform the given model, flatten nested structs/unions"""
+        """Transform the given idl, flatten nested structs/unions"""
 
         log.info("This is noop in target '%s'", Ctypes.NAME)
 

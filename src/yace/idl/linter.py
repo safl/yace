@@ -1,7 +1,7 @@
 import logging as log
 import typing
 
-from yace.model.model import ModelWalker
+from yace.idl.model import ModelWalker
 
 
 class Linter(ModelWalker):
@@ -19,7 +19,7 @@ class Linter(ModelWalker):
     def check(self, model):
         """
         Returns the number of integrity issues found checking checking the
-        given model. Any messages are logged.
+        given idl. Any messages are logged.
         """
 
         nerrors = 0

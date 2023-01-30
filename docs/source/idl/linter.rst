@@ -1,7 +1,7 @@
 Linter
 ======
 
-.. automodule:: yace.model.linter
+.. automodule:: yace.idl.linter
    :inherited-members:
    :members:
    :undoc-members:
