@@ -7,12 +7,13 @@ from yace.compiler import Compiler
 
 VALID = [
     Path("models") / "example.yaml",
+    Path("models") / "example-mini.yaml",
     Path("models") / "nvme.yaml",
     Path("models") / "xnvme.yaml",
 ]
 
 INVALID = [
-    Path("models") / "example_invalid.yaml",
+    Path("models") / "example-invalid.yaml",
 ]
 
 

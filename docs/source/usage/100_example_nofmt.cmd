@@ -1,1 +1,1 @@
-  yace example-yim.yaml --lint
+yace ../../../models/example-mini.yaml --lint

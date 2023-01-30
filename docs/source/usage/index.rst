@@ -34,7 +34,7 @@ Example
 
 To get a quick sense of **yace** then you can utilize this simple example:
 
-.. literalinclude:: example-yim.yaml
+.. literalinclude:: ../../../models/example-mini.yaml
    :language: yaml
    :caption:
    :lines: 1-

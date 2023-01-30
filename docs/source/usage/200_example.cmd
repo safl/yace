@@ -1,1 +1,1 @@
-  yace example-yim.yaml --target capi ctypes
+yace ../../../models/example-mini.yaml --target capi ctypes
