@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 """
-This module contains bla blaClasses inheriting from this type include data
-types with known and fixed storage
+The **yace** data types consists of:
 
-* Boolean
+* Boolean:
 
   * :class:`.Bool`
 
 * Numerical
 
-  * Integers: :class:`.Int`
-  * TODO: ``size_t``
-  * TODO: ``ssize_t``
+  * Unsigned Integers: :class:`.Size`
+  * Signed Integers: :class:`.Int`, :class:`.SizeSigned`
 
 * Numerical -- Fixed Width
 
@@ -19,16 +17,11 @@ types with known and fixed storage
   * Signed Integers: :class:`.I8`, :class:`.I16`, :class:`.I32`, :class:`.I64`
   * Floating Point: :class:`.F32`, :class:`.F64`
 
-* Textual
+* Textual:
 
-  * :class:`.Char`
-  * :class:`.String`
+  * :class:`.Char`, :class:`.String`
 
-* No type or parameter
-
-  * :class:`.Void`
-
-... fooo ...
+Their model representation follows below.
 """
 import typing
 
@@ -224,7 +217,7 @@ class Char(Typespec):
     """
     A character, at least 8 bits wide.
 
-    The C emitter produces::
+    The C API emitter could produce::
 
         char
 
@@ -234,6 +227,35 @@ class Char(Typespec):
     cls: str = "char"
     character: bool = True
     width: int = 8
+
+
+class Size(Typespec):
+    """
+    The C API emitter could produce::
+
+        size_t
+
+    for the :class:`Size` entity.
+    """
+
+    cls: str = "size"
+    integer: bool = True
+    signed: bool = True
+    width: typing.Optional[int] = None
+
+
+class SizeSigned(Typespec):
+    """
+    The C API emitter could produce::
+
+        ssize_t
+
+    for the :class:`SizeSigned` entity.
+    """
+
+    cls: str = "size"
+    integer: bool = True
+    width: typing.Optional[int] = None
 
 
 class Int(Typespec):

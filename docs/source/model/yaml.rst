@@ -13,11 +13,10 @@ you have to learn. Rather it is object-oriented description of the entities
 formated in YAML. Each document in the ``yim`` thus refers to a class described
 in section ...
 
-The document is layed out as:
+.. _sec-model-yaml-example:
 
-.. literalinclude:: 000_layout.yaml
-   :language: yaml
-   :lines: 1-
+Example
+-------
 
 The key ``meta`` is a *special key* described in greater detail in the
 :py:class:`yace.model.model.Meta`.
@@ -26,6 +25,10 @@ The remainder of a ``yim`` document consists of lists under keys with arbitrary
 names. These other top-level keys have no special meaning / signifinance, they
 are there to serve as a means to organize the document. Conceptually,
 seciton-headers for the YAML-document.
+
+.. literalinclude:: ../../../models/example.yaml
+   :language: yaml
+   :lines: 1-
 
 .. _model-yaml-entities:
 

@@ -2,14 +2,11 @@
 """
 The struct types consist of:
 
-* :class:`.Struct`
+* :class:`.Struct` with :class:`.Field` members
 
-  * :class:`.Field`
+* :class:`.Bitfield` with :class:`.Bits` members
 
-* :class:`.Bitfield`
-
-  * :class:`.Bits`
-
+Their model representation follows below.
 """
 import typing
 

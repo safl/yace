@@ -9,6 +9,7 @@ offered by the **Yace** Interface Model entities.
 * :class:`.Model`
 * :class:`.ModelWalker`
 
+Their model representation follows below.
 """
 import inspect
 import logging

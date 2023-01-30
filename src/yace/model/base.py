@@ -1,10 +1,12 @@
 """
-TODO
+The entities in the **yace** Interface Definition are enherit the
+:class:`.Entity` and mix-in common attributes.
 
-* Add 'verification' of the 'sym' attribute
-  * must be in "snake-case"
-  * Must adhere to the C identifier restrictions
+* Base-classes: :class:`.Entity` / :class:`.Typespec`
 
+* Mixin-attributes: :class:`.Named` / :class:`.Documented` / :class:`.Typed`
+
+The above are defined below.
 """
 import logging as log
 import operator

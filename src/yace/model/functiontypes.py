@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-The function types consists of:
+The **yace** function types consists of:
 
 * Function Declarations: :class:`.Function`
 * Function Pointer Declarations: :class:`.FunctionPointer`
@@ -9,7 +9,7 @@ The function types consists of:
   * :class:`.Parameter`
   * :class:`.ReturnType`
 
-This needs a bit more work..
+Their model representation follows below.
 """
 import typing
 

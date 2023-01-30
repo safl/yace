@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 """
-The constant entities consists of:
+The **yace** constants consists of:
 
-* Constant Values
+* Constant Values:
 
-  * :class:`.String` / :class:`.Dec` / :class:`.Hex`
+  * :class:`.String`
+  * :class:`.Dec`
+  * :class:`.Hex`
 
-* Symbolic Constants
+* Symbolic Constants:
 
   * :class:`.Define`
 
-* Enum Types
+* Enum Types:
 
   * :class:`.Enum` and its members :class:`.EnumValue`
 
-... something ...
+Their model representation follows below.
 """
 import typing
 

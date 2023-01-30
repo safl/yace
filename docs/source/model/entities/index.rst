@@ -14,6 +14,5 @@
 
    constants.rst
    datatypes.rst
-   structtypes.rst
-   uniontypes.rst
+   derivedtypes.rst
    functiontypes.rst
