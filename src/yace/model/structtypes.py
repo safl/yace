@@ -51,7 +51,7 @@ class Bitfield(Entity, Named, Documented):
     width: int
     members: typing.List[Bits]
 
-    def is_valid(self):
+    def is_valid_members(self):
         """Checks whether the bitfield members match the width"""
 
         invalid_types = [type(m) for m in self.members if not isinstance(m, Bits)]

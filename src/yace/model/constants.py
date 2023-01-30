@@ -32,7 +32,7 @@ class String(Entity):
     cls: str = "str"
     lit: str
 
-    def is_valid(self):
+    def is_valid_lit(self):
 
         if not isinstance(self.lit, str):
             return False, f"Unsupported lit[{self.lit}]"
@@ -55,7 +55,7 @@ class Hex(Entity):
     cls: str = "hex"
     lit: int
 
-    def is_valid(self):
+    def is_valid_lit(self):
         if not isinstance(self.lit, int):
             return False, f"Unsupported lit[{self.lit}]"
 
@@ -68,7 +68,7 @@ class Dec(Entity):
     cls: str = "dec"
     lit: int
 
-    def is_valid(self):
+    def is_valid_lit(self):
         if not isinstance(self.lit, int):
             return False, f"Unsupported lit[{self.lit}]"
 
@@ -108,7 +108,7 @@ class EnumValue(Entity, Named, Documented):
     cls: str = "enum_value"
     val: typing.Union[Dec, Hex] = None
 
-    def is_valid(self):
+    def is_valid_val(self):
         """Checks whether the :class:`.EnumValue` is valid"""
 
         if not isinstance(self.val, (Dec, Hex)):
@@ -147,7 +147,7 @@ class Enum(Entity, Named, Documented):
     cls: str = "enum"
     members: typing.List[EnumValue]
 
-    def is_valid(self):
+    def is_valid_members(self):
         """Checks whether the :class:`.Enum` is valid"""
 
         invalid_types = [type(m) for m in self.members if not isinstance(m, EnumValue)]

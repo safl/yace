@@ -1,15 +1,14 @@
 """
 TODO
 
-Turn the 'sym' into a mixin-class with a validation-function extending super,
-checking identifiers, requiring "snake-case" in addition to the C requirements
-for identifiers
+* Add 'verification' of the 'sym' attribute
+  * must be in "snake-case"
+  * Must adhere to the C identifier restrictions
 
-Remote the manual annotation of 'lbl', it should just be managed by the YDL
-loader, not set and type explicitly
 """
 import logging as log
 import operator
+import re
 import typing
 from collections import ChainMap
 
@@ -77,16 +76,38 @@ class Entity(object):
             setattr(self, key, val)
 
     def is_valid(self):
-        """Checks whether all attributes-instances match the annotations"""
+        """
+        Here is what this validates
 
-        valid = all(
-            [
-                isinstance(getattr(self, a), t)
-                for a, t in self.annotations.items()
-                if getattr(t, "get_origin", False)
-            ]
-        )
-        return valid, "OK" if valid else "Bad type of attribute"
+        * Field-specific checks from subclass or mixin such as ``is_valid_sym()``
+
+        * Generic check of attribute-instances matching theirannotations
+        """
+
+        for attr, atype in self.annotations.items():
+            if not getattr(attr, "get_origin", False):  # skip typing.*
+                continue
+            if isinstance(attr, atype):  # is_valid
+                continue
+
+            return False, f"Bad type({atype}) of attribute({attr})"
+
+        for attr in self.all:
+            attr_checker = getattr(self, f"is_valid_{attr}", False)
+            if not attr_checker:
+                continue
+            valid, message = attr_checker()
+            if valid:
+                continue
+
+            return valid, message
+
+        return True, "OK"
+
+    def as_dict(self):
+        """Returns the Entity represented as a dict"""
+
+        return {attr: getattr(self, attr) for attr in self.all}
 
 
 class Typespec(Entity):
@@ -138,6 +159,18 @@ class Named(object):
     """
 
     sym: str
+
+    def is_valid_sym(self):
+        """Check whether the symbol is a valid C identifier"""
+
+        if self.sym is None:
+            return False, f"Invalid attr: sym == None; for {self.as_dict()}"
+
+        match = re.match(r"[_a-z][_a-z0-9]{0,30}", str(self.sym))
+        if match:
+            return True, "OK"
+
+        return False, f"Invalid attr: '{self.sym}'; for {self.as_dict()}"
 
 
 class Typed(object):
