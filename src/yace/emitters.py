@@ -22,12 +22,11 @@ def camelcase(symbol, pascalcase=True):
 
 class Emitter(object):
     """
-    The default approach to transforming :class:`.Entity` in
-    :class:`.Model: to source-code-text is inheriting **this** class
-    and utilizing the Jinja templates made available in self.templates. It
-    might seem naive to utilize templating-engine like Jinja for a
-    code-emitter, however, so far it seems to be the an incredibly simple
-    approach.
+    The default approach to transforming :class:`.Entity` in :class:`.Model`:
+    to source-code-text is inheriting **this** class and utilizing the Jinja
+    templates made available in self.templates. It might seem naive to utilize
+    templating-engine like Jinja for a code-emitter, however, so far it seems
+    to be the an incredibly simple approach.
 
     This class populates ``self.templates`` with templates loaded for a given
     emitter-implementation. They work as Jinja usually does, a feature-addition
