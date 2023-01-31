@@ -3,6 +3,7 @@ furo
 isort
 jinja2
 kmdo
+pygments-ansi-color
 pyyaml
 sphinx
 sphinxcontrib-gtagjs

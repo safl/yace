@@ -25,7 +25,7 @@ utilities provided by running:
 This should output:
 
 .. literalinclude:: 900_make.out
-   :language: bash
+   :language: ansi-color
    :lines: 1-
 
 TOC
