@@ -85,7 +85,7 @@ status_codes:
   doc: "Status Codes for INTERNAL_PATH_ERROR aka Status-Code-Type(0x2)"
   cls: enum
   members:
-  - {cls: enum_value, sym: INTERNAL_PATH_ERROR, val: {cls: hex, lit: 0x0}, doc: "Internal Path Error"}
+  - {cls: enum_value, sym: internal_path_error, val: {cls: hex, lit: 0x0}, doc: "Internal Path Error"}
 
 logs:
 - sym: log_lpi
