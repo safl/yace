@@ -12,6 +12,7 @@ TODO
 """
 import argparse
 import logging as log
+import sys
 from pathlib import Path
 
 from yace import __version__ as version
@@ -67,15 +68,27 @@ def parse_args():
 def main():
     """Emit enums, structs, and pretty-printer functions for them"""
 
-    args = parse_args()
+    ok = False
+    try:
+        args = parse_args()
 
-    log.basicConfig(
-        format="%(levelname)s:%(module)s:%(funcName)s(): %(message)s",
-        level=[log.ERROR, log.INFO, log.WARNING, log.DEBUG][
-            sum(args.log_level) if args.log_level else 0
-        ],
-    )
+        log.basicConfig(
+            format="%(levelname)s:%(module)s:%(funcName)s(): %(message)s",
+            level=[log.ERROR, log.INFO, log.WARNING, log.DEBUG][
+                sum(args.log_level) if args.log_level else 0
+            ],
+        )
 
-    yace = Compiler(args.target, args.output)
-    for path in args.idl:
-        yace.process(path, ["parse", "lint"] if args.lint else Compiler.STAGES)
+        yace = Compiler(args.target, args.output)
+        ok = all(
+            [
+                yace.process(path, ["parse", "lint"] if args.lint else Compiler.STAGES)
+                for path in args.idl
+            ]
+        )
+    except Exception as exc:
+        log.error("Unhandled Exception: message(%s)", exc)
+        log.error("Unhandled Exception: increase log-level (-ll) for trace")
+        log.error("Unhandled Exception(%s)", exc, exc_info=True)
+
+    return sys.exit(0 if ok else 1)

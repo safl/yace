@@ -33,7 +33,7 @@ class Compiler(object):
         self.targets = [target for target in Compiler.TARGETS if target.NAME in targets]
         self.output = output.resolve()
 
-    def process(self, path: Path, stages: typing.List[str] = None):
+    def process(self, path: Path, stages: typing.List[str] = None) -> bool:
         """
         Take 'path' through the given compiler 'stages'
         """
@@ -51,14 +51,18 @@ class Compiler(object):
             log.info("Stage: 'lint'")
             nerrors = Linter().check(model_orig)
             if nerrors:
-                log.error("Skipping remaining stages, due to linter-errors")
-                return
+                log.error("Linter-errors: see above/log; stopping.")
+                return False
 
-        for cls in self.targets:
-            log.info("Target: %s", cls.NAME)
+        targets = [cls(self.output) for cls in self.targets]
+        if not all([tgt.is_ready() for tgt in targets]):
+            log.error("One or more targets !ready; see above/log. stopping.")
+            return False
+
+        for target in targets:
+            log.info("Target: %s", target.NAME)
 
             model = copy.deepcopy(model_orig)
-            target = cls(self.output)
 
             if "transform" in stages:
                 log.info("Stage: 'transform'")
@@ -75,3 +79,5 @@ class Compiler(object):
             if "check" in stages:
                 log.info("Stage: 'check'")
                 target.check()
+
+        return True
