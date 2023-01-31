@@ -38,23 +38,23 @@ The above is all that is needed for the code-emission functionality of
 **yace**, however, to take things a bit further then **yace** utilizes a
 handful of other tools, compilers, build-systems and documentation generators.
 
-Installing these are describe in the following :ref:`sec-install-system`
-section. However, these are not needed to get started with **yace**, so you can
-skip it and go directory to the :ref:`sec-usage` section.
+.. _sec-install-tools:
 
-.. _sec-install-system:
+Install: tools
+--------------
 
-System
-------
+Tools are utilized by the **yace** code-emitter :ref:`sec-targets`, each target
+documents which tools they use, and for what purpose. It is not nescarry to
+install all possible tools ahead of time, since **yace** will exit-early, in
+case a tool is missing and inform you.
 
-It is assumed that the following tools are available on the system where
-**yace** is running:
+However, if you are curious, then have a look at the :ref:`sec-tools` section,
+it describes all the tools currently utilized by :ref:`sec-targets`.
+Additionally, then the scripts in ``toolbox/pkgs/`` install the tools on Ubuntu
+and macOS. These scripts are used by the **yace** CI, thus, they have
+everything needed for :ref:`sec-targets`, plus some additional packages for
+ci-tasks.
 
-* ``clang-format`` (Version must be >= 13 to utilize style-files)
-* ``gcc`` or ``clang``
-* ``doxygen``
-* ``graphviz`` (The ``dot`` tool from this package is needed by ``doxygen``
-* ``make`` to do a lot of things in a more convenient way
-
-There are scripts in ``toolbox/pkgs/`` installing the above-mentioned tools on
-Ubuntu and macOS.
+Regardless or whether you choose to install the tools ahead-of-time or
+just-in-time, then continue to the next section for a brief introduction to
+using **yace** in the :ref:`sec-usage` section.
