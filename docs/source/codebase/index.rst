@@ -10,6 +10,27 @@ directly user-facing. That is, the argumenting-parsing of the
 :ref:`sec-codebase-compiler`, and the encapsulation of ``yidl`` / ``Entities``
 in the :ref:`sec-codebase-model`.
 
+.. _sec-codebase-toolbox:
+
+Toolbox
+=======
+
+The toolbox and Makefile-helper requires that ``make`` is available. See the
+utilities provided by running:
+
+.. literalinclude:: 900_make.txt
+   :language: bash
+   :lines: 1-
+
+This should output:
+
+.. literalinclude:: 900_make.out
+   :language: bash
+   :lines: 1-
+
+TOC
+===
+
 .. toctree::
   :maxdepth: 2
 

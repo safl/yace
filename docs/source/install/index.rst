@@ -42,8 +42,19 @@ Installing these are describe in the following :ref:`sec-install-system`
 section. However, these are not needed to get started with **yace**, so you can
 skip it and go directory to the :ref:`sec-usage` section.
 
-.. toctree::
-   :maxdepth: 2
-   :hidden:
+.. _sec-install-system:
 
-   system.rst
+System
+------
+
+It is assumed that the following tools are available on the system where
+**yace** is running:
+
+* ``clang-format`` (Version must be >= 13 to utilize style-files)
+* ``gcc`` or ``clang``
+* ``doxygen``
+* ``graphviz`` (The ``dot`` tool from this package is needed by ``doxygen``
+* ``make`` to do a lot of things in a more convenient way
+
+There are scripts in ``toolbox/pkgs/`` installing the above-mentioned tools on
+Ubuntu and macOS.
