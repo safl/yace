@@ -45,4 +45,5 @@ plenty of things to do.
    idl/index.rst
    targets/index.rst
    tools/index.rst
+   codebase/index.rst
    todo/index.rst
