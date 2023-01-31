@@ -1,6 +1,7 @@
 """
 
 """
+import logging as log
 import os
 from abc import ABC, abstractmethod
 
@@ -18,11 +19,19 @@ class Target(ABC):
     def __init__(self, name, output):
         self.name = name  # Name of the compiler-target
         self.output = output / name  # Location to emit code to
+
         self.headers = []  # Resolved paths to emitted headers
         self.sources = []  # Resolved paths to emitted sources
         self.aux = []  # Resolved paths to auxilary files e.g. Doxy Conf
 
+        self.tools = {}  # Dictionary of :class:`yace.tools.Tool` instances
+
         os.makedirs(self.output, exist_ok=True)
+
+    def is_ready(self):
+        """Pre-flight check, inspect availability of self.tools"""
+
+        return all([tool.exists() for label, tool in self.tools.items()])
 
     @abstractmethod
     def transform(self, model):

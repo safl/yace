@@ -50,11 +50,9 @@ class CAPI(Target):
 
         self.emitter = Emitter(self.output, CAPI.NAME)
 
-        self.tools = {
-            "clang-format": ClangFormat(self.output),
-            "doxygen": Doxygen(self.output),
-            "gcc": Gcc(self.output),
-        }
+        self.tools["clang-format"] = ClangFormat(self.output)
+        self.tools["doxygen"] = Doxygen(self.output)
+        self.tools["gcc"] = Gcc(self.output)
 
     def transform(self, model):
         """Transform the given idl"""
