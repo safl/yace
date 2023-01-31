@@ -13,3 +13,4 @@
    files.rst
    linter.rst
    entities/index.rst
+   list.rst
