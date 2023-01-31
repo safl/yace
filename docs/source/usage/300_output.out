@@ -18,7 +18,8 @@ output
     ├── ctypes_sugar.py
     ├── example.py
     ├── example_check.py
-    └── isort.log
+    ├── isort.log
+    └── python3.log
 
-3 directories, 17 files
+4 directories, 18 files
 

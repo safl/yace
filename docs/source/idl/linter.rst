@@ -19,11 +19,11 @@ Valid
 Invalid
 -------
 
-.. literalinclude:: 200_linter.cmd
+.. literalinclude:: 200_linter.uone.cmd
    :language: yaml
    :lines: 1-
 
-.. literalinclude:: 200_linter.out
+.. literalinclude:: 200_linter.uone.out
    :language: yaml
    :lines: 1-
 

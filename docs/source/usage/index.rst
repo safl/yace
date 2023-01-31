@@ -28,6 +28,10 @@ looks like
    :language: yaml
    :lines: 1-
 
+.. note::
+   Notice that unless an error occurs then **yace** is silent. To make **yace**
+   chatty, then increase the log-level using the arguments: ``-l`` / ``-ll`` /
+   ``-lll``.
 
 Example
 =======
