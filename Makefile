@@ -179,6 +179,15 @@ format-all:
 	@pre-commit run --all-files
 	@echo "## ${PROJECT}: format-all [DONE]"
 
+define bump-help
+# run code format (style, code-conventions and language-integrity) on all files
+endef
+.PHONY: bump
+bump:
+	@echo "## ${PROJECT}: bump"
+	@./$(TOOLBOX_PATH)/bump.py
+	@echo "## ${PROJECT}: bump [DONE]"
+
 define help-help
 # Print the description of every target
 endef
