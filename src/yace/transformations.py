@@ -1,6 +1,6 @@
-from yace.model import ModelWalker
 from yace.idl.structtypes import Struct
 from yace.idl.uniontypes import Union
+from yace.model import ModelWalker
 
 
 class HoistAnonMembers(ModelWalker):
