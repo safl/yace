@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from jinja2 import Environment, BaseLoader
-from yace.idl.model import Model
+from yace.model import Model
 
 TEMPLATE = """
 ==========

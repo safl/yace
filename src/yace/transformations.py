@@ -1,5 +1,5 @@
-from yace.idl.model import ModelWalker
-from yace.idl.structtypes import Bitfield, Bits, Field, Struct
+from yace.model import ModelWalker
+from yace.idl.structtypes import Struct
 from yace.idl.uniontypes import Union
 
 
