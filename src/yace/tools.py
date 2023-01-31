@@ -93,15 +93,12 @@ class Tool(object):
         """Returns true if the tool exists."""
 
         try:
-            rcode, proc = self.run(["--version"])
-            if rcode:
-                log.error("executable(%s); err(%d)", self.executable, rcode)
-                return False
+            rcode, _ = self.run(["--version"])
+            return rcode == 0
         except FileNotFoundError:
             log.error("executable(%s); FileNotFound", self.executable)
-            return False
 
-        return True
+        return False
 
 
 class Black(Tool):
