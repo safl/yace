@@ -9,7 +9,7 @@
 project = "yace"
 copyright = "2022-2023, Simon A. F. Lund"
 author = "Simon A. F. Lund"
-release = "0.5.0"
+release = "0.5.1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
