@@ -1,0 +1,4 @@
+black
+coverage
+isort
+pre-commit
