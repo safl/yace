@@ -42,27 +42,5 @@ mentioned before, then other code emitters can do this as well, however,
   pretty-printing those enums, structs, and unions in **YAML**, **JSON**.
 
 For a quick introduction to using **yace** then jump to the :ref:`sec-usage`
-section. For details and reference see the :ref:`sec-idl`.
-
-.. _sec-features-codegen:
-
-Code Generation
----------------
-
-**yace** currently emits:
-
-* C API
-
-  * doxygen commented
-  * pretty-printers for enums/structs/unions
-
-With wrapper code for the following target languages:
-
-* C++ [wip]
-* Go [wip]
-* Python / Cython [wip]
-* Python / ctypes [wip]
-* Rust [wip]
-
-For details on the emitter targets, then have a look at the **yace**
-:ref:`sec-targets` section.
+section. For details and reference see the :ref:`sec-idl`. For details on the
+supported targets, then have a look at the **yace** :ref:`sec-targets` section.
