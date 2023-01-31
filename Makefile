@@ -139,6 +139,7 @@ define docs-build-help
 endef
 .PHONY: docs-build
 docs-build:
+	./toolbox/gen_entity_index.py > docs/source/idl/list.rst
 	cd docs && rm -rf build
 	cd docs/source/install && kmdo .
 	cd docs/source/usage && kmdo .
