@@ -48,6 +48,7 @@ def parse_args():
         "-l",
         action="append_const",
         const=1,
+        default=[],
         help="Increase log-level.",
     )
     parser.add_argument(
@@ -55,7 +56,6 @@ def parse_args():
         action="store_true",
         help="Parse and check the given idl-files, then exit",
     )
-
     parser.add_argument(
         "--version",
         action="version",
@@ -72,11 +72,10 @@ def main():
     try:
         args = parse_args()
 
+        levels = [log.ERROR, log.INFO, log.DEBUG]
         log.basicConfig(
             format="%(levelname)s:%(module)s:%(funcName)s(): %(message)s",
-            level=[log.ERROR, log.INFO, log.WARNING, log.DEBUG][
-                sum(args.log_level) if args.log_level else 0
-            ],
+            level=levels[min(sum(args.log_level), len(levels) - 1)],
         )
 
         yace = Compiler(args.target, args.output)
