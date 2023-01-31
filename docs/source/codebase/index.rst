@@ -37,3 +37,6 @@ TOC
   cli.rst
   compiler.rst
   model.rst
+  transformations.rst
+  emitters.rst
+  errors.rst
