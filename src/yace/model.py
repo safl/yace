@@ -5,7 +5,7 @@ provides helper-functions for loading **Yace** Interface Definition Language
 files from their ``.yaml`` format on the file-system, into the representation
 offered by the **Yace** Interface Model entities.
 
-* :class:`.Meta`,
+* :class:`.Meta`
 * :class:`.Model`
 * :class:`.ModelWalker`
 
@@ -13,10 +13,9 @@ Their **yidl** representation follows below.
 """
 import inspect
 import logging
-import typing
 from dataclasses import dataclass
 from pathlib import Path
-from pprint import pprint
+from typing import Dict, List, Tuple
 
 import yaml
 
@@ -24,7 +23,7 @@ from yace.errors import InvalidModelData
 from yace.idl import base, constants, datatypes, functiontypes, structtypes, uniontypes
 
 
-def data_from_yaml(path: Path) -> (dict, list):
+def data_from_yaml(path: Path) -> Tuple[Dict, List[Dict]]:
     """
     Returns data from YAML (yim) file as (meta, entities)
     """
@@ -180,7 +179,7 @@ class ModelWalker(object):
     def _traverse(
         self,
         cur,
-        ancestors: typing.List,
+        ancestors: List,
         depth: int = 0,
     ) -> str:
         """

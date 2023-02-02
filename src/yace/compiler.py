@@ -32,7 +32,9 @@ class Compiler(object):
         self.targets = [target for target in Compiler.TARGETS if target.NAME in targets]
         self.output = output.resolve()
 
-    def process(self, path: Path, stages: typing.List[str] = None) -> bool:
+    def process(
+        self, path: Path, stages: typing.Optional[typing.List[str]] = None
+    ) -> bool:
         """
         Take 'path' through the given compiler 'stages'
         """
