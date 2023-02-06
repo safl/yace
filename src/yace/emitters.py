@@ -62,8 +62,10 @@ class Emitter(object):
         """Renders the given template, passing args..."""
 
         typespec_jenv = Environment(
-            loader=PackageLoader(f"yace.targets.{self.name}", ".")
+            loader=PackageLoader(f"yace.targets.{self.name}", "."),
+            extensions=['jinja2.ext.do'],
         )
+        typespec_jenv.globals.update(zip=zip, len=len)
         typespec_templates = {
             Path(f).stem: typespec_jenv.get_template(f)
             for f in typespec_jenv.list_templates()
@@ -77,8 +79,10 @@ class Emitter(object):
             return typespec_templates[template].render(**args)
 
         entity_jenv = Environment(
-            loader=PackageLoader(f"yace.targets.{self.name}", ".")
+            loader=PackageLoader(f"yace.targets.{self.name}", "."),
+            extensions=['jinja2.ext.do'],
         )
+        entity_jenv.globals.update(zip=zip, len=len)
         entity_jenv.filters["camelcase"] = camelcase
         entity_jenv.filters["emit_typespec"] = emit_typespec
         entity_templates = {
@@ -93,7 +97,11 @@ class Emitter(object):
 
             return entity_templates[f"entity_{entity.cls}"].render(**args)
 
-        file_jenv = Environment(loader=PackageLoader(f"yace.targets.{self.name}", "."))
+        file_jenv = Environment(
+            loader=PackageLoader(f"yace.targets.{self.name}", "."),
+            extensions=['jinja2.ext.do'],
+        )
+        file_jenv.globals.update(zip=zip, len=len)
         file_jenv.filters["camelcase"] = camelcase
         file_jenv.filters["emit_typespec"] = emit_typespec
         file_jenv.filters["emit_entity"] = emit_entity
