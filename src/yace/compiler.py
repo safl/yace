@@ -71,14 +71,23 @@ class Compiler(object):
 
             if "emit" in stages:
                 log.info("Stage: 'emit'")
-                target.emit(model)
+                err = target.emit(model)
+                if err:
+                    log.error("Got error, stopping.")
+                    break
 
             if "format" in stages:
                 log.info("Stage: 'format'")
-                target.format()
+                err = target.format()
+                if err:
+                    log.error("Got error, stopping.")
+                    break
 
             if "check" in stages:
                 log.info("Stage: 'check'")
-                target.check()
+                err = target.check()
+                if err:
+                    log.error("Got error, stopping.")
+                    break
 
         return True
