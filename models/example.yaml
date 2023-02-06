@@ -53,9 +53,9 @@ structtypes_bitfield:
     - {cls: bits, sym: pack, width: 1, doc: 'Pack stuff'}
     - {cls: bits, sym: foo, width: 3, doc: 'Something foo'}
     - {cls: bits, sym: bar, width: 4, doc: 'Something bar'}
-  - {cls: field, sym: input_a, typ: u64, fmt: '0x%x', doc: 'Input operand a'}
-  - {cls: field, sym: input_b, typ: u64, fmt: '0x%x', doc: 'Input operand b'}
-  - {cls: field, sym: output, typ: u64, fmt: '0x%x', doc: 'Output operand'}
+  - {cls: field, sym: input_a, typ: u64, fmt: '0x%"PRIx64"', doc: 'Input operand a'}
+  - {cls: field, sym: input_b, typ: u64, fmt: '0x%"PRIx64"', doc: 'Input operand b'}
+  - {cls: field, sym: output, typ: u64, fmt: '0x%"PRIx64"', doc: 'Output operand'}
 
 function_types:
 - cls: fun
