@@ -25,7 +25,7 @@
 {%- else -%}
 	{{ loop(ent.members) }}
 {%- endif %}
-} {% if ent.sym %}{{ meta.prefix }}_{{ ent.sym }}{% endif %};
+} {% if ent.sym %}{{ ent.sym }}{% endif %};
 {%- elif ent.cls in ["field"] %}
 	{{ ent | emit_typespec }}; ///< {{ ent.doc }}
 {%- endif %}

@@ -7,7 +7,7 @@
  *
  * @file {{ meta.prefix }}_pp.c
  * ------------------------------------------------------------------------------------------------
- * NOTE: This file is auto-generated using yace: https://github.com/safl/yace
+ * NOTE: This file is created using yace: https://github.com/safl/yace
  */
 #include <lib{{ meta.prefix }}.h>
 
@@ -39,10 +39,80 @@ static int
 		return wrtn;
 	}
 
-	// TODO: implement the yaml-representation
+        wrtn += fprintf(stream, "\n");
+	{%- for token, member in zip(["obj->"] * len(entity.members), entity.members) recursive -%}
+        {% set indent = loop.depth * 2 %}
+        {% set accessor = token + member.sym %}
+
+	{%- if member.cls in ["field"] and "rsvd" in member.sym -%}
+
+        wrtn += fprintf(stream, "%*s{{ member.sym }}: RESERVED\n", {{ indent }}, "");
+	
+        {%- elif member.cls in ["field"] -%}
+
+        wrtn += fprintf(stream, "%*s{{ member.sym }}: {{ member.fmt }}\n", {{ indent }}, "", {{ accessor }});
+
+        {%- elif member.cls in ["bits"] -%}
+	
+        wrtn += fprintf(stream, "%*s{{ member.sym }}: 0x%x\n", {{ indent }}, "", {{ accessor }});
+ 
+        {%- elif member.cls in ["union", "struct", "bitfield"] -%}
+
+        wrtn += fprintf(stream, "%*s{{ member.sym }}:\n", {{ indent }}, "");
+	{{ loop(zip([accessor + "."] * len(member.members), member.members)) }}
+
+	{%- else -%}
+        // What is this? {{ member.cls }}
+	{%- endif -%}
+	{% endfor %}
 
 	return wrtn;
 }
+
+static int
+{{ ident }}_json(FILE *stream, const struct {{ ident }} *obj, int flags)
+{
+	int wrtn = 0;
+
+	if (!obj) {
+		wrtn += fprintf(stream, "{ \"{{ ident }}\": null }\n");
+		return wrtn;
+	}
+        wrtn += fprintf(stream, "{\n%*s\"{{ ident }}\": {\n", 2, "");
+	{%- for token, member in zip(["obj->"] * len(entity.members), entity.members) recursive -%}
+        {% set indent = (loop.depth + 1) * 2 %}
+        {% set accessor = token + member.sym %}
+
+	{%- if member.cls in ["field"] and "rsvd" in member.sym -%}
+        wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": \"RESERVED\"", {{ indent }}, "");
+
+	{%- elif member.cls in ["field"] and member.typ.integer -%}
+        wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": %"PRIu{{ member.typ.width }}"", {{ indent }}, "", {{ accessor }});
+
+	{%- elif member.cls in ["field"] -%}
+        wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": \"%s\"", {{ indent }}, "", {{ accessor }});
+
+        {%- elif member.cls in ["bits"] -%}
+        wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": %u", {{ indent }}, "", {{ accessor }});
+        {%- elif member.cls in ["union", "struct", "bitfield"] -%}
+	
+        wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": {\n", {{ indent }}, "");
+	{{ loop(zip([accessor + "."] * len(member.members), member.members)) }}
+        wrtn += fprintf(stream, "%*s}", {{ indent }}, "");
+
+	{%- else -%}
+        // What is this? {{ member.cls }}
+	{%- endif -%}
+
+        wrtn += fprintf(stream, "{{ "" if loop.last else "," }}\n" );
+	
+        {% endfor %}
+        wrtn += fprintf(stream, "%*s}\n", 2, "");
+        wrtn += fprintf(stream, "}\n");
+
+	return wrtn;
+}
+
 
 int
 {{ ident }}_fpr(FILE *stream, const struct {{ ident }} *obj, int flags)
@@ -54,7 +124,7 @@ int
 		break;
 
 	case {{ meta.prefix | upper }}_PR_JSON:
-		return -ENOSYS;
+		return {{ ident }}_json(stream, obj, flags);
 	}
 
 	return -ENOSYS;

@@ -13,7 +13,7 @@
  *
  * @file lib{{ meta.prefix }}.h
  * ------------------------------------------------------------------------------------------------
- * NOTE: This file is auto-generated using yace: https://github.com/safl/yace
+ * NOTE: This file is created using yace: https://github.com/safl/yace
  */
 
 {% for entity in entities -%}
