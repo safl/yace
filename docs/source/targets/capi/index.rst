@@ -67,7 +67,6 @@ Pretty-printers
    :caption:
    :lines: 1-
 
-
 .. _sec-targets-capi-example-check:
 
 Check
@@ -81,6 +80,19 @@ Check
 This ``example_check.c`` is built using the :class:`.Gcc` tool, to check
 whether headers are well-behaved. Thus a file ``a.out`` exists which is
 executable result of translatning the source-file above.
+
+When running it:
+
+.. literalinclude:: 400_check.cmd
+   :language: yaml
+   :lines: 1-
+
+You can see textual representation of ``struct``/``union`` produced by the
+pretty-printers work:
+
+.. literalinclude:: 400_check.out
+   :language: yaml
+   :lines: 1-
 
 .. _sec-targets-capi-example-aux:
 
