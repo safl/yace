@@ -126,8 +126,8 @@ logs:
   - {cls: field, sym: avail_spare_thresh, typ: u8, fmt: '%d', doc: "Available Spare Threshold (pct)"}
   - {cls: field, sym: pct_used, typ: u8, fmt: '%d', doc: "Percentage used (pct), can exceed 100"}
   - {cls: field, sym: eg_crit_warn_sum, typ: u8, fmt: '%d', doc: "Endurance Group Critical Warning Summary"}
-  - {cls: field, sym: rsvd7, typ: {cls: u8, array: 25}, fmt: '%d', doc: "Reserved..."}
-  - {cls: field, sym: rsvd8, typ: u8, fmt: '%d', doc: "Reserved..."}
+  - {cls: field, sym: rsvd7, typ: {cls: u8, array: 25}, fmt: 'RESERVED', doc: "Reserved..."}
+  - {cls: field, sym: rsvd8, typ: u8, fmt: 'RESERVED', doc: "Reserved..."}
 
 opcodes_adm:
 - sym: opc_adm
@@ -218,7 +218,7 @@ nvm_layout_dsm:
   members:
   - {cls: field, sym: cattr, typ: u32, fmt: '%d', doc: "Context attributes"}
   - {cls: field, sym: nlb, typ: u32, fmt: '%d', doc: "Length in logical blocks"}
-  - {cls: field, sym: slba, typ: u64, fmt: '%d', doc: "Starting LBA"}
+  - {cls: field, sym: slba, typ: u64, fmt: '0x%"PRIx64"', doc: "Starting LBA"}
 
 nvm_opcodes:
 - sym: opc_nvm
@@ -309,17 +309,17 @@ nvm:
     - {cls: bits, width: 2, sym: fuse, doc: "Fused Operation"}
     - {cls: bits, width: 4, sym: rsvd, doc: "Reserved"}
     - {cls: bits, width: 2, sym: psdt, doc: "Brief"}
-  - {cls: field, fmt: '%d', typ: u16, sym: cid, doc: "Command Identifier"}
-  - {cls: field, fmt: '%d', typ: u32, sym: nsid, doc: "Namespace Identifier"}
-  - {cls: field, fmt: '%d', typ: u32, sym: cdw02, doc: "Command DWord 2"}
-  - {cls: field, fmt: '%d', typ: u32, sym: cdw03, doc: "Command DWord 3"}
-  - {cls: field, fmt: '0x%x', typ: u64, sym: mptr, doc: "Metadata pointer"}
+  - {cls: field, sym: cid,   typ: u16, fmt: '%d', doc: "Command Identifier"}
+  - {cls: field, sym: nsid,  typ: u32, fmt: '%d', doc: "Namespace Identifier"}
+  - {cls: field, sym: cdw02, typ: u32, fmt: '%d', doc: "Command DWord 2"}
+  - {cls: field, sym: cdw03, typ: u32, fmt: '%d', doc: "Command DWord 3"}
+  - {cls: field, sym: mptr, typ: u64, fmt: '0x%"PRIx64"', doc: "Metadata pointer"}
   - sym: dptr
     cls: union
     doc: "foo!?"
     members:
-    - {cls: field, sym: dptr1, typ: u64, fmt: '0x%x', doc: "Brief"}
-    - {cls: field, sym: dptr2, typ: u64, fmt: '0x%x', doc: "Brief"}
+    - {cls: field, sym: dptr1, typ: u64, fmt: '0x%"PRIx64"', doc: "Brief"}
+    - {cls: field, sym: dptr2, typ: u64, fmt: '0x%"PRIx64"', doc: "Brief"}
   - {cls: field, fmt: '0x%x', typ: u32, sym: ndt, doc: "Brief"}
   - {cls: field, fmt: '0x%x', typ: u32, sym: ndm, doc: "Number of dwords"}
   - {cls: field, fmt: '0x%x', typ: u32, sym: cdw12, doc: "Command DWord 12"}
@@ -340,11 +340,11 @@ nvm:
     - {cls: bits, width: 2, sym: fuse, doc: "Fused Operation"}
     - {cls: bits, width: 4, sym: rsvd, doc: "Reserved"}
     - {cls: bits, width: 2, sym: psdt, doc: "Brief"}
-  - {cls: field, fmt: '0x%x', typ: u16, sym: cid, doc: "Command Identifier"}
-  - {cls: field, fmt: '0x%x', typ: u32, sym: nsid, doc: "Namespace Identifier"}
-  - {cls: field, fmt: '0x%x', typ: u32, sym: cdw02, doc: "Command DWord 2"}
-  - {cls: field, fmt: '0x%x', typ: u32, sym: cdw03, doc: "Command DWord 3"}
-  - {cls: field, fmt: '0x%x', typ: u64, sym: mptr, doc: "Metadata pointer"}
+  - {cls: field, sym: cid,   typ: u16, fmt: '0x%x', doc: "Command Identifier"}
+  - {cls: field, sym: nsid,  typ: u32, fmt: '0x%x', doc: "Namespace Identifier"}
+  - {cls: field, sym: cdw02, typ: u32, fmt: '0x%x', doc: "Command DWord 2"}
+  - {cls: field, sym: cdw03, typ: u32, fmt: '0x%x', doc: "Command DWord 3"}
+  - {cls: field, sym: mptr, typ: u64, fmt: '0x%"PRIx64"', doc: "Metadata pointer"}
   - sym: dptr
     cls: union
     doc: "jazz!?"
@@ -353,8 +353,8 @@ nvm:
       doc: "Data fields"
       cls: struct
       members:
-      - {cls: field, sym: dptr1, fmt: '0x%x', typ: u64, doc: "Brief"}
-      - {cls: field, sym: dptr2, fmt: '0x%x', typ: u64, doc: "Brief"}
+      - {cls: field, sym: dptr1, typ: u64, fmt: '0x%"PRIx64"', doc: "Brief"}
+      - {cls: field, sym: dptr2, typ: u64, fmt: '0x%"PRIx64"', doc: "Brief"}
   - {cls: field, fmt: '0x%x', typ: u32, sym: ndt, doc: "Brief"}
   - {cls: field, fmt: '0x%x', typ: u32, sym: ndm, doc: "Number of dwords"}
   - {cls: field, fmt: '0x%x', typ: u32, sym: cdw12, doc: "Command DWord 12"}
@@ -366,7 +366,7 @@ nvm:
   doc: "NVM Sanitize Command"
   cls: struct
   members:
-  - {cls: field, sym: cwdDF01, typ: u32, fmt: '0x%x', doc: "Command DWord 01"}
+  - {cls: field, sym: cwd01, typ: u32, fmt: '0x%x', doc: "Command DWord 01"}
   - {cls: field, sym: cwd02, typ: u32, fmt: '0x%x', doc: "Command DWord 02"}
   - {cls: field, sym: cwd03, typ: u32, fmt: '0x%x', doc: "Command DWord 03"}
   - {cls: field, sym: cwd04, typ: u32, fmt: '0x%x', doc: "Command DWord 04"}
