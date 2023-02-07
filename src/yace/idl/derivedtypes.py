@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-The struct types consist of:
+The **yace** derived types consists of:
 
-* :class:`.Struct` with :class:`.Field` members
+* :class:`yace.idl.derivedtypes.Struct` with :class:`.Field` members
 
-* :class:`.Bitfield` with :class:`.Bits` members
+* :class:`yace.idl.derivedtypes.Bitfield` with :class:`.Bits` members
+
+* :class:`yace.idl.derivedtypes.Union`
 
 Their idl representation follows below.
 """
@@ -99,3 +101,9 @@ class Struct(Entity, Named, Documented):
 
     cls: str = "struct"
     members: typing.List[Field]
+
+
+class Union(Struct):
+    """Representation of enumerations / collections of constants"""
+
+    cls: str = "union"

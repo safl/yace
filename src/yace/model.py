@@ -20,7 +20,7 @@ from typing import Dict, List, Tuple
 import yaml
 
 from yace.errors import InvalidModelData
-from yace.idl import base, constants, datatypes, functiontypes, structtypes, uniontypes
+from yace.idl import base, constants, datatypes, derivedtypes, functiontypes
 
 
 def data_from_yaml(path: Path) -> Tuple[Dict, List[Dict]]:
@@ -77,8 +77,7 @@ class Model(object):
             inspect.getmembers(base)
             + inspect.getmembers(constants)
             + inspect.getmembers(datatypes)
-            + inspect.getmembers(structtypes)
-            + inspect.getmembers(uniontypes)
+            + inspect.getmembers(derivedtypes)
             + inspect.getmembers(functiontypes)
         )
         if inspect.isclass(obj) and hasattr(obj, "cls")

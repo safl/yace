@@ -1,5 +1,4 @@
-from yace.idl.structtypes import Struct
-from yace.idl.uniontypes import Union
+from yace.idl.derivedtypes import Struct, Union
 from yace.model import ModelWalker
 
 

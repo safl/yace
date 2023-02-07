@@ -49,15 +49,15 @@
 
 * ``u8``: :py:class:`yace.idl.datatypes.U8`; A basic data type signed fixed-width integer; 8 bits wide.
 
-* ``bitfield``: :py:class:`yace.idl.structtypes.Bitfield`; Representation of a bitfield, that is a partitioning of a fixed-width
+* ``bitfield``: :py:class:`yace.idl.derivedtypes.Bitfield`; Representation of a bitfield, that is a partitioning of a fixed-width
 
-* ``bits``: :py:class:`yace.idl.structtypes.Bits`; Representation of a class`.Bitfield` member.
+* ``bits``: :py:class:`yace.idl.derivedtypes.Bits`; Representation of a class`.Bitfield` member.
 
-* ``field``: :py:class:`yace.idl.structtypes.Field`; A representation of class`yace.idl.Struct` and
+* ``field``: :py:class:`yace.idl.derivedtypes.Field`; A representation of class`yace.idl.Struct` and
 
-* ``struct``: :py:class:`yace.idl.structtypes.Struct`; A representation of a struct definition
+* ``struct``: :py:class:`yace.idl.derivedtypes.Struct`; A representation of a struct definition
 
-* ``union``: :py:class:`yace.idl.uniontypes.Union`; Representation of enumerations / collections of constants
+* ``union``: :py:class:`yace.idl.derivedtypes.Union`; Representation of enumerations / collections of constants
 
 * ``fun``: :py:class:`yace.idl.functiontypes.Function`; Function declarations
 
