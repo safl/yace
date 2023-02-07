@@ -4,17 +4,18 @@ The **yace** constants consists of:
 
 * Constant Values:
 
-  * :class:`.String`
-  * :class:`.Dec`
-  * :class:`.Hex`
+  * :class:`yace.idl.constants.String`
+  * :class:`yace.idl.constants.Dec`
+  * :class:`yace.idl.constants.Hex`
 
 * Symbolic Constants:
 
-  * :class:`.Define`
+  * :class:`yace.idl.constants.Define`
 
 * Enum Types:
 
-  * :class:`.Enum` and its members :class:`.EnumValue`
+  * :class:`yace.idl.constants.Enum`
+  * :class:`yace.idl.constants.EnumValue`
 
 Their idl representation follows below.
 """
@@ -47,7 +48,7 @@ class Hex(Entity):
     Representation of a hexi-decimal constant
 
     The emitted C code should be hexidecimal notation of literal integer
-    values, such as those used by :class:`yace.idl.macros.Define` and
+    values, such as those used by :class:`yace.idl.constants.Define` and
     :class:`yace.idl.enumtypes.Enum`::
 
         #define FOO 0xACDC
@@ -98,20 +99,20 @@ class Define(Entity, Named, Documented):
 
 class EnumValue(Entity, Named, Documented):
     """
-    Representation of values in :class:`.Enum`.
+    Representation of values in :class:`yace.idl.constants.Enum`.
 
     By default, the C emitter produces::
 
         SYMBOL = lit.val
 
-    for the :class:`EnumValue``.
+    for the :class:`yace.idl.constants.EnumValue`.
     """
 
     cls: str = "enum_value"
     val: typing.Union[Dec, Hex] = None
 
     def is_valid_val(self):
-        """Checks whether the :class:`.EnumValue` is valid"""
+        """Checks whether the :class:`yace.idl.constants.EnumValue` is valid"""
 
         if not isinstance(self.val, (Dec, Hex)):
             return (
@@ -125,8 +126,9 @@ class EnumValue(Entity, Named, Documented):
 class Enum(Entity, Named, Documented):
     """
     Representation of enumeration values, note that literals on the
-    :class:`.EnumValue` are optional, an :class:`.Enum` with **non** literal
-    :class:`.EnumValue` looks like::
+    :class:`yace.idl.constants.EnumValue` are optional, an
+    :class:`yace.idl.constants.Enum` with **non** literal
+    :class:`yace.idl.constants.EnumValue` looks like::
 
         enum example {
             FOO,
@@ -134,8 +136,8 @@ class Enum(Entity, Named, Documented):
             BAZ,
         };
 
-    Whereas, an :class:`.Enum` with **literal** :class:`.EnumValue` looks
-    like::
+    Whereas, an :class:`yace.idl.constants.Enum` with **literal**
+    :class:`yace.idl.constants.EnumValue` looks like::
 
         enum example {
             FOO = 0xACDC,
@@ -143,14 +145,14 @@ class Enum(Entity, Named, Documented):
             BAZ = 0xBEEF,
         };
 
-    for the :class:`EnumValue``.
+    for the :class:`yace.idl.constants.EnumValue``.
     """
 
     cls: str = "enum"
     members: typing.List[EnumValue]
 
     def is_valid_members(self):
-        """Checks whether the :class:`.Enum` is valid"""
+        """Checks whether the :class:`yace.idl.constants.Enum` is valid"""
 
         invalid_types = [type(m) for m in self.members if not isinstance(m, EnumValue)]
         if len(invalid_types):
