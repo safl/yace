@@ -83,6 +83,8 @@ class CAPI(Target):
                         "headers": self.headers,
                     },
                 )
+                if content[-1] != "\n":
+                    content += "\n"
                 file.write(content)
 
             log.info("produced: %s", path)
