@@ -311,8 +311,8 @@ nvm:
     - {cls: bits, width: 2, sym: psdt, doc: "Brief"}
   - {cls: field, sym: cid,   typ: u16, fmt: '%d', doc: "Command Identifier"}
   - {cls: field, sym: nsid,  typ: u32, fmt: '%d', doc: "Namespace Identifier"}
-  - {cls: field, sym: cdw02, typ: u32, fmt: '%d', doc: "Command DWord 2"}
-  - {cls: field, sym: cdw03, typ: u32, fmt: '%d', doc: "Command DWord 3"}
+  - {cls: field, sym: cdw02, typ: u32, fmt: '%d', doc: "Command Dword 2"}
+  - {cls: field, sym: cdw03, typ: u32, fmt: '%d', doc: "Command Dword 3"}
   - {cls: field, sym: mptr, typ: u64, fmt: '0x%"PRIx64"', doc: "Metadata pointer"}
   - sym: dptr
     cls: union
@@ -322,59 +322,24 @@ nvm:
     - {cls: field, sym: dptr2, typ: u64, fmt: '0x%"PRIx64"', doc: "Brief"}
   - {cls: field, fmt: '0x%x', typ: u32, sym: ndt, doc: "Brief"}
   - {cls: field, fmt: '0x%x', typ: u32, sym: ndm, doc: "Number of dwords"}
-  - {cls: field, fmt: '0x%x', typ: u32, sym: cdw12, doc: "Command DWord 12"}
-  - {cls: field, fmt: '0x%x', typ: u32, sym: cdw13, doc: "Command DWord 13"}
-  - {cls: field, fmt: '0x%x', typ: u32, sym: cdw14, doc: "Command DWord 14"}
-  - {cls: field, fmt: '0x%x', typ: u32, sym: cdw15, doc: "Command DWord 15"}
-
-- sym: nvm_write
-  doc: "NVM Write Command"
-  cls: struct
-  members:
-  - sym: bits
-    cls: bitfield
-    doc:
-    width: 16
-    members:
-    - {cls: bits, width: 8, sym: opcode, doc: "Command Opcde"}
-    - {cls: bits, width: 2, sym: fuse, doc: "Fused Operation"}
-    - {cls: bits, width: 4, sym: rsvd, doc: "Reserved"}
-    - {cls: bits, width: 2, sym: psdt, doc: "Brief"}
-  - {cls: field, sym: cid,   typ: u16, fmt: '0x%x', doc: "Command Identifier"}
-  - {cls: field, sym: nsid,  typ: u32, fmt: '0x%x', doc: "Namespace Identifier"}
-  - {cls: field, sym: cdw02, typ: u32, fmt: '0x%x', doc: "Command DWord 2"}
-  - {cls: field, sym: cdw03, typ: u32, fmt: '0x%x', doc: "Command DWord 3"}
-  - {cls: field, sym: mptr, typ: u64, fmt: '0x%"PRIx64"', doc: "Metadata pointer"}
-  - sym: dptr
-    cls: union
-    doc: "jazz!?"
-    members:
-    - sym: data
-      doc: "Data fields"
-      cls: struct
-      members:
-      - {cls: field, sym: dptr1, typ: u64, fmt: '0x%"PRIx64"', doc: "Brief"}
-      - {cls: field, sym: dptr2, typ: u64, fmt: '0x%"PRIx64"', doc: "Brief"}
-  - {cls: field, fmt: '0x%x', typ: u32, sym: ndt, doc: "Brief"}
-  - {cls: field, fmt: '0x%x', typ: u32, sym: ndm, doc: "Number of dwords"}
-  - {cls: field, fmt: '0x%x', typ: u32, sym: cdw12, doc: "Command DWord 12"}
-  - {cls: field, fmt: '0x%x', typ: u32, sym: cdw13, doc: "Command DWord 13"}
-  - {cls: field, fmt: '0x%x', typ: u32, sym: cdw14, doc: "Command DWord 14"}
-  - {cls: field, fmt: '0x%x', typ: u32, sym: cdw15, doc: "Command DWord 15"}
+  - {cls: field, fmt: '0x%x', typ: u32, sym: cdw12, doc: "Command Dword 12"}
+  - {cls: field, fmt: '0x%x', typ: u32, sym: cdw13, doc: "Command Dword 13"}
+  - {cls: field, fmt: '0x%x', typ: u32, sym: cdw14, doc: "Command Dword 14"}
+  - {cls: field, fmt: '0x%x', typ: u32, sym: cdw15, doc: "Command Dword 15"}
 
 - sym: nvm_sanitize
   doc: "NVM Sanitize Command"
   cls: struct
   members:
-  - {cls: field, sym: cwd01, typ: u32, fmt: '0x%x', doc: "Command DWord 01"}
-  - {cls: field, sym: cwd02, typ: u32, fmt: '0x%x', doc: "Command DWord 02"}
-  - {cls: field, sym: cwd03, typ: u32, fmt: '0x%x', doc: "Command DWord 03"}
-  - {cls: field, sym: cwd04, typ: u32, fmt: '0x%x', doc: "Command DWord 04"}
-  - {cls: field, sym: cwd05, typ: u32, fmt: '0x%x', doc: "Command DWord 05"}
-  - {cls: field, sym: cwd06, typ: u32, fmt: '0x%x', doc: "Command DWord 06"}
-  - {cls: field, sym: cdw07, typ: u32, fmt: '0x%x', doc: "Command DWord 07"}
-  - {cls: field, sym: cdw08, typ: u32, fmt: '0x%x', doc: "Command DWord 08"}
-  - {cls: field, sym: cdw09, typ: u32, fmt: '0x%x', doc: "Command DWord 09"}
+  - {cls: field, sym: cwd01, typ: u32, fmt: '0x%x', doc: "Command Dword 01"}
+  - {cls: field, sym: cwd02, typ: u32, fmt: '0x%x', doc: "Command Dword 02"}
+  - {cls: field, sym: cwd03, typ: u32, fmt: '0x%x', doc: "Command Dword 03"}
+  - {cls: field, sym: cwd04, typ: u32, fmt: '0x%x', doc: "Command Dword 04"}
+  - {cls: field, sym: cwd05, typ: u32, fmt: '0x%x', doc: "Command Dword 05"}
+  - {cls: field, sym: cwd06, typ: u32, fmt: '0x%x', doc: "Command Dword 06"}
+  - {cls: field, sym: cdw07, typ: u32, fmt: '0x%x', doc: "Command Dword 07"}
+  - {cls: field, sym: cdw08, typ: u32, fmt: '0x%x', doc: "Command Dword 08"}
+  - {cls: field, sym: cdw09, typ: u32, fmt: '0x%x', doc: "Command Dword 09"}
   - sym: bits
     doc:
     cls: bitfield
@@ -387,7 +352,56 @@ nvm:
     - {cls: bits, sym: nodas, width: 1, doc: "Brief"}
     - {cls: bits, sym: rsvd, width: 22, doc: "Brief"}
   - {cls: field, sym: ovrpat, typ: u32, fmt: '0x%x', doc: "Overwrite Pattern"}
-  - {cls: field, sym: cdw12, typ: u32, fmt: '0x%x', doc: "Command DWord 12"}
-  - {cls: field, sym: cdw13, typ: u32, fmt: '0x%x', doc: "Command DWord 13"}
-  - {cls: field, sym: cdw14, typ: u32, fmt: '0x%x', doc: "Command DWord 14"}
-  - {cls: field, sym: cdw15, typ: u32, fmt: '0x%x', doc: "Command DWord 15"}
+  - {cls: field, sym: cdw12, typ: u32, fmt: '0x%x', doc: "Command Dword 12"}
+  - {cls: field, sym: cdw13, typ: u32, fmt: '0x%x', doc: "Command Dword 13"}
+  - {cls: field, sym: cdw14, typ: u32, fmt: '0x%x', doc: "Command Dword 14"}
+  - {cls: field, sym: cdw15, typ: u32, fmt: '0x%x', doc: "Command Dword 15"}
+
+- sym: nvm_write
+  doc: "NVM Write Command"
+  cls: struct
+  members:
+  - {cls: field, sym: cwd01, typ: u32, fmt: '0x%"PRIx32"', doc: "Command Dword 01"}
+  - {cls: field, sym: cwd02, typ: u32, fmt: '0x%"PRIx32"', doc: "Command Dword 02"}
+  - {cls: field, sym: cwd03, typ: u32, fmt: '0x%"PRIx32"', doc: "Command Dword 03"}
+  - {cls: field, sym: cwd04, typ: u32, fmt: '0x%"PRIx32"', doc: "Command Dword 04"}
+  - {cls: field, sym: cwd05, typ: u32, fmt: '0x%"PRIx32"', doc: "Command Dword 05"}
+  - {cls: field, sym: cwd06, typ: u32, fmt: '0x%"PRIx32"', doc: "Command Dword 06"}
+  - {cls: field, sym: cdw07, typ: u32, fmt: '0x%"PRIx32"', doc: "Command Dword 07"}
+  - {cls: field, sym: cdw08, typ: u32, fmt: '0x%"PRIx32"', doc: "Command Dword 08"}
+  - {cls: field, sym: cdw09, typ: u32, fmt: '0x%"PRIx32"', doc: "Command Dword 09"}
+  - {cls: field, sym: slba, typ: u64, fmt: '0x%"PRIx64"', doc: "Starting LBA"}
+
+  - sym: bits1
+    doc: Command Dword 12
+    cls: bitfield
+    width: 32
+    members:
+    - {cls: bits, sym: nlb, width: 16, doc: "Number of Logical Blocks"}
+    - {cls: bits, sym: rsvd2, width: 4, doc: "Reserved"}
+    - {cls: bits, sym: dtype, width: 4, doc: "Directtive Type"}
+    - {cls: bits, sym: stc, width: 1, doc: "Storage Tag Check"}
+    - {cls: bits, sym: rsvd1, width: 1, doc: "Reserved"}
+    - {cls: bits, sym: prinfo, width: 4, doc: "Protection Information"}
+    - {cls: bits, sym: fua, width: 1, doc: "Force Unit Access"}
+    - {cls: bits, sym: lr, width: 1, doc: "Limited Retry"}
+
+  - {cls: field, sym: dspec, typ: u8, fmt: '0x%"PRIx8"', doc: "Directive Specific"}
+  - {cls: field, sym: rsvd1, typ: u8, fmt: '0x%"PRIx8"', doc: "Reserved"}
+
+  - sym: bits2
+    doc: Command Dword 13
+    cls: bitfield
+    width: 8
+    members:
+    - {cls: bits, sym: rsvd, width: 8, doc: "Reserved"}
+
+  - {cls: field, sym: cdw14, typ: u32, fmt: '0x%"PRIx32"', doc: "Command Dword 14"}
+
+  - sym: bits3
+    cls: bitfield
+    doc: Command Dword 15
+    width: 32
+    members:
+    - {cls: bits, sym: lbat, width: 16, doc: "Logical Block Application Tag"}
+    - {cls: bits, sym: lbatm, width: 16, doc: "Logical Block Application Tag Mask"}
