@@ -67,7 +67,7 @@ class Emitter(object):
         )
         typespec_jenv.globals.update(zip=zip, len=len)
         typespec_templates = {
-            Path(f).stem: typespec_jenv.get_template(f)
+            Path(f).stem.split(".")[0]: typespec_jenv.get_template(f)
             for f in typespec_jenv.list_templates()
             if f.endswith(".template") and f.startswith("typespec")
         }
@@ -95,7 +95,7 @@ class Emitter(object):
             args["entity"] = entity
             args["depth"] = depth
 
-            return entity_templates[f"entity_{entity.cls}"].render(**args)
+            return entity_templates[f"entity_{entity.cls}.h"].render(**args)
 
         file_jenv = Environment(
             loader=PackageLoader(f"yace.targets.{self.name}", "."),

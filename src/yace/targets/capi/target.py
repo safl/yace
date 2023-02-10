@@ -73,11 +73,11 @@ class CAPI(Target):
         """Emit code"""
 
         files = [
-            (f"lib{model.meta.prefix}_core.h", "capi_core_h", self.headers),
-            (f"lib{model.meta.prefix}_pp.h", "capi_pp_h", self.headers),
-            (f"lib{model.meta.prefix}.h", "capi_bundle_h", self.headers),
-            (f"{model.meta.prefix}_pp.c", "capi_pp_c", self.sources),
-            (f"{model.meta.prefix}_check.c", "capi_check_c", self.sources),
+            (f"lib{model.meta.prefix}_core.h", "file_core.h", self.headers),
+            (f"lib{model.meta.prefix}_pp.h", "file_pp.h", self.headers),
+            (f"lib{model.meta.prefix}.h", "file_bundle.h", self.headers),
+            (f"{model.meta.prefix}_pp.c", "file_pp.c", self.sources),
+            (f"{model.meta.prefix}_check.c", "file_check.c", self.sources),
             ("doxygen.conf", "doxygen", self.aux),
         ]
         for filename, template, container in files:
