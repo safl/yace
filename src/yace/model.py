@@ -172,8 +172,13 @@ class ModelWalker(object):
     """
     Base-class for walking the :class:`.Model`
 
+    This is useful for inspecting properties of the model.
+
     **HOWTO**: sub-class this and implement the visit() method
     """
+
+    def __init__(self, model):
+        self.model = model
 
     def _traverse(
         self,
@@ -200,11 +205,11 @@ class ModelWalker(object):
 
         return res
 
-    def walk(self, model):
+    def walk(self):
         """Walks the :class:`.Model` invoking visit()"""
 
         status = []
-        for entity in model.entities:
+        for entity in self.model.entities:
             status += self._traverse(entity, [], 0)
 
         return status

@@ -16,14 +16,14 @@ class Linter(ModelWalker):
 
         return current.is_valid()
 
-    def check(self, model):
+    def check(self):
         """
         Returns the number of integrity issues found checking checking the
         given idl. Any messages are logged.
         """
 
         nerrors = 0
-        for is_valid, message in self.walk(model):
+        for is_valid, message in self.walk():
             if is_valid:
                 continue
 

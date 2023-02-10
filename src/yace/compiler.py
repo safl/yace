@@ -50,7 +50,7 @@ class Compiler(object):
 
         if "lint" in stages:
             log.info("Stage: 'lint'")
-            nerrors = Linter().check(model_orig)
+            nerrors = Linter(model_orig).check()
             if nerrors:
                 log.error("Linter-errors: see above/log; stopping.")
                 return False
