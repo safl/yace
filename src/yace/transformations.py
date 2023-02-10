@@ -20,8 +20,9 @@ class CStyle(ModelWalker):
     """
     Transform symbols:
 
+    * All ``.sym`` in top-level entities are prefixed with ``meta.prefix_``
     * :class:`yace.idl.constants.Define` -> upper()
-    * :class:`yace.idl.constants.DefineValue` -> upper()
+    * :class:`yace.idl.constants.EnumValue` -> upper()
 
     This transformation assumes a valid YIDL according to the linter. Thus, the
     symbols are all lower-snake_case, and transformation not described above is
@@ -29,11 +30,21 @@ class CStyle(ModelWalker):
     """
 
     def visit(self, current, ancestors, depth):
-        if depth != 0:
+        """..."""
+
+        if "sym" not in current.all:
             return (True, None)
 
-        if not type(current) in [Struct, Union]:
-            return (True, None)
+        if depth == 0:
+            current.sym = f"{self.model.meta.prefix}_{current.sym}"
+            pass
+
+        if current.cls in ["define"]:
+            current.sym = current.sym.upper()
+        elif current.cls in ["enum_value"]:
+            current.sym = ancestors[-1].sym.upper() +"_"+ current.sym.upper()
+
+        return (True, None)
 
 
 class Camelizer(ModelWalker):

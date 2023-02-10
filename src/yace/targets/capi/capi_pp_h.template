@@ -24,37 +24,36 @@ enum {{ meta.prefix }}_pr {
 };
 
 {%- for entity in entities %}
-{% set ident=meta['prefix'] + '_' + entity.sym %}
 {% if entity.cls in ['enum'] %}
 /**
- * Produces a string representation of the given ::{{ ident }}
+ * Produces a string representation of the given ::{{ entity.sym }}
  *
  * @param enum_val the enum value to produce a string representation of
  *
  * @return On success, a string representation is returned. On error, the string
  * "ENOSYS" is returned.
  */
-const char * {{ ident }}_str(int enum_val);
+const char * {{ entity.sym }}_str(int enum_val);
 {% elif entity['cls'] in ['struct', 'union'] %}
 /**
- * Prints the given ::{{ ident }} 'obj' to the given output 'stream'
+ * Prints the given ::{{ entity.sym }} 'obj' to the given output 'stream'
  *
  * @param stream output stream used for printing
- * @param obj Pointer to the ::{{ ident }} to print
+ * @param obj Pointer to the ::{{ entity.sym }} to print
  * @param flags Pretty-printer flags
  *
  * @return On success, the number of characters printed is returned.
  */
-int {{ ident }}_fpr(FILE *stream, const struct {{ ident }} *obj, int flags);
+int {{ entity.sym }}_fpr(FILE *stream, const struct {{ entity.sym }} *obj, int flags);
 
 /**
- * Prints the given ::{{ ident }} 'obj' to stdout
+ * Prints the given ::{{ entity.sym }} 'obj' to stdout
  *
- * @param obj Pointer to the ::{{ ident }} to print
+ * @param obj Pointer to the ::{{ entity.sym }} to print
  * @param flags Pretty-printer flags
  *
  * @return On success, the number of characters printed is returned.
  */
-int {{ ident }}_pr(const struct {{ ident }} *obj, int flags);
+int {{ entity.sym }}_pr(const struct {{ entity.sym }} *obj, int flags);
 {% endif %}
 {%- endfor %}

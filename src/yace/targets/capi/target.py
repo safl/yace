@@ -29,13 +29,12 @@ Thus, the above files are what you should expect to see in the output-directory
 import copy
 import logging as log
 import shutil
-import typing
 from pathlib import Path
 
 from yace.emitters import Emitter
-from yace.errors import ToolError
 from yace.targets.target import Target
 from yace.tools import ClangFormat, Doxygen, Gcc
+from yace.transformations import CStyle
 
 
 class CAPI(Target):
@@ -56,11 +55,19 @@ class CAPI(Target):
         self.tools["gcc"] = Gcc(self.output)
 
     def transform(self, model):
-        """Transform the given idl"""
+        """
+        Transform the given idl
 
-        log.info("This is is noop in target '%s'", CAPI.NAME)
+        * Transform symbols according to :class:`yace.transformation.CStyle`
 
-        return copy.deepcopy(model)
+        That it currently the only thing done to the **yace** IDL.
+        """
+
+        transformed = copy.deepcopy(model)
+
+        status = CStyle(transformed).walk()
+
+        return transformed
 
     def emit(self, model):
         """Emit code"""

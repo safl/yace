@@ -7,7 +7,7 @@
  *
  * @{{ ent.cls }}
  */
-{{ ent.cls | replace("bitfield", "struct") }} {{ meta.prefix }}_{{ ent.sym }} {
+{{ ent.cls | replace("bitfield", "struct") }} {{ ent.sym }} {
 {%- if ent.cls in ["bitfield"] %}
 {%- for member in ent.members %}
 	uint{{ ent.width }}_t {{ member.sym }} : {{ member.width }}; ///< {{ member.doc }}

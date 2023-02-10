@@ -12,15 +12,14 @@
 #include <lib{{ meta.prefix }}.h>
 
 {%- for entity in entities %}
-{% set ident=meta["prefix"] + "_" + entity["sym"] %}
 {%- if entity["cls"] in ["enum"] %}
 const char *
-{{ ident }}_str(int enum_val)
+{{ entity.sym }}_str(int enum_val)
 {
 	switch (enum_val) {
-	{%- for member in entity["members"] %}
-	case {{ ident | upper }}_{{ member["sym"] | upper }}:
-		return "{{ member["sym"] }}";
+	{%- for member in entity.members %}
+	case {{ member.sym }}:
+		return "{{ member.sym }}";
 	{%- endfor %}
 	}
 
@@ -28,11 +27,11 @@ const char *
 }
 {%- elif entity["cls"] in ["struct", "union"] %}
 static int
-{{ ident }}_yaml(FILE *stream, const struct {{ ident }} *obj, int flags)
+{{ entity.sym }}_yaml(FILE *stream, const struct {{ entity.sym }} *obj, int flags)
 {
 	int wrtn = 0;
 
-	wrtn += fprintf(stream, "{{ ident }}:");
+	wrtn += fprintf(stream, "{{ entity.sym }}:");
 
 	if (!obj) {
 		wrtn += fprintf(stream, " ~\n");
@@ -70,15 +69,15 @@ static int
 }
 
 static int
-{{ ident }}_json(FILE *stream, const struct {{ ident }} *obj, int flags)
+{{ entity.sym }}_json(FILE *stream, const struct {{ entity.sym }} *obj, int flags)
 {
 	int wrtn = 0;
 
 	if (!obj) {
-		wrtn += fprintf(stream, "{ \"{{ ident }}\": null }\n");
+		wrtn += fprintf(stream, "{ \"{{ entity.sym }}\": null }\n");
 		return wrtn;
 	}
-        wrtn += fprintf(stream, "{\n%*s\"{{ ident }}\": {\n", 2, "");
+        wrtn += fprintf(stream, "{\n%*s\"{{ entity.sym }}\": {\n", 2, "");
 	{%- for token, member in zip(["obj->"] * len(entity.members), entity.members) recursive -%}
         {% set indent = (loop.depth + 1) * 2 %}
         {% set accessor = token + member.sym %}
@@ -115,25 +114,25 @@ static int
 
 
 int
-{{ ident }}_fpr(FILE *stream, const struct {{ ident }} *obj, int flags)
+{{ entity.sym }}_fpr(FILE *stream, const struct {{ entity.sym }} *obj, int flags)
 {
 	switch (flags) {
 	case {{ meta.prefix | upper }}_PR_DEF:
 	case {{ meta.prefix | upper }}_PR_YAML:
-		return {{ ident }}_yaml(stream, obj, flags);
+		return {{ entity.sym }}_yaml(stream, obj, flags);
 		break;
 
 	case {{ meta.prefix | upper }}_PR_JSON:
-		return {{ ident }}_json(stream, obj, flags);
+		return {{ entity.sym }}_json(stream, obj, flags);
 	}
 
 	return -ENOSYS;
 }
 
 int
-{{ ident }}_pr(const struct {{ ident }} *obj, int flags)
+{{ entity.sym }}_pr(const struct {{ entity.sym }} *obj, int flags)
 {
-	return {{ ident }}_fpr(stdout, obj, flags);
+	return {{ entity.sym }}_fpr(stdout, obj, flags);
 }
 {%- endif %}
 {%- endfor %}

@@ -17,21 +17,20 @@
 #include <lib{{ meta.prefix }}.h>
 
 {% for entity in entities if entity.cls in ["struct", "union"] %}
-{% set ident = meta.prefix +"_"+ entity.sym %}
 int
-test_{{ ident }}_pr(void)
+test_{{ entity.sym }}_pr(void)
 {
-        {{ entity.cls }} {{ ident }} obj = { 0 };
+        {{ entity.cls }} {{ entity.sym }} obj = { 0 };
         int wrtn;
 
-        printf("\n# output from: {{ ident }}_pr(..., {{ meta.prefix | upper }}_PR_YAML)\n");
-        wrtn = {{ ident }}_pr(&obj, {{ meta.prefix | upper }}_PR_YAML);
+        printf("\n# output from: {{ entity.sym }}_pr(..., {{ meta.prefix | upper }}_PR_YAML)\n");
+        wrtn = {{ entity.sym }}_pr(&obj, {{ meta.prefix | upper }}_PR_YAML);
         if (wrtn < 0) {
                 return 1;
         }
 
-        printf("\n# output from: {{ ident }}_pr(..., {{ meta.prefix | upper }}_PR_JSON)\n");
-        wrtn = {{ ident }}_pr(&obj, {{ meta.prefix | upper }}_PR_JSON);
+        printf("\n# output from: {{ entity.sym }}_pr(..., {{ meta.prefix | upper }}_PR_JSON)\n");
+        wrtn = {{ entity.sym }}_pr(&obj, {{ meta.prefix | upper }}_PR_JSON);
         if (wrtn < 0) {
                 return 1;
         }
@@ -49,7 +48,7 @@ int main(int argc, char *argv[])
         printf("#\n");
 
         {% for entity in entities if entity.cls in ["struct", "union"] %}
-        err = test_{{ meta.prefix }}_{{ entity.sym }}_pr();
+        err = test_{{ entity.sym }}_pr();
         if (err) {
                 return err;
         }
