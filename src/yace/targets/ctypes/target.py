@@ -13,6 +13,7 @@ from yace.emitters import Emitter
 from yace.errors import ToolError
 from yace.targets.target import Target
 from yace.tools import Black, Isort, Python3
+from yace.transformations import Camelizer
 
 
 class Ctypes(Target):
@@ -33,12 +34,21 @@ class Ctypes(Target):
             "python": Python3(self.output),
         }
 
+
     def transform(self, model):
-        """Transform the given idl, flatten nested structs/unions"""
+        """
+        Transform the given idl
 
-        log.info("This is noop in target '%s'", Ctypes.NAME)
+        * Transform symbols according to :class:`yace.transformation.CStyle`
 
-        return copy.deepcopy(model)
+        That it currently the only thing done to the **yace** IDL.
+        """
+
+        transformed = copy.deepcopy(model)
+
+        status = Camelizer(transformed).walk()
+
+        return transformed
 
     def emit(self, model):
         """Emit code"""

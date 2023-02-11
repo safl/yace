@@ -14,7 +14,7 @@ shared by multiple targets.
 """
 from yace.idl.derivedtypes import Struct, Union
 from yace.model import ModelWalker
-
+from yace.emitters import camelcase
 
 class CStyle(ModelWalker):
     """
@@ -55,18 +55,32 @@ class Camelizer(ModelWalker):
     * EnumValue -> upper()
     * Struct|Enum|Bitfield -> camelize()
 
+    Additionally, then Enum / Struct / Union is added  "postfix" to
+    ``entity.sym``. This is done for non-C languages, as enum/struct/union
+    C-types rarely has equivalents in "foreign" languages. Rather, these are
+    objects with subclasses encapsulating them, e.g. the Python ctypes.
+
+    Thus, the Enum/Struct/Union needs to be added to the identifier, since it
+    will otherwise potentially collide with other entities.
+
     This transformation assumes a valid YIDL according to the linter. Thus, the
     symbols are all lower-snake_case, and transformation not described above is
     not performed.
     """
 
     def visit(self, current, ancestors, depth):
-        if depth != 0:
+        if "sym" not in current.all:
             return (True, None)
 
-        if not type(current) in [Struct, Union]:
-            return (True, None)
+        if current.cls in ["define"]:
+            current.sym = current.sym.upper()
+        elif current.cls in ["enum", "struct", "union"]:
+            current.sym = "_".join([current.sym, current.cls])
+            current.sym = camelcase(current.sym)
+        elif current.cls in ["enum_value"]:
+            current.sym = current.sym.upper()
 
+        return (True, None)
 
 
 class HoistAnonMembers(ModelWalker):
