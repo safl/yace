@@ -22,9 +22,10 @@ setup(
         "setuptools>=60",
     ],
     python_requires=">=3.7",
-    entry_points={"console_scripts": ["yace=yace.cli:main"]},
+    entry_points={"console_scripts": ["yace=yace.cli.yace:main"]},
     packages=[
         "yace",
+        "yace.cli",
         "yace.idl",
         "yace.targets",
         "yace.targets.capi",
