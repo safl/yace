@@ -32,6 +32,7 @@ import shutil
 from pathlib import Path
 
 from yace.emitters import Emitter
+from yace.errors import TransformationError
 from yace.targets.target import Target
 from yace.tools import ClangFormat, Doxygen, Gcc
 from yace.transformations import CStyle
@@ -66,6 +67,8 @@ class CAPI(Target):
         transformed = copy.deepcopy(model)
 
         status = CStyle(transformed).walk()
+        if not all([res for res in status]):
+            raise TransformationError("The CStyle transformation failed")
 
         return transformed
 

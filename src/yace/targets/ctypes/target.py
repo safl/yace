@@ -10,7 +10,7 @@ import typing
 from pathlib import Path
 
 from yace.emitters import Emitter
-from yace.errors import ToolError
+from yace.errors import ToolError, TransformationError
 from yace.targets.target import Target
 from yace.tools import Black, Isort, Python3
 from yace.transformations import Camelizer
@@ -46,6 +46,8 @@ class Ctypes(Target):
         transformed = copy.deepcopy(model)
 
         status = Camelizer(transformed).walk()
+        if not all([res for res in status]):
+            raise TransformationError("The CStyle transformation failed")
 
         return transformed
 
