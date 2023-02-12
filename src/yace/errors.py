@@ -9,6 +9,12 @@ The errors are usually il-formated YAML-files, incorrect
 """
 
 
+class TransformationError(Exception):
+    """Something went wrong during a yidl-transformation"""
+
+    pass
+
+
 class ToolError(Exception):
     """Exception raised when a tool exists with non-zero returncode"""
 
