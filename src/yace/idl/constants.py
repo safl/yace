@@ -93,7 +93,7 @@ class Define(Entity, Named, Documented):
     """
 
     cls: str = "define"
-    val: typing.Union[Dec, Hex, String]
+    val: typing.Any
 
 
 class EnumValue(Entity, Named, Documented):
@@ -108,7 +108,7 @@ class EnumValue(Entity, Named, Documented):
     """
 
     cls: str = "enum_value"
-    val: typing.Union[Dec, Hex] = None
+    val: typing.Any = None
 
     def is_valid_val(self):
         """Checks whether the :class:`yace.idl.constants.EnumValue` is valid"""
