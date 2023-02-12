@@ -34,7 +34,6 @@ class Ctypes(Target):
             "python": Python3(self.output),
         }
 
-
     def transform(self, model):
         """
         Transform the given idl

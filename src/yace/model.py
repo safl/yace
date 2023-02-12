@@ -84,7 +84,6 @@ class Model(object):
     }
 
     def __init__(self):
-
         self.meta = Meta(lic="UNLICENSED")
         self.entities = []
 

@@ -119,4 +119,6 @@ class CAPI(Target):
     def check(self):
         """Build generated sources and run the generated test-program"""
 
-        self.tools["gcc"].run(CAPI.CFLAGS + ["-I", str(self.output)] + [str(p) for p in self.sources])
+        self.tools["gcc"].run(
+            CAPI.CFLAGS + ["-I", str(self.output)] + [str(p) for p in self.sources]
+        )

@@ -36,7 +36,6 @@ class String(Entity):
     lit: str
 
     def is_valid_lit(self):
-
         if not isinstance(self.lit, str):
             return False, f"Unsupported lit[{self.lit}]"
 

@@ -12,9 +12,10 @@ lot simpler.
 Also, at the YIDL-level, then coding-conventions such as CamelCase can be
 shared by multiple targets.
 """
+from yace.emitters import camelcase
 from yace.idl.derivedtypes import Struct, Union
 from yace.model import ModelWalker
-from yace.emitters import camelcase
+
 
 class CStyle(ModelWalker):
     """
@@ -42,7 +43,7 @@ class CStyle(ModelWalker):
         if current.cls in ["define"]:
             current.sym = current.sym.upper()
         elif current.cls in ["enum_value"]:
-            current.sym = ancestors[-1].sym.upper() +"_"+ current.sym.upper()
+            current.sym = ancestors[-1].sym.upper() + "_" + current.sym.upper()
 
         return (True, None)
 

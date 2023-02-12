@@ -17,7 +17,6 @@ TEMPLATE = """\
 
 
 def main():
-
     template = Environment(loader=BaseLoader()).from_string(TEMPLATE)
 
     entities = []

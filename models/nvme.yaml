@@ -309,8 +309,8 @@ nvm:
     - {cls: bits, width: 2, sym: fuse, doc: "Fused Operation"}
     - {cls: bits, width: 4, sym: rsvd, doc: "Reserved"}
     - {cls: bits, width: 2, sym: psdt, doc: "Brief"}
-  - {cls: field, sym: cid,   typ: u16, fmt: '%d', doc: "Command Identifier"}
-  - {cls: field, sym: nsid,  typ: u32, fmt: '%d', doc: "Namespace Identifier"}
+  - {cls: field, sym: cid, typ: u16, fmt: '%d', doc: "Command Identifier"}
+  - {cls: field, sym: nsid, typ: u32, fmt: '%d', doc: "Namespace Identifier"}
   - {cls: field, sym: cdw02, typ: u32, fmt: '%d', doc: "Command Dword 2"}
   - {cls: field, sym: cdw03, typ: u32, fmt: '%d', doc: "Command Dword 3"}
   - {cls: field, sym: mptr, typ: u64, fmt: '0x%"PRIx64"', doc: "Metadata pointer"}

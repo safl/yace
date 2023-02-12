@@ -61,7 +61,7 @@ class Emitter(object):
 
         typespec_jenv = Environment(
             loader=PackageLoader(f"yace.targets.{self.name}", "."),
-            extensions=['jinja2.ext.do'],
+            extensions=["jinja2.ext.do"],
         )
         typespec_jenv.globals.update(zip=zip, len=len)
         typespec_templates = {
@@ -78,7 +78,7 @@ class Emitter(object):
 
         entity_jenv = Environment(
             loader=PackageLoader(f"yace.targets.{self.name}", "."),
-            extensions=['jinja2.ext.do'],
+            extensions=["jinja2.ext.do"],
         )
         entity_jenv.globals.update(zip=zip, len=len)
         entity_jenv.filters["camelcase"] = camelcase
@@ -97,7 +97,7 @@ class Emitter(object):
 
         file_jenv = Environment(
             loader=PackageLoader(f"yace.targets.{self.name}", "."),
-            extensions=['jinja2.ext.do'],
+            extensions=["jinja2.ext.do"],
         )
         file_jenv.globals.update(zip=zip, len=len)
         file_jenv.filters["camelcase"] = camelcase

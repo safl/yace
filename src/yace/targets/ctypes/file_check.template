@@ -14,6 +14,7 @@ SPDX-License-Identifier: {{ meta.lic }}
 """
 import {{ meta.prefix }}
 
+
 def main():
 	pass
 
