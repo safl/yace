@@ -46,3 +46,4 @@ plenty of things to do.
    targets/index.rst
    tools/index.rst
    codebase/index.rst
+   background/index.rst
