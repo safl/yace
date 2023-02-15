@@ -1,7 +1,6 @@
 """
 
 """
-import logging as log
 import os
 from abc import ABC, abstractmethod
 
