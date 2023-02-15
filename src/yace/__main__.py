@@ -1,3 +1,3 @@
-from yace.cli.yace import main, parse_args
+from yace.cli.yace import main
 
 main()
