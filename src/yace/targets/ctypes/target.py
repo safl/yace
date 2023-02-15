@@ -6,11 +6,10 @@ ignores them, except for the special-case "c_char_p".
 import copy
 import logging as log
 import shutil
-import typing
 from pathlib import Path
 
 from yace.emitters import Emitter
-from yace.errors import ToolError, TransformationError
+from yace.errors import TransformationError
 from yace.targets.target import Target
 from yace.tools import Black, Isort, Python3
 from yace.transformations import Camelizer
