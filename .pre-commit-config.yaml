@@ -32,22 +32,29 @@ repos:
   hooks:
   - id: black
     name: Python-format-black
-- repo: https://github.com/pycqa/isort
-  rev: 5.12.0
+
+- repo: https://github.com/charliermarsh/ruff-pre-commit
+  rev: v0.0.244
   hooks:
-  - id: isort
-    name: Python-format-isort
-    args:
-    - '--profile=black'
-    - '--line-length=88'
-- repo: https://github.com/pycqa/flake8
-  rev: 6.0.0
-  hooks:
-  - id: flake8
-    name: Python-lint-flake8
-    # Max-line-length matching black
-    # ignore "whitespace before ':'"; ignore line length
-    # F401 = F811; This happens for fixtures for indirect parametrize
-    args:
-    - --max-line-length=88
-    - --extend-ignore=E203,F401,F811
+  - id: ruff
+    args: ["--fix"]
+
+#- repo: https://github.com/pycqa/isort
+#  rev: 5.12.0
+#  hooks:
+#  - id: isort
+#    name: Python-format-isort
+#    args:
+#    - '--profile=black'
+#    - '--line-length=88'
+#- repo: https://github.com/pycqa/flake8
+#  rev: 6.0.0
+#  hooks:
+#  - id: flake8
+#    name: Python-lint-flake8
+#   # Max-line-length matching black
+#    # ignore "whitespace before ':'"; ignore line length
+#    # F401 = F811; This happens for fixtures for indirect parametrize
+#    args:
+#    - --max-line-length=88
+#    - --extend-ignore=E203,F401,F811
