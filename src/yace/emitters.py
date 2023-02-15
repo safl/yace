@@ -1,11 +1,9 @@
 """
 YAML ==> Interface(List[Entities]) ==> Emitter() ==> CodeTarget
 """
-import logging as log
-import typing
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader, PackageLoader, Template
+from jinja2 import Environment, PackageLoader
 
 
 def camelcase(symbol, pascalcase=True):
