@@ -5,8 +5,6 @@
 ================
 
 
-* ``void``: :py:class:`yace.idl.base.Void`; A void, that is, the type signaling no type
-
 * ``dec``: :py:class:`yace.idl.constants.Dec`; Representation of a an integer literal in decimal
 
 * ``define``: :py:class:`yace.idl.constants.Define`; C MACROS, one of biggest headaches when it comes to FFI interfaces,
@@ -19,35 +17,55 @@
 
 * ``str``: :py:class:`yace.idl.constants.String`; Representation of a literal string e.g. in C
 
-* ``bool``: :py:class:`yace.idl.datatypes.Bool`; A boolean, at least 8 bits wide, equivalent to the C99 "_Bool" and available
+* ``bool``: :py:class:`yace.idl.datatypes.Bool`; A boolean, at least 8 bits wide
 
-* ``char``: :py:class:`yace.idl.datatypes.Char`; A character, at least 8 bits wide.
+* ``char``: :py:class:`yace.idl.datatypes.Char`; A character; at least 8 bits wide.
 
-* ``f32``: :py:class:`yace.idl.datatypes.F32`; A floating point numerical value, possibly 32 bits wide
+* ``f32``: :py:class:`yace.idl.datatypes.F32`; Floating point numerical value, possibly 32 bits wide
 
-* ``f64``: :py:class:`yace.idl.datatypes.F64`; A floating point numerical value, possibly 64 bits wide
+* ``f64``: :py:class:`yace.idl.datatypes.F64`; Floating point numerical value, possibly 64 bits wide
 
-* ``i16``: :py:class:`yace.idl.datatypes.I16`; A basic data type signed fixed-width integer; 16 bits wide.
+* ``i``: :py:class:`yace.idl.datatypes.I`; Signed integer at least 16 bits wide.
 
-* ``i32``: :py:class:`yace.idl.datatypes.I32`; A basic data type signed fixed-width integer; 32 bits wide.
+* ``i16``: :py:class:`yace.idl.datatypes.I16`; Signed integer exactly 16 bits wide.
 
-* ``i64``: :py:class:`yace.idl.datatypes.I64`; A basic data type signed fixed-width integer; 64 bits wide.
+* ``i32``: :py:class:`yace.idl.datatypes.I32`; Signed integer exactly 32 bits wide.
 
-* ``i8``: :py:class:`yace.idl.datatypes.I8`; A basic data type signed fixed-width integer; 8 bits wide.
+* ``i64``: :py:class:`yace.idl.datatypes.I64`; Signed integer exactly 64 bits wide.
 
-* ``int``: :py:class:`yace.idl.datatypes.Int`; The integer commonly used for error-handling, non-fixed width.
+* ``i8``: :py:class:`yace.idl.datatypes.I8`; Signed integer exactly 8 bits wide.
 
-* ``size``: :py:class:`yace.idl.datatypes.SizeSigned`; The C API emitter could produce
+* ``ih``: :py:class:`yace.idl.datatypes.IHalf`; Signed integer at least 8 bits wide.
+
+* ``il``: :py:class:`yace.idl.datatypes.ILong`; Signed integer at least 32 bits wide.
+
+* ``ill``: :py:class:`yace.idl.datatypes.ILongLong`; Signed integer at least 64 bits wide.
+
+* ``size``: :py:class:`yace.idl.datatypes.Size`; Size type
+
+* ``size_signed``: :py:class:`yace.idl.datatypes.SizeSigned`; Signed Size type
 
 * ``string``: :py:class:`yace.idl.datatypes.String`; A string pointer
 
-* ``u16``: :py:class:`yace.idl.datatypes.U16`; A basic data type signed fixed-width integer; 16 bits wide.
+* ``u``: :py:class:`yace.idl.datatypes.U`; Unsigned integer at least 16 bits wide.
 
-* ``u32``: :py:class:`yace.idl.datatypes.U32`; A basic data type unsigned fixed-width integer; 32 bits wide.
+* ``u16``: :py:class:`yace.idl.datatypes.U16`; Unsigned integer exactly 16 bits wide.
 
-* ``u64``: :py:class:`yace.idl.datatypes.U64`; A basic data type unsigned fixed-width integer; 64 bits wide.
+* ``u32``: :py:class:`yace.idl.datatypes.U32`; Unsigned integer exactly 32 bits wide.
 
-* ``u8``: :py:class:`yace.idl.datatypes.U8`; A basic data type signed fixed-width integer; 8 bits wide.
+* ``u64``: :py:class:`yace.idl.datatypes.U64`; Unsigned integer exactly 64 bits wide.
+
+* ``u8``: :py:class:`yace.idl.datatypes.U8`; Unsigned integer exactly 8 bits wide.
+
+* ``uh``: :py:class:`yace.idl.datatypes.UHalf`; Unsigned integer at least 8 bits wide.
+
+* ``ul``: :py:class:`yace.idl.datatypes.ULong`; Unsigned integer at least 32 bits wide.
+
+* ``ull``: :py:class:`yace.idl.datatypes.ULongLong`; Unsigned integer at least 64 bits wide.
+
+* ``void``: :py:class:`yace.idl.datatypes.Void`; A void, that is, the type signaling no type
+
+* ``void_ptr``: :py:class:`yace.idl.datatypes.VoidPtr`; A void-pointer, that is, point to anything (including nothing)
 
 * ``bitfield``: :py:class:`yace.idl.derivedtypes.Bitfield`; Representation of a bitfield, that is a partitioning of a fixed-width
 

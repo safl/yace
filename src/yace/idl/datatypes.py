@@ -2,24 +2,25 @@
 """
 The **yace** data types consists of:
 
-* Boolean:
+* No type: :class:`.Void`, :class:`.VoidPtr`
 
-  * :class:`.Bool`
+* Boolean: :class:`.Bool`
 
-* Numerical
+* Textual: :class:`.Char`
 
-  * Unsigned Integers: :class:`.Size`
-  * Signed Integers: :class:`.Int`, :class:`.SizeSigned`
+* Size types: :class:`.Size` / :class:`.SizeSigned`
 
-* Numerical -- Fixed Width
+* Integers (Signed)
 
-  * Unsigned Integers: :class:`.U8`, :class:`.U16`, :class:`.U32`, :class:`.U64`
-  * Signed Integers: :class:`.I8`, :class:`.I16`, :class:`.I32`, :class:`.I64`
-  * Floating Point: :class:`.F32`, :class:`.F64`
+  * :class:`.I`, :class:`.I16`, :class:`.IHalf`, :class:`.I8`
+  * :class:`.ILongLong`, :class:`.I64`, :class:`.ILong`, :class:`.I32`
 
-* Textual:
+* Integers (Unsigned)
 
-  * :class:`.Char`, :class:`.String`
+  * :class:`.U`, :class:`.U16`, :class:`.UHalf`, :class:`.U8`
+  * :class:`.ULongLong`, :class:`.U64`, :class:`.ULong`, :class:`.U32`
+
+* Floating Point: :class:`.F32`, :class:`.F64`
 
 Their idl representation follows below.
 """
@@ -28,251 +29,465 @@ import typing
 from .base import Typespec
 
 
+class Void(Typespec):
+    """A void, that is, the type signaling no type"""
+
+    cls: str = "void"
+
+    void: typing.Optional[bool] = True
+
+
+class VoidPtr(Typespec):
+    """A void-pointer, that is, point to anything (including nothing)"""
+
+    cls: str = "void_ptr"
+
+    void: typing.Optional[bool] = True
+    pointer: int = 1
+
+
+class Char(Typespec):
+    """
+    A character; at least 8 bits wide.
+
+    The C API emitter could produce::
+
+        char
+
+    for the :class:`.Char` entity.
+    """
+
+    cls: str = "char"
+
+    character: bool = True
+    width: int = 8
+    width_fixed: bool = False
+
+
 class I8(Typespec):
     """
-    A basic data type: signed fixed-width integer; 8 bits wide.
+    Signed integer exactly 8 bits wide.
 
     A C emitter could for example produce::
 
         int8_t
 
-    for the :class:`I8` entity.
+    for the :class:`.I8` entity.
     """
 
     cls: str = "i8"
+
     integer: bool = True
     signed: bool = True
     width: int = 8
+    width_fixed: bool = True
+
+
+class IHalf(Typespec):
+    """
+    Signed integer at least 8 bits wide.
+
+    This is also known as "half" or "short" int, as it is relative to "Int"
+    shorter, typically, half the amount of bits.
+
+    The C emitter can produce::
+
+        short int
+
+    for the :class:`.IHalf` entity.
+    """
+
+    cls: str = "ih"
+
+    integer: bool = True
+    signed: bool = True
+
+    width: typing.Optional[int] = 8
+    width_fixed: bool = False
 
 
 class I16(Typespec):
     """
-    A basic data type: signed fixed-width integer; 16 bits wide.
+    Signed integer exactly 16 bits wide.
 
-    A C emitter could for example produce::
+    A C emitter could produce::
 
         int16_t
 
-    for the :class:`I16` entity.
+    for the :class:`.I16` entity.
     """
 
     cls: str = "i16"
+
     integer: bool = True
     signed: bool = True
     width: int = 16
+    width_fixed: bool = True
+
+
+class I(Typespec):
+    """
+    Signed integer at least 16 bits wide.
+
+    Historically, the int matched the bit-width of the processor when C came
+    out in the early days on "ANSI" C / K&R. That is, 16bit processors.
+
+    Thus, the short/long/long/long are "modifiers" of this base-type, although
+    the width on a 64bit system today is often 32bit for this type.
+
+    The C emitter can produce::
+
+        int
+
+    for the :class:`.I` entity.
+    """
+
+    cls: str = "i"
+
+    integer: bool = True
+    signed: bool = True
+
+    width: typing.Optional[int] = 8
+    width_fixed: bool = False
 
 
 class I32(Typespec):
     """
-    A basic data type: signed fixed-width integer; 32 bits wide.
+    Signed integer exactly 32 bits wide.
 
-    A C emitter could for example produce::
+    A C emitter could produce::
 
         int32_t
 
-    for the :class:`I32` entity.
+    for the :class:`.I32` entity.
     """
 
     cls: str = "i32"
+
     integer: bool = True
     signed: bool = True
     width: int = 32
+    width_fixed: bool = True
+
+
+class ILong(Typespec):
+    """
+    Signed integer at least 32 bits wide.
+
+    The C emitter produces::
+
+        long int
+
+    for the :class:`.ILong` entity.
+    """
+
+    cls: str = "il"
+
+    integer: bool = True
+    signed: bool = True
+    width: typing.Optional[int] = 32
+    width_fixed: bool = False
 
 
 class I64(Typespec):
     """
-    A basic data type: signed fixed-width integer; 64 bits wide.
+    Signed integer exactly 64 bits wide.
 
-    A C emitter could for example produce::
+    A C emitter could produce::
 
         int64_t
 
-    for the :class:`I64` entity.
+    for the :class:`.I64` entity.
     """
 
     cls: str = "i64"
+
     integer: bool = True
     signed: bool = True
-    width: int = 64
+    width: typing.Optional[int] = 64
+    width_fixed: bool = True
+
+
+class ILongLong(Typespec):
+    """
+    Signed integer at least 64 bits wide.
+
+    A C emitter could produce::
+
+        long long int
+
+    for the :class:`.ILongLong` entity.
+    """
+
+    cls: str = "ill"
+
+    integer: bool = True
+    signed: bool = True
+    width: typing.Optional[int] = 64
+    width_fixed: bool = False
 
 
 class U8(Typespec):
     """
-    A basic data type: signed fixed-width integer; 8 bits wide.
+    Unsigned integer exactly 8 bits wide.
 
-    A C emitter could for example produce::
+    A C emitter could produce::
 
         uint8_t
 
-    for the :class:`U8` entity.
+    for the :class:`.U8` entity.
     """
 
     cls: str = "u8"
+
     integer: bool = True
     signed: bool = False
-    width: int = 8
+    width: typing.Optional[int] = 8
+    width_fixed: bool = True
+
+
+class UHalf(Typespec):
+    """
+    Unsigned integer at least 8 bits wide.
+
+    This is also known as "half" or "short" int, as it is relative to "Int"
+    shorter, typically, half the amount of bits.
+
+    A C emitter could produce::
+
+        unsigned short int
+
+    for the :class:`.UHalf` entity.
+    """
+
+    cls: str = "uh"
+
+    integer: bool = True
+    signed: bool = False
+
+    width: typing.Optional[int] = 8
+    width_fixed: bool = False
 
 
 class U16(Typespec):
     """
-    A basic data type: signed fixed-width integer; 16 bits wide.
+    Unsigned integer exactly 16 bits wide.
 
-    A C emitter could for example produce::
+    A C emitter could produce::
 
         uint16_t
 
-    for the :class:`U16` entity.
+    for the :class:`.U16` entity.
     """
 
     cls: str = "u16"
+
     integer: bool = True
     signed: bool = False
-    width: int = 16
+    width: typing.Optional[int] = 16
+    width_fixed: bool = True
+
+
+class U(Typespec):
+    """
+    Unsigned integer at least 16 bits wide.
+
+    The C emitter can produce::
+
+        unsigned int
+
+    for the :class:`.U` entity.
+    """
+
+    cls: str = "u"
+
+    integer: bool = True
+    signed: bool = False
+    width: typing.Optional[int] = 16
+    width_fixed: bool = False
 
 
 class U32(Typespec):
     """
-    A basic data type: unsigned fixed-width integer; 32 bits wide.
+    Unsigned integer exactly 32 bits wide.
 
-    A C emitter could for example produce::
+    A C emitter could produce::
 
         uint32_t
 
-    for the :class:`U32` entity.
+    for the :class:`.U32` entity.
     """
 
     cls: str = "u32"
+
     integer: bool = True
     signed: bool = False
-    width: int = 32
+    width: typing.Optional[int] = 32
+    width_fixed: bool = True
+
+
+class ULong(Typespec):
+    """
+    Unsigned integer at least 32 bits wide.
+
+    A C emitter could produce::
+
+        unsigned long int
+
+    for the :class:`.ULong` entity.
+    """
+
+    cls: str = "ul"
+
+    integer: bool = True
+    signed: bool = False
+    width: typing.Optional[int] = 32
+    width_fixed: bool = False
 
 
 class U64(Typespec):
     """
-    A basic data type: unsigned fixed-width integer; 64 bits wide.
+    Unsigned integer exactly 64 bits wide.
 
-    A C emitter could for example produce::
+    A C emitter could produce::
 
         uint64_t
 
-    for the :class:`U64` entity.
+    for the :class:`.U64` entity.
     """
 
     cls: str = "u64"
+
     integer: bool = True
     signed: bool = False
-    width: int = 64
+    width: typing.Optional[int] = 64
+    width_fixed: bool = True
+
+
+class ULongLong(Typespec):
+    """
+    Unsigned integer at least 64 bits wide.
+
+    A C emitter could produce::
+
+        unsigned long long int
+
+    for the :class:`.ULongLong` entity.
+    """
+
+    cls: str = "ull"
+
+    integer: bool = True
+    signed: bool = False
+    width: typing.Optional[int] = 64
+    width_fixed: bool = False
 
 
 class F32(Typespec):
     """
-    A floating point numerical value, possibly 32 bits wide
+    Floating point numerical value, possibly 32 bits wide
 
-    The C emitter produces::
+    The C language spec. does not define the width to be exact. However, we
+    treat it as though it is, and error if it is not.
+
+    A C emitter could produce::
 
         float
 
-    For the :class:`F32` entity.
+    for the :class:`.F32` entity.
     """
 
     cls: str = "f32"
+
     real: bool = True
     width: int = 32
+    width_fixed: bool = True
 
 
 class F64(Typespec):
     """
-    A floating point numerical value, possibly 64 bits wide
+    Floating point numerical value, possibly 64 bits wide
 
-    The C emitter produces::
+    The C language spec. does not define the width to be exact. However, we
+    treat it as though it is, and error if it is not.
+
+    A C emitter could produce::
 
         double
 
-    For the :class:`F64` entity.
+    for the :class:`.F64` entity.
     """
 
     cls: str = "f64"
+
     real: bool = True
     width: int = 64
 
 
 class Bool(Typespec):
     """
-    A boolean, at least 8 bits wide, equivalent to the C99 "_Bool" and available
+    A boolean, at least 8 bits wide
+
+    Equivalent to the C99 "_Bool" and available
     as "bool" as defined by the standardized "stdbool.h" header.
 
-    The C emitter produces::
+    A C emitter could produce::
+
+        # In C99
+        _Bool
+
+    Or, using ``<stdbool.h>``::
 
         bool
 
-    for the :class:`Bool` entity.
+    for the :class:`.Bool` entity.
     """
 
     cls: str = "bool"
+
     boolean: bool = True
     width: int = 8
-
-
-class Char(Typespec):
-    """
-    A character, at least 8 bits wide.
-
-    The C API emitter could produce::
-
-        char
-
-    for the :class:`Char` entity.
-    """
-
-    cls: str = "char"
-    character: bool = True
-    width: int = 8
+    width_fixed: bool = False
 
 
 class Size(Typespec):
     """
-    The C API emitter could produce::
+    Size type
+
+    A C emitter could produce::
 
         size_t
 
-    for the :class:`Size` entity.
+    for the :class:`.Size` entity.
     """
 
     cls: str = "size"
-    integer: bool = True
-    signed: bool = True
-    width: typing.Optional[int] = None
+
+    size: bool = True
+    integer: bool = False
+    signed: bool = False
+    width: typing.Optional[int] = 16
+    width_fixed: bool = False
 
 
 class SizeSigned(Typespec):
     """
+    Signed Size type
+
     The C API emitter could produce::
 
         ssize_t
 
-    for the :class:`SizeSigned` entity.
+    for the :class:`.SizeSigned` entity.
     """
 
-    cls: str = "size"
-    integer: bool = True
-    width: typing.Optional[int] = None
+    cls: str = "size_signed"
 
-
-class Int(Typespec):
-    """
-    The integer commonly used for error-handling, non-fixed width.
-
-    The C emitter produces::
-
-        int
-
-    for the :class:`Int` entity.
-    """
-
-    cls: str = "int"
-    integer: bool = True
+    size: bool = True
+    integer: bool = False
     signed: bool = True
-    width: typing.Optional[int] = None
+    width: typing.Optional[int] = 16
+    width_fixed: bool = False
 
 
 class String(Typespec):
@@ -283,10 +498,11 @@ class String(Typespec):
 
         const char *
 
-    for the :class:`String` entity.
+    for the :class:`.String` entity.
     """
 
     cls: str = "string"
+
     width: int = 8
     pointer: int = 1
     const: bool = True

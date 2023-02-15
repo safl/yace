@@ -9,7 +9,6 @@ The entities in the **yace** Interface Definition are enherit the
 The above are defined below.
 """
 import logging as log
-import operator
 import re
 import typing
 from collections import ChainMap
@@ -114,37 +113,38 @@ class Entity(object):
 
 class Typespec(Entity):
     """
-    All entities is-a :class:`.Typespec`
-    Stuff to consider:
-
-    * .lbl should be list?
+    All entities is-a :class:`.Entity`
     """
 
-    # Basic datatypes
+    # Lack of type
+    void: bool = False
+
+    # Boolean and textual datatypes
     boolean: bool = False  # Boolean type, since C99: _Bool / true / false
     character: bool = False  # Character type, in C: char / 'k'
+
+    # Numeral types
+    size: bool = False  # Size-types; size_t, ssize_t
     integer: bool = False  # Integer types; int
     real: bool = False  # Floating point number e.g. float, double
+
+    # Numerical types (Qualifiers and Modifiers)
+    signed: bool = False  # Type-modifier for the integer datatype
+    width: typing.Optional[int] = None  # integer type width
+    width_fixed: bool = (
+        False  # Whether or not width is "exact" / "fixed" or a min-value
+    )
 
     # Derived types
     union: bool = False  # union <id> { ... }
     struct: bool = False  # struct <id> { ... }
+    sym: typing.Optional[str] = None  # symbol / tag of structs and unions
 
-    # Qualifiers and Modifiers
-    signed: bool = False  # Type-modifier for the integer datatype
-    width: typing.Optional[int] = None  # fixed-width; int8_t / float / double
-
+    # General Qualifiers and Modifiers
     const: bool = False  # Access-qualifier for all types:  'const'
     static: bool = False  # Storage-qualifier for all types: 'static'
     pointer: int = 0  # Pointer-type for all types: '*'
     array: int = 0  # Array-type for all types: '[]'
-
-
-class Void(Typespec):
-    """A void, that is, the type signaling no type"""
-
-    cls: str = "void"
-    width: int = 0
 
 
 class Documented(object):

@@ -12,7 +12,7 @@ Their idl representation follows below.
 """
 import typing
 
-from .base import Documented, Entity, Named, Typed, Typespec
+from .base import Documented, Entity, Named, Typed
 
 
 class Bits(Entity, Named, Documented):

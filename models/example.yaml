@@ -63,10 +63,10 @@ function_types:
   doc: Print hello world
   ret:
     cls: ret
-    typ: int
+    typ: i
     doc: On succes, 0 is returned. On error, -1 is returned and errno set to indicate the error
   parameters:
-  - {cls: param, sym: argc, typ: int, doc: 'Number of command-line arguments'}
+  - {cls: param, sym: argc, typ: i, doc: 'Number of command-line arguments'}
   - {cls: param, sym: argv, typ: {cls: char, const: true, pointer: 2}, doc: 'Number of command-line arguments'}
 
 - cls: fun
