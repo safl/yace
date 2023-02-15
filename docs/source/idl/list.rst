@@ -15,7 +15,7 @@
 
 * ``enum_value``: :py:class:`yace.idl.constants.EnumValue`; Representation of values in class`yace.idl.constants.Enum`.
 
-* ``hex``: :py:class:`yace.idl.constants.Hex`; Representation of a hexi-decimal constant
+* ``hex``: :py:class:`yace.idl.constants.Hex`; Representation of a hexadecimal constant
 
 * ``str``: :py:class:`yace.idl.constants.String`; Representation of a literal string e.g. in C
 

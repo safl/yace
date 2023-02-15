@@ -44,9 +44,9 @@ class String(Entity):
 
 class Hex(Entity):
     """
-    Representation of a hexi-decimal constant
+    Representation of a hexadecimal constant
 
-    The emitted C code should be hexidecimal notation of literal integer
+    The emitted C code should be hexadecimal notation of literal integer
     values, such as those used by :class:`yace.idl.constants.Define` and
     :class:`yace.idl.enumtypes.Enum`::
 
