@@ -1,6 +1,4 @@
-from pathlib import Path
-
-from setuptools import find_namespace_packages, setup
+from setuptools import setup
 
 try:
     with open("README.rst", "r") as f:
