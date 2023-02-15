@@ -39,4 +39,5 @@ TOC
   model.rst
   transformations.rst
   emitters.rst
+  parser.rst
   errors.rst

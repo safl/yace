@@ -12,11 +12,13 @@ TODO
 """
 import argparse
 import logging as log
+import yaml
 import sys
 from pathlib import Path
 
 from yace import __version__ as version
 from yace.compiler import Compiler
+from yace.parser import CParser
 
 
 def parse_args():
@@ -25,10 +27,10 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "idl",
+        "filepath",
         nargs="+",
         type=Path,
-        help="Path to Yace IDL (yidl) file",
+        help="Path to Yace IDL file or C header",
     )
     parser.add_argument(
         "--target",
@@ -51,6 +53,12 @@ def parse_args():
         default=[],
         help="Increase log-level.",
     )
+
+    parser.add_argument(
+        "--c-to-yidl",
+        action="store_true",
+        help="Treat filepath as C-header and use it to emit a yidl-file, then exit",
+    )
     parser.add_argument(
         "--lint",
         action="store_true",
@@ -63,6 +71,35 @@ def parse_args():
     )
 
     return parser.parse_args()
+
+
+def c_header_to_yidl_file(args):
+    """Optimistically / best-offort transformation of a C header to YIDL"""
+
+    # TODO: this information / structure should be read from a single point,
+    # somewhere in the yace.idl module
+    ydata = {
+        "meta": {
+            "lic": "Unknown License",
+            "version": "0.0.1",
+            "author": "Foo Bar <foo@example.com>",
+            "project": "foo",
+            "prefix": "foo",
+            "brief": "Brief Description",
+            "full": "Full Description",
+        },
+    }
+    ydata["entities"] = []
+
+    parser = CParser()
+    for path in [p.resolve() for p in args.filepath]:
+        tu = parser.parse_file(path)
+        ydata["entities"] += parser.tu_to_data(tu)
+
+        with (args.output / f"{path.stem}_parsed.yaml").open("w") as yfile:
+            yfile.write(yaml.safe_dump(ydata))
+
+    return 0
 
 
 def main():
@@ -78,11 +115,14 @@ def main():
             level=levels[min(sum(args.log_level), len(levels) - 1)],
         )
 
-        yace = Compiler(args.target, args.output)
+        if args.c_to_yidl:  # Invoke the C to YIDL Compiler
+            return sys.exit(c_header_to_yidl_file(args))
+
+        yace = Compiler(args.target, args.output)  # Invoke the Yace Compiler
         ok = all(
             [
                 yace.process(path, ["parse", "lint"] if args.lint else Compiler.STAGES)
-                for path in args.idl
+                for path in args.filepath
             ]
         )
     except Exception as exc:
