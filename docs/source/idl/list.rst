@@ -41,9 +41,7 @@
 
 * ``ill``: :py:class:`yace.idl.datatypes.ILongLong`; Signed integer at least 64 bits wide.
 
-* ``size``: :py:class:`yace.idl.datatypes.Size`; Size type
-
-* ``size_signed``: :py:class:`yace.idl.datatypes.SizeSigned`; Signed Size type
+* ``isize``: :py:class:`yace.idl.datatypes.ISize`; Signed Size-type
 
 * ``string``: :py:class:`yace.idl.datatypes.String`; A string pointer
 
@@ -62,6 +60,8 @@
 * ``ul``: :py:class:`yace.idl.datatypes.ULong`; Unsigned integer at least 32 bits wide.
 
 * ``ull``: :py:class:`yace.idl.datatypes.ULongLong`; Unsigned integer at least 64 bits wide.
+
+* ``usize``: :py:class:`yace.idl.datatypes.USize`; Unsigned Size-type
 
 * ``void``: :py:class:`yace.idl.datatypes.Void`; A void, that is, the type signaling no type
 

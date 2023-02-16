@@ -8,7 +8,7 @@ The **yace** data types consists of:
 
 * Textual: :class:`.Char`
 
-* Size types: :class:`.Size` / :class:`.SizeSigned`
+* Size types: :class:`.USize` / :class:`.ISize`
 
 * Integers (Signed)
 
@@ -70,6 +70,23 @@ class Char(Typespec):
 
     character: bool = True
     width: int = 8
+
+
+class ISize(Typespec):
+    """
+    Signed Size-type
+
+    The C API emitter could produce::
+
+        ssize_t
+
+    for the :class:`.ISize` entity.
+    """
+
+    cls: str = "isize"
+
+    size: bool = True
+    width: typing.Optional[int] = 16
 
 
 class I8(Typespec):
@@ -220,6 +237,22 @@ class ILongLong(Typespec):
     integer: bool = True
     width: typing.Optional[int] = 64
 
+class USize(Typespec):
+    """
+    Unsigned Size-type
+
+    A C emitter could produce::
+
+        size_t
+
+    for the :class:`.USize` entity.
+    """
+
+    cls: str = "usize"
+
+    size: bool = True
+    unsigned: bool = True
+    width: typing.Optional[int] = 16
 
 class U8(Typespec):
     """
@@ -436,42 +469,6 @@ class Bool(Typespec):
 
     boolean: bool = True
     width: int = 8
-
-
-class Size(Typespec):
-    """
-    Size type
-
-    A C emitter could produce::
-
-        size_t
-
-    for the :class:`.Size` entity.
-    """
-
-    cls: str = "size"
-
-    size: bool = True
-    unsigned: bool = True
-    width: typing.Optional[int] = 16
-
-
-class SizeSigned(Typespec):
-    """
-    Signed Size type
-
-    The C API emitter could produce::
-
-        ssize_t
-
-    for the :class:`.SizeSigned` entity.
-    """
-
-    cls: str = "size_signed"
-
-    size: bool = True
-    width: typing.Optional[int] = 16
-
 
 class String(Typespec):
     """
