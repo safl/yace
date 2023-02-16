@@ -143,7 +143,7 @@ class I16(Typespec):
     cls: str = "i16"
 
     integer: bool = True
-    width: int = 16
+    width: typing.Optional[int] = 16
     width_fixed: bool = True
 
 
@@ -167,7 +167,7 @@ class I(Typespec):
     cls: str = "i"
 
     integer: bool = True
-    width: typing.Optional[int] = 8
+    width: typing.Optional[int] = 16
 
 
 class I32(Typespec):
