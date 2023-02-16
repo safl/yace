@@ -129,7 +129,7 @@ class Typespec(Entity):
     real: bool = False  # Floating point number e.g. float, double
 
     # Numerical types (Qualifiers and Modifiers)
-    signed: bool = False  # Type-modifier for the integer datatype
+    unsigned: bool = False  # Type-modifier for the integer datatype
     width: typing.Optional[int] = None  # integer type width
     width_fixed: bool = (
         False  # Whether or not width is "exact" / "fixed" or a min-value

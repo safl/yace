@@ -22,6 +22,15 @@ The **yace** data types consists of:
 
 * Floating Point: :class:`.F32`, :class:`.F64`
 
+Conventions
+-----------
+
+* A specialized Typespec should only update attribute-values, that is,
+  not introduce new attributes
+
+* A specialized Typespec should only set attributes which have values different
+  than the default.
+
 Their idl representation follows below.
 """
 import typing
@@ -61,7 +70,6 @@ class Char(Typespec):
 
     character: bool = True
     width: int = 8
-    width_fixed: bool = False
 
 
 class I8(Typespec):
@@ -78,7 +86,6 @@ class I8(Typespec):
     cls: str = "i8"
 
     integer: bool = True
-    signed: bool = True
     width: int = 8
     width_fixed: bool = True
 
@@ -100,10 +107,7 @@ class IHalf(Typespec):
     cls: str = "ih"
 
     integer: bool = True
-    signed: bool = True
-
     width: typing.Optional[int] = 8
-    width_fixed: bool = False
 
 
 class I16(Typespec):
@@ -120,7 +124,6 @@ class I16(Typespec):
     cls: str = "i16"
 
     integer: bool = True
-    signed: bool = True
     width: int = 16
     width_fixed: bool = True
 
@@ -145,10 +148,7 @@ class I(Typespec):
     cls: str = "i"
 
     integer: bool = True
-    signed: bool = True
-
     width: typing.Optional[int] = 8
-    width_fixed: bool = False
 
 
 class I32(Typespec):
@@ -165,7 +165,6 @@ class I32(Typespec):
     cls: str = "i32"
 
     integer: bool = True
-    signed: bool = True
     width: int = 32
     width_fixed: bool = True
 
@@ -184,9 +183,7 @@ class ILong(Typespec):
     cls: str = "il"
 
     integer: bool = True
-    signed: bool = True
     width: typing.Optional[int] = 32
-    width_fixed: bool = False
 
 
 class I64(Typespec):
@@ -203,7 +200,6 @@ class I64(Typespec):
     cls: str = "i64"
 
     integer: bool = True
-    signed: bool = True
     width: typing.Optional[int] = 64
     width_fixed: bool = True
 
@@ -222,9 +218,7 @@ class ILongLong(Typespec):
     cls: str = "ill"
 
     integer: bool = True
-    signed: bool = True
     width: typing.Optional[int] = 64
-    width_fixed: bool = False
 
 
 class U8(Typespec):
@@ -241,7 +235,7 @@ class U8(Typespec):
     cls: str = "u8"
 
     integer: bool = True
-    signed: bool = False
+    unsigned: bool = True
     width: typing.Optional[int] = 8
     width_fixed: bool = True
 
@@ -263,10 +257,8 @@ class UHalf(Typespec):
     cls: str = "uh"
 
     integer: bool = True
-    signed: bool = False
-
+    unsigned: bool = True
     width: typing.Optional[int] = 8
-    width_fixed: bool = False
 
 
 class U16(Typespec):
@@ -283,7 +275,7 @@ class U16(Typespec):
     cls: str = "u16"
 
     integer: bool = True
-    signed: bool = False
+    unsigned: bool = True
     width: typing.Optional[int] = 16
     width_fixed: bool = True
 
@@ -302,9 +294,8 @@ class U(Typespec):
     cls: str = "u"
 
     integer: bool = True
-    signed: bool = False
+    unsigned: bool = True
     width: typing.Optional[int] = 16
-    width_fixed: bool = False
 
 
 class U32(Typespec):
@@ -321,7 +312,7 @@ class U32(Typespec):
     cls: str = "u32"
 
     integer: bool = True
-    signed: bool = False
+    unsigned: bool = True
     width: typing.Optional[int] = 32
     width_fixed: bool = True
 
@@ -340,9 +331,8 @@ class ULong(Typespec):
     cls: str = "ul"
 
     integer: bool = True
-    signed: bool = False
+    unsigned: bool = True
     width: typing.Optional[int] = 32
-    width_fixed: bool = False
 
 
 class U64(Typespec):
@@ -359,7 +349,7 @@ class U64(Typespec):
     cls: str = "u64"
 
     integer: bool = True
-    signed: bool = False
+    unsigned: bool = True
     width: typing.Optional[int] = 64
     width_fixed: bool = True
 
@@ -378,9 +368,8 @@ class ULongLong(Typespec):
     cls: str = "ull"
 
     integer: bool = True
-    signed: bool = False
+    unsigned: bool = True
     width: typing.Optional[int] = 64
-    width_fixed: bool = False
 
 
 class F32(Typespec):
@@ -447,7 +436,6 @@ class Bool(Typespec):
 
     boolean: bool = True
     width: int = 8
-    width_fixed: bool = False
 
 
 class Size(Typespec):
@@ -464,10 +452,8 @@ class Size(Typespec):
     cls: str = "size"
 
     size: bool = True
-    integer: bool = False
-    signed: bool = False
+    unsigned: bool = True
     width: typing.Optional[int] = 16
-    width_fixed: bool = False
 
 
 class SizeSigned(Typespec):
@@ -484,10 +470,7 @@ class SizeSigned(Typespec):
     cls: str = "size_signed"
 
     size: bool = True
-    integer: bool = False
-    signed: bool = True
     width: typing.Optional[int] = 16
-    width_fixed: bool = False
 
 
 class String(Typespec):
