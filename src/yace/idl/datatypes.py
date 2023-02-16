@@ -486,6 +486,6 @@ class String(Typespec):
 
     cls: str = "string"
 
-    width: int = 8
+    character: bool = True
     pointer: int = 1
     const: bool = True
