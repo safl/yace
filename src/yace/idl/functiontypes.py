@@ -40,7 +40,7 @@ class Function(Entity, Named, Documented):
     cls: str = "fun"
     ret: ReturnType
 
-    parameters: typing.List[Parameter]
+    parameters: typing.List[Parameter] = []
 
 
 class FunctionPointer(Entity, Named, Documented, Typed):
