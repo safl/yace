@@ -19,6 +19,7 @@ from pathlib import Path
 from yace import __version__ as version
 from yace.compiler import Compiler
 from yace.parser import CParser
+from yace.idl.formater import do_format
 
 
 def parse_args():
@@ -65,6 +66,11 @@ def parse_args():
         help="Parse and check the given idl-files, then exit",
     )
     parser.add_argument(
+        "--format",
+        action="store_true",
+        help="Format the given yidl-files, then exit",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"%(prog)s {version}",
@@ -108,6 +114,7 @@ def main():
     ok = False
     try:
         args = parse_args()
+        args.filepath = [filepath.resolve() for filepath in args.filepath]
 
         levels = [log.ERROR, log.INFO, log.DEBUG]
         log.basicConfig(
@@ -115,10 +122,13 @@ def main():
             level=levels[min(sum(args.log_level), len(levels) - 1)],
         )
 
-        if args.c_to_yidl:  # Invoke the C to YIDL Compiler
+        if args.format:  # YIDL formater
+            return sys.exit(do_format(args.filepath))
+
+        if args.c_to_yidl:  # C to YIDL Compiler
             return sys.exit(c_header_to_yidl_file(args))
 
-        yace = Compiler(args.target, args.output)  # Invoke the Yace Compiler
+        yace = Compiler(args.target, args.output)  # YIDL Linter and/or Yace Compiler
         ok = all(
             [
                 yace.process(path, ["parse", "lint"] if args.lint else Compiler.STAGES)

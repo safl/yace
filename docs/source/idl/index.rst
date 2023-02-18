@@ -12,5 +12,6 @@
 
    files.rst
    linter.rst
+   formater.rst
    entities/index.rst
    list.rst
