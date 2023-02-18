@@ -33,6 +33,8 @@ Conventions
 
 Their idl representation follows below.
 """
+import inspect
+import sys
 import typing
 
 from .base import Typespec
@@ -237,6 +239,7 @@ class ILongLong(Typespec):
     integer: bool = True
     width: typing.Optional[int] = 64
 
+
 class USize(Typespec):
     """
     Unsigned Size-type
@@ -253,6 +256,7 @@ class USize(Typespec):
     size: bool = True
     unsigned: bool = True
     width: typing.Optional[int] = 16
+
 
 class U8(Typespec):
     """
@@ -470,6 +474,7 @@ class Bool(Typespec):
     boolean: bool = True
     width: int = 8
 
+
 class String(Typespec):
     """
     A string pointer
@@ -486,3 +491,32 @@ class String(Typespec):
     character: bool = True
     pointer: int = 1
     const: bool = True
+
+
+def classes():
+    """Return all datatype classes"""
+
+    return [
+        cls
+        for _, cls in inspect.getmembers(sys.modules[__name__])
+        if inspect.isclass(cls) and issubclass(cls, Typespec) and not cls == Typespec
+    ]
+
+
+def classes_shorthand_data():
+    """Returns a map of shorthands to non-default datatype data"""
+
+    default = Typespec({"cls": "typespec"}).as_dict()  # Default typespec
+
+    shorthands = {}  # Map to return
+    for cls in classes():
+        data = cls().as_dict()  # Setup data
+        del data["lbl"]  # Remove "lbl"
+
+        for key, val in default.items():  # Remove default-values
+            if key in data and data.get(key) == val and key not in ["cls"]:
+                del data[key]
+
+        shorthands[cls.cls] = data  # Add to shorthands
+
+    return shorthands
