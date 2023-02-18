@@ -1,3 +1,5 @@
+.. _sec-idl-linter:
+
 Linter
 ======
 
