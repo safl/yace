@@ -32,7 +32,7 @@ Invalid
 Implementation
 --------------
 
-.. automodule:: yace.linter
+.. automodule:: yace.idl.linter
    :inherited-members:
    :members:
    :undoc-members:

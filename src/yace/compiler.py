@@ -3,7 +3,7 @@ import logging as log
 import typing
 from pathlib import Path
 
-from yace.linter import Linter
+from yace.idl.linter import Linter
 from yace.model import Model
 from yace.targets.capi.target import CAPI
 from yace.targets.ctypes.target import Ctypes
