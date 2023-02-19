@@ -1,35 +1,34 @@
 ---
 meta:
   project: xNVMe
-  version: '0.6.0'
-  lic: BSD-3-Clause
-  author: Simon A. F. Lund <os@safl.dk>
-  prefix: xnvme
+  version: 0.6.0
   brief: Cross-platform I/O library for NVMe devices
   full: Coolio
+  prefix: xnvme
+  author: Simon A. F. Lund <os@safl.dk>
+  lic: BSD-3-Clause
 
 enumerate_action:
-- sym: enumerate_action
-  doc: When enumerating, the enumerate_action instructs what should happen with each discovered device
-  cls: enum
+- cls: enum
+  sym: enumerate_action
+  doc: 'When enumerating, the enumerate_action instructs what should happen with each discovered device'
   members:
-  - {cls: enum_value, sym: dev_keep_open, val: 0x0, doc: "Keep device-handle open after callback returns"}
-  - {cls: enum_value, sym: dev_close, val: 0x1, doc: "Close device-handle when callback returns"}
+  - {cls: enum_value, sym: dev_keep_open, val: 0, doc: Keep device-handle open after callback returns}
+  - {cls: enum_value, sym: dev_close, val: 1, doc: Close device-handle when callback returns}
 
 options:
-- sym: opts
+- cls: struct
+  sym: opts
   doc: xNVMe options
-  cls: struct
   members:
-  - {cls: field, sym: be, typ: string, fmt: "%s", doc: "Backend/system interface to use"}
-  - {cls: field, sym: dev, typ: string, fmt: "%s", doc: "Device manager/enumerator"}
-  - {cls: field, sym: mem, typ: string, fmt: "%s", doc: "Memory allocator to use for buffers"}
-  - {cls: field, sym: sync, typ: string, fmt: "%s", doc: "Synchronous Command-interface"}
-  - {cls: field, sym: async, typ: string, fmt: "%s", doc: "Asynchronous Command-interface"}
-  - {cls: field, sym: admin, typ: string, fmt: "%s", doc: "Administrative Command-interface"}
-  - {cls: field, sym: nsid, typ: u32, fmt: "0x%x", doc: "Namespace identifier"}
-
-  - {cls: field, sym: poll_io, typ: u32, fmt: "0x%x", doc: "io_uring: enable io-polling"}
-  - {cls: field, sym: poll_sq, typ: u8, fmt: "0x%x", doc: "io_uring: enable sqthread-polling"}
-  - {cls: field, sym: register_files, typ: u8, fmt: "0x%x", doc: "io_uring: enable file-registrations"}
-  - {cls: field, sym: register_buffers, typ: u8, fmt: "0x%x", doc: "io_uring: enable buffer-registrations"}
+  - {cls: field, sym: be, typ: string, fmt: '%s', doc: 'Backend/system interface to use'}
+  - {cls: field, sym: dev, typ: string, fmt: '%s', doc: 'Device manager/enumerator'}
+  - {cls: field, sym: mem, typ: string, fmt: '%s', doc: Memory allocator to use for buffers}
+  - {cls: field, sym: sync, typ: string, fmt: '%s', doc: Synchronous Command-interface}
+  - {cls: field, sym: async, typ: string, fmt: '%s', doc: Asynchronous Command-interface}
+  - {cls: field, sym: admin, typ: string, fmt: '%s', doc: Administrative Command-interface}
+  - {cls: field, sym: nsid, typ: u32, fmt: '0x%x', doc: Namespace identifier}
+  - {cls: field, sym: poll_io, typ: u32, fmt: '0x%x', doc: 'io_uring: enable io-polling'}
+  - {cls: field, sym: poll_sq, typ: u8, fmt: '0x%x', doc: 'io_uring: enable sqthread-polling'}
+  - {cls: field, sym: register_files, typ: u8, fmt: '0x%x', doc: 'io_uring: enable file-registrations'}
+  - {cls: field, sym: register_buffers, typ: u8, fmt: '0x%x', doc: 'io_uring: enable buffer-registrations'}
