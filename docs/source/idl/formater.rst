@@ -3,8 +3,8 @@
 Formater
 ========
 
-The ``yidl``-formater is invoked via the ``yace`` command-line. Below are
-examples of what you can expect to see when running it on a valid ``yidl`` in a
+The **Yace**-file formater, ``yace --format <filepath>``. Below are examples of
+what you can expect to see when running it on a valid **Yace**-file in a
 before/after fashion.
 
 Invoking it

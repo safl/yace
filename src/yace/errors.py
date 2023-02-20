@@ -10,7 +10,7 @@ The errors are usually il-formated YAML-files, incorrect
 
 
 class TransformationError(Exception):
-    """Something went wrong during a yidl-transformation"""
+    """Something went wrong during a yid-transformation"""
 
     pass
 

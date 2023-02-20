@@ -5,8 +5,7 @@ from yace.model import ModelWalker
 
 class Linter(ModelWalker):
     """
-    Language Integrity checker for ``yidl`` (**yace** Interface Definition
-    Language)
+    Language Integrity checker for **Yace** Interface Defintion Files
     """
 
     def visit(self, current, ancestors, depth: int):

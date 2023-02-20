@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-The :class:`.Model` provides the root-node for the **Yace** Interface Model, it
-provides helper-functions for loading **Yace** Interface Definition Language
-files from their ``.yaml`` format on the file-system, into the representation
-offered by the **Yace** Interface Model entities.
+The :class:`.Model` provides the root-node for the **Yace** Interface
+Definition, it provides helper-functions for loading **Yace** Interface
+Definition Language files from their ``.yaml`` format on the file-system, into
+the representation offered by the **Yace** Interface Definition
+Language-entities.
 
 * :class:`.Meta`
 * :class:`.Model`
 * :class:`.ModelWalker`
 
-Their **yidl** representation follows below.
+Their **Yace** Interface Definition Language representation follows below.
 """
 import inspect
 import logging
@@ -61,7 +62,7 @@ class Meta:
     brief: str = "yace example"
     full: str = (
         "This description is provided with the default idl-meta, to "
-        "change it, then make sure you have a meta-lbl in your yidl"
+        "change it, then make sure you have a meta-lbl in your yace-file"
     )
 
 

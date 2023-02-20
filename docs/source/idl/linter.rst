@@ -3,9 +3,12 @@
 Linter
 ======
 
-The ``yidl``-linter is called via the ``yace`` command-line. Below are examples
-of what you can expect to see when running it on a valid ``yidl`` and on an
-invalid ``yidl``.
+The **Yace**-file linter (``yace --lint <file>``), checks the given files for
+integrity issues. This inclused issues from as invalid YAML-structure or
+invalid YACE entities.
+
+Below are examples of what you can expect to see when running it on a valid
+**Yace**-file and on an invalid **Yace**-file.
 
 Valid
 -----

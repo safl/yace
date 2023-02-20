@@ -1,5 +1,5 @@
 from pathlib import Path
-from yace.parser import c_header_to_yidl_file
+from yace.parser import c_to_yace
 import tempfile
 
 
@@ -12,5 +12,5 @@ def test_do_format():
         output_path = Path(tmpdir)
 
         assert (
-            c_header_to_yidl_file([path], output_path) == 0
+            c_to_yace([path], output_path) == 0
         ), f"Failed parsing C Header at path: {path}"

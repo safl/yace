@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-The module provides helpers to format a **yidl**-file, that is a .yaml-file
-with Yace IDL entities. A formater provides a tool-based apporach to enable a
-canonical format.
+This module provides helpers to format a **Yace**-file, that is, a
+``.yaml``-file with Yace Interface Definition entities. A formater provides a
+tool-based approach to maintain a canonical format for **Yace**-files.
 
 Since there is a lot of flexibility in **.yaml**-files, a canonical format makes it
 easier to read what others have written. Here is what the canonical format
@@ -12,19 +12,19 @@ entails:
 
 * The ``meta``-key is the first key in the document
 
-  * Raionale: when reading an YIDL, the meta-data should provide the
-    introduction to the YIDL-file, and thus be the first thing int the document
+  * Raionale: when reading a **Yace**-file, the meta-data should provide the
+    introduction to the **Yace**-file, and thus be the first thing int the document
 
 * Top-level keys has an empty line above it
 
-  * Rationale: the top-level keys in YIDL have no significance except for the
-    'meta' key, the intent of all other keys is to provide a "header" / "topic"
-    for the list of entities 
+  * Rationale: the top-level keys in **Yace**-file have no significance except
+    for the 'meta' key, the intent of all other keys is to provide a "header" /
+    "topic" for the list of entities 
 
 * Entity-keys are sorted by an explicit :class:`yace.idl.formater.ORDER`:
 
   * Rationale: this is done for consistency, always provide a well-known
-    ordering, makes it easier to read YIDL files written by others
+    ordering, makes it easier to read **Yace**-file files written by others
   * See the :class:`.ORDER` for the explicit ordering used
 
 * Print "flattened", when there are no nested nested structures
@@ -175,7 +175,7 @@ def yfmt(data, depth):
 
 
 def ydata_to_file(ydata: dict, path: Path):
-    """Dump YIDL-data to file"""
+    """Dump Yace-data to file"""
 
     with path.open("w") as file:
         file.write("---\n")

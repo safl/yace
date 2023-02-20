@@ -17,7 +17,7 @@ from pathlib import Path
 
 from yace import __version__ as version
 from yace.compiler import Compiler
-from yace.parser import c_header_to_yidl_file
+from yace.parser import c_to_yace
 from yace.idl.formater import do_format
 
 
@@ -30,7 +30,7 @@ def parse_args():
         "filepath",
         nargs="+",
         type=Path,
-        help="Path to Yace IDL file or C header",
+        help="Path to Yace File or C Header",
     )
     parser.add_argument(
         "--target",
@@ -55,19 +55,19 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--c-to-yidl",
+        "--c-to-yace",
         action="store_true",
-        help="Treat filepath as C-header and use it to emit a yidl-file, then exit",
+        help="Treat filepath as C Header and use it to emit a Yace-file, then exit",
     )
     parser.add_argument(
         "--lint",
         action="store_true",
-        help="Parse and check the given idl-files, then exit",
+        help="Parse and check the given Yace-files, then exit",
     )
     parser.add_argument(
         "--format",
         action="store_true",
-        help="Format the given yidl-files, then exit",
+        help="Format the given Yace-file, then exit",
     )
     parser.add_argument(
         "--version",
@@ -92,13 +92,15 @@ def main():
             level=levels[min(sum(args.log_level), len(levels) - 1)],
         )
 
-        if args.format:  # YIDL formater
+        if args.format:  # Yace-file formater
             return sys.exit(do_format(args.filepath))
 
-        if args.c_to_yidl:  # C to YIDL Compiler
-            return sys.exit(c_header_to_yidl_file(args.filepath, args.output))
+        if args.c_to_yace:  # C to Yace-file Compiler
+            return sys.exit(c_to_yace(args.filepath, args.output))
 
-        yace = Compiler(args.target, args.output)  # YIDL Linter and/or Yace Compiler
+        yace = Compiler(
+            args.target, args.output
+        )  # Yace-file linter and/or Yace-file Compiler
         ok = all(
             [
                 yace.process(path, ["parse", "lint"] if args.lint else Compiler.STAGES)

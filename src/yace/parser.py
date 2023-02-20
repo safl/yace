@@ -1,10 +1,11 @@
 """
-The goal of this **yace** module is to provide the building-blocks for the
-cli-tool (``yidler``) which arguably simplifies the task of writing ``yidl``
-files (**yace** Interface Definition Language files), so far the approach
-involved providing a simple C Parser:
+The goal of this module is to provide the buildings blocks for a yace-file
+generator. That is, something to aid the creation of **Yace**-files.
 
-* :class:`.CParser`, parse a C header and emit dict/yaml/yidl
+In this specific instance, to parse C Headers, and emit equivalent
+**Yace**-files.
+
+* :class:`.CParser`, parse a C header and emit a **Yace**-file
 """
 import logging as log
 import re
@@ -287,8 +288,8 @@ class CParser(object):
         return entities
 
 
-def c_header_to_yidl_file(paths: typing.List[Path], output: Path):
-    """Optimistically / best-offort transformation of a C header to YIDL"""
+def c_to_yace(paths: typing.List[Path], output: Path):
+    """Optimistically / best-offort transformation of a C Header to YACE File"""
 
     # TODO: this information / structure should be read from a single point,
     # somewhere in the yace.idl module

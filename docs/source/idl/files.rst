@@ -1,19 +1,19 @@
 .. _sec-idl-files:
 
-``yidl`` files
-==============
+Files
+=====
 
-A **yidl** file, is an YAML formated document where some keys in the document
-have *special* meaning. This is what one might call an interface definition
-language (:idl:`idl <>`). By design this is similar to the module definitions
-you find in projects like :swig:`swig <>`.
+A **Yace** Interface Definition File, is an YAML formated document where some
+keys in the document have *special* meaning. This is what one might call an
+interface definition language (:idl:`idl <>`). By design this is similar to the
+module definitions you find in projects like :swig:`swig <>`.
 
-However, unlike other **IDLs**, then ``yidl`` does not define a new grammer that
-you have to learn. Rather it is object-oriented description of the entities
-formated in YAML. Each document in the ``yidl`` thus refers to a class described
-in :ref:`sec-idl-entities`.
+However, unlike other **IDLs**, then **Yace** does not define a new grammer
+that you have to learn. Rather it is object-oriented description of the
+entities formated in YAML. Each document in a **Yace** file thus refers to a
+class described in :ref:`sec-idl-entities`.
 
-.. _sec-idl-yaml-example:
+.. _sec-idl-files-yaml-example:
 
 Example
 -------
@@ -21,16 +21,16 @@ Example
 The key ``meta`` is a *special key* described in greater detail in the
 :py:class:`yace.idl.idl.Meta`.
 
-The remainder of a ``yim`` document consists of lists under keys with arbitrary
-names. These other top-level keys have no special meaning / signifinance, they
-are there to serve as a means to organize the document. Conceptually,
-seciton-headers for the YAML-document.
+The remainder of a **yace** file consists of entities, under a key. These
+top-level keys have no special meaning / signifinance, they are there to serve
+as a means to organize the document. Conceptually, see all the top-level keys
+as "section-headers" in the document.
 
 .. literalinclude:: ../../../models/example.yaml
    :language: yaml
    :lines: 1-
 
-.. _idl-yaml-entities:
+.. _sec-idl-files-entities:
 
 Entities
 --------
