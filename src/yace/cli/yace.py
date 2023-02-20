@@ -12,14 +12,13 @@ TODO
 """
 import argparse
 import logging as log
-import yaml
 import sys
 from pathlib import Path
 
 from yace import __version__ as version
 from yace.compiler import Compiler
 from yace.parser import CParser
-from yace.idl.formater import do_format
+from yace.idl.formater import do_format, ydata_to_file
 
 
 def parse_args():
@@ -102,8 +101,7 @@ def c_header_to_yidl_file(args):
         tu = parser.parse_file(path)
         ydata["entities"] += parser.tu_to_data(tu)
 
-        with (args.output / f"{path.stem}_parsed.yaml").open("w") as yfile:
-            yfile.write(yaml.safe_dump(ydata))
+        ydata_to_file(ydata, args.output / f"{path.stem}_parsed.yaml")
 
     return 0
 
