@@ -30,7 +30,7 @@ def parse_args():
         "filepath",
         nargs="+",
         type=Path,
-        help="Path to Yace File or C Header",
+        help="Path to one or more Yace-file(s) or C Header(s)",
     )
     parser.add_argument(
         "--target",
@@ -57,18 +57,19 @@ def parse_args():
     parser.add_argument(
         "--c-to-yace",
         action="store_true",
-        help="Treat filepath as C Header and use it to emit a Yace-file, then exit",
+        help="Treat filepath(s) as C Header, generate equivalent Yace-file, then exit",
     )
     parser.add_argument(
         "--lint",
         action="store_true",
-        help="Parse and check the given Yace-files, then exit",
+        help="Treat filepath(s) as Yace-file, do integrity check, then exit",
     )
     parser.add_argument(
         "--format",
         action="store_true",
-        help="Format the given Yace-file, then exit",
+        help="Treat filepath(s) as Yace-file, format it, then exit",
     )
+
     parser.add_argument(
         "--version",
         action="version",
