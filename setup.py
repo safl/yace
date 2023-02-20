@@ -8,7 +8,7 @@ except FileNotFoundError:
 
 setup(
     name="yace",
-    version="0.5.2",
+    version="0.5.3",
     author="Simon A. F. Lund",
     author_email="os@safl.dk",
     long_description=long_description,
