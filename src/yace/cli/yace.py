@@ -17,8 +17,8 @@ from pathlib import Path
 
 from yace import __version__ as version
 from yace.compiler import Compiler
-from yace.parser import CParser
-from yace.idl.formater import do_format, ydata_to_file
+from yace.parser import c_header_to_yidl_file
+from yace.idl.formater import do_format
 
 
 def parse_args():
@@ -78,34 +78,6 @@ def parse_args():
     return parser.parse_args()
 
 
-def c_header_to_yidl_file(args):
-    """Optimistically / best-offort transformation of a C header to YIDL"""
-
-    # TODO: this information / structure should be read from a single point,
-    # somewhere in the yace.idl module
-    ydata = {
-        "meta": {
-            "lic": "Unknown License",
-            "version": "0.0.1",
-            "author": "Foo Bar <foo@example.com>",
-            "project": "foo",
-            "prefix": "foo",
-            "brief": "Brief Description",
-            "full": "Full Description",
-        },
-    }
-    ydata["entities"] = []
-
-    parser = CParser()
-    for path in [p.resolve() for p in args.filepath]:
-        tu = parser.parse_file(path)
-        ydata["entities"] += parser.tu_to_data(tu)
-
-        ydata_to_file(ydata, args.output / f"{path.stem}_parsed.yaml")
-
-    return 0
-
-
 def main():
     """Emit enums, structs, and pretty-printer functions for them"""
 
@@ -124,7 +96,7 @@ def main():
             return sys.exit(do_format(args.filepath))
 
         if args.c_to_yidl:  # C to YIDL Compiler
-            return sys.exit(c_header_to_yidl_file(args))
+            return sys.exit(c_header_to_yidl_file(args.filepath, args.output))
 
         yace = Compiler(args.target, args.output)  # YIDL Linter and/or Yace Compiler
         ok = all(

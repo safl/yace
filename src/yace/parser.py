@@ -10,8 +10,10 @@ import logging as log
 import re
 from pathlib import Path
 
+import typing
 from clang.cindex import Config, CursorKind, Index
 import yace.idl.datatypes
+from yace.idl.formater import ydata_to_file
 
 
 REGEX_INTEGER_FIXEDWIDTH = "(?P<unsigned>u?)int(?P<width>8|16|32|64|128)_t"
@@ -203,7 +205,7 @@ class CParser(object):
 
         for child in cursor.get_children():
             if child.kind not in [CursorKind.ENUM_CONSTANT_DECL]:
-                log.warn(f"Skipping: {child} not ENUM_CONSTANT_DECL")
+                log.warning(f"Skipping: {child} not ENUM_CONSTANT_DECL")
                 continue
 
             data["members"].append(
@@ -221,7 +223,7 @@ class CParser(object):
 
         for child in cursor.get_children():
             if child.kind not in [CursorKind.FIELD_DECL]:
-                log.warn(f"Skipping: {child} not ENUM_CONSTANT_DECL")
+                log.warning(f"Skipping: {child} not ENUM_CONSTANT_DECL")
                 continue
 
             child_data = {
@@ -249,7 +251,7 @@ class CParser(object):
 
         for child in cursor.get_children():
             if child.kind not in [CursorKind.PARM_DECL]:
-                log.warn(f"Skipping: {child} not PARM_DECL")
+                log.warning(f"Skipping: {child} not PARM_DECL")
                 continue
 
             child_data = {
@@ -283,3 +285,31 @@ class CParser(object):
             entities.append(entity)
 
         return entities
+
+
+def c_header_to_yidl_file(paths: typing.List[Path], output: Path):
+    """Optimistically / best-offort transformation of a C header to YIDL"""
+
+    # TODO: this information / structure should be read from a single point,
+    # somewhere in the yace.idl module
+    ydata = {
+        "meta": {
+            "lic": "Unknown License",
+            "version": "0.0.1",
+            "author": "Foo Bar <foo@example.com>",
+            "project": "foo",
+            "prefix": "foo",
+            "brief": "Brief Description",
+            "full": "Full Description",
+        },
+    }
+    ydata["entities"] = []
+
+    parser = CParser()
+    for path in [p.resolve() for p in paths]:
+        tu = parser.parse_file(path)
+        ydata["entities"] += parser.tu_to_data(tu)
+
+        ydata_to_file(ydata, output / f"{path.stem}_parsed.yaml")
+
+    return 0
