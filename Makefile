@@ -100,6 +100,9 @@ endef
 coverage:
 	coverage erase
 	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace models/example.yaml
+	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace models/example.yaml --format
+	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace models/example.yaml --lint
+	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace tests/parsing/foo.h --c-to-yace
 	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m pytest -v tests || true
 	coverage report
 	coverage html
