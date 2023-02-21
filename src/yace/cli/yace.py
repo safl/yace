@@ -17,7 +17,7 @@ from pathlib import Path
 
 from yace import __version__ as version
 from yace.compiler import Compiler
-from yace.parser import c_to_yace
+from yace.idl.generator import c_to_yace
 from yace.idl.formater import do_format
 
 

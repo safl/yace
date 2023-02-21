@@ -1,5 +1,5 @@
 from pathlib import Path
-from yace.parser import c_to_yace
+from yace.idl.generator import c_to_yace
 import tempfile
 
 
