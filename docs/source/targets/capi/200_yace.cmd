@@ -1,1 +1,1 @@
-yace ../../../../models/example.yaml --target capi
+yace ../../../../models/example.yaml --emit capi

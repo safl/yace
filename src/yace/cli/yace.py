@@ -30,20 +30,42 @@ def parse_args():
         "filepath",
         nargs="+",
         type=Path,
-        help="Path to one or more Yace-file(s) or C Header(s)",
+        help="path to one or more Yace-file(s) or C Header(s)",
+    ) 
+
+    parser.add_argument(
+        "--emit",
+        nargs="+",
+        choices=sorted([target.NAME for target in Compiler.TARGETS]),
+        default="capi",
+        help="treat filepath(s) as Yace-file, and emit code using target(s), then exit",
     )
     parser.add_argument(
-        "--target",
-        nargs="+",
-        choices=[target.NAME for target in Compiler.TARGETS],
-        default=[target.NAME for target in Compiler.TARGETS][0],
-        help="Targets",
+        "--lint",
+        action="store_true",
+        help="treat filepath(s) as Yace-file, do integrity check, then exit",
     )
+    parser.add_argument(
+        "--format",
+        action="store_true",
+        help="treat filepath(s) as Yace-file, format it, then exit",
+    )
+    parser.add_argument(
+        "--c-to-yace",
+        action="store_true",
+        help="treat filepath(s) as C Header, generate equivalent Yace-file, then exit",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {version}",
+    )
+
     parser.add_argument(
         "--output",
         type=Path,
         default=Path("output"),
-        help="Path to output directory, for emitted code / artifacts",
+        help="path to output directory, for emitted code / artifacts",
     )
     parser.add_argument(
         "--log-level",
@@ -51,29 +73,7 @@ def parse_args():
         action="append_const",
         const=1,
         default=[],
-        help="Increase log-level.",
-    )
-
-    parser.add_argument(
-        "--c-to-yace",
-        action="store_true",
-        help="Treat filepath(s) as C Header, generate equivalent Yace-file, then exit",
-    )
-    parser.add_argument(
-        "--lint",
-        action="store_true",
-        help="Treat filepath(s) as Yace-file, do integrity check, then exit",
-    )
-    parser.add_argument(
-        "--format",
-        action="store_true",
-        help="Treat filepath(s) as Yace-file, format it, then exit",
-    )
-
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=f"%(prog)s {version}",
+        help="increase log-level.",
     )
 
     return parser.parse_args()
@@ -99,18 +99,21 @@ def main():
         if args.c_to_yace:  # C to Yace-file Compiler
             return sys.exit(c_to_yace(args.filepath, args.output))
 
-        yace = Compiler(
-            args.target, args.output
-        )  # Yace-file linter and/or Yace-file Compiler
-        ok = all(
-            [
-                yace.process(path, ["parse", "lint"] if args.lint else Compiler.STAGES)
-                for path in args.filepath
-            ]
-        )
+        if args.emit:
+            yace = Compiler(
+                args.emit, args.output
+            )  # Yace-file linter and/or Yace-file Compiler
+            ok = all(
+                [
+                    yace.process(path, ["parse", "lint"] if args.lint else Compiler.STAGES)
+                    for path in args.filepath
+                ]
+            )
+            return sys.exit(0 if ok else 1)
+
     except Exception as exc:
         log.error("Unhandled Exception: message(%s)", exc)
         log.error("Unhandled Exception: increase log-level (-ll) for trace")
         log.error("Unhandled Exception(%s)", exc, exc_info=True)
 
-    return sys.exit(0 if ok else 1)
+    return sys.exit(1)

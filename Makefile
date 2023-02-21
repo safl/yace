@@ -71,21 +71,21 @@ define emit-xnvme-help
 endef
 .PHONY: emit-xnvme
 emit-xnvme:
-	yace models/xnvme.yaml --target capi ctypes -l --output output/xnvme
+	yace models/xnvme.yaml --emit capi ctypes -l --output output/xnvme
 
 define emit-nvme-help
 # Emit code using the NVMe interface model
 endef
 .PHONY: emit-nvme
 emit-nvme:
-	yace models/nvme.yaml --target capi ctypes -l --output output/nvme
+	yace models/nvme.yaml --emit capi ctypes -l --output output/nvme
 
 define emit-example-help
 # Emit code using the example interface model
 endef
 .PHONY: emit-example
 emit-example:
-	yace models/example.yaml --target capi ctypes -l --output output/example
+	yace models/example.yaml --emit capi ctypes -l --output output/example
 
 define emit-help
 # Emit code for all examples
@@ -99,7 +99,7 @@ endef
 .PHONY: coverage
 coverage:
 	coverage erase
-	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace models/example.yaml
+	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace models/example.yaml --emit capi
 	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace models/example.yaml --format
 	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace models/example.yaml --lint
 	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace tests/parsing/foo.h --c-to-yace
