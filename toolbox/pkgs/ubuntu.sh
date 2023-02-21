@@ -9,6 +9,7 @@ sudo apt-get -qy \
 sudo apt-get -qy autoclean
 
 sudo apt-get -qy install \
+  clang-format \
   doxygen \
   graphviz \
-  clang-format
+  libclang-dev
