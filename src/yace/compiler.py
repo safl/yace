@@ -26,7 +26,7 @@ class Compiler(object):
     """
 
     STAGES = ["parse", "lint", "transform", "emit", "format", "check"]
-    TARGETS = [CAPI, Ctypes] + collect()
+    TARGETS = list(set([CAPI, Ctypes] + collect()))
 
     def __init__(self, targets: typing.List[str], output: Path):
         self.targets = [target for target in Compiler.TARGETS if target.NAME in targets]
