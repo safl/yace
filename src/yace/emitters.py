@@ -3,7 +3,7 @@ YAML ==> Interface(List[Entities]) ==> Emitter() ==> CodeTarget
 """
 from pathlib import Path
 
-from jinja2 import Environment, PackageLoader
+from jinja2 import Environment, FileSystemLoader
 
 
 def camelcase(symbol, pascalcase=True):
@@ -52,15 +52,14 @@ class Emitter(object):
     Is by default handled in one place: the Jinja templates.
     """
 
-    def __init__(self, output: Path, name: str = "base"):
-        self.name = name
-        self.output = output.resolve()
+    def __init__(self, searchpath: Path):
+        self.searchpath = searchpath.resolve()
 
     def render(self, template, args):
         """Renders the given template, passing args..."""
 
         typespec_jenv = Environment(
-            loader=PackageLoader(f"yace.targets.{self.name}", "."),
+            loader=FileSystemLoader(self.searchpath),
             extensions=["jinja2.ext.do"],
         )
         typespec_jenv.globals.update(zip=zip, len=len)
@@ -77,7 +76,7 @@ class Emitter(object):
             return typespec_templates[template].render(**args)
 
         entity_jenv = Environment(
-            loader=PackageLoader(f"yace.targets.{self.name}", "."),
+            loader=FileSystemLoader(self.searchpath),
             extensions=["jinja2.ext.do"],
         )
         entity_jenv.globals.update(zip=zip, len=len)
@@ -96,7 +95,7 @@ class Emitter(object):
             return entity_templates[f"entity_{entity.cls}.h"].render(**args)
 
         file_jenv = Environment(
-            loader=PackageLoader(f"yace.targets.{self.name}", "."),
+            loader=FileSystemLoader(self.searchpath),
             extensions=["jinja2.ext.do"],
         )
         file_jenv.globals.update(zip=zip, len=len)

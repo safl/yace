@@ -7,6 +7,7 @@ import typing
 import inspect
 from yace.targets.target import Target
 
+
 def collect(searchpath: typing.Optional[Path] = None):
     """Searches the current and immediate subdirectories"""
 
@@ -14,7 +15,9 @@ def collect(searchpath: typing.Optional[Path] = None):
         searchpath = Path.cwd()
 
     TARGETS = []
-    for dirpath in [searchpath] + [path for path in searchpath.glob("*") if path.is_dir()]:
+    for dirpath in [searchpath] + [
+        path for path in searchpath.glob("*") if path.is_dir()
+    ]:
         for path in dirpath.glob("target.py"):
             mod = SourceFileLoader(path.stem, str(path)).load_module()
             for _, obj in inspect.getmembers(mod):
@@ -23,8 +26,10 @@ def collect(searchpath: typing.Optional[Path] = None):
 
     return TARGETS
 
+
 def main():
     collect()
+
 
 if __name__ == "__main__":
     main()

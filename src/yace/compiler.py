@@ -9,6 +9,7 @@ from yace.targets.capi.target import CAPI
 from yace.targets.ctypes.target import Ctypes
 from yace.targets.collector import collect
 
+
 class Compiler(object):
     """
     Encapsulation of **yace** compiler stages

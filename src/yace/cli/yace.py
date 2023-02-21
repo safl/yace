@@ -31,7 +31,7 @@ def parse_args():
         nargs="+",
         type=Path,
         help="path to one or more Yace-file(s) or C Header(s)",
-    ) 
+    )
 
     parser.add_argument(
         "--emit",
@@ -105,7 +105,9 @@ def main():
             )  # Yace-file linter and/or Yace-file Compiler
             ok = all(
                 [
-                    yace.process(path, ["parse", "lint"] if args.lint else Compiler.STAGES)
+                    yace.process(
+                        path, ["parse", "lint"] if args.lint else Compiler.STAGES
+                    )
                     for path in args.filepath
                 ]
             )

@@ -49,7 +49,7 @@ class CAPI(Target):
     def __init__(self, output):
         super().__init__(self.NAME, output)
 
-        self.emitter = Emitter(self.output, CAPI.NAME)
+        self.emitter = Emitter(Path(__file__).parent)
 
         self.tools["clang-format"] = ClangFormat(self.output)
         self.tools["doxygen"] = Doxygen(self.output)

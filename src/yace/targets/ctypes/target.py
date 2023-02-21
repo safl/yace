@@ -25,7 +25,7 @@ class Ctypes(Target):
     def __init__(self, output):
         super().__init__(Ctypes.NAME, output)
 
-        self.emitter = Emitter(self.output, Ctypes.NAME)
+        self.emitter = Emitter(Path(__file__).parent)
 
         self.tools = {
             "black": Black(self.output),
