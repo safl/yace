@@ -47,7 +47,7 @@ class CAPI(Target):
     CFLAGS = ["-std=c99", "-pedantic-errors", "-Wall", "-Werror"]
 
     def __init__(self, output):
-        super().__init__(CAPI.NAME, output)
+        super().__init__(self.NAME, output)
 
         self.emitter = Emitter(self.output, CAPI.NAME)
 
