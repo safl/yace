@@ -110,6 +110,9 @@ class Entity(object):
 
         return {attr: getattr(self, attr) for attr in self.all}
 
+    def __repr__(self):
+        return str(self.as_dict())
+
 
 class Typespec(Entity):
     """
