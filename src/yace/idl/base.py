@@ -29,8 +29,7 @@ def all_annotations(cls) -> ChainMap:
 
 class Entity(object):
     """
-    This is the baseclass for all entities in the Yace Interface Model
-    (:class:`yace.model.Model`)
+    A baseclass for all entities in the Yace Interface Definition Language.
 
     It is defined as the Python dataclasses got in the way, this instead as a
     fixed set of functionality:
@@ -44,6 +43,7 @@ class Entity(object):
 
     cls: str  # The Yace-IDL constructor keyword
     lbl: typing.List[str] = ["nope"]  # Labels
+    ant: dict = {}  # User-defined annotations if any kind
 
     def __init__(self, args: dict = {}):
         self.annotations = all_annotations(self.__class__)
