@@ -43,10 +43,14 @@ class Entity(object):
 
     cls: str  # The Yace-IDL constructor keyword
     lbl: typing.List[str] = ["nope"]  # Labels
-    ant: dict = {}  # User-defined annotations if any kind
+    ant: typing.Optional[dict]  # User-defined annotations of any kind
 
-    def __init__(self, args: dict = {}):
+    def __init__(self, args: typing.Optional[typing.Dict] = None):
         self.annotations = all_annotations(self.__class__)
+
+        if args is None:
+            args = dict()
+        args["ant"] = args.get("ant", dict())
 
         self.all = list(self.annotations)
         self.required = []

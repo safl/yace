@@ -42,6 +42,8 @@ def data_from_yaml(path: Path) -> Tuple[Dict, List[Dict]]:
                 if "lbl" not in entity:
                     entity["lbl"] = []
                 entity["lbl"].append(lbl)
+                if "ant" not in entity:
+                    entity["ant"] = {}
                 entities.append(entity)
 
     return meta, entities
