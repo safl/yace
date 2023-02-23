@@ -44,7 +44,7 @@ class CAPI(Target):
     """
 
     NAME = "capi"
-    CFLAGS = ["-std=c99", "-pedantic-errors", "-Wall", "-Werror"]
+    CFLAGS = ["-std=c11", "-pedantic-errors", "-Wall", "-Werror"]
 
     def __init__(self, output):
         super().__init__(self.NAME, output)
