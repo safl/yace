@@ -7,26 +7,36 @@
  *
  * @{{ ent.cls }}
  */
-{{ ent.cls | replace("bitfield", "struct") }} {{ ent.sym }} {
-{%- if ent.cls in ["bitfield"] %}
-{%- for member in ent.members %}
-	uint{{ ent.width }}_t {{ member.sym }} : {{ member.width }}; ///< {{ member.doc }}
-{%- endfor %}
-{%- else -%}
-	{{ loop(ent.members) }}
-{%- endif %}
+{% if ent.cls in ["bitfield"] %}
+union {{ ent.sym }} {
+        struct {
+                {% for member in ent.members -%}
+                uint{{ ent.width }}_t {{ member.sym }} : {{ member.width }}; ///< {{ member.doc }}
+                {% endfor %}
+        };
+        uint{{ ent.width }}_t raw;
 };
-{%- elif ent.cls in ["struct", "union", "bitfield"] and inner %}
-{{ ent.cls | replace("bitfield", "struct") }} {
-{%- if ent.cls in ["bitfield"] %}
-{%- for member in ent.members %}
-	uint{{ ent.width }}_t {{ member.sym }} : {{ member.width }}; ///< {{ member.doc }}
-{%- endfor %}
-{%- else -%}
-	{{ loop(ent.members) }}
+{% else -%}
+{{ ent.cls }} {{ ent.sym }} {
+        {{ loop(ent.members) }}
+};
 {%- endif %}
-} {% if ent.sym %}{{ ent.sym }}{% endif %};
-{%- elif ent.cls in ["field"] %}
+{% elif ent.cls in ["struct", "union", "bitfield"] and inner %}
+{% if ent.cls in ["bitfield"] %}
+union {
+        struct {
+                {% for member in ent.members -%}
+                uint{{ ent.width }}_t {{ member.sym }} : {{ member.width }}; ///< {{ member.doc }}
+                {% endfor %}
+        };
+        uint{{ ent.width }}_t raw;
+} {% if ent.sym %}{{ ent.sym }}{% endif %}; ///< {{ ent.doc }}
+{% else -%}
+{{ ent.cls }} {
+	{{ loop(ent.members) }}
+} {% if ent.sym %}{{ ent.sym }}{% endif %}; ///< {{ ent.doc }}
+{% endif %}
+{% elif ent.cls in ["field"] -%}
 	{{ ent | emit_typespec }}; ///< {{ ent.doc }}
 {%- endif %}
-{%- endfor %}
+{% endfor %}
