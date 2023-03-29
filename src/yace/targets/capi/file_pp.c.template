@@ -43,10 +43,14 @@ static int
         {% set indent = loop.depth * 2 %}
         {% set accessor = token + member.sym %}
 
-	{%- if member.cls in ["field"] and "rsvd" in member.sym -%}
+	{%- if member.cls in ["field", "fits"] and "rsvd" in member.sym -%}
 
         wrtn += fprintf(stream, "%*s{{ member.sym }}: RESERVED\n", {{ indent }}, "");
-	
+
+	{%- elif "invalid" in member.sym -%}
+
+        wrtn += fprintf(stream, "%*s{{ member.sym }}: INVALID\n", {{ indent }}, "");
+
         {%- elif member.cls in ["field"] -%}
 
         wrtn += fprintf(stream, "%*s{{ member.sym }}: {{ member.fmt }}\n", {{ indent }}, "", {{ accessor }});
@@ -84,6 +88,9 @@ static int
 
 	{%- if member.cls in ["field"] and "rsvd" in member.sym -%}
         wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": \"RESERVED\"", {{ indent }}, "");
+
+	{%- elif "invalid" in member.sym -%}
+        wrtn += fprintf(stream, "%*s{{ member.sym }}: \"INVALID\"", {{ indent }}, "");
 
 	{%- elif member.cls in ["field"] and member.typ.integer -%}
         wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": %"PRIu{{ member.typ.width }}"", {{ indent }}, "", {{ accessor }});
