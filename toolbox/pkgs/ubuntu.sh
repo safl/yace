@@ -9,7 +9,10 @@ sudo apt-get -qy \
 sudo apt-get -qy autoclean
 
 sudo apt-get -qy install \
+  black \
   clang-format \
   doxygen \
   graphviz \
-  libclang-dev
+  isort \
+  libclang-dev \
+  python3-coverage

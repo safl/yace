@@ -15,12 +15,6 @@ endef
 .PHONY: all
 all: uninstall clean build install emit
 
-define all-system-help
-# Do all: clean uninstall build install-system
-endef
-.PHONY: all-system
-all-system: uninstall clean build install emit
-
 define build-help
 # Build the package (source distribution package)
 endef
@@ -36,7 +30,7 @@ endef
 .PHONY: install
 install:
 	@echo "## ${PROJECT}: make install"
-	@python3 -m pip install dist/*.tar.gz --user --no-build-isolation
+	@pipx install dist/*.tar.gz
 	@echo "## ${PROJECT}: make install [DONE]"
 
 define uninstall-help
@@ -45,17 +39,8 @@ endef
 .PHONY: uninstall
 uninstall:
 	@echo "## ${PROJECT}: make uninstall"
-	@python3 -m pip uninstall ${PROJECT} --yes || echo "Cannot uninstall => That is OK"
+	@pipx uninstall ${PROJECT} || echo "Cannot uninstall => That is OK"
 	@echo "## ${PROJECT}: make uninstall [DONE]"
-
-define install-system-help
-# install system-wide
-endef
-.PHONY: install-system
-install-system:
-	@echo "## ${PROJECT}: make install-system"
-	@python3 -m pip install dist/*.tar.gz
-	@echo "## ${PROJECT}: make install-system [DONE]"
 
 define clean-help
 # clean build artifacts (build, dist, output)

@@ -36,29 +36,36 @@ jobs:
 
     - name: Python Environment
       run: |
-        python -m site --user-base
-        echo "$(python -m site --user-base)/bin" >> $GITHUB_PATH
+        python3 -m site --user-base
+        python3 -m pip install --upgrade pip
+        python3 -m pip install pipx
+        python3 -m pipx ensurepath
+        echo "$(python3 -m site --user-base)/bin" >> $GITHUB_PATH
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
 
     - name: Install dependencies
       run: |
-        python -m pip install coverage black isort
-        python -m pip install --upgrade pip
-        python -m pip install -r requirements.txt
         ./toolbox/pkgs/${{ matrix.os.name }}.sh
-
-    - name: Build
-      run: |
-        make all
+        make uninstall clean build install
+        pipx inject yace jinja2
+        pipx inject yace pytest
+        pipx inject yace pyyaml
 
     - name: Executable entry-points
       run: |
         yace --help
-        python3 -m yace --help
+        black --help
+        isort --help
+#        coverage --help
 
-    - name: Produce coverage report
+    - name: Emit
       run: |
-        make coverage
-        mv htmlcov output/
+        make emit
+
+#     - name: Produce coverage report
+#     run: |
+#       make coverage
+#       mv htmlcov output/
 
     - name: Upload generated sources and doxygen
       uses: actions/upload-artifact@v3.1.1
@@ -67,12 +74,12 @@ jobs:
         path: output/*
         if-no-files-found: error
 
-    - name: Publish Coveralls
-      if: (startsWith(github.ref, 'refs/tags/v') && (matrix.os.name == 'ubuntu') && (matrix.python-version == '3.7'))
-      uses: coverallsapp/github-action@master
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        path-to-lcov: coverage.lcov
+#    - name: Publish Coveralls
+#      if: (startsWith(github.ref, 'refs/tags/v') && (matrix.os.name == 'ubuntu') && (matrix.python-version == '3.7'))
+#      uses: coverallsapp/github-action@master
+#      with:
+#        github-token: ${{ secrets.GITHUB_TOKEN }}
+#        path-to-lcov: coverage.lcov
 
     - name: Publish Package
       if: (startsWith(github.ref, 'refs/tags/v') && (matrix.os.name == 'ubuntu') && (matrix.python-version == '3.7'))
