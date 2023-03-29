@@ -113,6 +113,7 @@ define release-upload-help
 endef
 .PHONY: release-upload
 release-upload:
+	python -m pip install twine
 	twine upload dist/*
 
 define release-upload-help

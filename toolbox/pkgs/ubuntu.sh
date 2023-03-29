@@ -15,4 +15,5 @@ sudo apt-get -qy install \
   graphviz \
   isort \
   libclang-dev \
+  twine \
   python3-coverage
