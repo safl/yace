@@ -27,12 +27,18 @@ In case it does not, then check your :lang-python:`Python <>` environment, in ca
 it is due to an error with **yace** then please submit an issue on
 :github-yace-issues:`GitHUB <>`.
 
-.. note:: A common issue with the above approach is that you get an error
-   message lige ``command not found: yace``, this is because ``yace`` is not in
-   in one of the locations that the ``PATH`` environment variable is pointing
-   to.  Make sure that it is by adding the Python bin location to ``PATH``::
+.. note::
+   A common issue with the above approach is that you get an error message lige
+   ``command not found: yace``, this is because ``yace`` is not in in one of
+   the locations that the ``PATH`` environment variable is pointing to. When
+   using ``pipx`` then this can be resovel with::
 
-     echo "export PATH=$(python -m site --user-base)/bin" >> $HOME/.bash_profile
+     pipx ensurepath
+
+     # Re-login, source your shell-config, or start a new shell, eg
+     $SHELL
+
+   That is, when running bash-like shell, adjust according to your environment.
 
 The above is all that is needed for the code-emission functionality of
 **yace**, however, to take things a bit further then **yace** utilizes a
@@ -58,3 +64,14 @@ ci-tasks.
 Regardless or whether you choose to install the tools ahead-of-time or
 just-in-time, then continue to the next section for a brief introduction to
 using **yace** in the :ref:`sec-usage` section.
+
+Dockerized Build
+----------------
+
+This is primarily a reference on how to bring up a docker-image, to test the build of **yace**::
+
+  docker run \
+    -it \
+    --mount type=bind,source=$HOME/git/yace,target=/tmp/yace \
+    ghcr.io/xnvme/xnvme-deps-debian-bullseye:next \
+    bash

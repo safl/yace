@@ -1,1 +1,1 @@
-yace --c-to-yace example.h
+#yace --c-to-yace example.h

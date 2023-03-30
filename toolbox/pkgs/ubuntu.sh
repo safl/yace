@@ -2,17 +2,37 @@
 # Unattended update and upgrade
 export DEBIAN_FRONTEND=noninteractive
 export DEBIAN_PRIORITY=critical
-sudo apt-get -qy update
-sudo apt-get -qy \
+apt-get -qy update
+apt-get -qy \
   -o "Dpkg::Options::=--force-confdef" \
   -o "Dpkg::Options::=--force-confold" upgrade
-sudo apt-get -qy autoclean
+apt-get -qy autoclean
 
-sudo apt-get -qy install \
-  black \
+# For yace
+#
+# libclang-dev, required for the ``yace --c-to-yace`` functionality
+# pipx, neded by yace-cli / Python venv management for cli-tools, option: required
+# make, invoke the various tasks via Makefile, dev-option: optional
+# python3-setuptools, building yace dist-package, dev-option: required
+# python3-wheel, building yace dist-package, dev-option: required
+# twine, required to upload the yace Python package to PyPI via GHA, dev-option: required
+# tree, utilized by documentation/kmdo
+#
+apt-get -qy install \
+  libclang-dev \
+  make \
+  pipx \
+  python3-setuptools \
+  python3-wheel \
+  tree \
+  twine
+
+# For yace: C API Target
+apt-get -qy install \
+  build-essential \
   clang-format \
   doxygen \
-  graphviz \
-  isort \
-  libclang-dev \
-  python3-coverage
+  graphviz
+
+# This **should** ensure that yace cli is invokable
+pipx ensurepath

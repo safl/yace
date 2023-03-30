@@ -1,1 +1,1 @@
-python3 -m pip install yace --user
+pipx install yace --include-deps

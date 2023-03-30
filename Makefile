@@ -13,7 +13,14 @@ define all-help
 # Do all: clean uninstall build install
 endef
 .PHONY: all
-all: uninstall clean build install emit
+all: deps uninstall clean build install emit docs
+
+define deps-help
+# Install dependencies; this will install what is available via PyPI using pipx
+endef
+.PHONY: deps
+deps:
+	./toolbox/pkgs/python.sh
 
 define build-help
 # Build the package (source distribution package)
@@ -122,12 +129,24 @@ endef
 release: clean release-build release-upload
 	@echo -n "# rel: "; date
 
+define docs-build-prep-help
+# Install Sphinx Doc. in a pipx-venv along with jinja2, pygments-ansi-color, and sphinxcontrib-gtagjs
+endef
+.PHONY: docs-build-prep
+docs-build-prep:
+	pipx install sphinx
+	pipx inject sphinx jinja2
+	pipx inject sphinx pygments-ansi-color
+	pipx inject sphinx sphinxcontrib-gtagjs
+	pipx inject sphinx furo
+	pipx inject sphinx dist/*.tar.gz
+
 define docs-build-help
 # generate documentation
 endef
 .PHONY: docs-build
 docs-build:
-	./toolbox/gen_entity_index.py > docs/source/idl/list.rst
+	~/.local/pipx/venvs/yace/bin/python ./toolbox/gen_entity_index.py > docs/source/idl/list.rst
 	cd docs && rm -rf build
 	cd docs/source/install && kmdo .
 	cd docs/source/usage && kmdo .
@@ -137,7 +156,7 @@ docs-build:
 	cd docs && make html
 
 define docs-view-help
-# open the HTML
+# open the HTML version documentation
 endef
 .PHONY: docs-view
 docs-view:
@@ -147,7 +166,7 @@ define docs-help
 # generate documentation and open the HTML
 endef
 .PHONY: docs
-docs: docs-build docs-view
+docs: docs-build-prep docs-build
 
 define format-help
 # run code format (style, code-conventions and language-integrity) on staged changes
