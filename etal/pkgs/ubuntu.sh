@@ -22,6 +22,8 @@ apt-get -qy install \
   libclang-dev \
   make \
   pipx \
+  python3 \
+  python3-pip \
   python3-setuptools \
   python3-wheel \
   tree \

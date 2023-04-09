@@ -29,36 +29,34 @@ jobs:
     - name: Grab source
       uses: actions/checkout@v3.1.0
 
-    - name: Python Setup (${{ matrix.python-version }})
+    - name: System, setup Python (${{ matrix.python-version }})
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Python Environment
+    - name: System, install dependencies
       run: |
-        python3 -m site --user-base
-        python3 -m pip install --upgrade pip
-        python3 -m pip install pipx
-        python3 -m pipx ensurepath
+        make deps
+
+    - name: System, adjust the GITHUB_PATH
+      run: |
         echo "$(python3 -m site --user-base)/bin" >> $GITHUB_PATH
         echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-    - name: Install dependencies
+    - name: Yace, install
       run: |
-        ./toolbox/pkgs/${{ matrix.os.name }}.sh
         make uninstall clean build install
-        pipx inject yace jinja2
-        pipx inject yace pytest
-        pipx inject yace pyyaml
 
-    - name: Executable entry-points
+    - name: System, executable entry-points
       run: |
-        yace --help
-        black --help
-        isort --help
+        yace --version
+        black --version
+        isort --version
+        doxygen --version
+        gcc --version
 #        coverage --help
 
-    - name: Emit
+    - name: Yace, Emit
       run: |
         make emit
 

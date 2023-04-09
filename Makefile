@@ -1,5 +1,16 @@
 PROJECT=yace
-TOOLBOX_PATH=toolbox
+TOOLBOX_PATH=etal
+
+ifeq ($(PLATFORM_ID),Windows)
+else
+PLATFORM_ID = $$( uname -s )
+endif
+PLATFORM = $$( \
+	case $(PLATFORM_ID) in \
+		( Linux | FreeBSD | OpenBSD | NetBSD | Windows | Darwin ) echo $(PLATFORM_ID) ;; \
+		( * ) echo Unrecognized ;; \
+	esac)
+
 
 define default-help
 # invoke: 'make uninstall', 'make install'
@@ -16,11 +27,24 @@ endef
 all: deps uninstall clean build install emit docs
 
 define deps-help
-# Install dependencies; this will install what is available via PyPI using pipx
+# Install dependencies; this will install deps. via PyPI/pipx and system package-manager
+#
+# This assumes that you are running as a 'sudo' capable user on Ubuntu/Debian
 endef
 .PHONY: deps
 deps:
-	./toolbox/pkgs/python.sh
+	if [ "${PLATFORM_ID}" == "Darwin" ]; then ./etal/pkgs/macos.sh; else sudo ./etal/pkgs/ubuntu.sh; fi
+	./etal/pkgs/python.sh
+
+define docker-help
+# drop into a docker instance with the repository bind-mounted at /tmp/yace
+endef
+.PHONY: docker
+docker:
+	@echo "## ${PROJECT}: docker"
+	@docker run -it -w /tmp/${PROJECT} --mount type=bind,source="$(shell pwd)",target=/tmp/${PROJECT} debian:bookworm bash
+	@echo "## ${PROJECT}: docker [DONE]"
+
 
 define build-help
 # Build the package (source distribution package)
@@ -146,7 +170,7 @@ define docs-build-help
 endef
 .PHONY: docs-build
 docs-build:
-	~/.local/pipx/venvs/yace/bin/python ./toolbox/gen_entity_index.py > docs/source/idl/list.rst
+	$(shell pipx environment -v PIPX_LOCAL_VENVS)/sphinx/bin/python ./etal/gen_entity_index.py > docs/source/idl/list.rst
 	cd docs && rm -rf build
 	cd docs/source/install && kmdo .
 	cd docs/source/usage && kmdo .
@@ -200,4 +224,4 @@ define help-help
 endef
 .PHONY: help
 help:
-	@./$(TOOLBOX_PATH)/print_help.py --repos .
+	@./$(TOOLBOX_PATH)/mkhelp.py --repos .

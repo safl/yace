@@ -34,14 +34,11 @@ jobs:
     - name: Setup Pages
       uses: actions/configure-pages@v2
 
-    - name: Install dependencies
+    - name: System, install dependencies
       run: |
-        python3 -m pip install --upgrade pip
-        python3 -m pip install -r docs/requirements.txt
-        python3 -m pip install -r requirements.txt
-        ./toolbox/pkgs/ubuntu.sh
+        make deps
 
-    - name: Build and install Yace
+    - name: Yace, Build and install
       run: make all
 
     - name: Build pages
