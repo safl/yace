@@ -8,10 +8,12 @@ In this specific instance, to parse C Headers, and emit equivalent
 * :class:`.CParser`, parse a C header and emit a **Yace**-file
 """
 import logging as log
+import os
 import re
 from pathlib import Path
 
 import typing
+import clang
 from clang.cindex import Config, CursorKind, Index
 import yace.idl.datatypes
 from yace.idl.formater import ydata_to_file
@@ -189,9 +191,16 @@ class CParser(object):
     def __init__(self):
         """Figure out a way to setup the index..."""
 
-        Config().set_library_path("/Library/Developer/CommandLineTools/usr/lib/")
-        index = Index.create()
-        self.index = index
+        searchpath = print(os.environ.get("YACE_SEARCHPATH_LIBCLANG"))
+        if not searchpath:
+            for path in Path(clang.__file__).resolve().parent.rglob("*libclang.*"):
+                if path.suffix in [".dylib", ".so"]:
+                    searchpath = str(path.parent)
+                    break
+        if searchpath:
+            Config().set_library_path(searchpath)
+
+        self.index = Index.create()
 
     def parse_file(self, path: Path):
         """Parse the given file into a :class:`clang.cindex.TranslationUnit`."""

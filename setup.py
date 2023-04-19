@@ -19,7 +19,7 @@ setup(
     install_requires=[
         "jinja2",
         "pyyaml",
-        "libclang",
+        "libclang==14.0.1",
         "setuptools>=60",
     ],
     python_requires=">=3.7",
