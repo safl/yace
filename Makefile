@@ -16,9 +16,7 @@ define default-help
 # invoke: 'make uninstall', 'make install'
 endef
 .PHONY: default
-default: build
-	@echo "## ${PROJECT}: make default"
-	@echo "## ${PROJECT}: make default [DONE]"
+default: help
 
 define all-help
 # Do all: clean uninstall build install
