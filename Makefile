@@ -1,5 +1,5 @@
 PROJECT=yace
-TOOLBOX_PATH=etal
+AUX_PATH=auxi
 
 ifeq ($(PLATFORM_ID),Windows)
 else
@@ -33,8 +33,8 @@ define deps-help
 endef
 .PHONY: deps
 deps:
-	if [ "${PLATFORM_ID}" == "Darwin" ]; then ./etal/pkgs/macos.sh; else sudo ./etal/pkgs/ubuntu.sh; fi
-	./etal/pkgs/python.sh
+	if [ "${PLATFORM_ID}" == "Darwin" ]; then ./$(AUX_PATH)/pkgs/macos.sh; else sudo ./$(AUX_PATH)/pkgs/ubuntu.sh; fi
+	./$(AUX_PATH)/pkgs/python.sh
 
 define docker-help
 # drop into a docker instance with the repository bind-mounted at /tmp/yace
@@ -56,7 +56,7 @@ build:
 	@echo "## ${PROJECT}: make build-sdist [DONE]"
 
 define install-help
-# install for current user
+# install using pipx
 endef
 .PHONY: install
 install:
@@ -65,7 +65,7 @@ install:
 	@echo "## ${PROJECT}: make install [DONE]"
 
 define uninstall-help
-# uninstall - Prefix with 'sudo' when uninstalling a system-wide installation
+# uninstall via pipx
 endef
 .PHONY: uninstall
 uninstall:
@@ -170,7 +170,7 @@ define docs-build-help
 endef
 .PHONY: docs-build
 docs-build:
-	$(shell pipx environment -v PIPX_LOCAL_VENVS)/sphinx/bin/python ./etal/gen_entity_index.py > docs/source/idl/list.rst
+	$(shell pipx environment -v PIPX_LOCAL_VENVS)/sphinx/bin/python ./$(AUX_PATH)/gen_entity_index.py > docs/source/idl/list.rst
 	cd docs && rm -rf build
 	cd docs/source/install && kmdo .
 	cd docs/source/usage && kmdo .
@@ -216,7 +216,7 @@ endef
 .PHONY: bump
 bump:
 	@echo "## ${PROJECT}: bump"
-	@./$(TOOLBOX_PATH)/bump.py
+	@./$(AUX_PATH)/bump.py
 	@echo "## ${PROJECT}: bump [DONE]"
 
 define help-help
@@ -224,4 +224,4 @@ define help-help
 endef
 .PHONY: help
 help:
-	@./$(TOOLBOX_PATH)/mkhelp.py --repos .
+	@./$(AUX_PATH)/mkhelp.py --repos .
