@@ -6,5 +6,5 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.ruff]
-
+select = ["E", "F", "I"]
 per-file-ignores = {"src/yace/idl/datatypes.py" = ["E742"]}
