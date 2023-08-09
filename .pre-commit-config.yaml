@@ -14,7 +14,7 @@ repos:
 
 # Both the yace-models as well as the github-action yaml gets formatted
 - repo: https://github.com/jumanjihouse/pre-commit-hook-yamlfmt
-  rev: 0.2.2
+  rev: 0.2.3
   hooks:
   - id: yamlfmt
     name: YAML-format
@@ -28,13 +28,13 @@ repos:
     files: \.(yaml|yml)$
 
 - repo: https://github.com/psf/black
-  rev: 23.1.0
+  rev: 23.7.0
   hooks:
   - id: black
     name: Python-format-black
 
 - repo: https://github.com/charliermarsh/ruff-pre-commit
-  rev: v0.0.244
+  rev: v0.0.283
   hooks:
   - id: ruff
     args: ["--fix"]
