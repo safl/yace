@@ -1,10 +1,11 @@
 """
 Collect compiler-targets from the current workdir
 """
+import inspect
+import typing
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
-import typing
-import inspect
+
 from yace.targets.target import Target
 
 

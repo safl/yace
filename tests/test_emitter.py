@@ -1,5 +1,4 @@
 import pytest
-
 from yace.emitters import camelcase
 
 SNAKECASE = ["foo", "foo_bar", "foo_bar_baz"]

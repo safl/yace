@@ -6,8 +6,8 @@ from pathlib import Path
 from yace.idl.linter import Linter
 from yace.model import Model
 from yace.targets.capi.target import CAPI
-from yace.targets.ctypes.target import Ctypes
 from yace.targets.collector import collect
+from yace.targets.ctypes.target import Ctypes
 
 
 class Compiler(object):

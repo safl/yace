@@ -52,12 +52,13 @@ tool/api could do the above. However, I have not found anything which could.
 Thus this module. In case somebody reads this, and knows of a simpler approach
 achieving the above, please to send a PR.
 """
-from pathlib import Path
-import typing
-import string
-import yaml
-import os
 import logging as log
+import os
+import string
+import typing
+from pathlib import Path
+
+import yaml
 
 ORDER = [
     "meta",

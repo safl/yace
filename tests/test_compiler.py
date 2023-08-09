@@ -2,7 +2,6 @@ from itertools import product
 from pathlib import Path
 
 import pytest
-
 from yace.compiler import Compiler
 
 VALID = [

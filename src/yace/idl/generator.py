@@ -10,14 +10,14 @@ In this specific instance, to parse C Headers, and emit equivalent
 import logging as log
 import os
 import re
+import typing
 from pathlib import Path
 
-import typing
 import clang
 from clang.cindex import Config, CursorKind, Index
+
 import yace.idl.datatypes
 from yace.idl.formater import ydata_to_file
-
 
 REGEX_INTEGER_FIXEDWIDTH = "(?P<unsigned>u?)int(?P<width>8|16|32|64|128)_t"
 
