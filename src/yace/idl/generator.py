@@ -319,7 +319,7 @@ def c_to_yace(paths: typing.List[Path], output: Path):
     for path in [p.resolve() for p in paths]:
         tu = parser.parse_file(path)
         ydata["entities"] += parser.tu_to_data(tu)
-
+        output.mkdir(parents=True, exist_ok=True)
         ydata_to_file(ydata, output / f"{path.stem}_parsed.yaml")
 
     return 0
