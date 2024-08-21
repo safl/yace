@@ -3,14 +3,11 @@ meta:
   project: NVMe
   version: 0.0.1
   brief: NVMe structs, enum, values and helper function declarations
-  full: 'If an entity is defined in the NVMe specification, then an enum or struct
-    should exist in this
+  full: 'If an entity is defined in the NVMe specification, then an enum or struct should exist in this
 
-    header file. The purpose of this is to provide a single point of entry for spec.
-    definitions for
+    header file. The purpose of this is to provide a single point of entry for spec. definitions for
 
-    the purpose of providing structs with accessors, and enums for values such as
-    command opcodes.
+    the purpose of providing structs with accessors, and enums for values such as command opcodes.
 
     '
   prefix: nvme
@@ -408,7 +405,7 @@ identify:
   - cls: enum_value
     sym: setl
     val: {cls: hex, lit: 4}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: ns_iocs
     val: {cls: hex, lit: 5}
@@ -416,55 +413,55 @@ identify:
   - cls: enum_value
     sym: ctrlr_iocs
     val: {cls: hex, lit: 6}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: nslist_iocs
     val: {cls: hex, lit: 7}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: nslist_alloc
     val: {cls: hex, lit: 16}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: ns_alloc
     val: {cls: hex, lit: 17}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: ctrlr_ns
     val: {cls: hex, lit: 18}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: ctrlr_sub
     val: {cls: hex, lit: 19}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: ctrlr_pri
     val: {cls: hex, lit: 20}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: ctrlr_sec
     val: {cls: hex, lit: 21}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: nsgran
     val: {cls: hex, lit: 22}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: uuidl
     val: {cls: hex, lit: 23}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: nslist_alloc_iocs
     val: {cls: hex, lit: 26}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: ns_alloc_iocs
     val: {cls: hex, lit: 27}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: iocs
     val: {cls: hex, lit: 28}
-    doc: ...
+    doc: '...'
 
 command_set_identifiers:
 - cls: enum
@@ -575,31 +572,31 @@ zns:
   - cls: enum_value
     sym: close
     val: {cls: hex, lit: 0}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: finish
     val: {cls: hex, lit: 1}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: open
     val: {cls: hex, lit: 3}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: reset
     val: {cls: hex, lit: 4}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: offline
     val: {cls: hex, lit: 5}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: set_descr_extension
     val: {cls: hex, lit: 16}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: zrwa_flush
     val: {cls: hex, lit: 17}
-    doc: ...
+    doc: '...'
 - cls: enum
   sym: zns_zra
   doc: This is a doc description
@@ -607,11 +604,11 @@ zns:
   - cls: enum_value
     sym: report_zones
     val: {cls: hex, lit: 0}
-    doc: ...
+    doc: '...'
   - cls: enum_value
     sym: extended_report_zones
     val: {cls: hex, lit: 1}
-    doc: ...
+    doc: '...'
 - cls: enum
   sym: zns_zras
   doc: This is a doc description
@@ -726,7 +723,7 @@ nvm:
   - cls: bitfield
     sym: bits
     width: 32
-    doc: null
+    doc:
     members:
     - {cls: bits, sym: sanact, width: 3, doc: Sanitize Action}
     - {cls: bits, sym: ause, width: 1, doc: Allow unrestr. san. exit}

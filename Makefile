@@ -22,17 +22,8 @@ define all-help
 # Do all: clean uninstall build install
 endef
 .PHONY: all
-all: deps uninstall clean build install emit docs
+all: uninstall clean build install emit docs
 
-define deps-help
-# Install dependencies; this will install deps. via PyPI/pipx and system package-manager
-#
-# This assumes that you are running as a 'sudo' capable user on Ubuntu/Debian
-endef
-.PHONY: deps
-deps:
-	if [ "${PLATFORM_ID}" == "Darwin" ]; then ./$(AUX_PATH)/pkgs/macos.sh; else sudo ./$(AUX_PATH)/pkgs/ubuntu.sh; fi
-	./$(AUX_PATH)/pkgs/python.sh
 
 define docker-help
 # drop into a docker instance with the repository bind-mounted at /tmp/yace
@@ -43,23 +34,13 @@ docker:
 	@docker run -it -w /tmp/${PROJECT} --mount type=bind,source="$(shell pwd)",target=/tmp/${PROJECT} debian:bookworm bash
 	@echo "## ${PROJECT}: docker [DONE]"
 
-
-define build-help
-# Build the package (source distribution package)
-endef
-.PHONY: build
-build:
-	@echo "## ${PROJECT}: make build-sdist"
-	@python3 setup.py sdist
-	@echo "## ${PROJECT}: make build-sdist [DONE]"
-
 define install-help
 # install using pipx
 endef
 .PHONY: install
 install:
 	@echo "## ${PROJECT}: make install"
-	@pipx install dist/*.tar.gz
+	@pipx install . -e --force
 	@echo "## ${PROJECT}: make install [DONE]"
 
 define uninstall-help
@@ -134,8 +115,8 @@ define release-build-help
 endef
 .PHONY: release-build
 release-build:
-	python setup.py sdist
-	python setup.py bdist_wheel
+	python3 -m build --sdist
+	python3 -m build --bdist_wheel
 
 define release-upload-help
 # Upload Python distribution (sdist, bdist_wheel)
