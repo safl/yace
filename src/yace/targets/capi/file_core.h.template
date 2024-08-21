@@ -17,9 +17,9 @@
  */
 
 {% for entity in entities -%}
-{%- if entity.cls in ["define"] -%}
+{%- if entity.key in ["define"] -%}
 {{ entity | emit_entity }}
-{% elif entity.cls in ["enum", "bitfield", "struct", "union", "fun"] %}
+{% elif entity.key in ["enum", "bitfield", "struct", "union", "fun"] %}
 {{ entity | emit_entity }}
 {% endif %}
 {%- endfor %}

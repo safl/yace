@@ -34,16 +34,16 @@ class CStyle(ModelWalker):
     def visit(self, current, ancestors, depth):
         """..."""
 
-        if "sym" not in current.all:
+        if "sym" not in list(current.model_dump().keys()):
             return (True, None)
 
         if depth == 0:
             current.sym = f"{self.model.meta.prefix}_{current.sym}"
             pass
 
-        if current.cls in ["define"]:
+        if current.key in ["define"]:
             current.sym = current.sym.upper()
-        elif current.cls in ["enum_value"]:
+        elif current.key in ["enum_value"]:
             current.sym = ancestors[-1].sym.upper() + "_" + current.sym.upper()
 
         return (True, None)
@@ -71,15 +71,15 @@ class Camelizer(ModelWalker):
     """
 
     def visit(self, current, ancestors, depth):
-        if "sym" not in current.all:
+        if "sym" not in list(current.model_dump().keys()):
             return (True, None)
 
-        if current.cls in ["define"]:
+        if current.key in ["define"]:
             current.sym = current.sym.upper()
-        elif current.cls in ["enum", "struct", "union"]:
-            current.sym = "_".join([current.sym, current.cls])
+        elif current.key in ["enum", "struct", "union"]:
+            current.sym = "_".join([current.sym, current.key])
             current.sym = camelcase(current.sym)
-        elif current.cls in ["enum_value"]:
+        elif current.key in ["enum_value"]:
             current.sym = current.sym.upper()
 
         return (True, None)

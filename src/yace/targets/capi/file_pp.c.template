@@ -12,7 +12,7 @@
 #include <lib{{ meta.prefix }}.h>
 
 {%- for entity in entities %}
-{%- if entity["cls"] in ["enum"] %}
+{%- if entity["key"] in ["enum"] %}
 const char *
 {{ entity.sym }}_str(int enum_val)
 {
@@ -25,7 +25,7 @@ const char *
 
 	return "ENOSYS";
 }
-{%- elif entity["cls"] in ["struct", "union"] %}
+{%- elif entity["key"] in ["struct", "union"] %}
 static int
 {{ entity.sym }}_yaml(FILE *stream, const struct {{ entity.sym }} *obj, int flags)
 {
@@ -43,7 +43,7 @@ static int
         {% set indent = loop.depth * 2 %}
         {% set accessor = token + member.sym %}
 
-	{%- if member.cls in ["field", "fits"] and "rsvd" in member.sym -%}
+	{%- if member.key in ["field", "fits"] and "rsvd" in member.sym -%}
 
         wrtn += fprintf(stream, "%*s{{ member.sym }}: RESERVED\n", {{ indent }}, "");
 
@@ -51,21 +51,21 @@ static int
 
         wrtn += fprintf(stream, "%*s{{ member.sym }}: INVALID\n", {{ indent }}, "");
 
-        {%- elif member.cls in ["field"] -%}
+        {%- elif member.key in ["field"] -%}
 
         wrtn += fprintf(stream, "%*s{{ member.sym }}: {{ member.fmt }}\n", {{ indent }}, "", {{ accessor }});
 
-        {%- elif member.cls in ["bits"] -%}
+        {%- elif member.key in ["bits"] -%}
 	
         wrtn += fprintf(stream, "%*s{{ member.sym }}: 0x%x\n", {{ indent }}, "", {{ accessor }});
  
-        {%- elif member.cls in ["union", "struct", "bitfield"] -%}
+        {%- elif member.key in ["union", "struct", "bitfield"] -%}
 
         wrtn += fprintf(stream, "%*s{{ member.sym }}:\n", {{ indent }}, "");
 	{{ loop(zip([accessor + "."] * len(member.members), member.members)) }}
 
 	{%- else -%}
-        // What is this? {{ member.cls }}
+        // What is this? {{ member.key }}
 	{%- endif -%}
 	{% endfor %}
 
@@ -86,28 +86,28 @@ static int
         {% set indent = (loop.depth + 1) * 2 %}
         {% set accessor = token + member.sym %}
 
-	{%- if member.cls in ["field"] and "rsvd" in member.sym -%}
+	{%- if member.key in ["field"] and "rsvd" in member.sym -%}
         wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": \"RESERVED\"", {{ indent }}, "");
 
 	{%- elif "invalid" in member.sym -%}
         wrtn += fprintf(stream, "%*s{{ member.sym }}: \"INVALID\"", {{ indent }}, "");
 
-	{%- elif member.cls in ["field"] and member.typ.integer -%}
+	{%- elif member.key in ["field"] and member.typ.integer -%}
         wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": %"PRIu{{ member.typ.width }}"", {{ indent }}, "", {{ accessor }});
 
-	{%- elif member.cls in ["field"] -%}
+	{%- elif member.key in ["field"] -%}
         wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": \"%s\"", {{ indent }}, "", {{ accessor }});
 
-        {%- elif member.cls in ["bits"] -%}
+        {%- elif member.key in ["bits"] -%}
         wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": %u", {{ indent }}, "", {{ accessor }});
-        {%- elif member.cls in ["union", "struct", "bitfield"] -%}
+        {%- elif member.key in ["union", "struct", "bitfield"] -%}
 	
         wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": {\n", {{ indent }}, "");
 	{{ loop(zip([accessor + "."] * len(member.members), member.members)) }}
         wrtn += fprintf(stream, "%*s}", {{ indent }}, "");
 
 	{%- else -%}
-        // What is this? {{ member.cls }}
+        // What is this? {{ member.key }}
 	{%- endif -%}
 
         wrtn += fprintf(stream, "{{ "" if loop.last else "," }}\n" );

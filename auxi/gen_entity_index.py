@@ -25,7 +25,7 @@ def main():
         ]
         entities.append(
             {
-                "cls": key,
+                "key": key,
                 "doc": doc.replace(":", ""),
                 "mod": ".".join([cls.__module__, cls.__name__]),
             }

@@ -19,7 +19,7 @@ The **yace** constants consists of:
 
 Their idl representation follows below.
 """
-import typing
+from typing import List, Union
 
 from .base import Documented, Entity, Named
 
@@ -32,7 +32,7 @@ class String(Entity):
 
     """
 
-    cls: str = "str"
+    key: str = "str"
     lit: str
 
     def is_valid_lit(self):
@@ -54,7 +54,7 @@ class Hex(Entity):
 
     """
 
-    cls: str = "hex"
+    key: str = "hex"
     lit: int
 
     def is_valid_lit(self):
@@ -67,7 +67,7 @@ class Hex(Entity):
 class Dec(Entity):
     """Representation of a an integer literal in decimal"""
 
-    cls: str = "dec"
+    key: str = "dec"
     lit: int
 
     def is_valid_lit(self):
@@ -92,8 +92,8 @@ class Define(Entity, Named, Documented):
     available and constant constructs in other languages
     """
 
-    cls: str = "define"
-    val: typing.Any
+    key: str = "define"
+    val: Union[String, Hex, Dec]
 
 
 class EnumValue(Entity, Named, Documented):
@@ -107,8 +107,8 @@ class EnumValue(Entity, Named, Documented):
     for the :class:`yace.idl.constants.EnumValue`.
     """
 
-    cls: str = "enum_value"
-    val: typing.Any = None
+    key: str = "enum_value"
+    val: Union[String, Hex, Dec, None]
 
     def is_valid_val(self):
         """Checks whether the :class:`yace.idl.constants.EnumValue` is valid"""
@@ -147,8 +147,8 @@ class Enum(Entity, Named, Documented):
     for the :class:`yace.idl.constants.EnumValue``.
     """
 
-    cls: str = "enum"
-    members: typing.List[EnumValue]
+    key: str = "enum"
+    members: List[EnumValue]
 
     def is_valid_members(self):
         """Checks whether the :class:`yace.idl.constants.Enum` is valid"""

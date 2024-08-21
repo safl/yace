@@ -11,14 +11,16 @@ The **yace** derived types consists of:
 Their idl representation follows below.
 """
 import typing
+from typing import ForwardRef
 
-from .base import Documented, Entity, Named, Typed
+from .base import Documented, Entity, Named
+from .datatypes import Typed
 
 
 class Bits(Entity, Named, Documented):
     """Representation of a :class:`.Bitfield` member."""
 
-    cls: str = "bits"
+    key: str = "bits"
     width: int
 
 
@@ -46,7 +48,7 @@ class Bitfield(Entity, Named, Documented):
     above into something sub-optimal.
     """
 
-    cls: str = "bitfield"
+    key: str = "bitfield"
     width: int
     members: typing.List[Bits]
 
@@ -90,7 +92,7 @@ class Field(Entity, Named, Documented, Typed):
     utlize when emitting a pretty-printer.
     """
 
-    cls: str = "field"
+    key: str = "field"
     fmt: str
 
 
@@ -99,11 +101,11 @@ class Struct(Entity, Named, Documented):
     A representation of a struct definition
     """
 
-    cls: str = "struct"
-    members: typing.List[Field]
+    key: str = "struct"
+    members: typing.List[Field | Bitfield | ForwardRef("Struct") | ForwardRef("Union")]
 
 
 class Union(Struct):
     """Representation of enumerations / collections of constants"""
 
-    cls: str = "union"
+    key: str = "union"

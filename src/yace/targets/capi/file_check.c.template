@@ -16,11 +16,11 @@
 #include <stdio.h>
 #include <lib{{ meta.prefix }}.h>
 
-{% for entity in entities if entity.cls in ["struct", "union"] %}
+{% for entity in entities if entity.key in ["struct", "union"] %}
 int
 test_{{ entity.sym }}_pr(void)
 {
-        {{ entity.cls }} {{ entity.sym }} obj = { 0 };
+        {{ entity.key }} {{ entity.sym }} obj = { 0 };
         int wrtn;
 
         printf("\n# output from: {{ entity.sym }}_pr(..., {{ meta.prefix | upper }}_PR_YAML)\n");
@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
         printf("# Pretty-printer output and testing\n");
         printf("#\n");
 
-        {% for entity in entities if entity.cls in ["struct", "union"] %}
+        {% for entity in entities if entity.key in ["struct", "union"] %}
         err = test_{{ entity.sym }}_pr();
         if (err) {
                 return err;

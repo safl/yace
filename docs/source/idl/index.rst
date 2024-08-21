@@ -9,9 +9,9 @@ In **Yace**, the C API and FFI are defined by a **Yace**-file. The content of a
 written manually, or with assistance from other tools, such as the
 :ref:`sec-idl-generator`.
 
-Regardless on how you produce the **Yace**-file, then a :ref:`sec-idl-linter`
-is provided to check that the interface-definition is correct, and
-:ref:`sec-idl-formater` to format the definition in a canonical fashion.
+The storage format for the **Yace** Interface Defitinion is in **YAML**. Thus,
+no extra tooling for linting and visualizing it, just use regular formaters and
+visualization tools such as **jless**. The content is validated when loaded.
 
 The descriptions inside the **Yace**-file consists of meta-data and then
 descriptions of symbolic constants, data types, derived types, and function
@@ -20,8 +20,6 @@ types. These are referred to as :ref:`sec-idl-entities` and a
 
 * :ref:`sec-idl-files`
 
-  * :ref:`sec-idl-linter`
-  * :ref:`sec-idl-formater`
   * :ref:`sec-idl-generator`
 
 * :ref:`sec-idl-entities`
@@ -32,8 +30,6 @@ types. These are referred to as :ref:`sec-idl-entities` and a
    :hidden:
 
    files.rst
-   linter.rst
-   formater.rst
    generator.rst
    entities/index.rst
    list.rst

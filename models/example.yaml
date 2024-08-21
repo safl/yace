@@ -8,90 +8,85 @@ meta:
   author: Simon A. F. Lund <os@safl.dk>
   lic: BSD-3-Clause
 
-macros_explicit_literal:
-- cls: define
+entities:
+- key: define
   sym: max_x
-  val: {cls: dec, lit: 128}
+  val: {key: dec, lit: 128}
   doc: Maximum value of X
-- cls: define
+- key: define
   sym: max_y
-  val: {cls: dec, lit: 64}
+  val: {key: dec, lit: 64}
   doc: Maximum value of Y
-- cls: define
+- key: define
   sym: max_z
-  val: {cls: dec, lit: 64}
+  val: {key: dec, lit: 64}
   doc: Maximum value of Z
 
-macros_implicit_literal:
-- {cls: define, sym: min_x, val: 128, doc: Minimum value of X}
-- {cls: define, sym: min_y, val: 64, doc: Minimum value of Y}
-- {cls: define, sym: min_z, val: 64, doc: Minimum value of Z}
+- {key: define, sym: min_x, val: 128, doc: Minimum value of X}
+- {key: define, sym: min_y, val: 64, doc: Minimum value of Y}
+- {key: define, sym: min_z, val: 64, doc: Minimum value of Z}
 
-enumtypes_implicit_literal:
-- cls: enum
+- key: enum
   sym: ops
   doc: Opcodes for point operation processor
   members:
-  - cls: enum_value
+  - key: enum_value
     sym: add
-    val: {cls: hex, lit: 0}
+    val: {key: hex, lit: 0}
     doc: Add two points
-  - cls: enum_value
+  - key: enum_value
     sym: sub
-    val: {cls: hex, lit: 1}
+    val: {key: hex, lit: 1}
     doc: Substract two points
-  - cls: enum_value
+  - key: enum_value
     sym: mul
-    val: {cls: hex, lit: 2}
+    val: {key: hex, lit: 2}
     doc: Multple two points
 
-structtypes_plain:
-- cls: struct
+- key: struct
   sym: point
   doc: Point in three dimensional space
   members:
-  - {cls: field, sym: x, typ: u32, fmt: '%d', doc: X Coordinate}
-  - {cls: field, sym: y, typ: u32, fmt: '%d', doc: Y Coordinate}
-  - {cls: field, sym: z, typ: u32, fmt: '%d', doc: Z Coordinate}
+  - {key: field, sym: x, typ: u32, fmt: '%d', doc: X Coordinate}
+  - {key: field, sym: y, typ: u32, fmt: '%d', doc: Y Coordinate}
+  - {key: field, sym: z, typ: u32, fmt: '%d', doc: Z Coordinate}
 
-structtypes_bitfield:
-- cls: struct
+- key: struct
   sym: payload
   doc: Instruction format for point operation processor
   members:
-  - {cls: field, sym: opc, typ: u8, fmt: '0x%x', doc: Point Processing Opcode}
-  - {cls: field, sym: tag, typ: u8, fmt: '0x%x', doc: Instruction Tag}
-  - {cls: field, sym: ecc, typ: u8, fmt: '0x%x', doc: Error-correction Seed}
-  - cls: bitfield
+  - {key: field, sym: opc, typ: u8, fmt: '0x%x', doc: Point Processing Opcode}
+  - {key: field, sym: tag, typ: u8, fmt: '0x%x', doc: Instruction Tag}
+  - {key: field, sym: ecc, typ: u8, fmt: '0x%x', doc: Error-correction Seed}
+  - key: bitfield
     sym: opts
     width: 8
     doc: Operation options
     members:
-    - {cls: bits, sym: pack, width: 1, doc: Pack stuff}
-    - {cls: bits, sym: foo, width: 3, doc: Something foo}
-    - {cls: bits, sym: bar, width: 4, doc: Something bar}
-  - {cls: field, sym: input_a, typ: u64, fmt: '0x%"PRIx64"', doc: Input operand a}
-  - {cls: field, sym: input_b, typ: u64, fmt: '0x%"PRIx64"', doc: Input operand b}
-  - {cls: field, sym: output, typ: u64, fmt: '0x%"PRIx64"', doc: Output operand}
+    - {key: bits, sym: pack, width: 1, doc: Pack stuff}
+    - {key: bits, sym: foo, width: 3, doc: Something foo}
+    - {key: bits, sym: bar, width: 4, doc: Something bar}
+  - {key: field, sym: input_a, typ: u64, fmt: '0x%"PRIx64"', doc: Input operand a}
+  - {key: field, sym: input_b, typ: u64, fmt: '0x%"PRIx64"', doc: Input operand b}
+  - {key: field, sym: output, typ: u64, fmt: '0x%"PRIx64"', doc: Output operand}
 
-function_types:
-- cls: fun
+- key: fun
   sym: hw
   doc: Print hello world
-  ret: {cls: ret, typ: i, doc: 'On succes, 0 is returned. On error, -1 is returned and errno set to indicate the error'}
+  ret: {key: ret, typ: i, doc: 'On succes, 0 is returned. On error, -1 is returned and errno set to indicate the error'}
   parameters:
-  - {cls: param, sym: argc, typ: i, doc: Number of command-line arguments}
-  - cls: param
+  - {key: param, sym: argc, typ: i, doc: Number of command-line arguments}
+  - key: param
     sym: argv
-    typ: {cls: char, const: true, pointer: 2}
+    typ: {key: char, const: true, pointer: 2}
     doc: Array of command-line arguments
-- cls: fun
+- key: fun
   sym: hw_void
   doc: Print hello world
-  ret: {cls: ret, typ: void, doc: 'Nothing, void.'}
+  ret: {key: ret, typ: void, doc: 'Nothing, void.'}
   parameters:
-  - {cls: param, sym: argc, typ: i, doc: Number of command-line arguments}
-  - cls: param
+  - {key: param, sym: argc, typ: i, doc: Number of command-line arguments}
+  - key: param
     sym: argv
-    typ: {cls: char, const: true, pointer: 2}
+    typ: {key: char, const: true, pointer: 2}
     doc: Array of command-line arguments

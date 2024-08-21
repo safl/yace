@@ -10,14 +10,14 @@ output
 │   ├── example_check.c
 │   ├── example_pp.c
 │   ├── gcc.log
-│   ├── libexample.h
 │   ├── libexample_core.h
+│   ├── libexample.h
 │   └── libexample_pp.h
 └── ctypes
     ├── black.log
     ├── ctypes_sugar.py
-    ├── example.py
     ├── example_check.py
+    ├── example.py
     ├── isort.log
     └── python3.log
 

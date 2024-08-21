@@ -1,7 +1,7 @@
 /**
  * {{ entity.doc }}
  *
- * @{{ entity.cls }} {{ entity.sym }}
+ * @{{ entity.key }} {{ entity.sym }}
  */
 enum {{ entity.sym }} {
 {%- for member in entity.members %}

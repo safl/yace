@@ -1,28 +1,19 @@
 ---
-meta:
-  project: example
-  version: 0.0.1
-  brief: yace example
-  full: This example is intended for documentation as well as testing
-  prefix: example
-  author: Simon A. F. Lund <os@safl.dk>
-  lic: BSD-3-Clause
-
 foo:
-- cls: define
-  sym: max_x
-  val: {cls: dec, lit: 128}
-  doc: Maximum value of X
-- cls: define
-  sym: max_y
-  val: {cls: dec, lit: 64}
-  doc: Maximum value of Y
-- cls: define
-  sym: max_z
-  val: {cls: dec, lit: 64}
-  doc: Maximum value of Z
+- {cls: define, sym: max_x, val: {cls: dec, lit: 128}, doc: "Maximum value of X"}
+- {cls: define, sym: max_y, val: {cls: dec, lit: 64}, doc: "Maximum value of Y"}
+- {cls: define, sym: max_z, val: {cls: dec, lit: 64}, doc: "Maximum value of Z"}
 
 bar:
-- {cls: define, sym: min_x, val: 128, doc: Minimum value of X}
-- {cls: define, sym: min_y, val: 64, doc: Minimum value of Y}
-- {cls: define, sym: min_z, val: 64, doc: Minimum value of Z}
+- {cls: define, sym: min_x, doc: "Minimum value of X", val: 128}
+- {cls: define, sym: min_y, doc: "Minimum value of Y", val: 64}
+- {cls: define, sym: min_z, doc: "Minimum value of Z", val: 64}
+
+meta:
+  project: example
+  version: '0.0.1'
+  lic: BSD-3-Clause
+  author: Simon A. F. Lund <os@safl.dk>
+  prefix: example
+  brief: yace example
+  full: This example is intended for documentation as well as testing

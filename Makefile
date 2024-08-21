@@ -1,5 +1,6 @@
 PROJECT=yace
 AUX_PATH=auxi
+PIPX_LOCAL_VENVS=$(shell echo ~/.local/share/pipx/venvs/)
 
 ifeq ($(PLATFORM_ID),Windows)
 else
@@ -22,8 +23,7 @@ define all-help
 # Do all: clean uninstall build install
 endef
 .PHONY: all
-all: uninstall clean build install emit docs
-
+all: dev-uninstall clean dev-install emit docs
 
 define docker-help
 # drop into a docker instance with the repository bind-mounted at /tmp/yace
@@ -34,20 +34,22 @@ docker:
 	@docker run -it -w /tmp/${PROJECT} --mount type=bind,source="$(shell pwd)",target=/tmp/${PROJECT} debian:bookworm bash
 	@echo "## ${PROJECT}: docker [DONE]"
 
-define install-help
+define dev-install-help
 # install using pipx
 endef
-.PHONY: install
-install:
+.PHONY: dev-install
+dev-install:
 	@echo "## ${PROJECT}: make install"
-	@pipx install . -e --force
+	@pipx install --include-deps --force --editable .[dev]
+	@pipx install black
+	@pipx install isort
 	@echo "## ${PROJECT}: make install [DONE]"
 
 define uninstall-help
 # uninstall via pipx
 endef
-.PHONY: uninstall
-uninstall:
+.PHONY: dev-uninstall
+dev-uninstall:
 	@echo "## ${PROJECT}: make uninstall"
 	@pipx uninstall ${PROJECT} || echo "Cannot uninstall => That is OK"
 	@echo "## ${PROJECT}: make uninstall [DONE]"
@@ -136,20 +138,19 @@ define docs-build-prep-help
 # Install Sphinx Doc. in a pipx-venv along with jinja2, pygments-ansi-color, and sphinxcontrib-gtagjs
 endef
 .PHONY: docs-build-prep
-docs-build-prep:
-	pipx install sphinx
-	pipx inject sphinx jinja2
-	pipx inject sphinx pygments-ansi-color
-	pipx inject sphinx sphinxcontrib-gtagjs
-	pipx inject sphinx furo
-	pipx inject sphinx dist/*.tar.gz
+docs-build-prep: dev-install
+	pipx inject yace sphinx
+	pipx inject yace jinja2
+	pipx inject yace pygments-ansi-color
+	pipx inject yace sphinxcontrib-gtagjs
+	pipx inject yace furo
 
 define docs-build-help
 # generate documentation
 endef
 .PHONY: docs-build
 docs-build:
-	$(shell pipx environment -v PIPX_LOCAL_VENVS)/sphinx/bin/python ./$(AUX_PATH)/gen_entity_index.py > docs/source/idl/list.rst
+	$(PIPX_LOCAL_VENVS)/sphinx/bin/python ./$(AUX_PATH)/gen_entity_index.py > docs/source/idl/list.rst
 	cd docs && rm -rf build
 	cd docs/source/install && kmdo .
 	cd docs/source/usage && kmdo .

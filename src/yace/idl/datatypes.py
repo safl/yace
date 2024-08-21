@@ -35,25 +35,61 @@ Their idl representation follows below.
 """
 import inspect
 import sys
-import typing
+from typing import Literal, Optional, Union
 
-from .base import Typespec
+from pydantic import BaseModel
+
+from .base import Entity
+
+
+class Typespec(Entity):
+    """
+    All entities is-a :class:`.Entity`
+    """
+
+    # Lack of type
+    void: bool = False
+
+    # Boolean and textual datatypes
+    boolean: bool = False  # Boolean type, since C99: _Bool / true / false
+    character: bool = False  # Character type, in C: char / 'k'
+
+    # Numeral types
+    size: bool = False  # Size-types; size_t, ssize_t
+    integer: bool = False  # Integer types; int
+    real: bool = False  # Floating point number e.g. float, double
+
+    # Numerical types (Qualifiers and Modifiers)
+    unsigned: bool = False  # Type-modifier for the integer datatype
+    width: Optional[int] = None  # integer type width
+    width_fixed: bool = False  # True: has an exact bit-width
+
+    # Derived types
+    union: bool = False  # union <id> { ... }
+    struct: bool = False  # struct <id> { ... }
+    sym: Optional[str] = None  # symbol / tag of structs and unions
+
+    # General Qualifiers and Modifiers
+    const: bool = False  # Access-qualifier for all types:  'const'
+    static: bool = False  # Storage-qualifier for all types: 'static'
+    pointer: int = 0  # Pointer-type for all types: '*'
+    array: int = 0  # Array-type for all types: '[]'
 
 
 class Void(Typespec):
     """A void, that is, the type signaling no type"""
 
-    cls: str = "void"
+    key: str = "void"
 
-    void: typing.Optional[bool] = True
+    void: Optional[bool] = True
 
 
 class VoidPtr(Typespec):
     """A void-pointer, that is, point to anything (including nothing)"""
 
-    cls: str = "void_ptr"
+    key: str = "void_ptr"
 
-    void: typing.Optional[bool] = True
+    void: Optional[bool] = True
     pointer: int = 1
 
 
@@ -68,7 +104,7 @@ class Char(Typespec):
     for the :class:`.Char` entity.
     """
 
-    cls: str = "char"
+    key: str = "char"
 
     character: bool = True
     width: int = 8
@@ -85,10 +121,10 @@ class ISize(Typespec):
     for the :class:`.ISize` entity.
     """
 
-    cls: str = "isize"
+    key: str = "isize"
 
     size: bool = True
-    width: typing.Optional[int] = 16
+    width: Optional[int] = 16
 
 
 class I8(Typespec):
@@ -102,7 +138,7 @@ class I8(Typespec):
     for the :class:`.I8` entity.
     """
 
-    cls: str = "i8"
+    key: str = "i8"
 
     integer: bool = True
     width: int = 8
@@ -123,10 +159,10 @@ class IHalf(Typespec):
     for the :class:`.IHalf` entity.
     """
 
-    cls: str = "ih"
+    key: str = "ih"
 
     integer: bool = True
-    width: typing.Optional[int] = 8
+    width: Optional[int] = 8
 
 
 class I16(Typespec):
@@ -140,10 +176,10 @@ class I16(Typespec):
     for the :class:`.I16` entity.
     """
 
-    cls: str = "i16"
+    key: str = "i16"
 
     integer: bool = True
-    width: typing.Optional[int] = 16
+    width: Optional[int] = 16
     width_fixed: bool = True
 
 
@@ -164,10 +200,10 @@ class I(Typespec):
     for the :class:`.I` entity.
     """
 
-    cls: str = "i"
+    key: str = "i"
 
     integer: bool = True
-    width: typing.Optional[int] = 16
+    width: Optional[int] = 16
 
 
 class I32(Typespec):
@@ -181,7 +217,7 @@ class I32(Typespec):
     for the :class:`.I32` entity.
     """
 
-    cls: str = "i32"
+    key: str = "i32"
 
     integer: bool = True
     width: int = 32
@@ -199,10 +235,10 @@ class ILong(Typespec):
     for the :class:`.ILong` entity.
     """
 
-    cls: str = "il"
+    key: str = "il"
 
     integer: bool = True
-    width: typing.Optional[int] = 32
+    width: Optional[int] = 32
 
 
 class I64(Typespec):
@@ -216,10 +252,10 @@ class I64(Typespec):
     for the :class:`.I64` entity.
     """
 
-    cls: str = "i64"
+    key: str = "i64"
 
     integer: bool = True
-    width: typing.Optional[int] = 64
+    width: Optional[int] = 64
     width_fixed: bool = True
 
 
@@ -234,10 +270,10 @@ class ILongLong(Typespec):
     for the :class:`.ILongLong` entity.
     """
 
-    cls: str = "ill"
+    key: str = "ill"
 
     integer: bool = True
-    width: typing.Optional[int] = 64
+    width: Optional[int] = 64
 
 
 class USize(Typespec):
@@ -251,11 +287,11 @@ class USize(Typespec):
     for the :class:`.USize` entity.
     """
 
-    cls: str = "usize"
+    key: str = "usize"
 
     size: bool = True
     unsigned: bool = True
-    width: typing.Optional[int] = 16
+    width: Optional[int] = 16
 
 
 class U8(Typespec):
@@ -269,11 +305,11 @@ class U8(Typespec):
     for the :class:`.U8` entity.
     """
 
-    cls: str = "u8"
+    key: str = "u8"
 
     integer: bool = True
     unsigned: bool = True
-    width: typing.Optional[int] = 8
+    width: Optional[int] = 8
     width_fixed: bool = True
 
 
@@ -291,11 +327,11 @@ class UHalf(Typespec):
     for the :class:`.UHalf` entity.
     """
 
-    cls: str = "uh"
+    key: str = "uh"
 
     integer: bool = True
     unsigned: bool = True
-    width: typing.Optional[int] = 8
+    width: Optional[int] = 8
 
 
 class U16(Typespec):
@@ -309,11 +345,11 @@ class U16(Typespec):
     for the :class:`.U16` entity.
     """
 
-    cls: str = "u16"
+    key: str = "u16"
 
     integer: bool = True
     unsigned: bool = True
-    width: typing.Optional[int] = 16
+    width: Optional[int] = 16
     width_fixed: bool = True
 
 
@@ -328,11 +364,11 @@ class U(Typespec):
     for the :class:`.U` entity.
     """
 
-    cls: str = "u"
+    key: str = "u"
 
     integer: bool = True
     unsigned: bool = True
-    width: typing.Optional[int] = 16
+    width: Optional[int] = 16
 
 
 class U32(Typespec):
@@ -346,11 +382,11 @@ class U32(Typespec):
     for the :class:`.U32` entity.
     """
 
-    cls: str = "u32"
+    key: str = "u32"
 
     integer: bool = True
     unsigned: bool = True
-    width: typing.Optional[int] = 32
+    width: Optional[int] = 32
     width_fixed: bool = True
 
 
@@ -365,11 +401,11 @@ class ULong(Typespec):
     for the :class:`.ULong` entity.
     """
 
-    cls: str = "ul"
+    key: str = "ul"
 
     integer: bool = True
     unsigned: bool = True
-    width: typing.Optional[int] = 32
+    width: Optional[int] = 32
 
 
 class U64(Typespec):
@@ -383,11 +419,11 @@ class U64(Typespec):
     for the :class:`.U64` entity.
     """
 
-    cls: str = "u64"
+    key: str = "u64"
 
     integer: bool = True
     unsigned: bool = True
-    width: typing.Optional[int] = 64
+    width: Optional[int] = 64
     width_fixed: bool = True
 
 
@@ -402,11 +438,11 @@ class ULongLong(Typespec):
     for the :class:`.ULongLong` entity.
     """
 
-    cls: str = "ull"
+    key: str = "ull"
 
     integer: bool = True
     unsigned: bool = True
-    width: typing.Optional[int] = 64
+    width: Optional[int] = 64
 
 
 class F32(Typespec):
@@ -423,7 +459,7 @@ class F32(Typespec):
     for the :class:`.F32` entity.
     """
 
-    cls: str = "f32"
+    key: str = "f32"
 
     real: bool = True
     width: int = 32
@@ -444,7 +480,7 @@ class F64(Typespec):
     for the :class:`.F64` entity.
     """
 
-    cls: str = "f64"
+    key: str = "f64"
 
     real: bool = True
     width: int = 64
@@ -469,7 +505,7 @@ class Bool(Typespec):
     for the :class:`.Bool` entity.
     """
 
-    cls: str = "bool"
+    key: str = "bool"
 
     boolean: bool = True
     width: int = 8
@@ -486,7 +522,7 @@ class String(Typespec):
     for the :class:`.String` entity.
     """
 
-    cls: str = "string"
+    key: str = "string"
 
     character: bool = True
     pointer: int = 1
@@ -506,17 +542,29 @@ def classes():
 def classes_shorthand_data():
     """Returns a map of shorthands to non-default datatype data"""
 
-    default = Typespec({"cls": "typespec"}).as_dict()  # Default typespec
+    default = Typespec(key="typespec").model_dump()  # Default typespec
 
     shorthands = {}  # Map to return
     for cls in classes():
-        data = cls().as_dict()  # Setup data
+        data = cls().model_dump()  # Setup data
         del data["lbl"]  # Remove "lbl"
 
         for key, val in default.items():  # Remove default-values
-            if key in data and data.get(key) == val and key not in ["cls"]:
+            if key in data and data.get(key) == val and key not in ["key"]:
                 del data[key]
 
-        shorthands[cls.cls] = data  # Add to shorthands
+        shorthands[data.get("key")] = data  # Add to shorthands
 
     return shorthands
+
+
+# Create a Literal type from the list of strings
+TypespecShorthand = Literal[tuple(sorted([cls().key for cls in classes()]))]
+
+
+class Typed(BaseModel):
+    """
+    Attribute-mixin; adding a reqried "has-a" relation to :class:`.Typespec`
+    """
+
+    typ: Union[Typespec, TypespecShorthand]

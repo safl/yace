@@ -34,6 +34,7 @@ classifiers = [
 dependencies = [
     "jinja2",
     "pyyaml",
+    "pydantic",
     "libclang~=14.0.1",
 ]
 dynamic = ["version"]
@@ -46,7 +47,14 @@ content-type = "text/x-rst; charset=UTF-8"
 version = { attr = "yace.__version__" }
 
 [project.optional-dependencies]
-dev = ["wheel"]
+dev = [
+    "coverage",
+    "kmdo",
+    "pudb",
+    "sphinx",
+    "wheel",
+]
+all = ["yace[dev]"]
 
 [project.scripts]
 yace = "yace.cli.yace:main"

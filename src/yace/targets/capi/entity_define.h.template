@@ -1,1 +1,2 @@
-#define {{ entity.sym }} = {{ entity.val.lit }} ///< {{ entity.doc }}
+#define {{ entity.sym }}{% if entity.val %} = {{ entity.val.lit }} {% endif %} ///< {{ entity.doc }}
+

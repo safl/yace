@@ -1,9 +1,8 @@
 import copy
 import logging as log
-import typing
 from pathlib import Path
+from typing import List, Optional
 
-from yace.idl.linter import Linter
 from yace.model import Model
 from yace.targets.capi.target import CAPI
 from yace.targets.collector import collect
@@ -29,13 +28,11 @@ class Compiler(object):
     STAGES = ["parse", "lint", "transform", "emit", "format", "check"]
     TARGETS = list(set([CAPI, Ctypes] + collect()))
 
-    def __init__(self, targets: typing.List[str], output: Path):
+    def __init__(self, targets: List[str], output: Path):
         self.targets = [target for target in Compiler.TARGETS if target.NAME in targets]
         self.output = output.resolve()
 
-    def process(
-        self, path: Path, stages: typing.Optional[typing.List[str]] = None
-    ) -> bool:
+    def process(self, path: Path, stages: Optional[List[str]] = None) -> bool:
         """
         Take 'path' through the given compiler 'stages'
         """
@@ -48,13 +45,6 @@ class Compiler(object):
 
         log.info("Stage: 'parse'")
         model_orig = Model.from_path(path)
-
-        if "lint" in stages:
-            log.info("Stage: 'lint'")
-            nerrors = Linter(model_orig).check()
-            if nerrors:
-                log.error("Linter-errors: see above/log; stopping.")
-                return False
 
         targets = [cls(self.output) for cls in self.targets]
         if not all([tgt.is_ready() for tgt in targets]):

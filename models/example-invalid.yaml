@@ -8,12 +8,12 @@ meta:
   brief: yace example
   full: This example is intended for documentation as well as testing
 
-invalid_enum:
-- cls: enum
+entities:
+- key: enum
   sym: invalid_enum
   doc: This enum should fail the integrity check as it has mixed literals
   members:
-  - {cls: enum_value, sym: add, val: {cls: hex, lit: 0}, doc: "Add two points"}
-  - {cls: enum_value, sym: sub, val: {cls: dec, lit: 1}, doc: "Substract two points"}
-  - {cls: enum_value, sym: mul, val: {cls: str, lit: "foo"}, doc: "Multple two points"}
+  - {key: enum_value, sym: add, val: {key: hex, lit: 0}, doc: "Add two points"}
+  - {key: enum_value, sym: sub, val: {key: dec, lit: 1}, doc: "Substract two points"}
+  - {key: enum_value, sym: mul, val: {key: str, lit: "foo"}, doc: "Multple two points"}
 

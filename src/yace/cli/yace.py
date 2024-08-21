@@ -17,7 +17,6 @@ from pathlib import Path
 
 from yace import __version__ as version
 from yace.compiler import Compiler
-from yace.idl.formater import do_format
 from yace.idl.generator import c_to_yace
 
 
@@ -39,16 +38,6 @@ def parse_args():
         choices=sorted([target.NAME for target in Compiler.TARGETS]),
         default="capi",
         help="treat filepath(s) as Yace-file, and emit code using target(s), then exit",
-    )
-    parser.add_argument(
-        "--lint",
-        action="store_true",
-        help="treat filepath(s) as Yace-file, do integrity check, then exit",
-    )
-    parser.add_argument(
-        "--format",
-        action="store_true",
-        help="treat filepath(s) as Yace-file, format it, then exit",
     )
     parser.add_argument(
         "--c-to-yace",
@@ -93,24 +82,12 @@ def main():
             level=levels[min(sum(args.log_level), len(levels) - 1)],
         )
 
-        if args.format:  # Yace-file formater
-            return sys.exit(do_format(args.filepath))
-
         if args.c_to_yace:  # C to Yace-file Compiler
             return sys.exit(c_to_yace(args.filepath, args.output))
 
         if args.emit:
-            yace = Compiler(
-                args.emit, args.output
-            )  # Yace-file linter and/or Yace-file Compiler
-            ok = all(
-                [
-                    yace.process(
-                        path, ["parse", "lint"] if args.lint else Compiler.STAGES
-                    )
-                    for path in args.filepath
-                ]
-            )
+            yace = Compiler(args.emit, args.output)
+            ok = all([yace.process(path, yace.STAGES) for path in args.filepath])
             return sys.exit(0 if ok else 1)
 
     except Exception as exc:

@@ -24,7 +24,7 @@ enum {{ meta.prefix }}_pr {
 };
 
 {%- for entity in entities %}
-{% if entity.cls in ['enum'] %}
+{% if entity.key in ['enum'] %}
 /**
  * Produces a string representation of the given ::{{ entity.sym }}
  *
@@ -34,7 +34,7 @@ enum {{ meta.prefix }}_pr {
  * "ENOSYS" is returned.
  */
 const char * {{ entity.sym }}_str(int enum_val);
-{% elif entity['cls'] in ['struct', 'union'] %}
+{% elif entity['key'] in ['struct', 'union'] %}
 /**
  * Prints the given ::{{ entity.sym }} 'obj' to the given output 'stream'
  *

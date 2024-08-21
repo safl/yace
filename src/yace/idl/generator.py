@@ -7,6 +7,7 @@ In this specific instance, to parse C Headers, and emit equivalent
 
 * :class:`.CParser`, parse a C header and emit a **Yace**-file
 """
+
 import logging as log
 import os
 import re
@@ -16,15 +17,15 @@ from pathlib import Path
 import clang
 from clang.cindex import Config, CursorKind, Index
 
-import yace.idl.datatypes
-from yace.idl.formater import ydata_to_file
+import yace
+from yace.model import Model
 
 REGEX_INTEGER_FIXEDWIDTH = "(?P<unsigned>u?)int(?P<width>8|16|32|64|128)_t"
 
 SHORTHAND_DATA = yace.idl.datatypes.classes_shorthand_data()
 
 
-def typespec_data_from_custor(cursor) -> dict:
+def typespec_data_from_cursor(cursor) -> dict:
     """
     Returns a typespec for the given cursor
 
@@ -49,13 +50,13 @@ def typespec_data_from_custor(cursor) -> dict:
 
     is_nested = not list(set(["{", "}"]) - set(tokens_all))
     if is_nested:
-        return {"cls": "typespec", "doc": "Nested struct"}
+        return {"key": "typespec", "doc": "Nested struct"}
 
     is_bits = not list(set([":"]) - set(tokens_all))
     if is_bits:
-        return {"cls": "bits", "doc": "Bitfield"}
+        return {"key": "bits", "doc": "Bitfield"}
 
-    data = {"cls": "typespec"}
+    data = {"key": "typespec"}
 
     # Skipping the last token;
     #
@@ -161,7 +162,7 @@ def typespec_data_to_typ(data):
     keys, this function produces the short or data-identify
     """
 
-    ignore = ["cls", "lbl", "array"]
+    ignore = ["key", "lbl", "array"]
     for shorthand, shorthand_data in SHORTHAND_DATA.items():
         if {key: val for key, val in shorthand_data.items() if key not in ignore} != {
             key: val for key, val in data.items() if key not in ignore
@@ -176,7 +177,7 @@ def typespec_data_to_typ(data):
         # Remove the shorthand-attributes, as the assignment of the shorthand-class
         # carries the attributes, thereby providing the most compact representation
         [data.pop(key) for key in shorthand_data.keys() if key in data]
-        data["cls"] = shorthand
+        data["key"] = shorthand
 
         return data
 
@@ -208,9 +209,9 @@ class CParser(object):
         return self.index.parse(path)
 
     def parse_enum(self, cursor, data):
-        """Parse into cls-objects enum and enum_value"""
+        """Parse into key-objects enum and enum_value"""
 
-        data["cls"] = "enum"
+        data["key"] = "enum"
         data["members"] = []
 
         for child in cursor.get_children():
@@ -220,7 +221,7 @@ class CParser(object):
 
             data["members"].append(
                 {
-                    "cls": "enum_value",
+                    "key": "enum_value",
                     "sym": child.spelling,
                     "doc": child.brief_comment,
                     "val": child.enum_value,
@@ -228,7 +229,7 @@ class CParser(object):
             )
 
     def parse_struct(self, cursor, data):
-        data["cls"] = "struct"
+        data["key"] = "struct"
         data["members"] = []
 
         for child in cursor.get_children():
@@ -237,24 +238,24 @@ class CParser(object):
                 continue
 
             child_data = {
-                "cls": "field",
+                "key": "field",
                 "sym": child.spelling,
                 "doc": child.brief_comment,
-                "typ": typespec_data_to_typ(typespec_data_from_custor(child)),
+                "typ": typespec_data_to_typ(typespec_data_from_cursor(child)),
             }
             data["members"].append(child_data)
 
     def parse_union(self, cursor, data):
         """Parse union declaration"""
 
-        data["cls"] = "union"
+        data["key"] = "union"
 
     def parse_fun(self, cursor, data):
         """Parse function declaration"""
 
-        data["cls"] = "fun"
+        data["key"] = "fun"
         data["ret"] = {
-            "cls": "ret",
+            "key": "ret",
             "doc": "TODO: parse / extract return-doc",
         }
         data["parameters"] = []
@@ -265,8 +266,8 @@ class CParser(object):
                 continue
 
             child_data = {
-                "cls": "param",
-                "typ": typespec_data_to_typ(typespec_data_from_custor(child)),
+                "key": "param",
+                "typ": typespec_data_to_typ(typespec_data_from_cursor(child)),
                 "sym": child.spelling,
                 "doc": child.brief_comment,
             }
@@ -302,24 +303,28 @@ def c_to_yace(paths: typing.List[Path], output: Path):
 
     # TODO: this information / structure should be read from a single point,
     # somewhere in the yace.idl module
-    ydata = {
-        "meta": {
-            "lic": "Unknown License",
-            "version": "0.0.1",
-            "author": "Foo Bar <foo@example.com>",
-            "project": "foo",
-            "prefix": "foo",
-            "brief": "Brief Description",
-            "full": "Full Description",
-        },
-    }
-    ydata["entities"] = []
 
     parser = CParser()
     for path in [p.resolve() for p in paths]:
         tu = parser.parse_file(path)
-        ydata["entities"] += parser.tu_to_data(tu)
+
+        ydata = {
+            "meta": {
+                "lic": "Unknown License",
+                "version": "0.0.1",
+                "author": "Foo Bar <foo@example.com>",
+                "project": "foo",
+                "prefix": "foo",
+                "brief": "Brief Description",
+                "full": "Full Description",
+            },
+        }
+        ydata["entities"] = parser.tu_to_data(tu)
+
+        model = Model(**ydata)
+
         output.mkdir(parents=True, exist_ok=True)
-        ydata_to_file(ydata, output / f"{path.stem}_parsed.yaml")
+
+        (output / f"{path.stem}_parsed.yaml").write_text(model.dump_model())
 
     return 0

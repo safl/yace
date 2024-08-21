@@ -13,7 +13,8 @@ Their idl representation follows below.
 """
 import typing
 
-from .base import Documented, Entity, Named, Typed
+from .base import Documented, Entity, Named
+from .datatypes import Typed
 
 
 class ReturnType(Entity, Documented, Typed):
@@ -21,7 +22,7 @@ class ReturnType(Entity, Documented, Typed):
     Function return type
     """
 
-    cls: str = "ret"
+    key: str = "ret"
 
 
 class Parameter(Entity, Named, Documented, Typed):
@@ -29,7 +30,7 @@ class Parameter(Entity, Named, Documented, Typed):
     Function parameter
     """
 
-    cls: str = "param"
+    key: str = "param"
 
 
 class Function(Entity, Named, Documented):
@@ -37,7 +38,7 @@ class Function(Entity, Named, Documented):
     Function declarations
     """
 
-    cls: str = "fun"
+    key: str = "fun"
     ret: ReturnType
 
     parameters: typing.List[Parameter] = []
@@ -48,7 +49,7 @@ class FunctionPointer(Entity, Named, Documented, Typed):
     Function pointer declarations
     """
 
-    cls: str = "fun_ptr"
+    key: str = "fun_ptr"
     ret: ReturnType
 
     parameters: typing.List[Parameter]

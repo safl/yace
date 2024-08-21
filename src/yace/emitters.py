@@ -92,7 +92,7 @@ class Emitter(object):
             args["entity"] = entity
             args["depth"] = depth
 
-            return entity_templates[f"entity_{entity.cls}.h"].render(**args)
+            return entity_templates[f"entity_{entity.key}.h"].render(**args)
 
         file_jenv = Environment(
             loader=FileSystemLoader(self.searchpath),

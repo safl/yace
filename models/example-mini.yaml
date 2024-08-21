@@ -8,14 +8,13 @@ meta:
   full: This example is intended for documentation as well as testing
 
 entities:
-- {cls: define, sym: max_x, val: {cls: dec, lit: 128}, doc: "Maximum value of X"}
-- {cls: define, sym: max_y, val: {cls: dec, lit: 64}, doc: "Maximum value of Y"}
-- {cls: define, sym: max_z, val: 64, doc: "Maximum value of Z"}
-
-- cls: struct
+- {key: define, sym: max_x, val: {key: dec, lit: 128}, doc: "Maximum value of X"}
+- {key: define, sym: max_y, val: {key: dec, lit: 64}, doc: "Maximum value of Y"}
+- {key: define, sym: max_z, val: {key: dec, lit: 64}, doc: "Maximum value of Z"}
+- key: struct
   sym: point
   doc: A point in three dimensional space
   members:
-  - {cls: field, sym: x, typ: u32, fmt: "%d", doc: "X Coordinate"}
-  - {cls: field, sym: y, typ: u32, fmt: "%d", doc: "Y Coordinate"}
-  - {cls: field, sym: z, typ: u32, fmt: "%d", doc: "Z Coordinate"}
+  - {key: field, sym: x, typ: u32, fmt: "%d", doc: "X Coordinate"}
+  - {key: field, sym: y, typ: u32, fmt: "%d", doc: "Y Coordinate"}
+  - {key: field, sym: z, typ: u32, fmt: "%d", doc: "Z Coordinate"}

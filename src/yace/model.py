@@ -14,43 +14,17 @@ Their **Yace** Interface Definition Language representation follows below.
 """
 import inspect
 import logging
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import ClassVar, List, Union
 
 import yaml
+from pydantic import BaseModel, Field
 
 from yace.errors import InvalidModelData
 from yace.idl import base, constants, datatypes, derivedtypes, functiontypes
 
 
-def data_from_yaml(path: Path) -> Tuple[Dict, List[Dict]]:
-    """
-    Returns data from YAML (yim) file as (meta, entities)
-    """
-
-    meta = {}
-    entities = []
-
-    with path.open() as yamlfile:
-        for lbl, data in yaml.safe_load(yamlfile).items():
-            if lbl == "meta":
-                meta = data
-                continue
-
-            for entity in data:
-                if "lbl" not in entity:
-                    entity["lbl"] = []
-                entity["lbl"].append(lbl)
-                if "ant" not in entity:
-                    entity["ant"] = {}
-                entities.append(entity)
-
-    return meta, entities
-
-
-@dataclass
-class Meta:
+class Meta(BaseModel):
     """
     Meta data used by the to describe attributes of the generated C API and
     bindings/wrappers, such as license, version, and documentation
@@ -68,14 +42,14 @@ class Meta:
     )
 
 
-class Model(object):
+class Model(BaseModel):
     """
-    The :class:`.Model` serves as the root of the "tree" describing
-    the interface to generate C API and bindings for.
+    The :class:`.Model` serves as the root of the "tree" describing the interface to
+    generate C API and bindings for.
     """
 
-    MAPPING = {
-        obj.cls: obj
+    MAPPING: ClassVar = {
+        obj.__fields__["key"].default: obj
         for _, obj in (
             inspect.getmembers(base)
             + inspect.getmembers(constants)
@@ -83,12 +57,24 @@ class Model(object):
             + inspect.getmembers(derivedtypes)
             + inspect.getmembers(functiontypes)
         )
-        if inspect.isclass(obj) and hasattr(obj, "cls")
+        if (
+            inspect.isclass(obj)
+            and issubclass(obj, base.Entity)
+            and isinstance(obj.__fields__["key"].default, str)
+        )
     }
 
-    def __init__(self):
-        self.meta = Meta(lic="UNLICENSED")
-        self.entities = []
+    meta: Meta
+    entities: List[
+        Union[
+            constants.Define,
+            constants.Enum,
+            derivedtypes.Struct,
+            derivedtypes.Union,
+            functiontypes.Function,
+            functiontypes.FunctionPointer,
+        ]
+    ] = Field(default_factory=list)
 
     @classmethod
     def entity_from_data(cls, cur: dict, parent=None, depth=0):
@@ -115,19 +101,19 @@ class Model(object):
 
         if type(cur) not in [int, str, dict]:
             raise InvalidModelData(f"Invalid type: {cur}")
-        elif type(cur) in [dict] and "cls" not in cur:
-            raise InvalidModelData(f"Missing 'cls' in {cur}")
+        elif type(cur) in [dict] and "key" not in cur:
+            raise InvalidModelData(f"Missing 'key' in {cur}")
 
         if isinstance(cur, int):  # short-hand for integer-literal
-            return constants.Dec({"lit": cur})
+            return constants.Dec(**{"lit": cur})
         elif isinstance(cur, str):  # short-hand for typ
             typ = Model.MAPPING.get(cur)
             if not typ:
                 raise InvalidModelData(f"typ !short-hand: '{cur}'")
 
-            return typ({})
+            return typ()
 
-        constructor = Model.MAPPING.get(cur["cls"])
+        constructor = Model.MAPPING.get(cur["key"])
         if not constructor:
             raise InvalidModelData(f"No constructor for '{cur}'")
 
@@ -143,18 +129,19 @@ class Model(object):
             else:
                 attributes[attr] = attr_data
 
-        return constructor(attributes)
+        return constructor(**attributes)
 
     @classmethod
-    def from_data(cls, meta: dict, ents: list):
+    def from_data(cls, meta: dict, entities: list):
         """Construct a :class:`Model` using the given 'meta' and 'entities'"""
 
-        interface = cls()
-        interface.meta = Meta(**meta)
+        interface = cls(meta=meta)
 
-        total = len(ents)
-        for count, entity_data in enumerate(ents, 1):
-            logging.debug(f"Processing {count} / {total} in {entity_data['lbl']}")
+        total = len(entities)
+        for count, entity_data in enumerate(entities, 1):
+            lbl = entity_data.get("lbl", "entities")
+            logging.debug(f"Processing {count} / {total} in {lbl}")
+            logging.debug(f"entity_data({entity_data})")
             entity = cls.entity_from_data(entity_data)
             interface.entities.append(entity)
 
@@ -167,7 +154,10 @@ class Model(object):
         given 'path'
         """
 
-        return cls.from_data(*data_from_yaml(path))
+        return cls.from_data(**yaml.safe_load(path.read_text()))
+
+    def to_file(self, path):
+        self.model_dump()
 
 
 class ModelWalker(object):
@@ -187,7 +177,7 @@ class ModelWalker(object):
         cur,
         ancestors: List,
         depth: int = 0,
-    ) -> str:
+    ) -> List:
         """
         Recursive walk of the 'cur' entity, returning a list of visit()
         results.
