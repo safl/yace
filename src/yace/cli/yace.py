@@ -40,11 +40,6 @@ def parse_args():
         help="treat filepath(s) as Yace-file, and emit code using target(s), then exit",
     )
     parser.add_argument(
-        "--c-to-yace",
-        action="store_true",
-        help="treat filepath(s) as C Header, generate equivalent Yace-file, then exit",
-    )
-    parser.add_argument(
         "--version",
         action="version",
         version=f"%(prog)s {version}",
@@ -82,13 +77,21 @@ def main():
             level=levels[min(sum(args.log_level), len(levels) - 1)],
         )
 
-        if args.c_to_yace:  # C to Yace-file Compiler
+        suffixes = list(
+            set(path.suffix for path in args.filepath if path.suffix in [".h", ".yaml"])
+        )
+        if len(suffixes) != 1:
+            log.error(f"Suffixes({suffixes}); provide either .h or .yaml")
+            return sys.exit(1)
+
+        if suffixes[0] == ".h":  # C to Yace-file Compiler
+            log.info("Got .h will convert to Yace IDL")
             return sys.exit(c_to_yace(args.filepath, args.output))
 
-        if args.emit:
-            yace = Compiler(args.emit, args.output)
-            ok = all([yace.process(path, yace.STAGES) for path in args.filepath])
-            return sys.exit(0 if ok else 1)
+        log.info(f"Got .yaml, will do '{args.emit}'")
+        yace = Compiler(args.emit, args.output)
+        ok = all([yace.process(path, yace.STAGES) for path in args.filepath])
+        return sys.exit(0 if ok else 1)
 
     except Exception as exc:
         log.error("Unhandled Exception: message(%s)", exc)
