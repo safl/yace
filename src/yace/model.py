@@ -157,7 +157,7 @@ class Model(BaseModel):
         return cls.from_data(**yaml.safe_load(path.read_text()))
 
     def to_file(self, path):
-        self.model_dump()
+        path.write_text(yaml.dump(self.model_dump(), default_flow_style=None, indent=2))
 
 
 class ModelWalker(object):
