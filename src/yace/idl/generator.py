@@ -283,7 +283,7 @@ class CParser(object):
                 continue
             entity = {
                 "sym": cursor.spelling,
-                "doc": cursor.brief_comment,
+                "doc": cursor.brief_comment if cursor.brief_comment else "",
             }
             if cursor.kind in [CursorKind.ENUM_DECL]:
                 self.parse_enum(cursor, entity)
