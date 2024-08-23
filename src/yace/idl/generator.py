@@ -319,6 +319,8 @@ class CParser(object):
 def c_to_yace(paths: typing.List[Path], output: Path):
     """Optimistically / best-offort transformation of a C Header to YACE File"""
 
+    output.mkdir(parents=True, exist_ok=True)
+
     # TODO: this information / structure should be read from a single point,
     # somewhere in the yace.idl module
 
@@ -340,9 +342,6 @@ def c_to_yace(paths: typing.List[Path], output: Path):
         ydata["entities"] = parser.tu_to_data(tu)
 
         model = Model(**ydata)
-
-        output.mkdir(parents=True, exist_ok=True)
-
-        (output / f"{path.stem}_parsed.yaml").write_text(model.dump_model())
+        model.to_file(output / f"{path.stem}_parsed.yaml")
 
     return 0
