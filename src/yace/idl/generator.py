@@ -206,7 +206,20 @@ class CParser(object):
     def parse_file(self, path: Path):
         """Parse the given file into a :class:`clang.cindex.TranslationUnit`."""
 
-        return self.index.parse(path)
+        return self.index.parse(
+            path, options=clang.cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD
+        )
+
+    def parse_macro(self, cursor, data):
+        """TODO: hex + int"""
+
+        tokens = list(cursor.get_tokens())
+
+        data["key"] = "define"
+        data["val"] = {
+            "key": "str",
+            "lit": " ".join([token.spelling for token in tokens[1:]]),
+        }
 
     def parse_enum(self, cursor, data):
         """Parse into key-objects enum and enum_value"""
@@ -293,6 +306,8 @@ class CParser(object):
                 self.parse_union(cursor, entity)
             elif cursor.kind in [CursorKind.FUNCTION_DECL]:
                 self.parse_fun(cursor, entity)
+            elif cursor.kind in [CursorKind.MACRO_DEFINITION]:
+                self.parse_macro(cursor, entity)
             else:
                 continue
 
