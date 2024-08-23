@@ -278,6 +278,9 @@ class CParser(object):
 
         entities = []
         for cursor in tu.cursor.get_children():
+            if not cursor.location.file:
+                log.debug("Ignore definition which is not from the file")
+                continue
             entity = {
                 "sym": cursor.spelling,
                 "doc": cursor.brief_comment,
