@@ -21,7 +21,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 from yace.errors import InvalidModelData
-from yace.idl import base, constants, datatypes, derivedtypes, functiontypes
+from yace.idl import base, constants, datatypes, derivedtypes, directives, functiontypes
 
 
 class Meta(BaseModel):
@@ -56,6 +56,7 @@ class Model(BaseModel):
             + inspect.getmembers(datatypes)
             + inspect.getmembers(derivedtypes)
             + inspect.getmembers(functiontypes)
+            + inspect.getmembers(directives)
         )
         if (
             inspect.isclass(obj)
@@ -73,6 +74,7 @@ class Model(BaseModel):
             derivedtypes.Union,
             functiontypes.Function,
             functiontypes.FunctionPointer,
+            directives.IncludeDirective,
         ]
     ] = Field(default_factory=list)
 
@@ -139,8 +141,7 @@ class Model(BaseModel):
 
         total = len(entities)
         for count, entity_data in enumerate(entities, 1):
-            lbl = entity_data.get("lbl", "entities")
-            logging.debug(f"Processing {count} / {total} in {lbl}")
+            logging.debug(f"Processing {count} / {total}")
             logging.debug(f"entity_data({entity_data})")
             entity = cls.entity_from_data(entity_data)
             interface.entities.append(entity)
@@ -157,7 +158,15 @@ class Model(BaseModel):
         return cls.from_data(**yaml.safe_load(path.read_text()))
 
     def to_file(self, path):
-        path.write_text(yaml.dump(self.model_dump(), default_flow_style=None, indent=2))
+        """Write to file"""
+
+        path.write_text(
+            yaml.dump(
+                self.model_dump(exclude_unset=True, exclude_none=True),
+                default_flow_style=None,
+                indent=2,
+            )
+        )
 
 
 class ModelWalker(object):

@@ -84,9 +84,19 @@ def main():
             log.error(f"Suffixes({suffixes}); provide either .h or .yaml")
             return sys.exit(1)
 
+        missing = [str(path) for path in args.filepath if not path.exists()]
+        if missing:
+            log.error(f"Does not exist: {missing}")
+            return sys.exit(1)
+
         if suffixes[0] == ".h":  # C to Yace-file Compiler
             log.info("Got .h will convert to Yace IDL")
-            return sys.exit(c_to_yace(args.filepath, args.output))
+
+            errors = c_to_yace(args.filepath, args.output)
+            for error in errors:
+                log.error(error)
+
+            return sys.exit(1 if errors else 0)
 
         log.info(f"Got .yaml, will do '{args.emit}'")
         yace = Compiler(args.emit, args.output)

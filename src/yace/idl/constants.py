@@ -35,12 +35,6 @@ class String(Entity):
     key: str = "str"
     lit: str
 
-    def is_valid_lit(self):
-        if not isinstance(self.lit, str):
-            return False, f"Unsupported lit[{self.lit}]"
-
-        return True, None
-
 
 class Hex(Entity):
     """
@@ -57,12 +51,6 @@ class Hex(Entity):
     key: str = "hex"
     lit: int
 
-    def is_valid_lit(self):
-        if not isinstance(self.lit, int):
-            return False, f"Unsupported lit[{self.lit}]"
-
-        return True, None
-
 
 class Dec(Entity):
     """Representation of a an integer literal in decimal"""
@@ -70,14 +58,8 @@ class Dec(Entity):
     key: str = "dec"
     lit: int
 
-    def is_valid_lit(self):
-        if not isinstance(self.lit, int):
-            return False, f"Unsupported lit[{self.lit}]"
 
-        return True, None
-
-
-class Define(Entity, Named, Documented):
+class Define(Entity, Named):
     """
     C MACROS, one of biggest headaches when it comes to FFI interfaces,
     especially for interpreted languages such as Python, since
@@ -108,18 +90,7 @@ class EnumValue(Entity, Named, Documented):
     """
 
     key: str = "enum_value"
-    val: Union[String, Hex, Dec, None]
-
-    def is_valid_val(self):
-        """Checks whether the :class:`yace.idl.constants.EnumValue` is valid"""
-
-        if not isinstance(self.val, (Dec, Hex)):
-            return (
-                False,
-                f"EnumValue[{self.sym}][Unsupported Instance]: {self.val}",
-            )
-
-        return (True, None)
+    val: Union[Hex, Dec]
 
 
 class Enum(Entity, Named, Documented):

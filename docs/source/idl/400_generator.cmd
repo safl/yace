@@ -1,1 +1,1 @@
-yace --c-to-yace example.h
+yace tests/parsing/example.h

@@ -4,19 +4,35 @@
  Interface Definition
 ======================
 
-In **Yace**, the C API and FFI are defined by a **Yace**-file. The content of a
-**Yace**-file is described in the following sections. **Yace**-file can be
-written manually, or with assistance from other tools, such as the
-:ref:`sec-idl-generator`.
+In **Yace**, one defines an abstract **FFI** as a subset of valid C.
 
-The storage format for the **Yace** Interface Defitinion is in **YAML**. Thus,
-no extra tooling for linting and visualizing it, just use regular formaters and
-visualization tools such as **jless**. The content is validated when loaded.
+Commonly then **FFIs** only enable calling functions. The challenge is then to
+to ensure that the data the function operates on is mapped correctly from one
+language to the other. This is often a delicate and highly error-prone process
+leading to frustation due to unexpected behavior.
 
-The descriptions inside the **Yace**-file consists of meta-data and then
-descriptions of symbolic constants, data types, derived types, and function
-types. These are referred to as :ref:`sec-idl-entities` and a
-:ref:`sec-idl-list` for quick lookup is also available.
+Issues arise alread in the representation of data types, onwards to a lack
+in equivalent representation of data structures. **Yace** seeks to lower this
+frustration by:
+
+* Describing the IDL
+
+  - How data types are mapped
+  - How data structures are representated
+
+And more importantly **Why**, by describing the portability / interoperability
+of a given C API, and how to turn it into something less frustrating by making
+it more robust and predictable.
+
+As a reference, then the **Yace** IDL is by design primarily restricted by
+the FFI capabilties of Rust and Python. These are selected as their serve to
+extremes of statically compiled and safe usage, and dynamically loaded and
+completely unsafe code for rapid prototyping and experimentation.
+
+Here a description of things that are perfectly valid C but dis-allowed in
+**Yace** are described, along with the internal representation and storage
+**format.
+
 
 * :ref:`sec-idl-files`
 
@@ -29,6 +45,7 @@ types. These are referred to as :ref:`sec-idl-entities` and a
    :maxdepth: 2
    :hidden:
 
+   csubset.rst
    files.rst
    generator.rst
    entities/index.rst

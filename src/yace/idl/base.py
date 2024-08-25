@@ -10,7 +10,7 @@ The above are defined below.
 """
 
 import re
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -25,7 +25,6 @@ class Entity(BaseModel):
     """
 
     key: str  # The Yace-IDL constructor keyword
-    lbl: List[str] = ["nope"]  # Labels
     ant: Optional[dict] = Field(default_factory=dict)  # User annotations
 
 

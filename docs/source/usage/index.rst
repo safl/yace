@@ -7,11 +7,11 @@
 Running **yace** requires that you have:
 
 1. Installed **yace** and auxilary :ref:`sec-tools`
-2. A :ref:`sec-idl` file describing your C API
+2. A :ref:`sec-idl` file describing your C API or a Yace-compatible C-header
 
-To satisfy the first point, then see :ref:`sec-install`. For the second point,
-then you can consult :ref:`sec-idl` for reference to define a
-:ref:`sec-idl-files` from scratch.
+To satisfy the first point, then see :ref:`sec-install`. For the second
+point, then you can consult :ref:`sec-idl` for reference to define
+a :ref:`sec-idl-files` from scratch.
 
 Command-Line Interface
 ======================

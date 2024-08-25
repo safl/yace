@@ -1,0 +1,2 @@
+struct jazz*
+bar(void);

@@ -25,7 +25,7 @@ const char *
 
 	return "ENOSYS";
 }
-{%- elif entity["key"] in ["struct", "union"] %}
+{%- elif entity["key"] in ["struct_decl", "union_decl"] %}
 static int
 {{ entity.sym }}_yaml(FILE *stream, const struct {{ entity.sym }} *obj, int flags)
 {
@@ -43,7 +43,7 @@ static int
         {% set indent = loop.depth * 2 %}
         {% set accessor = token + member.sym %}
 
-	{%- if member.key in ["field", "fits"] and "rsvd" in member.sym -%}
+	{%- if member.key in ["field_decl", "fits"] and "rsvd" in member.sym -%}
 
         wrtn += fprintf(stream, "%*s{{ member.sym }}: RESERVED\n", {{ indent }}, "");
 
@@ -51,15 +51,15 @@ static int
 
         wrtn += fprintf(stream, "%*s{{ member.sym }}: INVALID\n", {{ indent }}, "");
 
-        {%- elif member.key in ["field"] -%}
+        {%- elif member.key in ["field_decl"] -%}
 
         wrtn += fprintf(stream, "%*s{{ member.sym }}: {{ member.fmt }}\n", {{ indent }}, "", {{ accessor }});
 
-        {%- elif member.key in ["bits"] -%}
+        {%- elif member.key in ["bitfield_decl"] -%}
 	
         wrtn += fprintf(stream, "%*s{{ member.sym }}: 0x%x\n", {{ indent }}, "", {{ accessor }});
  
-        {%- elif member.key in ["union", "struct", "bitfield"] -%}
+        {%- elif member.key in ["union_decl", "struct_decl", "bitfield_struct_decl"] -%}
 
         wrtn += fprintf(stream, "%*s{{ member.sym }}:\n", {{ indent }}, "");
 	{{ loop(zip([accessor + "."] * len(member.members), member.members)) }}
@@ -86,21 +86,21 @@ static int
         {% set indent = (loop.depth + 1) * 2 %}
         {% set accessor = token + member.sym %}
 
-	{%- if member.key in ["field"] and "rsvd" in member.sym -%}
+	{%- if member.key in ["field_decl"] and "rsvd" in member.sym -%}
         wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": \"RESERVED\"", {{ indent }}, "");
 
 	{%- elif "invalid" in member.sym -%}
         wrtn += fprintf(stream, "%*s{{ member.sym }}: \"INVALID\"", {{ indent }}, "");
 
-	{%- elif member.key in ["field"] and member.typ.integer -%}
+	{%- elif member.key in ["field_decl"] and member.typ.integer -%}
         wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": %"PRIu{{ member.typ.width }}"", {{ indent }}, "", {{ accessor }});
 
-	{%- elif member.key in ["field"] -%}
+	{%- elif member.key in ["field_decl"] -%}
         wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": \"%s\"", {{ indent }}, "", {{ accessor }});
 
-        {%- elif member.key in ["bits"] -%}
+        {%- elif member.key in ["bitfield_decl"] -%}
         wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": %u", {{ indent }}, "", {{ accessor }});
-        {%- elif member.key in ["union", "struct", "bitfield"] -%}
+        {%- elif member.key in ["union_decl", "struct_decl", "bitfield_struct_decl"] -%}
 	
         wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": {\n", {{ indent }}, "");
 	{{ loop(zip([accessor + "."] * len(member.members), member.members)) }}

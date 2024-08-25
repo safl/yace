@@ -14,23 +14,15 @@ Their idl representation follows below.
 import typing
 
 from .base import Documented, Entity, Named
-from .datatypes import Typed
+from .datatypes import Typed, Typespec
 
 
-class ReturnType(Entity, Documented, Typed):
-    """
-    Function return type
-    """
-
-    key: str = "ret"
-
-
-class Parameter(Entity, Named, Documented, Typed):
+class Parameter(Entity, Named, Typed):
     """
     Function parameter
     """
 
-    key: str = "param"
+    key: str = "parameter_decl"
 
 
 class Function(Entity, Named, Documented):
@@ -38,18 +30,20 @@ class Function(Entity, Named, Documented):
     Function declarations
     """
 
-    key: str = "fun"
-    ret: ReturnType
-
+    key: str = "function_decl"
+    ret: Typespec
     parameters: typing.List[Parameter] = []
 
 
-class FunctionPointer(Entity, Named, Documented, Typed):
+class FunctionPointer(Entity, Named, Documented):
     """
-    Function pointer declarations
+    Function pointer declarations by convention of:
+
+    typedef int (*sym_)(int, int);
+
+    Note
     """
 
-    key: str = "fun_ptr"
-    ret: ReturnType
-
-    parameters: typing.List[Parameter]
+    key: str = "function_pointer_decl"
+    ret: Typespec
+    parameters: typing.List[Parameter] = []

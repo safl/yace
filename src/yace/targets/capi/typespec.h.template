@@ -1,13 +1,13 @@
 {%- if entity.typ.static -%}static {% endif %}
 {%- if entity.typ.const -%}const {% endif %}
-{%- if entity.typ.key in ["string", "char"] -%}
+{%- if entity.typ.key in ["cstring", "char"] -%}
 char
 {%- elif entity.typ.key == "int" -%}
 int
 {%- elif entity.typ.key == "void" -%}
 void
-{%- elif entity.typ.width -%}
-{%- if "u" in entity.typ.key -%}u{%- endif -%}int{{ entity.typ.width }}_t
+{%- elif entity.typ.width_fixed -%}
+{%- if entity.typ.unsigned -%}u{%- endif -%}int{{ entity.typ.width }}_t
 {%- endif -%}
 {%- if entity.typ.pointer -%}{%- for n in range(entity.typ.pointer) -%}*{% endfor %}{%- endif -%}
 {%- if entity.sym %} {{ entity.sym }}{%- endif -%}

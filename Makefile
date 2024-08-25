@@ -20,10 +20,10 @@ endef
 default: help
 
 define all-help
-# Do all: clean uninstall build install
+# Do all: dev-uninstall clean dev-install docs
 endef
 .PHONY: all
-all: dev-uninstall clean dev-install emit docs
+all: dev-uninstall clean dev-install docs
 
 define docker-help
 # drop into a docker instance with the repository bind-mounted at /tmp/yace
@@ -41,8 +41,10 @@ endef
 dev-install:
 	@echo "## ${PROJECT}: make install"
 	@pipx install --include-deps --force --editable .[dev]
-	@pipx install black
-	@pipx install isort
+	@pipx inject yace pytest --include-deps
+	@pipx inject yace black --include-deps
+	@pipx inject yace isort --include-deps
+	@pipx inject yace ipdb --include-deps
 	@echo "## ${PROJECT}: make install [DONE]"
 
 define uninstall-help
@@ -62,33 +64,6 @@ clean:
 	rm -r build || true
 	rm -r dist || true
 	rm -r output || true
-
-define emit-xnvme-help
-# Emit code using the xNVMe interface model
-endef
-.PHONY: emit-xnvme
-emit-xnvme:
-	yace models/xnvme.yaml --emit capi ctypes -l --output output/xnvme
-
-define emit-nvme-help
-# Emit code using the NVMe interface model
-endef
-.PHONY: emit-nvme
-emit-nvme:
-	yace models/nvme.yaml --emit capi ctypes -l --output output/nvme
-
-define emit-example-help
-# Emit code using the example interface model
-endef
-.PHONY: emit-example
-emit-example:
-	yace models/example.yaml --emit capi ctypes -l --output output/example
-
-define emit-help
-# Emit code for all examples
-endef
-.PHONY: emit
-emit: emit-example emit-xnvme emit-nvme
 
 define coverage-help
 # Run emitter with coverage
@@ -145,18 +120,30 @@ docs-build-prep: dev-install
 	pipx inject yace sphinxcontrib-gtagjs
 	pipx inject yace furo
 
+define docs-kmdo-help
+# Generate command output using kmdo
+endef
+.PHONY: docs-kmdo-help
+docs-kmdo:
+	kmdo docs/source/codebase
+	kmdo docs/source/idl
+	kmdo docs/source/install
+	kmdo docs/source/targets/capi
+	kmdo docs/source/usage
+
+define docs-gen-entities-help
+# Generate documentation of IDL entities
+endef
+.PHONY: docs-gen-entities
+docs-gen-entities:
+	$(PIPX_LOCAL_VENVS)/yace/bin/python ./$(AUX_PATH)/gen_entity_index.py > docs/source/idl/list.rst
+
 define docs-build-help
 # generate documentation
 endef
 .PHONY: docs-build
 docs-build:
-	$(PIPX_LOCAL_VENVS)/sphinx/bin/python ./$(AUX_PATH)/gen_entity_index.py > docs/source/idl/list.rst
 	cd docs && rm -rf build
-	cd docs/source/install && kmdo .
-	cd docs/source/usage && kmdo .
-	cd docs/source/targets/capi && kmdo .
-	cd docs/source/idl && kmdo .
-	cd docs/source/codebase && kmdo .
 	cd docs && make html
 
 define docs-view-help
@@ -164,13 +151,13 @@ define docs-view-help
 endef
 .PHONY: docs-view
 docs-view:
-	open docs/build/html/index.html
+	xdg-open docs/build/html/index.html | open docs/build/html/index.html
 
 define docs-help
-# generate documentation and open the HTML
+# generate documentation (command-output, section-gen, HTML) and open the HTML
 endef
 .PHONY: docs
-docs: docs-build-prep docs-build
+docs: docs-build-prep docs-kmdo docs-gen-entities docs-build docs-view
 
 define format-help
 # run code format (style, code-conventions and language-integrity) on staged changes

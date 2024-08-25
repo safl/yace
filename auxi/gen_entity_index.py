@@ -5,12 +5,11 @@ from yace.model import Model
 TEMPLATE = """\
 .. _sec-idl-list:
 
-================
- Entity Listing
-================
+Entity Listing
+==============
 
 {% for entity in entities %}
-* ``{{ entity.cls }}``: :py:class:`{{ entity.mod }}`; {{ entity.doc }}
+* ``{{ entity.key }}``: :py:class:`{{ entity.mod }}`; {{ entity.doc }}
 {% endfor %}
 """
 
@@ -23,13 +22,12 @@ def main():
         doc, *tail = [
             x.strip() for x in cls.__dict__.get("__doc__").split("\n") if x.strip()
         ]
-        entities.append(
-            {
-                "key": key,
-                "doc": doc.replace(":", ""),
-                "mod": ".".join([cls.__module__, cls.__name__]),
-            }
-        )
+        entity = {
+            "key": key,
+            "mod": ".".join([cls.__module__, cls.__name__]),
+            "doc": doc.replace(":", ""),
+        }
+        entities.append(entity)
 
     print(template.render(entities=entities))
 

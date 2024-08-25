@@ -50,9 +50,9 @@ Install: tools
 --------------
 
 Tools are utilized by the **yace** code-emitter :ref:`sec-targets`, each target
-documents which tools they use, and for what purpose. It is not nescarry to
-install all possible tools ahead of time, since **yace** will exit-early, in
-case a tool is missing and inform you.
+documents which tools they use, and for what purpose. It is not required to
+install all tools ahead-of-time, since **yace** will exit-early, in case a tool
+is missing and inform you.
 
 However, if you are curious, then have a look at the :ref:`sec-tools` section,
 it describes all the tools currently utilized by :ref:`sec-targets`.

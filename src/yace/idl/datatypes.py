@@ -12,12 +12,12 @@ The **yace** data types consists of:
 
 * Integers (Signed)
 
-  * :class:`.I`, :class:`.I16`, :class:`.IHalf`, :class:`.I8`
+  * :class:`.I`, :class:`.I16`, :class:`.IShort`, :class:`.I8`
   * :class:`.ILongLong`, :class:`.I64`, :class:`.ILong`, :class:`.I32`
 
 * Integers (Unsigned)
 
-  * :class:`.U`, :class:`.U16`, :class:`.UHalf`, :class:`.U8`
+  * :class:`.U`, :class:`.U16`, :class:`.UShort`, :class:`.U8`
   * :class:`.ULongLong`, :class:`.U64`, :class:`.ULong`, :class:`.U32`
 
 * Floating Point: :class:`.F32`, :class:`.F64`
@@ -37,7 +37,7 @@ import inspect
 import sys
 from typing import Literal, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, root_validator
 
 from .base import Entity
 
@@ -47,8 +47,9 @@ class Typespec(Entity):
     All entities is-a :class:`.Entity`
     """
 
-    # Lack of type
-    void: bool = False
+    canonical: str = ""
+
+    void: bool = False  # Lack of type
 
     # Boolean and textual datatypes
     boolean: bool = False  # Boolean type, since C99: _Bool / true / false
@@ -60,6 +61,7 @@ class Typespec(Entity):
     real: bool = False  # Floating point number e.g. float, double
 
     # Numerical types (Qualifiers and Modifiers)
+    signed: bool = True  # Type-modifier for the integer datatype
     unsigned: bool = False  # Type-modifier for the integer datatype
     width: Optional[int] = None  # integer type width
     width_fixed: bool = False  # True: has an exact bit-width
@@ -67,19 +69,114 @@ class Typespec(Entity):
     # Derived types
     union: bool = False  # union <id> { ... }
     struct: bool = False  # struct <id> { ... }
+    enum: bool = False  #  enum <id> { ... }
     sym: Optional[str] = None  # symbol / tag of structs and unions
 
     # General Qualifiers and Modifiers
     const: bool = False  # Access-qualifier for all types:  'const'
     static: bool = False  # Storage-qualifier for all types: 'static'
-    pointer: int = 0  # Pointer-type for all types: '*'
-    array: int = 0  # Array-type for all types: '[]'
+
+    # Pointer attributes
+    pointer: bool = False  # Pointer-type for all types: '*'
+    pointee: Optional["Typespec"] = None
+
+    # Array attributes
+    array: bool = False  # Is an
+    array_typ: Optional["Typespec"] = None
+    array_length: int = 0  # This could also be a symbolic constant
+
+    @root_validator(pre=True)
+    def check_signage(cls, values):
+        unsigned = values.get("unsigned")
+        signed = values.get("signed")
+
+        if unsigned is not None and signed is not None:
+            if unsigned == signed:
+                raise ValueError("unsigned and signed must have opposite values")
+        elif unsigned is not None:
+            values["signed"] = not unsigned
+        elif signed is not None:
+            values["unsigned"] = not signed
+
+        return values
+
+    def c_spelling(self):
+        """
+        Construct the C spelling
+        This **should** produce the same as a concatenation of tokens.
+        """
+
+        spelling = []
+        if self.const:
+            spelling.append("const")
+
+        if self.static:
+            spelling.append("static")
+
+        if self.void:
+            spelling.append("void")
+        elif self.boolean:
+            spelling.append("bool")
+        elif self.character:
+            spelling.append("signed" if self.signed else "unsigned")
+            spelling.append("char")
+        elif self.size:
+            spelling.append("ssize_t" if self.signed else "size_t")
+        elif self.integer and self.width_fixed:
+            if self.signed:
+                spelling.append(f"int{self.width}_t")
+            else:
+                spelling.append(f"uint{self.width}_t")
+
+        elif self.integer and not self.width_fixed:
+            spelling.append("int")
+        elif self.real:
+            spelling.append("float")
+        elif self.union:
+            spelling.append(f"union {self.sym}")
+        elif self.struct:
+            spelling.append(f"struct {self.sym}")
+        elif self.enum:
+            spelling.append(f"enum {self.sym}")
+        elif self.pointer:
+            spelling.append(self.pointee.c_spelling())
+            spelling.append("*")
+        elif self.array:
+            spelling.append(f"{self.array_typ.c_spelling()}")
+            spelling.append(f"{self.sym}[{self.array_length}]")
+
+        return " ".join(spelling)
+
+
+class Pointer(Typespec):
+    key: str = "pointer_tspec"
+
+    pointer: bool = True
+    pointee: Typespec
+
+
+class FunctionPointer(Typespec):
+    key: str = "function_pointer_tspec"
+
+    pointer: bool = True
+
+
+class Array(Typespec):
+    key: str = "array_tspec"
+
+    array: bool = True
+    array_typ: Typespec
+    array_length: Optional[int]
+
+
+class Record(Typespec):
+    key: str = "record_tspec"
 
 
 class Void(Typespec):
     """A void, that is, the type signaling no type"""
 
-    key: str = "void"
+    key: str = "void_tspec"
 
     void: Optional[bool] = True
 
@@ -87,10 +184,10 @@ class Void(Typespec):
 class VoidPtr(Typespec):
     """A void-pointer, that is, point to anything (including nothing)"""
 
-    key: str = "void_ptr"
+    key: str = "void_pointer_tspec"
 
     void: Optional[bool] = True
-    pointer: int = 1
+    is_pointer: int = 1
 
 
 class Char(Typespec):
@@ -104,8 +201,10 @@ class Char(Typespec):
     for the :class:`.Char` entity.
     """
 
-    key: str = "char"
+    key: str = "char_tspec"
 
+    signed: bool = True
+    unsigned: bool = False
     character: bool = True
     width: int = 8
 
@@ -121,8 +220,10 @@ class ISize(Typespec):
     for the :class:`.ISize` entity.
     """
 
-    key: str = "isize"
+    key: str = "isize_tspec"
 
+    signed: bool = True
+    unsigned: bool = False
     size: bool = True
     width: Optional[int] = 16
 
@@ -138,19 +239,21 @@ class I8(Typespec):
     for the :class:`.I8` entity.
     """
 
-    key: str = "i8"
+    key: str = "i8_tspec"
 
+    signed: bool = True
+    unsigned: bool = False
     integer: bool = True
     width: int = 8
     width_fixed: bool = True
 
 
-class IHalf(Typespec):
+class IShort(Typespec):
     """
     Signed integer at least 8 bits wide.
 
-    This is also known as "half" or "short" int, as it is relative to "Int"
-    shorter, typically, half the amount of bits.
+    This is also known as a "short" int, as it is relative to "Int" shorter, typically,
+    half the amount of bits.
 
     The C emitter can produce::
 
@@ -159,8 +262,10 @@ class IHalf(Typespec):
     for the :class:`.IHalf` entity.
     """
 
-    key: str = "ih"
+    key: str = "ih_tspec"
 
+    signed: bool = True
+    unsigned: bool = False
     integer: bool = True
     width: Optional[int] = 8
 
@@ -176,8 +281,10 @@ class I16(Typespec):
     for the :class:`.I16` entity.
     """
 
-    key: str = "i16"
+    key: str = "i16_tspec"
 
+    signed: bool = True
+    unsigned: bool = False
     integer: bool = True
     width: Optional[int] = 16
     width_fixed: bool = True
@@ -200,10 +307,12 @@ class I(Typespec):
     for the :class:`.I` entity.
     """
 
-    key: str = "i"
+    key: str = "i_tspec"
 
+    signed: bool = True
+    unsigned: bool = False
     integer: bool = True
-    width: Optional[int] = 16
+    width: int = 16
 
 
 class I32(Typespec):
@@ -217,8 +326,10 @@ class I32(Typespec):
     for the :class:`.I32` entity.
     """
 
-    key: str = "i32"
+    key: str = "i32_tspec"
 
+    signed: bool = True
+    unsigned: bool = False
     integer: bool = True
     width: int = 32
     width_fixed: bool = True
@@ -235,8 +346,10 @@ class ILong(Typespec):
     for the :class:`.ILong` entity.
     """
 
-    key: str = "il"
+    key: str = "il_tspec"
 
+    signed: bool = True
+    unsigned: bool = False
     integer: bool = True
     width: Optional[int] = 32
 
@@ -252,8 +365,10 @@ class I64(Typespec):
     for the :class:`.I64` entity.
     """
 
-    key: str = "i64"
+    key: str = "i64_tspec"
 
+    signed: bool = True
+    unsigned: bool = False
     integer: bool = True
     width: Optional[int] = 64
     width_fixed: bool = True
@@ -270,8 +385,10 @@ class ILongLong(Typespec):
     for the :class:`.ILongLong` entity.
     """
 
-    key: str = "ill"
+    key: str = "ill_tspec"
 
+    signed: bool = True
+    unsigned: bool = False
     integer: bool = True
     width: Optional[int] = 64
 
@@ -287,8 +404,10 @@ class USize(Typespec):
     for the :class:`.USize` entity.
     """
 
-    key: str = "usize"
+    key: str = "usize_tspec"
 
+    signed: bool = False
+    unsigned: bool = True
     size: bool = True
     unsigned: bool = True
     width: Optional[int] = 16
@@ -305,32 +424,34 @@ class U8(Typespec):
     for the :class:`.U8` entity.
     """
 
-    key: str = "u8"
+    key: str = "u8_tspec"
 
-    integer: bool = True
+    signed: bool = False
     unsigned: bool = True
+    integer: bool = True
     width: Optional[int] = 8
     width_fixed: bool = True
 
 
-class UHalf(Typespec):
+class UShort(Typespec):
     """
     Unsigned integer at least 8 bits wide.
 
-    This is also known as "half" or "short" int, as it is relative to "Int"
-    shorter, typically, half the amount of bits.
+    This is also known as a "short" int, as it is relative to "Int" shorter, typically,
+    half the amount of bits.
 
     A C emitter could produce::
 
         unsigned short int
 
-    for the :class:`.UHalf` entity.
+    for the :class:`.UShort` entity.
     """
 
-    key: str = "uh"
+    key: str = "us_tspec"
 
-    integer: bool = True
+    signed: bool = False
     unsigned: bool = True
+    integer: bool = True
     width: Optional[int] = 8
 
 
@@ -345,10 +466,11 @@ class U16(Typespec):
     for the :class:`.U16` entity.
     """
 
-    key: str = "u16"
+    key: str = "u16_tspec"
 
-    integer: bool = True
+    signed: bool = False
     unsigned: bool = True
+    integer: bool = True
     width: Optional[int] = 16
     width_fixed: bool = True
 
@@ -364,10 +486,11 @@ class U(Typespec):
     for the :class:`.U` entity.
     """
 
-    key: str = "u"
+    key: str = "u_tspec"
 
-    integer: bool = True
+    signed: bool = False
     unsigned: bool = True
+    integer: bool = True
     width: Optional[int] = 16
 
 
@@ -382,10 +505,11 @@ class U32(Typespec):
     for the :class:`.U32` entity.
     """
 
-    key: str = "u32"
+    key: str = "u32_tspec"
 
-    integer: bool = True
+    signed: bool = False
     unsigned: bool = True
+    integer: bool = True
     width: Optional[int] = 32
     width_fixed: bool = True
 
@@ -401,10 +525,11 @@ class ULong(Typespec):
     for the :class:`.ULong` entity.
     """
 
-    key: str = "ul"
+    key: str = "ul_tspec"
 
-    integer: bool = True
+    signed: bool = False
     unsigned: bool = True
+    integer: bool = True
     width: Optional[int] = 32
 
 
@@ -419,10 +544,11 @@ class U64(Typespec):
     for the :class:`.U64` entity.
     """
 
-    key: str = "u64"
+    key: str = "u64_tspec"
 
-    integer: bool = True
+    signed: bool = False
     unsigned: bool = True
+    integer: bool = True
     width: Optional[int] = 64
     width_fixed: bool = True
 
@@ -438,10 +564,11 @@ class ULongLong(Typespec):
     for the :class:`.ULongLong` entity.
     """
 
-    key: str = "ull"
+    key: str = "ull_tspec"
 
-    integer: bool = True
+    signed: bool = False
     unsigned: bool = True
+    integer: bool = True
     width: Optional[int] = 64
 
 
@@ -459,7 +586,7 @@ class F32(Typespec):
     for the :class:`.F32` entity.
     """
 
-    key: str = "f32"
+    key: str = "f32_tspec"
 
     real: bool = True
     width: int = 32
@@ -480,7 +607,7 @@ class F64(Typespec):
     for the :class:`.F64` entity.
     """
 
-    key: str = "f64"
+    key: str = "f64_tspec"
 
     real: bool = True
     width: int = 64
@@ -505,13 +632,13 @@ class Bool(Typespec):
     for the :class:`.Bool` entity.
     """
 
-    key: str = "bool"
+    key: str = "bool_tspec"
 
     boolean: bool = True
     width: int = 8
 
 
-class String(Typespec):
+class CString(Typespec):
     """
     A string pointer
 
@@ -522,10 +649,10 @@ class String(Typespec):
     for the :class:`.String` entity.
     """
 
-    key: str = "string"
+    key: str = "string_tspec"
 
-    character: bool = True
-    pointer: int = 1
+    pointer: bool = True
+    pointee: Typespec = Char()
     const: bool = True
 
 
@@ -539,6 +666,10 @@ def classes():
     ]
 
 
+def get_shorthand_to_cls():
+    return {cls.__fields__["key"].default: cls for cls in classes()}
+
+
 def classes_shorthand_data():
     """Returns a map of shorthands to non-default datatype data"""
 
@@ -546,8 +677,10 @@ def classes_shorthand_data():
 
     shorthands = {}  # Map to return
     for cls in classes():
+        if cls.__fields__["key"].default in ["pointer_tspec", "array_tspec"]:
+            continue
+
         data = cls().model_dump()  # Setup data
-        del data["lbl"]  # Remove "lbl"
 
         for key, val in default.items():  # Remove default-values
             if key in data and data.get(key) == val and key not in ["key"]:
@@ -559,7 +692,9 @@ def classes_shorthand_data():
 
 
 # Create a Literal type from the list of strings
-TypespecShorthand = Literal[tuple(sorted([cls().key for cls in classes()]))]
+TypespecShorthand = Literal[
+    tuple(sorted([cls.__fields__["key"].default for cls in classes()]))
+]
 
 
 class Typed(BaseModel):

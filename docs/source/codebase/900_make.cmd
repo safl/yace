@@ -1,1 +1,1 @@
-make -C ../../.. help
+make help

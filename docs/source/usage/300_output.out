@@ -13,13 +13,22 @@ output
 │   ├── libexample_core.h
 │   ├── libexample.h
 │   └── libexample_pp.h
-└── ctypes
-    ├── black.log
-    ├── ctypes_sugar.py
-    ├── example_check.py
-    ├── example.py
-    ├── isort.log
-    └── python3.log
+├── ctypes
+│   ├── black.log
+│   ├── ctypes_sugar.py
+│   ├── example_check.py
+│   ├── example.py
+│   ├── isort.log
+│   └── python3.log
+├── example
+│   ├── capi
+│   └── ctypes
+├── nvme
+│   ├── capi
+│   └── ctypes
+└── xnvme
+    ├── capi
+    └── ctypes
 
-4 directories, 18 files
+13 directories, 18 files
 
