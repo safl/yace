@@ -570,6 +570,6 @@ def c_to_yace(paths: List[Path], output: Path) -> List[Error]:
         data["entities"] = entities
 
         model = Model(**data)
-        model.to_file(output / f"{path.stem}_parsed.yaml")
+        model.to_file(output / path.with_suffix(".yaml").name)
 
     return errors
