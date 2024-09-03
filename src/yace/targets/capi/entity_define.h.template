@@ -1,2 +1,6 @@
-#define {{ entity.sym }}{% if entity.val %} = {{ entity.val.lit }} {% endif %} ///< {{ entity.doc }}
+#define {{ entity.sym }}
+{%- if entity.val.key == "str" %} "{{ entity.val.lit }}"
+{%- elif entity.val.key == "hex" %} 0x{{ '%X' % entity.val.lit }}
+{%- elif entity.val.key == "dec" %} {{ entity.val.lit }}
+{%- endif -%}
 

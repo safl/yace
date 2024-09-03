@@ -1,4 +1,3 @@
----
 entities:
 - ant: {}
   key: define
@@ -7,6 +6,13 @@ entities:
     ant: {}
     key: str
     lit: WYRD1234
+- ant: {}
+  key: define
+  sym: PLOT_FOO
+  val:
+    ant: {}
+    key: hex
+    lit: 44252
 - ant: {}
   key: define
   sym: PLOT_VERSION_MAJOR
@@ -132,5 +138,5 @@ entities:
       width: 32
       width_fixed: true
   sym: coordinate
-meta: {author: Foo Bar <foo@example.com>, brief: Brief Description, full: Full Description, lic: Unknown License, prefix: foo,
-  project: foo, version: 0.0.1}
+meta: {author: Foo Bar <foo@example.com>, brief: Brief Description, full: Full Description,
+  lic: Unknown License, prefix: foo, project: foo, version: 0.0.1}
