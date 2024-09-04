@@ -1,6 +1,7 @@
 """
 YAML ==> Interface(List[Entities]) ==> Emitter() ==> CodeTarget
 """
+
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
@@ -58,6 +59,14 @@ class Emitter(object):
     def render(self, template, args):
         """Renders the given template, passing args..."""
 
+        def emit_cstr_fmt(typespec):
+            if typespec.integer:
+                return f'%"PRIx{ typespec.width }"'
+            elif typespec.boolean:
+                return "%d"
+
+            return f"MISSING_CSTR_FMT({typespec})"
+
         def emit_typespec(typespec, anon: bool = False):
             return typespec.c_spelling()
 
@@ -68,6 +77,7 @@ class Emitter(object):
         entity_jenv.globals.update(zip=zip, len=len)
         entity_jenv.filters["camelcase"] = camelcase
         entity_jenv.filters["emit_typespec"] = emit_typespec
+        entity_jenv.filters["emit_cstr_fmt"] = emit_cstr_fmt
         entity_templates = {
             Path(f).stem: entity_jenv.get_template(f)
             for f in entity_jenv.list_templates()
@@ -87,6 +97,7 @@ class Emitter(object):
         file_jenv.globals.update(zip=zip, len=len)
         file_jenv.filters["camelcase"] = camelcase
         file_jenv.filters["emit_typespec"] = emit_typespec
+        file_jenv.filters["emit_cstr_fmt"] = emit_cstr_fmt
         file_jenv.filters["emit_entity"] = emit_entity
         file_templates = {
             Path(f).stem: file_jenv.get_template(f)

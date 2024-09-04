@@ -1,0 +1,12 @@
+{% if entity.doc %}
+/**
+ * {{ entity.doc }}
+ *
+ * @{{ entity.key }}
+ */
+{% endif %}
+union {{ entity.sym }} {
+    {% for member in entity.members -%}
+    {{ member.typ.c_spelling() }} {{ member.sym }};{% if member.doc %} ///< {{ member.doc }}{% endif %}
+	{% endfor %}
+};

@@ -34,7 +34,7 @@ enum {{ meta.prefix }}_pr {
  * "ENOSYS" is returned.
  */
 const char * {{ entity.sym }}_str(int enum_val);
-{% elif entity['key'] in ['struct', 'union'] %}
+{% elif entity['key'] in ['struct_decl', 'union_decl'] %}
 /**
  * Prints the given ::{{ entity.sym }} 'obj' to the given output 'stream'
  *
@@ -44,7 +44,7 @@ const char * {{ entity.sym }}_str(int enum_val);
  *
  * @return On success, the number of characters printed is returned.
  */
-int {{ entity.sym }}_fpr(FILE *stream, const struct {{ entity.sym }} *obj, int flags);
+int {{ entity.sym }}_fpr(FILE *stream, const {{ entity.key.replace("_decl", "") }} {{ entity.sym }} *obj, int flags);
 
 /**
  * Prints the given ::{{ entity.sym }} 'obj' to stdout
@@ -54,6 +54,6 @@ int {{ entity.sym }}_fpr(FILE *stream, const struct {{ entity.sym }} *obj, int f
  *
  * @return On success, the number of characters printed is returned.
  */
-int {{ entity.sym }}_pr(const struct {{ entity.sym }} *obj, int flags);
+int {{ entity.sym }}_pr(const {{ entity.key.replace("_decl", "") }} {{ entity.sym }} *obj, int flags);
 {% endif %}
 {%- endfor %}

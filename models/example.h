@@ -15,7 +15,11 @@ struct coordinate {
   int32_t z;
 };
 
-int
-foo(int x, int y);
+union feature {
+  struct coordinate coord;
+  uint32_t vector;
+};
+
+int foo(int x, int y);
 
 typedef int (*binop_func)(int, int);

@@ -337,11 +337,15 @@ class CParser(object):
         except ValidationError as exc:
             return None, ParseError.from_exception(exc, cursor)
 
-    def parse_struct(
+    def parse_record(
         self, cursor
     ) -> Tuple[Optional[yace.model.base.Entity], Optional[yace.errors.Error]]:
         try:
-            inst = yace.model.derivedtypes.Struct(
+            cls = yace.model.derivedtypes.Struct
+            if cursor.kind == CursorKind.UNION_DECL:
+                cls = yace.model.derivedtypes.Union
+
+            record = cls(
                 sym=cursor.spelling,
                 doc=get_comments(cursor),
                 members=[],
@@ -354,7 +358,7 @@ class CParser(object):
                 case CursorKind.FIELD_DECL:
                     pass
 
-                case CursorKind.STRUCT_DECL | CursorKind.ENUM_DECL:
+                case CursorKind.STRUCT_DECL | CursorKind.UNION_DECL:
                     if list(field.get_children()):
                         return None, ParseError.from_cursor(
                             f"unexpected '{field.kind}'; with children",
@@ -384,9 +388,9 @@ class CParser(object):
                     typ=ftyp,
                 )
 
-            inst.members.append(field)
+            record.members.append(field)
 
-        return inst, None
+        return record, None
 
     def parse_union(
         self, cursor
@@ -514,10 +518,8 @@ class CParser(object):
             match cursor.kind:
                 case CursorKind.ENUM_DECL:
                     entity, error = self.parse_enum(cursor)
-                case CursorKind.STRUCT_DECL:
-                    entity, error = self.parse_struct(cursor)
-                case CursorKind.UNION_DECL:
-                    entity, error = self.parse_union(cursor)
+                case CursorKind.STRUCT_DECL | CursorKind.UNION_DECL:
+                    entity, error = self.parse_record(cursor)
                 case CursorKind.TYPEDEF_DECL:
                     entity, error = self.parse_typedef(cursor)
                 case CursorKind.FUNCTION_DECL:

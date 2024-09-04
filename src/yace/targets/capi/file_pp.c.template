@@ -27,7 +27,7 @@ const char *
 }
 {%- elif entity["key"] in ["struct_decl", "union_decl"] %}
 static int
-{{ entity.sym }}_yaml(FILE *stream, const struct {{ entity.sym }} *obj, int flags)
+{{ entity.sym }}_yaml(FILE *stream, const {{ entity.key.replace("_decl", "") }} {{ entity.sym }} *obj, int flags)
 {
 	int wrtn = 0;
 
@@ -51,18 +51,21 @@ static int
 
         wrtn += fprintf(stream, "%*s{{ member.sym }}: INVALID\n", {{ indent }}, "");
 
-        {%- elif member.key in ["field_decl"] -%}
+    {%- elif member.key in ["field_decl"] and "record" not in member.typ.key -%}
 
-        wrtn += fprintf(stream, "%*s{{ member.sym }}: {{ member.fmt }}\n", {{ indent }}, "", {{ accessor }});
+        wrtn += fprintf(stream, "%*s{{ member.sym }}: {{ member.typ | emit_cstr_fmt }}\n", {{ indent }}, "", {{ accessor }});
 
-        {%- elif member.key in ["bitfield_decl"] -%}
+    {%- elif member.key in ["bitfield_decl"] -%}
 	
         wrtn += fprintf(stream, "%*s{{ member.sym }}: 0x%x\n", {{ indent }}, "", {{ accessor }});
  
-        {%- elif member.key in ["union_decl", "struct_decl", "bitfield_struct_decl"] -%}
+    {%- elif member.key in ["union_decl", "struct_decl", "bitfield_struct_decl"] -%}
 
-        wrtn += fprintf(stream, "%*s{{ member.sym }}:\n", {{ indent }}, "");
-	{{ loop(zip([accessor + "."] * len(member.members), member.members)) }}
+		// TODO: emitter record
+		// wrtn += fprintf(stream, "%*s{{ member.sym }}:\n", {{ indent }}, "");
+		/**
+		{{ loop(zip([accessor + "."] * len(member.members), member.members)) }}
+		*/
 
 	{%- else -%}
         // What is this? {{ member.key }}
@@ -73,7 +76,7 @@ static int
 }
 
 static int
-{{ entity.sym }}_json(FILE *stream, const struct {{ entity.sym }} *obj, int flags)
+{{ entity.sym }}_json(FILE *stream, const {{ entity.key.replace("_decl", "") }} {{ entity.sym }} *obj, int flags)
 {
 	int wrtn = 0;
 
@@ -83,8 +86,8 @@ static int
 	}
         wrtn += fprintf(stream, "{\n%*s\"{{ entity.sym }}\": {\n", 2, "");
 	{%- for token, member in zip(["obj->"] * len(entity.members), entity.members) recursive -%}
-        {% set indent = (loop.depth + 1) * 2 %}
-        {% set accessor = token + member.sym %}
+    {%  set indent = (loop.depth + 1) * 2 %}
+    {%  set accessor = token + member.sym %}
 
 	{%- if member.key in ["field_decl"] and "rsvd" in member.sym -%}
         wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": \"RESERVED\"", {{ indent }}, "");
@@ -93,17 +96,12 @@ static int
         wrtn += fprintf(stream, "%*s{{ member.sym }}: \"INVALID\"", {{ indent }}, "");
 
 	{%- elif member.key in ["field_decl"] and member.typ.integer -%}
-        wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": %"PRIu{{ member.typ.width }}"", {{ indent }}, "", {{ accessor }});
+        wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": {{ member.typ | emit_cstr_fmt }}", {{ indent }}, "", {{ accessor }});
 
-	{%- elif member.key in ["field_decl"] -%}
-        wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": \"%s\"", {{ indent }}, "", {{ accessor }});
-
-        {%- elif member.key in ["bitfield_decl"] -%}
-        wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": %u", {{ indent }}, "", {{ accessor }});
-        {%- elif member.key in ["union_decl", "struct_decl", "bitfield_struct_decl"] -%}
+    {%- elif member.key in ["union_decl", "struct_decl", "bitfield_struct_decl"] -%}
 	
         wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": {\n", {{ indent }}, "");
-	{{ loop(zip([accessor + "."] * len(member.members), member.members)) }}
+		//{{ loop(zip([accessor + "."] * len(member.members), member.members)) }}
         wrtn += fprintf(stream, "%*s}", {{ indent }}, "");
 
 	{%- else -%}
@@ -121,13 +119,12 @@ static int
 
 
 int
-{{ entity.sym }}_fpr(FILE *stream, const struct {{ entity.sym }} *obj, int flags)
+{{ entity.sym }}_fpr(FILE *stream, const {{ entity.key.replace("_decl", "") }} {{ entity.sym }} *obj, int flags)
 {
 	switch (flags) {
 	case {{ meta.prefix | upper }}_PR_DEF:
 	case {{ meta.prefix | upper }}_PR_YAML:
 		return {{ entity.sym }}_yaml(stream, obj, flags);
-		break;
 
 	case {{ meta.prefix | upper }}_PR_JSON:
 		return {{ entity.sym }}_json(stream, obj, flags);
@@ -137,7 +134,7 @@ int
 }
 
 int
-{{ entity.sym }}_pr(const struct {{ entity.sym }} *obj, int flags)
+{{ entity.sym }}_pr(const {{ entity.key.replace("_decl", "") }} {{ entity.sym }} *obj, int flags)
 {
 	return {{ entity.sym }}_fpr(stdout, obj, flags);
 }

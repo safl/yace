@@ -1,3 +1,4 @@
+---
 entities:
 - ant: {}
   key: define
@@ -138,6 +139,63 @@ entities:
       width: 32
       width_fixed: true
   sym: coordinate
+- ant: {}
+  doc: ''
+  key: union_decl
+  members:
+  - ant: {}
+    doc: ''
+    key: field_decl
+    sym: coord
+    typ:
+      ant: {}
+      array: false
+      array_length: 0
+      boolean: false
+      canonical: struct coordinate
+      character: false
+      const: false
+      enum: false
+      integer: false
+      key: record_tspec
+      pointer: false
+      real: false
+      signed: true
+      size: false
+      static: false
+      struct: true
+      sym: coordinate
+      union: false
+      unsigned: false
+      void: false
+      width_fixed: false
+  - ant: {}
+    doc: ''
+    key: field_decl
+    sym: vector
+    typ:
+      ant: {}
+      array: false
+      array_length: 0
+      boolean: false
+      canonical: uint32_t
+      character: false
+      const: false
+      enum: false
+      integer: true
+      key: u32_tspec
+      pointer: false
+      real: false
+      signed: false
+      size: false
+      static: false
+      struct: false
+      union: false
+      unsigned: true
+      void: false
+      width: 32
+      width_fixed: true
+  sym: feature
 - ant: {}
   doc: ''
   key: function_decl
@@ -292,5 +350,5 @@ entities:
     width: 16
     width_fixed: false
   sym: binop_func
-meta: {author: Foo Bar <foo@example.com>, brief: Brief Description, full: Full Description,
-  lic: Unknown License, prefix: foo, project: foo, version: 0.0.1}
+meta: {author: Foo Bar <foo@example.com>, brief: Brief Description, full: Full Description, lic: Unknown License, prefix: foo,
+  project: foo, version: 0.0.1}
