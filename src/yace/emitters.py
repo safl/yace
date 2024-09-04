@@ -58,22 +58,8 @@ class Emitter(object):
     def render(self, template, args):
         """Renders the given template, passing args..."""
 
-        typespec_jenv = Environment(
-            loader=FileSystemLoader(self.searchpath),
-            extensions=["jinja2.ext.do"],
-        )
-        typespec_jenv.globals.update(zip=zip, len=len)
-        typespec_templates = {
-            Path(f).stem.split(".")[0]: typespec_jenv.get_template(f)
-            for f in typespec_jenv.list_templates()
-            if f.endswith(".template") and f.startswith("typespec")
-        }
-
-        def emit_typespec(entity, anon: bool = False):
-            args["entity"] = entity
-            template = "typespec_anon" if anon else "typespec"
-
-            return typespec_templates[template].render(**args)
+        def emit_typespec(typespec, anon: bool = False):
+            return typespec.c_spelling()
 
         entity_jenv = Environment(
             loader=FileSystemLoader(self.searchpath),

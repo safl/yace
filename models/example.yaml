@@ -138,5 +138,82 @@ entities:
       width: 32
       width_fixed: true
   sym: coordinate
+- ant: {}
+  doc: ''
+  key: function_decl
+  parameters:
+  - ant: {}
+    key: parameter_decl
+    sym: x
+    typ:
+      ant: {}
+      array: false
+      array_length: 0
+      boolean: false
+      canonical: int
+      character: false
+      const: false
+      enum: false
+      integer: true
+      key: i_tspec
+      pointer: false
+      real: false
+      signed: true
+      size: false
+      static: false
+      struct: false
+      union: false
+      unsigned: false
+      void: false
+      width: 16
+      width_fixed: false
+  - ant: {}
+    key: parameter_decl
+    sym: y
+    typ:
+      ant: {}
+      array: false
+      array_length: 0
+      boolean: false
+      canonical: int
+      character: false
+      const: false
+      enum: false
+      integer: true
+      key: i_tspec
+      pointer: false
+      real: false
+      signed: true
+      size: false
+      static: false
+      struct: false
+      union: false
+      unsigned: false
+      void: false
+      width: 16
+      width_fixed: false
+  ret:
+    ant: {}
+    array: false
+    array_length: 0
+    boolean: false
+    canonical: int
+    character: false
+    const: false
+    enum: false
+    integer: true
+    key: i_tspec
+    pointer: false
+    real: false
+    signed: true
+    size: false
+    static: false
+    struct: false
+    union: false
+    unsigned: false
+    void: false
+    width: 16
+    width_fixed: false
+  sym: foo
 meta: {author: Foo Bar <foo@example.com>, brief: Brief Description, full: Full Description,
   lic: Unknown License, prefix: foo, project: foo, version: 0.0.1}

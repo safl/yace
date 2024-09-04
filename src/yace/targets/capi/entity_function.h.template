@@ -1,3 +1,4 @@
+{% if entity.doc %}
 /**
  * {{ entity.doc }}
  *
@@ -8,6 +9,7 @@
  *
  * @return {{ entity.ret.doc }}
 {%- endif %}
- */
-{{ entity.ret | emit_typespec(anon=True) }} {{ entity.sym }}
+  */
+{% endif %}
+{{ entity.ret.c_spelling() }} {{ entity.sym }}
 ({% for parameter in entity.parameters %}{{ parameter | emit_typespec }}{{ ", " if not loop.last else "" }}{% endfor %});

@@ -1,10 +1,12 @@
+{% if entity.doc %}
 /**
  * {{ entity.doc }}
  *
  * @{{ entity.key }} {{ entity.sym }}
  */
+{% endif %}
 enum {{ entity.sym }} {
 {%- for member in entity.members %}
-	{{ member.sym }} = {{ '0x%0x' % member.val.lit }}, ///< {{ member.doc }}
+	{{ member.sym }} = {{ '0x%0x' % member.val.lit }},{% if member.doc %} ///< {{ member.doc }}{% endif %}
 {%- endfor %}
 };
