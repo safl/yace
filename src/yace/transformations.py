@@ -22,7 +22,6 @@ class CStyle(ModelWalker):
     """
     Transform symbols:
 
-    * All ``.sym`` in top-level entities are prefixed with ``meta.prefix_``
     * :class:`yace.idl.constants.Define` -> upper()
     * :class:`yace.idl.constants.EnumValue` -> upper()
 
@@ -37,14 +36,10 @@ class CStyle(ModelWalker):
         if "sym" not in list(current.model_dump().keys()):
             return (True, None)
 
-        if depth == 0:
-            current.sym = f"{self.model.meta.prefix}_{current.sym}"
-            pass
-
         if current.key in ["define"]:
             current.sym = current.sym.upper()
         elif current.key in ["enum_value"]:
-            current.sym = ancestors[-1].sym.upper() + "_" + current.sym.upper()
+            current.sym = current.sym.upper()
 
         return (True, None)
 
