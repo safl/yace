@@ -48,7 +48,7 @@ def parse_args():
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("output"),
+        default=Path.cwd(),
         help="path to output directory, for emitted code / artifacts",
     )
     parser.add_argument(
