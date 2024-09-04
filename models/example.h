@@ -17,3 +17,5 @@ struct coordinate {
 
 int
 foo(int x, int y);
+
+typedef int (*binop_func)(int, int);
