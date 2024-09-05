@@ -36,11 +36,18 @@ entities:
     key: dec
     lit: 3
 - ant: {}
-  doc: ''
+  doc:
+    brief: Description of enum
+    description: More stuff
+    tags:
+      enum: {plot_options: ''}
   key: enum
   members:
   - ant: {}
-    doc: ''
+    doc:
+      brief: First thing
+      description: ''
+      tags: {}
     key: enum_value
     sym: PLOT_OPTIONS_PNG
     val:
@@ -48,7 +55,10 @@ entities:
       key: dec
       lit: 1
   - ant: {}
-    doc: ''
+    doc:
+      brief: Second thing
+      description: ''
+      tags: {}
     key: enum_value
     sym: PLOT_OPTIONS_PDF
     val:
@@ -57,11 +67,18 @@ entities:
       lit: 2
   sym: plot_options
 - ant: {}
-  doc: ''
+  doc:
+    brief: Description of structure
+    description: ''
+    tags:
+      struct: {coordinate: ''}
   key: struct_decl
   members:
   - ant: {}
-    doc: ''
+    doc:
+      brief: X Coordinate
+      description: ''
+      tags: {}
     key: field_decl
     sym: x
     typ:
@@ -87,7 +104,10 @@ entities:
       width: 32
       width_fixed: true
   - ant: {}
-    doc: ''
+    doc:
+      brief: Y Coordinate
+      description: ''
+      tags: {}
     key: field_decl
     sym: y
     typ:
@@ -113,7 +133,10 @@ entities:
       width: 32
       width_fixed: true
   - ant: {}
-    doc: ''
+    doc:
+      brief: Z Coordinate
+      description: ''
+      tags: {}
     key: field_decl
     sym: z
     typ:
@@ -140,11 +163,18 @@ entities:
       width_fixed: true
   sym: coordinate
 - ant: {}
-  doc: ''
+  doc:
+    brief: Description of a feature...
+    description: ''
+    tags:
+      union: {feature: ''}
   key: union_decl
   members:
   - ant: {}
-    doc: ''
+    doc:
+      brief: Coordinate
+      description: ''
+      tags: {}
     key: field_decl
     sym: coord
     typ:
@@ -170,7 +200,10 @@ entities:
       void: false
       width_fixed: false
   - ant: {}
-    doc: ''
+    doc:
+      brief: Vector
+      description: ''
+      tags: {}
     key: field_decl
     sym: vector
     typ:
@@ -197,7 +230,12 @@ entities:
       width_fixed: true
   sym: feature
 - ant: {}
-  doc: ''
+  doc:
+    brief: This is a function
+    description: ''
+    tags:
+      param: {x: The first thing, y: The second thing}
+      return: {Something: 'on success, -1 on error.'}
   key: function_decl
   parameters:
   - ant: {}
@@ -274,7 +312,10 @@ entities:
     width_fixed: false
   sym: foo
 - ant: {}
-  doc: ''
+  doc:
+    brief: ''
+    description: ''
+    tags: {}
   key: function_pointer_decl
   parameters:
   - ant: {}

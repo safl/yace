@@ -10,9 +10,73 @@ The above are defined below.
 """
 
 import re
-from typing import Optional
+from typing import Dict, Optional
 
 from pydantic import BaseModel, Field
+
+
+class Docstring(BaseModel):
+    """
+    An enrichment of a raw-comment-text
+
+    The raw comment-text is parsed into the components of brief, description, and tags.
+    """
+
+    brief: str
+    description: str
+    tags: Dict[str, Dict[str, str]]
+
+    @classmethod
+    def from_cursor(cls, cursor):
+        data = {"brief": "", "description": "", "tags": {}}
+
+        raw_comment = ""
+        if cursor.raw_comment:
+            raw_comment = ("".join(list(cursor.raw_comment))).strip()
+
+        if raw_comment.startswith("///<"):
+            data["brief"] = raw_comment[4:].strip()
+            return cls(**data)
+
+        # Remove comment markers (/**, */, and leading *)
+        cleaned_docstring = re.sub(r"\/\*\*|\*\/", "", raw_comment)
+        cleaned_docstring = re.sub(
+            r"^\s*\*\s?", "", cleaned_docstring, flags=re.MULTILINE
+        ).strip()
+
+        # Split into lines
+        lines = cleaned_docstring.split("\n")
+
+        # Extract brief description (first non-empty line)
+        brief_description = lines[0].strip()
+        data["brief"] = brief_description
+
+        # Extract full description (everything after the first line, before any tag like @param/@return)
+        description_lines = []
+        for line in lines[1:]:
+            if line.strip().startswith("@"):
+                break
+            if line.strip():
+                description_lines.append(line.strip())
+
+        data["description"] = " ".join(description_lines)
+
+        # Generic tag pattern to match any tag starting with @
+        tag_pattern = re.compile(r"@(\w+)\s+(\w+)?\s*(.*?)\n\s*\*", re.DOTALL)
+        matches = re.findall(tag_pattern, raw_comment)
+
+        tags = {}
+        for tag, param, desc in matches:
+            if tag not in tags:
+                tags[tag] = {}
+            if param:
+                tags[tag][param] = desc.strip()
+            else:
+                tags[tag] = desc.strip()
+
+        data["tags"] = tags
+
+        return data
 
 
 class Entity(BaseModel):
@@ -33,7 +97,7 @@ class Documented(BaseModel):
     Attribute-mixin; adding a required 'doc' describing the :class:`.Entity`
     """
 
-    doc: str
+    doc: Docstring
 
 
 class Named(BaseModel):

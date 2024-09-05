@@ -1,12 +1,14 @@
 {% if entity.doc %}
 /**
- * {{ entity.doc }}
+ * {{ entity.doc.brief }}
  *
- * @{{ entity.key }}
+ * {{ entity.doc.description }}
+ *
+ * @{{ entity.key.replace("_decl", "") }}
  */
 {% endif %}
 union {{ entity.sym }} {
     {% for member in entity.members -%}
-    {{ member.typ.c_spelling() }} {{ member.sym }};{% if member.doc %} ///< {{ member.doc }}{% endif %}
+    {{ member.typ.c_spelling() }} {{ member.sym }};{% if member.doc %} ///< {{ member.doc.brief }}{% endif %}
 	{% endfor %}
 };

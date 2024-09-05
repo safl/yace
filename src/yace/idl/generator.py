@@ -21,6 +21,7 @@ from pydantic import ValidationError
 import yace
 from yace.errors import Error, ParseError, UnsupportedDatatype
 from yace.idl import datatypes, directives
+from yace.idl.base import Docstring
 from yace.idl.constants import Dec, EnumValue, Hex, String
 from yace.model import Model
 
@@ -192,12 +193,6 @@ def typekind_to_typespec(
             )
 
 
-def get_comments(cursor):
-    """Retrieve comments from the given cursor"""
-
-    return "".join(list(cursor.raw_comment)) if cursor.raw_comment else ""
-
-
 def literal_from_text(text: str) -> Optional[Union[Dec, Hex, String]]:
     """
     Given a string on the forms:
@@ -318,7 +313,7 @@ class CParser(object):
                 members.append(
                     EnumValue(
                         sym=child.spelling,
-                        doc=get_comments(cursor),
+                        doc=Docstring.from_cursor(child),
                         val=Dec(lit=child.enum_value),
                     )
                 )
@@ -329,7 +324,7 @@ class CParser(object):
             return (
                 yace.model.constants.Enum(
                     sym=cursor.spelling,
-                    doc=get_comments(cursor),
+                    doc=Docstring.from_cursor(cursor),
                     members=members,
                 ),
                 None,
@@ -347,7 +342,7 @@ class CParser(object):
 
             record = cls(
                 sym=cursor.spelling,
-                doc=get_comments(cursor),
+                doc=Docstring.from_cursor(cursor),
                 members=[],
             )
         except ValidationError as exc:
@@ -377,14 +372,14 @@ class CParser(object):
             if field.is_bitfield():
                 field = yace.model.derivedtypes.Bitfield(
                     sym=field.spelling,
-                    doc=get_comments(field),
+                    doc=Docstring.from_cursor(field),
                     nbits=field.get_bitfield_width(),
                     typ=ftyp,
                 )
             else:
                 field = yace.model.derivedtypes.Field(
                     sym=field.spelling,
-                    doc=get_comments(field),
+                    doc=Docstring.from_cursor(field),
                     typ=ftyp,
                 )
 
@@ -399,7 +394,7 @@ class CParser(object):
 
         try:
             return yace.model.derivedtypes.Union(
-                sym=cursor.spelling, doc=get_comments(cursor)
+                sym=cursor.spelling, doc=Docstring.from_cursor(cursor)
             )
         except ValidationError as exc:
             return None, ParseError.from_exception(exc, cursor)
@@ -433,7 +428,7 @@ class CParser(object):
                 yace.model.functiontypes.Parameter(
                     typ=ptyp,
                     sym=child.spelling,
-                    doc=get_comments(child),
+                    doc=Docstring.from_cursor(child),
                 )
             )
 
@@ -445,7 +440,7 @@ class CParser(object):
             return (
                 yace.model.functiontypes.FunctionPointer(
                     sym=cursor.spelling,
-                    doc=get_comments(cursor),
+                    doc=Docstring.from_cursor(cursor),
                     ret=rtyp,
                     parameters=parameters,
                 ),
@@ -477,7 +472,7 @@ class CParser(object):
                 yace.model.functiontypes.Parameter(
                     typ=ptyp,
                     sym=child.spelling,
-                    doc=get_comments(child),
+                    doc=Docstring.from_cursor(child),
                 )
             )
 
@@ -489,7 +484,7 @@ class CParser(object):
             return (
                 yace.model.functiontypes.Function(
                     sym=cursor.spelling,
-                    doc=get_comments(cursor),
+                    doc=Docstring.from_cursor(cursor),
                     ret=rtyp,
                     parameters=parameters,
                 ),

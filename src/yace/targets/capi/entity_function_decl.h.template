@@ -1,14 +1,18 @@
 {% if entity.doc %}
 /**
- * {{ entity.doc }}
+ * {{ entity.doc.brief }}
  *
-{%- for parameter in entity.parameters %}
- * @param {{ parameter.sym }} {{ parameter.doc }}
+ * {{ entity.doc.description }}
+ *
+{%- for tag, params in entity.doc.tags.items() if tag == "param" %}
+{%- for param, brief in params.items() %}
+ * @{{ tag }} {{ param }} {{ brief }}
 {%- endfor %}
-{%- if entity.ret and entity.ret.doc %}
+{%- endfor %}
  *
- * @return {{ entity.ret.doc }}
-{%- endif %}
+{% if "return" in entity.doc.tags %}
+ * @return {{ entity.doc.tags.return }}
+{% endif %}
  */
 {% endif %}
 {{ entity.ret.c_spelling() }} {{ entity.sym }}
