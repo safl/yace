@@ -26,6 +26,7 @@ The 'format' stage also emits the files:
 
 Thus, the above files are what you should expect to see in the output-directory
 """
+
 import copy
 import logging as log
 import shutil
@@ -36,6 +37,19 @@ from yace.errors import TransformationError
 from yace.targets.target import Target
 from yace.tools import ClangFormat, Doxygen, Gcc
 from yace.transformations import CStyle
+
+
+def emit_cstr_fmt(typespec):
+    if typespec.integer:
+        return f'%"PRIx{ typespec.width }"'
+    elif typespec.boolean:
+        return "%d"
+
+    return f"MISSING_CSTR_FMT({typespec})"
+
+
+def emit_typespec(typespec, anon: bool = False):
+    return typespec.c_spelling()
 
 
 class CAPI(Target):
@@ -75,6 +89,11 @@ class CAPI(Target):
     def emit(self, model):
         """Emit code"""
 
+        filters = {
+            "emit_cstr_fmt": emit_cstr_fmt,
+            "emit_typespec": emit_typespec,
+        }
+
         files = [
             (f"lib{model.meta.prefix}_core.h", "file_core.h", self.headers),
             (f"lib{model.meta.prefix}_pp.h", "file_pp.h", self.headers),
@@ -93,6 +112,7 @@ class CAPI(Target):
                         "entities": model.entities,
                         "headers": self.headers,
                     },
+                    filters,
                 )
                 if content[-1] != "\n":
                     content += "\n"

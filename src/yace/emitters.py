@@ -34,10 +34,6 @@ class Emitter(object):
 
         {{ entity | emit_entity }}
 
-    And available::
-
-        {{ entity | emit_typespec }}
-
     This works by seperating Jinja templates by filename-convention,
     template-names starting with "entity_{name}.template" are usable by this
     in-template renderer. Thus, for the example above, the template file is
@@ -56,28 +52,20 @@ class Emitter(object):
     def __init__(self, searchpath: Path):
         self.searchpath = searchpath.resolve()
 
-    def render(self, template, args):
+    def render(self, template, args, filters):
         """Renders the given template, passing args..."""
 
-        def emit_cstr_fmt(typespec):
-            if typespec.integer:
-                return f'%"PRIx{ typespec.width }"'
-            elif typespec.boolean:
-                return "%d"
-
-            return f"MISSING_CSTR_FMT({typespec})"
-
-        def emit_typespec(typespec, anon: bool = False):
-            return typespec.c_spelling()
-
+        # Emitter jinja-environment, setup here such that the filter-function
+        # 'emit_entity' can be utilized in the other jinja-environment
         entity_jenv = Environment(
             loader=FileSystemLoader(self.searchpath),
             extensions=["jinja2.ext.do"],
         )
         entity_jenv.globals.update(zip=zip, len=len)
         entity_jenv.filters["camelcase"] = camelcase
-        entity_jenv.filters["emit_typespec"] = emit_typespec
-        entity_jenv.filters["emit_cstr_fmt"] = emit_cstr_fmt
+        for name, filter in filters.items():
+            entity_jenv.filters[name] = filter
+
         entity_templates = {
             Path(f).stem: entity_jenv.get_template(f)
             for f in entity_jenv.list_templates()
@@ -90,15 +78,18 @@ class Emitter(object):
 
             return entity_templates[f"entity_{entity.key}.h"].render(**args)
 
+        # This is the jinja environment for files, e.g. the one that renders
+        # "file_<thing>.jinja"
         file_jenv = Environment(
             loader=FileSystemLoader(self.searchpath),
             extensions=["jinja2.ext.do"],
         )
         file_jenv.globals.update(zip=zip, len=len)
         file_jenv.filters["camelcase"] = camelcase
-        file_jenv.filters["emit_typespec"] = emit_typespec
-        file_jenv.filters["emit_cstr_fmt"] = emit_cstr_fmt
         file_jenv.filters["emit_entity"] = emit_entity
+        for name, filter in filters.items():
+            file_jenv.filters[name] = filter
+
         file_templates = {
             Path(f).stem: file_jenv.get_template(f)
             for f in file_jenv.list_templates()

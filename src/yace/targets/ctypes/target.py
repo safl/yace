@@ -73,6 +73,7 @@ class Ctypes(Target):
                             "entities": model.entities,
                             "headers": self.headers,
                         },
+                        {}
                     )
                 )
             self.sources.append(path)
