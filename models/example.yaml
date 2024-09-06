@@ -1,3 +1,4 @@
+---
 entities:
 - ant: {}
   key: define
@@ -390,5 +391,5 @@ entities:
     width: 16
     width_fixed: false
   sym: binop_func
-meta: {author: Foo Bar <foo@example.com>, brief: Brief Description, full: Full Description,
-  lic: Unknown License, prefix: foo, project: foo, version: 0.0.1}
+meta: {author: Foo Bar <foo@example.com>, brief: Brief Description, full: Full Description, lic: Unknown License, prefix: foo,
+  project: foo, version: 0.0.1}

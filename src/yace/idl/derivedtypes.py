@@ -44,7 +44,7 @@ class Bitfield(Field):
     or :class:`yace.idl.Union`, utilized by compiler to emit code in the C API similar
     to::
 
-    uint32_t foo : 10;
+      uint32_t foo : 10;
 
     The 'typ' and 'typ.width' members inherited from :class:`.Typed` describe the type
     which in the example above it 'uint32_t'. The width of the bitfield is captured by

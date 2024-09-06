@@ -31,7 +31,7 @@ completely unsafe code for rapid prototyping and experimentation.
 
 Here a description of things that are perfectly valid C but dis-allowed in
 **Yace** are described, along with the internal representation and storage
-**format.
+**format**.
 
 
 * :ref:`sec-idl-files`

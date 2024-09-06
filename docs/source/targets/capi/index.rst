@@ -42,12 +42,12 @@ interesting parts
 C API
 ~~~~~
 
-.. literalinclude:: output/capi/libexample.h
+.. literalinclude:: ../../../models/output/capi/libfoo.h
    :language: c
    :caption:
    :lines: 1-
 
-.. literalinclude:: output/capi/libexample_core.h
+.. literalinclude:: ../../../models/output/capi/libfoo_core.h
    :language: c
    :caption:
    :lines: 1-
@@ -57,12 +57,12 @@ C API
 Pretty-printers
 ~~~~~~~~~~~~~~~
 
-.. literalinclude:: output/capi/libexample_pp.h
+.. literalinclude:: ../../../models/output/capi/libfoo_pp.h
    :language: c
    :caption:
    :lines: 1-
 
-.. literalinclude:: output/capi/example_pp.c
+.. literalinclude:: ../../../models/output/capi/example_pp.c
    :language: c
    :caption:
    :lines: 1-
@@ -72,7 +72,7 @@ Pretty-printers
 Check
 ~~~~~
 
-.. literalinclude:: output/capi/example_check.c
+.. literalinclude:: ../../../models/output/capi/foo_check.c
    :language: c
    :caption:
    :lines: 1-

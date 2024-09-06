@@ -38,7 +38,7 @@ Example
 
 To get a quick sense of **yace** then you can utilize this simple example:
 
-.. literalinclude:: ../../../models/example-mini.yaml
+.. literalinclude:: ../../../models/example.yaml
    :language: yaml
    :caption:
    :lines: 1-
@@ -61,7 +61,7 @@ Example: capi
 
 The C API header generated from the above looks like:
 
-.. literalinclude:: output/capi/libexample_core.h
+.. literalinclude:: output/capi/libfoo_core.h
    :language: c
    :caption:
    :lines: 1-

@@ -149,6 +149,8 @@ class Typespec(Entity):
 
 
 class Pointer(Typespec):
+    """Pointer"""
+
     key: str = "pointer_tspec"
 
     pointer: bool = True
@@ -156,12 +158,16 @@ class Pointer(Typespec):
 
 
 class FunctionPointer(Typespec):
+    """Function pointer"""
+
     key: str = "function_pointer_tspec"
 
     pointer: bool = True
 
 
 class Array(Typespec):
+    """Fixed-length arrays"""
+
     key: str = "array_tspec"
 
     array: bool = True
@@ -170,6 +176,8 @@ class Array(Typespec):
 
 
 class Record(Typespec):
+    """Record; struct or union"""
+
     key: str = "record_tspec"
 
 

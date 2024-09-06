@@ -22,6 +22,10 @@ extensions = [
     "sphinxcontrib.gtagjs",
 ]
 
+autodoc_default_options = {
+    "exclude-members": "__weakref__, model_construct, model_dump, model_dump_json, model_copy, model_json_schema",
+}
+
 gtagjs_ids = [
     "UA-222706364-1",
 ]

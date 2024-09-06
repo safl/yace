@@ -37,11 +37,11 @@ class Function(Entity, Named, Documented):
 
 class FunctionPointer(Entity, Named, Documented):
     """
-    Function pointer declarations by convention of:
+    Function pointer declarations by convention of::
 
-    typedef int (*sym_)(int, int);
+        typedef int (*sym_)(int, int);
 
-    Note
+    Note..
     """
 
     key: str = "function_pointer_decl"

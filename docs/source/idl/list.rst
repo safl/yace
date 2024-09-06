@@ -16,71 +16,79 @@ Entity Listing
 
 * ``str``: :py:class:`yace.idl.constants.String`; Representation of a literal string e.g. in C
 
-* ``bool``: :py:class:`yace.idl.datatypes.Bool`; A boolean, at least 8 bits wide
+* ``array_tspec``: :py:class:`yace.idl.datatypes.Array`; Fixed-length arrays
 
-* ``char``: :py:class:`yace.idl.datatypes.Char`; A character; at least 8 bits wide.
+* ``bool_tspec``: :py:class:`yace.idl.datatypes.Bool`; A boolean, at least 8 bits wide
 
-* ``f32``: :py:class:`yace.idl.datatypes.F32`; Floating point numerical value, possibly 32 bits wide
+* ``string_tspec``: :py:class:`yace.idl.datatypes.CString`; A string pointer
 
-* ``f64``: :py:class:`yace.idl.datatypes.F64`; Floating point numerical value, possibly 64 bits wide
+* ``char_tspec``: :py:class:`yace.idl.datatypes.Char`; A character; at least 8 bits wide.
 
-* ``i``: :py:class:`yace.idl.datatypes.I`; Signed integer at least 16 bits wide.
+* ``f32_tspec``: :py:class:`yace.idl.datatypes.F32`; Floating point numerical value, possibly 32 bits wide
 
-* ``i16``: :py:class:`yace.idl.datatypes.I16`; Signed integer exactly 16 bits wide.
+* ``f64_tspec``: :py:class:`yace.idl.datatypes.F64`; Floating point numerical value, possibly 64 bits wide
 
-* ``i32``: :py:class:`yace.idl.datatypes.I32`; Signed integer exactly 32 bits wide.
+* ``function_pointer_tspec``: :py:class:`yace.idl.datatypes.FunctionPointer`; Function pointer
 
-* ``i64``: :py:class:`yace.idl.datatypes.I64`; Signed integer exactly 64 bits wide.
+* ``i_tspec``: :py:class:`yace.idl.datatypes.I`; Signed integer at least 16 bits wide.
 
-* ``i8``: :py:class:`yace.idl.datatypes.I8`; Signed integer exactly 8 bits wide.
+* ``i16_tspec``: :py:class:`yace.idl.datatypes.I16`; Signed integer exactly 16 bits wide.
 
-* ``ih``: :py:class:`yace.idl.datatypes.IHalf`; Signed integer at least 8 bits wide.
+* ``i32_tspec``: :py:class:`yace.idl.datatypes.I32`; Signed integer exactly 32 bits wide.
 
-* ``il``: :py:class:`yace.idl.datatypes.ILong`; Signed integer at least 32 bits wide.
+* ``i64_tspec``: :py:class:`yace.idl.datatypes.I64`; Signed integer exactly 64 bits wide.
 
-* ``ill``: :py:class:`yace.idl.datatypes.ILongLong`; Signed integer at least 64 bits wide.
+* ``i8_tspec``: :py:class:`yace.idl.datatypes.I8`; Signed integer exactly 8 bits wide.
 
-* ``isize``: :py:class:`yace.idl.datatypes.ISize`; Signed Size-type
+* ``il_tspec``: :py:class:`yace.idl.datatypes.ILong`; Signed integer at least 32 bits wide.
 
-* ``string``: :py:class:`yace.idl.datatypes.String`; A string pointer
+* ``ill_tspec``: :py:class:`yace.idl.datatypes.ILongLong`; Signed integer at least 64 bits wide.
 
-* ``u``: :py:class:`yace.idl.datatypes.U`; Unsigned integer at least 16 bits wide.
+* ``ih_tspec``: :py:class:`yace.idl.datatypes.IShort`; Signed integer at least 8 bits wide.
 
-* ``u16``: :py:class:`yace.idl.datatypes.U16`; Unsigned integer exactly 16 bits wide.
+* ``isize_tspec``: :py:class:`yace.idl.datatypes.ISize`; Signed Size-type
 
-* ``u32``: :py:class:`yace.idl.datatypes.U32`; Unsigned integer exactly 32 bits wide.
+* ``pointer_tspec``: :py:class:`yace.idl.datatypes.Pointer`; Pointer
 
-* ``u64``: :py:class:`yace.idl.datatypes.U64`; Unsigned integer exactly 64 bits wide.
+* ``record_tspec``: :py:class:`yace.idl.datatypes.Record`; Record; struct or union
 
-* ``u8``: :py:class:`yace.idl.datatypes.U8`; Unsigned integer exactly 8 bits wide.
+* ``u_tspec``: :py:class:`yace.idl.datatypes.U`; Unsigned integer at least 16 bits wide.
 
-* ``uh``: :py:class:`yace.idl.datatypes.UHalf`; Unsigned integer at least 8 bits wide.
+* ``u16_tspec``: :py:class:`yace.idl.datatypes.U16`; Unsigned integer exactly 16 bits wide.
 
-* ``ul``: :py:class:`yace.idl.datatypes.ULong`; Unsigned integer at least 32 bits wide.
+* ``u32_tspec``: :py:class:`yace.idl.datatypes.U32`; Unsigned integer exactly 32 bits wide.
 
-* ``ull``: :py:class:`yace.idl.datatypes.ULongLong`; Unsigned integer at least 64 bits wide.
+* ``u64_tspec``: :py:class:`yace.idl.datatypes.U64`; Unsigned integer exactly 64 bits wide.
 
-* ``usize``: :py:class:`yace.idl.datatypes.USize`; Unsigned Size-type
+* ``u8_tspec``: :py:class:`yace.idl.datatypes.U8`; Unsigned integer exactly 8 bits wide.
 
-* ``void``: :py:class:`yace.idl.datatypes.Void`; A void, that is, the type signaling no type
+* ``ul_tspec``: :py:class:`yace.idl.datatypes.ULong`; Unsigned integer at least 32 bits wide.
 
-* ``void_ptr``: :py:class:`yace.idl.datatypes.VoidPtr`; A void-pointer, that is, point to anything (including nothing)
+* ``ull_tspec``: :py:class:`yace.idl.datatypes.ULongLong`; Unsigned integer at least 64 bits wide.
 
-* ``bitfield``: :py:class:`yace.idl.derivedtypes.Bitfield`; Representation of a bitfield, that is a partitioning of a fixed-width
+* ``us_tspec``: :py:class:`yace.idl.datatypes.UShort`; Unsigned integer at least 8 bits wide.
 
-* ``bits``: :py:class:`yace.idl.derivedtypes.Bits`; Representation of a class`.Bitfield` member.
+* ``usize_tspec``: :py:class:`yace.idl.datatypes.USize`; Unsigned Size-type
 
-* ``field``: :py:class:`yace.idl.derivedtypes.Field`; A representation of class`yace.idl.Struct` and
+* ``void_tspec``: :py:class:`yace.idl.datatypes.Void`; A void, that is, the type signaling no type
 
-* ``struct``: :py:class:`yace.idl.derivedtypes.Struct`; A representation of a struct definition
+* ``void_pointer_tspec``: :py:class:`yace.idl.datatypes.VoidPtr`; A void-pointer, that is, point to anything (including nothing)
 
-* ``union``: :py:class:`yace.idl.derivedtypes.Union`; Representation of enumerations / collections of constants
+* ``bitfield_decl``: :py:class:`yace.idl.derivedtypes.Bitfield`; A representation of a bit-field within a class`yace.idl.Struct`
 
-* ``fun``: :py:class:`yace.idl.functiontypes.Function`; Function declarations
+* ``bitfield_struct_decl``: :py:class:`yace.idl.derivedtypes.BitfieldStruct`; A struct where all the fields / members are bitfields.
 
-* ``fun_ptr``: :py:class:`yace.idl.functiontypes.FunctionPointer`; Function pointer declarations
+* ``field_decl``: :py:class:`yace.idl.derivedtypes.Field`; A representation of class`yace.idl.Struct` and
 
-* ``param``: :py:class:`yace.idl.functiontypes.Parameter`; Function parameter
+* ``struct_decl``: :py:class:`yace.idl.derivedtypes.Struct`; A representation of a struct definition
 
-* ``ret``: :py:class:`yace.idl.functiontypes.ReturnType`; Function return type
+* ``union_decl``: :py:class:`yace.idl.derivedtypes.Union`; Representation of enumerations / collections of constants
+
+* ``function_decl``: :py:class:`yace.idl.functiontypes.Function`; Function declarations
+
+* ``function_pointer_decl``: :py:class:`yace.idl.functiontypes.FunctionPointer`; Function pointer declarations by convention of
+
+* ``parameter_decl``: :py:class:`yace.idl.functiontypes.Parameter`; Function parameter
+
+* ``include_stmt``: :py:class:`yace.idl.directives.IncludeDirective`; Something like
 

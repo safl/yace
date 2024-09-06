@@ -18,14 +18,14 @@ Invoking it
 C Header
 ~~~~~~~~
 
-.. literalinclude:: example.h
+.. literalinclude:: ../../../models/example.h
    :language: c
    :caption:
 
 Yace File
 ~~~~~~~~~
 
-.. literalinclude:: output/example_parsed.yaml
+.. literalinclude:: ../../../models/example.yaml
    :language: yaml
    :caption:
 

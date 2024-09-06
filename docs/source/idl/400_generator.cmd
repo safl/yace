@@ -1,1 +1,1 @@
-yace tests/parsing/example.h
+yace tests/parsing/example.h --output output

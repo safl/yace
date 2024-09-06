@@ -26,8 +26,7 @@ from yace.idl import base, constants, datatypes, derivedtypes, directives, funct
 
 class Meta(BaseModel):
     """
-    Meta data used by the to describe attributes of the generated C API and
-    bindings/wrappers, such as license, version, and documentation
+    Meta data describing the FFI, such as license, version, and documentation
     """
 
     lic: str  # License string, this is utilized for SPDX

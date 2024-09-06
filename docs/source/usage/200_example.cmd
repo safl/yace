@@ -1,1 +1,1 @@
-yace models/example-mini.yaml --emit capi ctypes
+yace models/example.yaml --emit capi ctypes --output output

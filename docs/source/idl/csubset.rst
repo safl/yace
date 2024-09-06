@@ -11,10 +11,9 @@ NAME <literal>``.
 As you might have noticed, then this means that **Yace** intends to only parse
 headers or in other words the entities that usually go into headers.
 
- won't be able to parse
-e.g. a **header-only-library** since these tend to embed logic into functions
-declared inline. For sufficiently simple function-bodies, these could be
-translated into equivalent 
+Yace won't be able to parse e.g. a **header-only-library** since these
+tend to embed logic into functions declared inline. For sufficiently simple
+function-bodies, these could be translated into equivalent
 
 First, header-libraries are unsupported, that since, they are basically C code
 inlined in the header-file which requires compilation. Since, code that needs
@@ -130,7 +129,7 @@ This is valid C, and often seen in systems with large structures where
 the anonymous structs provide organization. However, such nested anonymous
 structures are not supported in languages such as Rust. Thus, what binding
 generators often do, is they **hoist** the nested definitions out and re-write
-on the form:
+on the form::
 
 	struct delivery_anon_x {
 		int x;
