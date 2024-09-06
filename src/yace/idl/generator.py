@@ -290,12 +290,7 @@ class CParser(object):
     def parse_inclusion_directive(
         self, cursor
     ) -> Tuple[Optional[yace.model.base.Entity], Optional[yace.errors.Error]]:
-        data = {"filename": cursor.displayname}
-        included_file = cursor.get_included_file()
-        if included_file:
-            data["resolved"] = Path(included_file.name)
-
-        return directives.IncludeDirective(**data), None
+        return directives.IncludeDirective(**{"filename": cursor.displayname}), None
 
     def parse_enum(
         self, cursor
