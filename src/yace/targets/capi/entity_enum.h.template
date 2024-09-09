@@ -3,7 +3,7 @@
  * {{ entity.doc.brief }}
  *
 {%- if entity.doc.description %}
- * {{ entity.doc.description }}
+ * {{ entity.doc.description.replace("\n", "\n * ") }}
  *
 {%- endif %}
  * @enum {{ entity.sym }}

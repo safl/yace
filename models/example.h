@@ -7,7 +7,11 @@
 /**
  * Description of enum
  *
- * More stuff
+ * Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque accumsan massa est,
+ * ut ullamcorper lectus malesuada sit amet. Donec gravida nibh aliquam mattis rhoncus. Quisque
+ * sollicitudin ultricies orci, condimentum blandit lorem feugiat at. Aliquam tempus metus et nulla
+ * eleifend, eu dapibus risus pellentesque. Duis fermentum bibendum ligula in pharetra. Curabitur
+ * eget urna tempus, tempor dui sed, tempus lorem. Phasellus eu aliquam neque.
  *
  * @enum plot_options
  */
