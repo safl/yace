@@ -2,18 +2,20 @@
 /**
  * {{ entity.doc.brief }}
  *
+{%- if entity.doc.description %}
  * {{ entity.doc.description }}
  *
+{%- endif %}
 {%- for tag, params in entity.doc.tags.items() if tag == "param" %}
 {%- for param, brief in params.items() %}
  * @{{ tag }} {{ param }} {{ brief }}
 {%- endfor %}
 {%- endfor %}
  *
-{% if "return" in entity.doc.tags %}
+{%- if "return" in entity.doc.tags %}
  * @return {{ entity.doc.tags.return }}
-{% endif %}
+{%- endif %}
  */
-{% endif %}
+{%- endif %}
 {{ entity.ret.c_spelling() }} {{ entity.sym }}
 ({% for parameter in entity.parameters %}{{ parameter.typ.c_spelling() }} {{ parameter.sym }}{{ ", " if not loop.last else "" }}{% endfor %});

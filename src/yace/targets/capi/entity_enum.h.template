@@ -2,11 +2,13 @@
 /**
  * {{ entity.doc.brief }}
  *
+{%- if entity.doc.description %}
  * {{ entity.doc.description }}
  *
- * @{{ entity.key.replace("_decl", "") }} {{ entity.sym }}
+{%- endif %}
+ * @enum {{ entity.sym }}
  */
-{% endif %}
+{%- endif %}
 enum {{ entity.sym }} {
 {%- for member in entity.members %}
 	{{ member.sym }} = {{ '0x%0x' % member.val.lit }},{% if member.doc %} ///< {{ member.doc.brief }}{% endif %}

@@ -10,6 +10,6 @@
  * @return {{ entity.ret.doc }}
 {%- endif %}
   */
-{% endif %}
+{%- endif %}
 typedef {{ entity.ret.c_spelling() }} (*{{ entity.sym }})
 ({% for parameter in entity.parameters %}{{ parameter.typ | emit_typespec }}{{ ", " if not loop.last else "" }}{% endfor %});

@@ -2,9 +2,13 @@
 /**
  * {{ entity.doc }}
  *
- * @{{ entity.key }}
+{%- if entity.doc.description %}
+ * {{ entity.doc.description }}
+ *
+{%- endif %}
+ * @union {{ entity.sym }}
  */
-{% endif %}
+{%- endif %}
 union {{ entity.sym }} {
 	struct {
 	    {% for member in entity.members -%}
