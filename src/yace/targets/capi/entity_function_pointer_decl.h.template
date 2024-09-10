@@ -1,15 +1,21 @@
 {% if entity.doc %}
 /**
- * {{ entity.doc }}
+ * {{ entity.doc.brief }}
  *
-{%- for parameter in entity.parameters %}
- * @param {{ parameter.sym }} {{ parameter.doc }}
-{%- endfor %}
-{%- if entity.ret and entity.ret.doc %}
+{%- if entity.doc.description %}
+ * {{ entity.doc.description.replace("\n", "\n * ") }}
  *
- * @return {{ entity.ret.doc }}
 {%- endif %}
-  */
+{%- for tag, params in entity.doc.tags.items() if tag == "param" %}
+{%- for param, brief in params.items() %}
+ * @{{ tag }} {{ param }} {{ brief }}
+{%- endfor %}
+{%- endfor %}
+ *
+{%- if "return" in entity.doc.tags %}
+ * @return {{ entity.doc.tags.return }}
+{%- endif %}
+ */
 {%- endif %}
 typedef {{ entity.ret.c_spelling() }} (*{{ entity.sym }})
-({% for parameter in entity.parameters %}{{ parameter.typ | emit_typespec }}{{ ", " if not loop.last else "" }}{% endfor %});
+({% for parameter in entity.parameters %}{{ parameter.typ | emit_typespec }} {% if parameter.sym %}{{ parameter.sym }}{% endif %}{{ ", " if not loop.last else "" }}{% endfor %});

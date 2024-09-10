@@ -51,4 +51,13 @@ union feature {
  */
 int foo(int x, int y);
 
-typedef int (*binop_func)(int, int);
+
+/**
+ * This is a function pointer prototype
+ *
+ * @param x The first thing
+ * @param y The second thing
+ *
+ * @return Something on success, -1 on error.
+ */
+typedef int (*binop_func)(int x, int y);

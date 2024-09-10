@@ -317,14 +317,16 @@ entities:
   sym: foo
 - ant: {}
   doc:
-    brief: ''
+    brief: This is a function pointer prototype
     description: ''
-    tags: {}
+    tags:
+      param: {x: The first thing, y: The second thing}
+      return: {Something: 'on success, -1 on error.'}
   key: function_pointer_decl
   parameters:
   - ant: {}
     key: parameter_decl
-    sym: ''
+    sym: x
     typ:
       ant: {}
       array: false
@@ -349,7 +351,7 @@ entities:
       width_fixed: false
   - ant: {}
     key: parameter_decl
-    sym: ''
+    sym: y
     typ:
       ant: {}
       array: false
