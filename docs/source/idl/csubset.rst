@@ -3,6 +3,9 @@
 The C Subset
 ============
 
+Here is a descripton of the **C** subset that **Yace** supports along with
+conventions around the subset, such as when and how to use ``typedef``.
+
 **Yace** supports **C99** data types (``bool``, ``signed`` / ``unsigned char``,
 ``intX_t``, ``uintX_t``, etc.), derived types (``enum``, ``struct``, ``union``),
 declarations of functions and function points, pointers, arrays, and ``#define
@@ -48,13 +51,13 @@ different ways of handling variable width and signage, then write your C APIs
 with portability in mind, both for running your C library on multiple platforms,
 but also for FFI interoperability.
 
-typedef
--------
+Function Pointers
+-----------------
 
-The C language construct ``typedef`` is severely restricted in **Yace** as it
-only supports typedefs of function-pointers. That is, typedefs on the form::
+The **C** language construct ``typedef`` is severely restricted in **Yace** as
+it only supports typedefs of function-pointers. That is, typedefs on the form::
 
-  typedef int (*binop_func)(int, int);
+  typedef int (*binop_func)(int x, int y);
 
 For such a ``typedef``, then ``binop_func`` can then be utilized as a
 type-specifier instead of writing the entire function-signature. This makes
@@ -62,19 +65,49 @@ C code a lot more readable in function declarations/protoypes such as the
 following::
 
   int
-  apply(binop_func op, int a, int b);
+  apply_func(binop_func op, int a, int b);
 
 Which is significantly nicer to read in **APIs** using callback-functions. This
 is an excellent use of the ``typedef`` language construct, it is also the only
-one supported by **yace**.
+one supported by **yace**. **Yace** conventions:
 
-Many C APIs utilize ``typedef`` for various purposes. However, the author
-of **Yace** holds the opinion that any use of ``typedef`` beyond what was
-described above should be considered harmful. This is because ``typedef`` does
-not introduce a new type; it merely provides a new name for an existing type.
-This can obscure type information by hiding it behind an arbitrary label, which
-arguably makes the code harder to read due to the introduction of unnecessary
-indirection.
+naming convention
+  In **C** there is nothing telling the user of an API with function-pointers
+  that a typedef function-pointer declaration is a function-pointer. Thus,
+  **Yace** introduce the convention than the function name must have of the
+  **follwing suffixes: ``_cb``, ``_callback``, ``_fn``, ``_fun``, ``_func``,
+  ``_function``.
+
+mandatory argument names
+  In **C**, then argument names in function-pointer-declarations are optional
+  and have no effect on the declararation of the function pointer. Yet, in
+  **yace** they are mandatory. They are mandatory because providing them, and
+  documentation of them, significantly improves readability of the code and
+  understanding of usage.
+
+typedef
+-------
+
+In **C**, many types are named or ``typedef``'ed with the ``_t`` suffix, which
+might lead developers to think they should alias all types this way. However,
+this is incorrect. The ``_t`` suffix is reserved for POSIX-defined types.
+
+- **Do not** use ``_t`` in your types.
+- **Do not** use ``typedef`` except for function pointers, following the
+  conventions mentioned.
+
+Why avoid ``typedef``? Using ``typedef`` doesn't create a new type but simply
+provides an alias. This can be misleading, as one might expect type checks to
+ensure that only the typedef'ed name is used. However, this is not the case, and
+as a result, typedefs can create a false sense of type safety.
+
+While typedefs can improve readability by providing aliases, they often decrease
+clarity when introducing new conventions specific to a library. Users of your
+API will have to understand your conventions instead of reading the actual type.
+
+Thus, ``typedef`` should only be used by POSIX or compilers, not in user
+libraries. The only valid use is for function pointers—everything else makes the
+code **less** readable.
 
 ``char``
 --------
