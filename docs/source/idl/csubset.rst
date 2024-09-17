@@ -75,7 +75,7 @@ naming convention
   In **C** there is nothing telling the user of an API with function-pointers
   that a typedef function-pointer declaration is a function-pointer. Thus,
   **Yace** introduce the convention than the function name must have of the
-  **follwing suffixes: ``_cb``, ``_callback``, ``_fn``, ``_fun``, ``_func``,
+  **follwing** suffixes: ``_cb``, ``_callback``, ``_fn``, ``_fun``, ``_func``,
   ``_function``.
 
 mandatory argument names

@@ -1,1 +1,1 @@
-tree output -L 2
+tree output -L 2 -n

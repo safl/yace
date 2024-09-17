@@ -42,12 +42,12 @@ interesting parts
 C API
 ~~~~~
 
-.. literalinclude:: ../../../models/output/capi/libfoo.h
+.. literalinclude:: ../../../../output/capi/libfoo.h
    :language: c
    :caption:
    :lines: 1-
 
-.. literalinclude:: ../../../models/output/capi/libfoo_core.h
+.. literalinclude:: ../../../../output/capi/libfoo_core.h
    :language: c
    :caption:
    :lines: 1-
@@ -57,12 +57,12 @@ C API
 Pretty-printers
 ~~~~~~~~~~~~~~~
 
-.. literalinclude:: ../../../models/output/capi/libfoo_pp.h
+.. literalinclude:: ../../../../output/capi/libfoo_pp.h
    :language: c
    :caption:
    :lines: 1-
 
-.. literalinclude:: ../../../models/output/capi/example_pp.c
+.. literalinclude:: ../../../../output/capi/foo_pp.c
    :language: c
    :caption:
    :lines: 1-
@@ -72,14 +72,14 @@ Pretty-printers
 Check
 ~~~~~
 
-.. literalinclude:: ../../../models/output/capi/foo_check.c
+.. literalinclude:: ../../../../output/capi/foo_check.c
    :language: c
    :caption:
    :lines: 1-
 
-This ``example_check.c`` is built using the :class:`.Gcc` tool, to check
-whether headers are well-behaved. Thus a file ``a.out`` exists which is
-executable result of translatning the source-file above.
+This ``foo_check.c`` is built using the :class:`.Gcc` tool, to check whether
+headers are well-behaved. Thus a file ``a.out`` exists which is executable
+result of translatning the source-file above.
 
 When running it:
 
