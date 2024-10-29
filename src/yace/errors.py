@@ -94,7 +94,6 @@ class CSubsetIntegrityError(ParseError):
 
     @classmethod
     def from_cursor(cls, message, cursor):
-
         return cls.from_cursor(cls.__doc__, cursor)
 
 
