@@ -67,5 +67,5 @@ where = ["src"]
 
 
 [tool.ruff]
-select = ["E", "F", "I"]
-per-file-ignores = { "src/yace/idl/datatypes.py" = ["E742"] }
+lint.select = ["E", "F", "I"]
+lint.per-file-ignores = { "src/yace/idl/datatypes.py" = ["E742"] }
