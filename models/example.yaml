@@ -1,3 +1,4 @@
+---
 entities:
 - ant: {}
   key: define
@@ -37,12 +38,10 @@ entities:
 - ant: {}
   doc:
     brief: Description of enum
-    description: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque
-      accumsan massa est, ut ullamcorper lectus malesuada sit amet. Donec gravida
-      nibh aliquam mattis rhoncus. Quisque sollicitudin ultricies orci, condimentum
-      blandit lorem feugiat at. Aliquam tempus metus et nulla eleifend, eu dapibus
-      risus pellentesque. Duis fermentum bibendum ligula in pharetra. Curabitur eget
-      urna tempus, tempor dui sed, tempus lorem. Phasellus eu aliquam neque.
+    description: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque accumsan massa est, ut ullamcorper
+      lectus malesuada sit amet. Donec gravida nibh aliquam mattis rhoncus. Quisque sollicitudin ultricies orci, condimentum
+      blandit lorem feugiat at. Aliquam tempus metus et nulla eleifend, eu dapibus risus pellentesque. Duis fermentum bibendum
+      ligula in pharetra. Curabitur eget urna tempus, tempor dui sed, tempus lorem. Phasellus eu aliquam neque.
     tags:
       enum: {plot_options: ''}
   key: enum
@@ -397,5 +396,5 @@ entities:
     width: 16
     width_fixed: false
   sym: binop_func
-meta: {author: Foo Bar <foo@example.com>, brief: Brief Description, full: Full Description,
-  lic: Unknown License, prefix: foo, project: foo, version: 0.0.1}
+meta: {author: Foo Bar <foo@example.com>, brief: Brief Description, full: Full Description, lic: Unknown License, prefix: foo,
+  project: foo, version: 0.0.1}
