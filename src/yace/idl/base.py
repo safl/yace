@@ -51,7 +51,8 @@ class Docstring(BaseModel):
         brief_description = lines[0].strip()
         data["brief"] = brief_description
 
-        # Extract full description (everything after the first line, before any tag like @param/@return)
+        # Extract full description (everything after the first line,
+        # before any tag like @param/@return
         description_lines = []
         for line in lines[1:]:
             if line.strip().startswith("@"):

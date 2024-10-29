@@ -20,6 +20,7 @@ TODO
 Copyright (c) 2023 Simon A. F. Lund <os@safl.dk>
 SPDX-License-Identifier: BSD-3-Clause
 """
+
 import ctypes
 import ctypes.util
 import os

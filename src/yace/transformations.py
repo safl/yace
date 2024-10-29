@@ -13,6 +13,7 @@ lot simpler.
 Also, at the IDL-level, then coding-conventions such as CamelCase can be
 shared by multiple targets.
 """
+
 from yace.emitters import camelcase
 from yace.idl.derivedtypes import Struct, Union
 from yace.model import ModelWalker

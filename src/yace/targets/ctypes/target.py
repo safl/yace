@@ -3,6 +3,7 @@ What to do about "static" and "const"? The filter_typedecl.template currently
 ignores them, except for the special-case "c_char_p".
 
 """
+
 import copy
 import logging as log
 import shutil

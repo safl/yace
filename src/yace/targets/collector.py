@@ -1,6 +1,7 @@
 """
 Collect compiler-targets from the current workdir
 """
+
 import inspect
 import typing
 from importlib.machinery import SourceFileLoader

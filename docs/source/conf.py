@@ -23,7 +23,14 @@ extensions = [
 ]
 
 autodoc_default_options = {
-    "exclude-members": "__weakref__, model_construct, model_dump, model_dump_json, model_copy, model_json_schema",
+    "exclude-members": (
+        "__weakref__, "
+        "model_construct, "
+        "model_dump, "
+        "model_dump_json, "
+        "model_copy, "
+        "model_json_schema"
+    )
 }
 
 gtagjs_ids = [

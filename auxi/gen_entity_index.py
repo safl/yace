@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from jinja2 import BaseLoader, Environment
+
 from yace.model import Model
 
 TEMPLATE = """\
