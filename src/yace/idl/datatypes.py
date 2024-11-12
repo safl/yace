@@ -176,7 +176,7 @@ class Array(Typespec):
 
 
 class Record(Typespec):
-    """Record; struct or union"""
+    """Record; struct, union or enum"""
 
     key: str = "record_tspec"
 

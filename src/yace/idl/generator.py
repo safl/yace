@@ -20,9 +20,8 @@ from pydantic import ValidationError
 
 import yace
 from yace.errors import Error, ParseError, UnsupportedDatatype
-from yace.idl import datatypes, directives
+from yace.idl import constants, datatypes, directives
 from yace.idl.base import Docstring
-from yace.idl.constants import Dec, EnumValue, Hex, String
 from yace.model import Model
 
 REGEX_INTEGER_FIXEDWIDTH = "(?P<unsigned>u)?int(?P<width>8|16|32|64|128)_t"
@@ -146,8 +145,8 @@ def typekind_to_typespec(
                     )
                 case "enum":
                     return (
-                        datatypes.Enum(
-                            sym=sym, struct=True, canonical=canonical, const=const
+                        datatypes.Record(
+                            sym=sym, enum=True, canonical=canonical, const=const
                         ),
                         None,
                     )
@@ -193,7 +192,9 @@ def typekind_to_typespec(
             )
 
 
-def literal_from_text(text: str) -> Optional[Union[Dec, Hex, String]]:
+def literal_from_text(
+    text: str,
+) -> Optional[Union[constants.Dec, constants.Hex, constants.String]]:
     """
     Given a string on the forms:
 
@@ -211,9 +212,9 @@ def literal_from_text(text: str) -> Optional[Union[Dec, Hex, String]]:
     )
 
     mapping = {
-        "hex": (Hex, lambda x: int(x, 16)),
-        "int": (Dec, lambda x: int(x, 10)),
-        "str": (String, str),
+        "hex": (constants.Hex, lambda x: int(x, 16)),
+        "int": (constants.Dec, lambda x: int(x, 10)),
+        "str": (constants.String, str),
     }
 
     match = re.match(regex, text)
@@ -283,7 +284,7 @@ class CParser(object):
             )
 
         try:
-            return yace.model.constants.Define(sym=sym, val=val), None
+            return constants.Define(sym=sym, val=val), None
         except ValidationError as exc:
             return None, [ParseError.from_exception(exc, cursor)]
 
@@ -306,10 +307,10 @@ class CParser(object):
 
             try:
                 members.append(
-                    EnumValue(
+                    constants.EnumValue(
                         sym=child.spelling,
                         doc=Docstring.from_cursor(child),
-                        val=Dec(lit=child.enum_value),
+                        val=constants.Dec(lit=child.enum_value),
                     )
                 )
             except ValidationError as exc:
@@ -317,7 +318,7 @@ class CParser(object):
 
         try:
             return (
-                yace.model.constants.Enum(
+                constants.Enum(
                     sym=cursor.spelling,
                     doc=Docstring.from_cursor(cursor),
                     members=members,

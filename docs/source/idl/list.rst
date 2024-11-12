@@ -50,7 +50,7 @@ Entity Listing
 
 * ``pointer_tspec``: :py:class:`yace.idl.datatypes.Pointer`; Pointer
 
-* ``record_tspec``: :py:class:`yace.idl.datatypes.Record`; Record; struct or union
+* ``record_tspec``: :py:class:`yace.idl.datatypes.Record`; Record; struct, union or enum
 
 * ``u_tspec``: :py:class:`yace.idl.datatypes.U`; Unsigned integer at least 16 bits wide.
 
