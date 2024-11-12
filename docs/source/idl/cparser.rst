@@ -1,18 +1,18 @@
-.. _sec-idl-generator:
+.. _sec-idl-cparser:
 
-Generator
-=========
+C Parser
+========
 
-The **Yace**-file generator, invoked by: ``yace --c-to-yace <filepath>``. Below
-are examples of what you can expect to see when running it on C a header. 
+The **Yace**-file generator, invoked by: ``yace <file.c>``. Below are examples
+of what you can expect to see when running it on C a header.
 
-.. note:: The generator is implemented using Python bindings to libclang.
+.. note:: The C Parser is implemented using Python bindings to libclang.
    Thus, libclang must be loadable on the system.
 
 Invoking it
 -----------
 
-.. literalinclude:: 400_generator.cmd
+.. literalinclude:: 400_cparser.cmd
    :language: bash
 
 C Header
@@ -29,12 +29,12 @@ Yace File
    :language: yaml
    :caption:
 
-.. _sec-idl-generator-implementation:
+.. _sec-idl-cparser-implementation:
 
 Implementation
 --------------
 
-.. automodule:: yace.idl.generator
+.. automodule:: yace.idl.cparser
    :inherited-members:
    :members:
    :undoc-members:

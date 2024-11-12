@@ -36,7 +36,7 @@ Here a description of things that are perfectly valid C but dis-allowed in
 
 * :ref:`sec-idl-files`
 
-  * :ref:`sec-idl-generator`
+  * :ref:`sec-idl-cparser`
 
 * :ref:`sec-idl-entities`
 * :ref:`sec-idl-list`
@@ -47,6 +47,6 @@ Here a description of things that are perfectly valid C but dis-allowed in
 
    csubset.rst
    files.rst
-   generator.rst
+   cparser.rst
    entities/index.rst
    list.rst

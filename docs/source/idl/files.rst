@@ -6,7 +6,7 @@ Storage Format
 In **Yace**, the C API and FFI are defined by a **Yace**-file. The content of a
 **Yace**-file is described in the following sections. **Yace**-file can be
 written manually, or with assistance from other tools, such as the
-:ref:`sec-idl-generator`.
+:ref:`sec-idl-cparser`.
 
 The storage format for the **Yace** Interface Defitinion is in **YAML**. Thus,
 no extra tooling for linting and visualizing it, just use regular formaters and
