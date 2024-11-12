@@ -280,7 +280,7 @@ class CParser(object):
         val = literal_from_text(lit)
         if not val:
             return None, ParseError.from_cursor(
-                message="sym({sym}), lit({lit}); Failed converting", cursor=cursor
+                message=f"sym({sym}), lit({lit}); Failed converting", cursor=cursor
             )
 
         try:
