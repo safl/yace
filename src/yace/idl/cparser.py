@@ -185,6 +185,23 @@ def typekind_to_typespec(
 
             return datatypes.FunctionPointer(sym=tobj.spelling, doc=""), None
 
+        case TypeKind.CONSTANTARRAY:
+            array_typ, error = typekind_to_typespec(
+                cursor.type.get_array_element_type(), cursor
+            )
+            if error:
+                return None, error
+
+            return (
+                datatypes.Array(
+                    array=True,
+                    array_typ=array_typ,
+                    array_length=cursor.type.get_array_size(),
+                    const=cursor.type.is_const_qualified(),
+                ),
+                None,
+            )
+
         case _:
             return None, ParseError.from_cursor(
                 message=f"Unhandled TypeKind({tobj.kind})",
