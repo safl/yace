@@ -145,7 +145,7 @@ def typekind_to_typespec(
                     )
                 case "enum":
                     return (
-                        datatypes.Record(
+                        datatypes.Enumeration(
                             sym=sym, enum=True, canonical=canonical, const=const
                         ),
                         None,

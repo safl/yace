@@ -24,6 +24,8 @@ Entity Listing
 
 * ``char_tspec``: :py:class:`yace.idl.datatypes.Char`; A character; at least 8 bits wide.
 
+* ``enum_tspec``: :py:class:`yace.idl.datatypes.Enumeration`; Elaborated / Enum / Enumeration
+
 * ``f32_tspec``: :py:class:`yace.idl.datatypes.F32`; Floating point numerical value, possibly 32 bits wide
 
 * ``f64_tspec``: :py:class:`yace.idl.datatypes.F64`; Floating point numerical value, possibly 64 bits wide

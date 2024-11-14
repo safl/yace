@@ -181,6 +181,12 @@ class Record(Typespec):
     key: str = "record_tspec"
 
 
+class Enumeration(Typespec):
+    """Elaborated / Enum / Enumeration"""
+
+    key: str = "enum_tspec"
+
+
 class Void(Typespec):
     """A void, that is, the type signaling no type"""
 
