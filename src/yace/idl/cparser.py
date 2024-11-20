@@ -278,19 +278,20 @@ class CParser(object):
         """TODO: hex + int"""
 
         tokens = [tok.spelling for tok in cursor.get_tokens()]
+        log.debug(f"({cursor.spelling}), tokens({tokens})")
+
         if len(tokens) != 2:
             error = UnsupportedDatatype.from_cursor(
                 cursor,
-                f"#define has unsupported amount of tokens({tokens}); "
+                f"'#define {tokens[0]}' unsupported amount of ntokens({len(tokens)}); "
                 "expecting two, e.g. 'FOO_MAX 42'",
             )
             return None, error
 
-        log.debug(f"({cursor.spelling}), tokens({tokens})")
         sym, lit, *excess = list([tok.spelling for tok in cursor.get_tokens()])
         if excess:
             return None, ParseError.from_cursor(
-                message=f"sym({sym}), lit({lit}); Unexpected tokens({excess})",
+                message=f"sym({sym}), lit({lit}); Unexpected ntokens({len(excess)})",
                 cursor=cursor,
             )
 
