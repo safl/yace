@@ -34,10 +34,6 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: System, install dependencies
-      run: |
-        make deps
-
     - name: System, adjust the GITHUB_PATH
       run: |
         echo "$(python3 -m site --user-base)/bin" >> $GITHUB_PATH
@@ -45,13 +41,12 @@ jobs:
 
     - name: Yace, install
       run: |
-        make uninstall clean build install
+        make dev-install
 
     - name: System, executable entry-points
       run: |
         yace --version
         black --version
-        isort --version
         doxygen --version
         gcc --version
 #        coverage --help

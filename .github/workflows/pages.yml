@@ -34,15 +34,8 @@ jobs:
     - name: Setup Pages
       uses: actions/configure-pages@v2
 
-    - name: System, install dependencies
-      run: |
-        make deps
-
     - name: Yace, Build and install
       run: make all
-
-    - name: Build pages
-      run: make docs-build
 
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v1
