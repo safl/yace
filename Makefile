@@ -1,6 +1,6 @@
 PROJECT=yace
 AUX_PATH=auxi
-PIPX_LOCAL_VENVS=$(shell echo ~/.local/share/pipx/venvs/)
+PIPX_LOCAL_VENVS=$(shell pipx environment --value PIPX_LOCAL_VENVS)
 
 ifeq ($(PLATFORM_ID),Windows)
 else
@@ -41,10 +41,11 @@ endef
 install:
 	@echo "## ${PROJECT}: make install"
 	@pipx install --python python3 --include-deps --force --editable .[dev]
-	@pipx inject yace pytest --include-deps
 	@pipx inject yace black --include-deps
-	@pipx inject yace isort --include-deps
+	@pipx inject yace build --include-deps
 	@pipx inject yace ipdb --include-deps
+	@pipx inject yace isort --include-deps
+	@pipx inject yace pytest --include-deps
 	@echo "## ${PROJECT}: make install [DONE]"
 
 define uninstall-help
@@ -100,8 +101,8 @@ define release-build-help
 endef
 .PHONY: release-build
 release-build:
-	python3 -m build --sdist
-	python3 -m build --bdist_wheel
+	$(PIPX_LOCAL_VENVS)/yace/bin/python -m build --sdist
+	$(PIPX_LOCAL_VENVS)/yace/bin/python -m build --wheel
 
 define release-upload-help
 # Upload Python distribution (sdist, bdist_wheel)

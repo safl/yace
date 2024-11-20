@@ -31,7 +31,6 @@ jobs:
         os:
         - {name: ubuntu, version: latest}
         python-version: ['3.13']
-    
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
