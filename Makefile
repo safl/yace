@@ -20,10 +20,10 @@ endef
 default: help
 
 define all-help
-# Do all: dev-uninstall clean dev-install docs
+# Do all: uninstall clean install docs
 endef
 .PHONY: all
-all: dev-uninstall clean dev-install docs
+all: uninstall clean install docs
 
 define docker-help
 # drop into a docker instance with the repository bind-mounted at /tmp/yace
@@ -34,13 +34,13 @@ docker:
 	@docker run -it -w /tmp/${PROJECT} --mount type=bind,source="$(shell pwd)",target=/tmp/${PROJECT} debian:bookworm bash
 	@echo "## ${PROJECT}: docker [DONE]"
 
-define dev-install-help
-# install using pipx
+define install-help
+# install using pipx and the Python interpreter resolve to by 'python3'
 endef
-.PHONY: dev-install
-dev-install:
+.PHONY: install
+install:
 	@echo "## ${PROJECT}: make install"
-	@pipx install --include-deps --force --editable .[dev]
+	@pipx install --python python3 --include-deps --force --editable .[dev]
 	@pipx inject yace pytest --include-deps
 	@pipx inject yace black --include-deps
 	@pipx inject yace isort --include-deps
@@ -50,8 +50,8 @@ dev-install:
 define uninstall-help
 # uninstall via pipx
 endef
-.PHONY: dev-uninstall
-dev-uninstall:
+.PHONY: uninstall
+uninstall:
 	@echo "## ${PROJECT}: make uninstall"
 	@pipx uninstall ${PROJECT} || echo "Cannot uninstall => That is OK"
 	@echo "## ${PROJECT}: make uninstall [DONE]"
@@ -113,7 +113,7 @@ define docs-build-prep-help
 # Install Sphinx Doc. in a pipx-venv along with jinja2, pygments-ansi-color, and sphinxcontrib-gtagjs
 endef
 .PHONY: docs-build-prep
-docs-build-prep: dev-install
+docs-build-prep: install
 	pipx inject yace sphinx
 	pipx inject yace jinja2
 	pipx inject yace pygments-ansi-color
