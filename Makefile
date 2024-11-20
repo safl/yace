@@ -65,6 +65,14 @@ clean:
 	rm -r dist || true
 	rm -r output || true
 
+define example-help
+# Run the example
+endef
+.PHONY: example
+example:
+	yace models/example.h --output output
+	yace output/*.yaml --output output
+
 define coverage-help
 # Run emitter with coverage
 endef
