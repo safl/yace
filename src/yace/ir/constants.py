@@ -4,20 +4,20 @@ The **yace** constants consists of:
 
 * Constant Values:
 
-  * :class:`yace.idl.constants.String`
-  * :class:`yace.idl.constants.Dec`
-  * :class:`yace.idl.constants.Hex`
+  * :class:`yace.ir.constants.String`
+  * :class:`yace.ir.constants.Dec`
+  * :class:`yace.ir.constants.Hex`
 
 * Symbolic Constants:
 
-  * :class:`yace.idl.constants.Define`
+  * :class:`yace.ir.constants.Define`
 
 * Enum Types:
 
-  * :class:`yace.idl.constants.Enum`
-  * :class:`yace.idl.constants.EnumValue`
+  * :class:`yace.ir.constants.Enum`
+  * :class:`yace.ir.constants.EnumValue`
 
-Their idl representation follows below.
+Their ir representation follows below.
 """
 from typing import List, Union
 
@@ -41,8 +41,8 @@ class Hex(Entity):
     Representation of a hexadecimal constant
 
     The emitted C code should be hexadecimal notation of literal integer
-    values, such as those used by :class:`yace.idl.constants.Define` and
-    :class:`yace.idl.enumtypes.Enum`::
+    values, such as those used by :class:`yace.ir.constants.Define` and
+    :class:`yace.ir.enumtypes.Enum`::
 
         #define FOO 0xACDC
 
@@ -80,13 +80,13 @@ class Define(Entity, Named):
 
 class EnumValue(Entity, Named, Documented):
     """
-    Representation of values in :class:`yace.idl.constants.Enum`.
+    Representation of values in :class:`yace.ir.constants.Enum`.
 
     By default, the C emitter produces::
 
         SYMBOL = lit.val
 
-    for the :class:`yace.idl.constants.EnumValue`.
+    for the :class:`yace.ir.constants.EnumValue`.
     """
 
     key: str = "enum_value"
@@ -96,9 +96,9 @@ class EnumValue(Entity, Named, Documented):
 class Enum(Entity, Named, Documented):
     """
     Representation of enumeration values, note that literals on the
-    :class:`yace.idl.constants.EnumValue` are optional, an
-    :class:`yace.idl.constants.Enum` with **non** literal
-    :class:`yace.idl.constants.EnumValue` looks like::
+    :class:`yace.ir.constants.EnumValue` are optional, an
+    :class:`yace.ir.constants.Enum` with **non** literal
+    :class:`yace.ir.constants.EnumValue` looks like::
 
         enum example {
             FOO,
@@ -106,8 +106,8 @@ class Enum(Entity, Named, Documented):
             BAZ,
         };
 
-    Whereas, an :class:`yace.idl.constants.Enum` with **literal**
-    :class:`yace.idl.constants.EnumValue` looks like::
+    Whereas, an :class:`yace.ir.constants.Enum` with **literal**
+    :class:`yace.ir.constants.EnumValue` looks like::
 
         enum example {
             FOO = 0xACDC,
@@ -115,14 +115,14 @@ class Enum(Entity, Named, Documented):
             BAZ = 0xBEEF,
         };
 
-    for the :class:`yace.idl.constants.EnumValue``.
+    for the :class:`yace.ir.constants.EnumValue``.
     """
 
     key: str = "enum"
     members: List[EnumValue]
 
     def is_valid_members(self):
-        """Checks whether the :class:`yace.idl.constants.Enum` is valid"""
+        """Checks whether the :class:`yace.ir.constants.Enum` is valid"""
 
         invalid_types = [type(m) for m in self.members if not isinstance(m, EnumValue)]
         if len(invalid_types):

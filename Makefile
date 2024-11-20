@@ -126,17 +126,17 @@ endef
 .PHONY: docs-kmdo-help
 docs-kmdo:
 	kmdo docs/source/codebase
-	kmdo docs/source/idl
+	kmdo docs/source/ir
 	kmdo docs/source/install
 	kmdo docs/source/targets/capi
 	kmdo docs/source/usage
 
 define docs-gen-entities-help
-# Generate documentation of IDL entities
+# Generate documentation of IR entities
 endef
 .PHONY: docs-gen-entities
 docs-gen-entities:
-	$(PIPX_LOCAL_VENVS)/yace/bin/python ./$(AUX_PATH)/gen_entity_index.py > docs/source/idl/list.rst
+	$(PIPX_LOCAL_VENVS)/yace/bin/python ./$(AUX_PATH)/gen_entity_index.py > docs/source/ir/list.rst
 
 define docs-build-help
 # generate documentation

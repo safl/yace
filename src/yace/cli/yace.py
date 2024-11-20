@@ -17,7 +17,7 @@ from pathlib import Path
 
 from yace import __version__ as version
 from yace.compiler import Compiler
-from yace.idl.cparser import c_to_yace
+from yace.ir.cparser import c_to_yace
 
 
 def parse_args():
@@ -90,7 +90,7 @@ def main():
             return sys.exit(1)
 
         if suffixes[0] == ".h":  # C to Yace-file Compiler
-            log.info("Got .h will convert to Yace IDL")
+            log.info("Got .h will convert to Yace IR")
 
             errors = c_to_yace(args.filepath, args.output)
             for error in errors:

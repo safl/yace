@@ -31,7 +31,7 @@ Conventions
 * A specialized Typespec should only set attributes which have values different
   than the default.
 
-Their idl representation follows below.
+Their Yace IR follows below.
 """
 import inspect
 import sys

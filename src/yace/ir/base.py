@@ -89,7 +89,7 @@ class Entity(BaseModel):
 
     """
 
-    key: str  # The Yace-IDL constructor keyword
+    key: str  # The Yace-IR constructor keyword
     ant: Optional[dict] = Field(default_factory=dict)  # User annotations
 
 

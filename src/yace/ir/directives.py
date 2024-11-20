@@ -2,7 +2,7 @@
 For directives, currently just a placeholder for #include
 """
 
-from yace.idl.base import Entity
+from yace.ir.base import Entity
 
 
 class IncludeDirective(Entity):

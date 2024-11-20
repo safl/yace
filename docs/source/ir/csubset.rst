@@ -1,4 +1,4 @@
-.. _sec-idl-csubset:
+.. _sec-ir-csubset:
 
 The C Subset
 ============
@@ -21,7 +21,7 @@ function-bodies, these could be translated into equivalent
 First, header-libraries are unsupported, that since, they are basically C code
 inlined in the header-file which requires compilation. Since, code that needs
 compilation is rarely usable on a FFI boundary, unless using something like Zig.
-Thus, logic should be implemented in a library, and in the header / FFI / IDL,
+Thus, logic should be implemented in a library, and in the header / FFI / IR,
 one defines the functional declaration to call to execute that logic.
 
 However, using these have contraints when considering portable code and code

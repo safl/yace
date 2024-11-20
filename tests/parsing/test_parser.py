@@ -1,7 +1,7 @@
 import tempfile
 from pathlib import Path
 
-from yace.idl.generator import c_to_yace
+from yace.ir.generator import c_to_yace
 
 
 def test_do_format():

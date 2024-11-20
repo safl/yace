@@ -20,8 +20,8 @@ from pydantic import ValidationError
 
 import yace
 from yace.errors import Error, ParseError, UnsupportedDatatype
-from yace.idl import constants, datatypes, directives
-from yace.idl.base import Docstring
+from yace.ir import constants, datatypes, directives
+from yace.ir.base import Docstring
 from yace.model import Model
 
 REGEX_INTEGER_FIXEDWIDTH = "(?P<unsigned>u)?int(?P<width>8|16|32|64|128)_t"

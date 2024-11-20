@@ -1,4 +1,4 @@
-.. _sec-idl-cparser:
+.. _sec-ir-cparser:
 
 C Parser
 ========
@@ -29,12 +29,12 @@ Yace File
    :language: yaml
    :caption:
 
-.. _sec-idl-cparser-implementation:
+.. _sec-ir-cparser-implementation:
 
 Implementation
 --------------
 
-.. automodule:: yace.idl.cparser
+.. automodule:: yace.ir.cparser
    :inherited-members:
    :members:
    :undoc-members:

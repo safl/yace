@@ -6,16 +6,16 @@ code.
 
 E.g. symbols are snake_case in Yace Files, however, when emitting Rust or Python
 code, then it is very useful to have this transformed to CamelCase. By doings
-so at the IDL-level, then the code-emitters need not concern inself with
+so at the IR-level, then the code-emitters need not concern inself with
 UPPERCASE/lowercase/snake_case/camelCase/PascalCase etc. this makes emitters a
 lot simpler.
 
-Also, at the IDL-level, then coding-conventions such as CamelCase can be
+Also, at the IR-level, then coding-conventions such as CamelCase can be
 shared by multiple targets.
 """
 
 from yace.emitters import camelcase
-from yace.idl.derivedtypes import Struct, Union
+from yace.ir.derivedtypes import Struct, Union
 from yace.model import ModelWalker
 
 
@@ -23,8 +23,8 @@ class CStyle(ModelWalker):
     """
     Transform symbols:
 
-    * :class:`yace.idl.constants.Define` -> upper()
-    * :class:`yace.idl.constants.EnumValue` -> upper()
+    * :class:`yace.ir.constants.Define` -> upper()
+    * :class:`yace.ir.constants.EnumValue` -> upper()
 
     This transformation assumes a valid **Yace**-file according to the linter.
     Thus, the symbols are all lower-snake_case, and transformation not

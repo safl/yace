@@ -4,7 +4,7 @@ from jinja2 import BaseLoader, Environment
 from yace.model import Model
 
 TEMPLATE = """\
-.. _sec-idl-list:
+.. _sec-ir-list:
 
 Entity Listing
 ==============

@@ -20,9 +20,9 @@ class Compiler(object):
     * Format
     * Check
 
-    The first two stages are generic, the third is generic however is usually
-    performed for target-specific-reasons such as re-structuring the IDL to
-    make the code-emitter simpler, the last three are target-specific.
+    The first two stages are generic, the third is generic however is usually performed
+    for target-specific-reasons such as re-structuring the IR to make the code-emitter
+    simpler, the last three are target-specific.
     """
 
     STAGES = ["parse", "lint", "transform", "emit", "format", "check"]

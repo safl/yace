@@ -1,4 +1,4 @@
-.. _sec-idl:
+.. _sec-ir:
 
 ======================
  Interface Definition
@@ -15,7 +15,7 @@ Issues arise alread in the representation of data types, onwards to a lack
 in equivalent representation of data structures. **Yace** seeks to lower this
 frustration by:
 
-* Describing the IDL
+* Describing the IR
 
   - How data types are mapped
   - How data structures are representated
@@ -24,7 +24,7 @@ And more importantly **Why**, by describing the portability / interoperability
 of a given C API, and how to turn it into something less frustrating by making
 it more robust and predictable.
 
-As a reference, then the **Yace** IDL is by design primarily restricted by
+As a reference, then the **Yace** IR is by design primarily restricted by
 the FFI capabilties of Rust and Python. These are selected as their serve to
 extremes of statically compiled and safe usage, and dynamically loaded and
 completely unsafe code for rapid prototyping and experimentation.
@@ -34,12 +34,12 @@ Here a description of things that are perfectly valid C but dis-allowed in
 **format**.
 
 
-* :ref:`sec-idl-files`
+* :ref:`sec-ir-files`
 
-  * :ref:`sec-idl-cparser`
+  * :ref:`sec-ir-cparser`
 
-* :ref:`sec-idl-entities`
-* :ref:`sec-idl-list`
+* :ref:`sec-ir-entities`
+* :ref:`sec-ir-list`
 
 .. toctree::
    :maxdepth: 2

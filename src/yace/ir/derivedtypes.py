@@ -2,13 +2,13 @@
 """
 The **yace** derived types consists of:
 
-* :class:`yace.idl.derivedtypes.Struct` with :class:`.Field` members
+* :class:`yace.ir.derivedtypes.Struct` with :class:`.Field` members
 
-* :class:`yace.idl.derivedtypes.Bitfield` with :class:`.Bits` members
+* :class:`yace.ir.derivedtypes.Bitfield` with :class:`.Bits` members
 
-* :class:`yace.idl.derivedtypes.Union`
+* :class:`yace.ir.derivedtypes.Union`
 
-Their idl representation follows below.
+Their ir representation follows below.
 """
 import typing
 
@@ -18,8 +18,8 @@ from .datatypes import Typed
 
 class Field(Entity, Named, Documented, Typed):
     """
-    A representation of :class:`yace.idl.Struct` and
-    :class:`yace.idl.Union`, utilized by compiler to emit code in the C API
+    A representation of :class:`yace.ir.Struct` and
+    :class:`yace.ir.Union`, utilized by compiler to emit code in the C API
     similar to::
 
         uint32_t bar;
@@ -40,8 +40,8 @@ class Field(Entity, Named, Documented, Typed):
 
 class Bitfield(Field):
     """
-    A representation of a bit-field within a :class:`yace.idl.Struct`
-    or :class:`yace.idl.Union`, utilized by compiler to emit code in the C API similar
+    A representation of a bit-field within a :class:`yace.ir.Struct`
+    or :class:`yace.ir.Union`, utilized by compiler to emit code in the C API similar
     to::
 
       uint32_t foo : 10;

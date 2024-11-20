@@ -68,4 +68,8 @@ where = ["src"]
 
 [tool.ruff]
 lint.select = ["E", "F", "I"]
-lint.per-file-ignores = { "src/yace/idl/datatypes.py" = ["E742"] }
+lint.per-file-ignores = { "src/yace/ir/datatypes.py" = ["E742"] }
+
+[tool.pylsp]
+[tool.pylsp.plugins]
+rope = { enabled = true }

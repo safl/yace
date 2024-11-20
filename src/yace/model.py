@@ -21,7 +21,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 from yace.errors import InvalidModelData
-from yace.idl import base, constants, datatypes, derivedtypes, directives, functiontypes
+from yace.ir import base, constants, datatypes, derivedtypes, directives, functiontypes
 
 
 class Meta(BaseModel):
@@ -36,7 +36,7 @@ class Meta(BaseModel):
     prefix: str = "ex"
     brief: str = "yace example"
     full: str = (
-        "This description is provided with the default idl-meta, to "
+        "This description is provided with the default IR-meta, to "
         "change it, then make sure you have a meta-lbl in your yace-file"
     )
 

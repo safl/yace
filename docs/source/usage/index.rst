@@ -7,11 +7,11 @@
 Running **yace** requires that you have:
 
 1. Installed **yace** and auxilary :ref:`sec-tools`
-2. A :ref:`sec-idl` file describing your C API or a Yace-compatible C-header
+2. A :ref:`sec-ir` file describing your C API or a Yace-compatible C-header
 
 To satisfy the first point, then see :ref:`sec-install`. For the second
-point, then you can consult :ref:`sec-idl` for reference to define
-a :ref:`sec-idl-files` from scratch.
+point, then you can consult :ref:`sec-ir` for reference to define
+a :ref:`sec-ir-files` from scratch.
 
 Command-Line Interface
 ======================
@@ -87,7 +87,7 @@ Additional Examples
 
 For more elaborate examples, then take a look at:
 
-* The idls in the **yace** repository at
+* The irs in the **yace** repository at
   https://github.com/safl/yace/tree/main/models
 * The target-specific output in the :ref:`sec-targets` section
 * The artifacts produces on the :github-yace-actions:`GitHUB Actions Page <>`

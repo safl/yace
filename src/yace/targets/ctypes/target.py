@@ -36,11 +36,11 @@ class Ctypes(Target):
 
     def transform(self, model):
         """
-        Transform the given idl
+        Transform the given model
 
         * Transform symbols according to :class:`yace.transformation.CStyle`
 
-        That it currently the only thing done to the **yace** IDL.
+        That it currently the only thing done to the **yace** IR.
         """
 
         transformed = copy.deepcopy(model)

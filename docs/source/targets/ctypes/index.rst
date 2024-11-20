@@ -14,12 +14,12 @@ What is produced:
 
 * C API Wrapper (``{meta.prefix}.py``)
 
-  * Python module mapping the :ref:`sec-idl` to :class:`yace.target.ctypes`
-  * :ref:`sec-idl-constants` become global variables in the ``{prefix}`` module,
+  * Python module mapping the :ref:`sec-ir` to :class:`yace.target.ctypes`
+  * :ref:`sec-ir-constants` become global variables in the ``{prefix}`` module,
     such as ``{prefix}.MIN_X``.
   * EnumTypes  mapped to :class:`yace.targets.ctypes.ctypes_sugar.Enum`
-  * :ref:`sec-idl-structtypes` mapped to :class:`yace.targets.ctypes.ctypes_sugar.Structure`
-  * :ref:`sec-idl-uniontypes` mapped to :class:`yace.targets.ctypes.ctypes_sugar.Union`
+  * :ref:`sec-ir-structtypes` mapped to :class:`yace.targets.ctypes.ctypes_sugar.Structure`
+  * :ref:`sec-ir-uniontypes` mapped to :class:`yace.targets.ctypes.ctypes_sugar.Union`
 
 * Test (``{meta.prefix}_check.py``)
 

@@ -36,13 +36,13 @@ class Target(ABC):
     @abstractmethod
     def transform(self, model):
         """
-        Transform the given 'idl' for code-emission.
+        Transform the given model for code-emission.
         """
 
     @abstractmethod
     def emit(self, model):
         """
-        Emit code for the given idl, using your weapons of choice, common
+        Emit code for the given model, using your weapons of choice, common
         choice would be to utilize an instance of the class:`.Emitter`.
         """
 
