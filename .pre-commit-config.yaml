@@ -29,14 +29,3 @@ repos:
   - id: ruff
     name: Python-lint-ruff
     args: [--fix]
-
-#- repo: https://github.com/pre-commit/mirrors-mypy
-#  rev: v1.12.0
-#  hooks:
-#  - id: mypy
-#    name: Python-lint-mypy
-#    exclude: "docs/source/conf.py"
-#    additional_dependencies:
-#    - types-paramiko
-#    - types-PyYAML
-#    - types-requests
