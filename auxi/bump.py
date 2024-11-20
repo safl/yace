@@ -9,7 +9,6 @@ REGEX = (
 
 PATHS = [
     Path.cwd() / "docs" / "source" / "conf.py",
-    Path.cwd() / "setup.py",
     Path.cwd() / "src" / "yace" / "__init__.py",
 ]
 
