@@ -24,15 +24,27 @@ concurrency:
 jobs:
   # Single deploy job since we're just deploying
   deploy:
+    runs-on: '${{ matrix.os.name }}-${{ matrix.os.version }}'
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+        - {name: ubuntu, version: latest}
+        python-version: ['3.13']
+    
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+
     steps:
     - name: Checkout
       uses: actions/checkout@v3
     - name: Setup Pages
       uses: actions/configure-pages@v2
+
+    - name: System, tools
+      run: |
+        sudo ./auxi/pkgs/${{ matrix.os.name }}.sh
 
     - name: Yace, Build and install
       run: make all
