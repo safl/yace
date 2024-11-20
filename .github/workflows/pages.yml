@@ -46,7 +46,7 @@ jobs:
         sudo ./auxi/pkgs/${{ matrix.os.name }}.sh
 
     - name: Yace, Build and install
-      run: make all
+      run: make install docs
 
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v1

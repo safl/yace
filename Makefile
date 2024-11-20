@@ -160,7 +160,7 @@ define docs-view-help
 endef
 .PHONY: docs-view
 docs-view:
-	xdg-open docs/build/html/index.html | open docs/build/html/index.html
+	xdg-open docs/build/html/index.html | open docs/build/html/index.html | true
 
 define docs-help
 # generate documentation (command-output, section-gen, HTML) and open the HTML
