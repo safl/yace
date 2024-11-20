@@ -18,6 +18,3 @@ dnf install -y \
   clang-tools-extra \
   doxygen \
   graphviz
-
-# This **should** ensure that yace cli is invokable
-pipx ensurepath

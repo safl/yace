@@ -35,6 +35,3 @@ apt-get -qy install \
   clang-format \
   doxygen \
   graphviz
-
-# This **should** ensure that yace cli is invokable
-pipx ensurepath
