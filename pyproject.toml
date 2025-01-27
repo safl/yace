@@ -63,7 +63,7 @@ yace = "yace.cli.yace:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"yace" = ["*.clang-format", "*.template"]
+"yace" = ["**/*.clang-format", "**/*.template"]
 
 
 [tool.ruff]
