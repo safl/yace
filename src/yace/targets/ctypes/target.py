@@ -5,15 +5,30 @@ ignores them, except for the special-case "c_char_p".
 """
 
 import copy
+import ctypes
 import logging as log
+import re
 import shutil
+import textwrap
 from pathlib import Path
 
 from yace.emitters import Emitter
 from yace.errors import TransformationError
 from yace.targets.target import Target
 from yace.tools import Black, Isort, Python3
-from yace.transformations import Camelizer
+from yace.transformations import Camelizer, Modulizer
+
+
+def emit_typespec(typespec, anon: bool = False):
+    return typespec.python_spelling()
+
+
+def wrap(text, indent="", width=72):
+    return '\n'.join(textwrap.wrap(text, width=width, subsequent_indent=indent))
+
+
+def sizeof(ctypes_member: str):
+    return ctypes.sizeof(getattr(ctypes, ctypes_member))
 
 
 class Ctypes(Target):
@@ -58,30 +73,70 @@ class Ctypes(Target):
     def emit(self, model):
         """Emit code"""
 
+        filters = {
+            "emit_typespec": emit_typespec,
+            "wrap": wrap,
+            "sizeof": sizeof,
+        }
+
+        output = (self.output / model.meta.prefix).resolve()
+        output.mkdir(parents=True, exist_ok=True)
+
+        raw_path = (output / "raw").resolve()
+        raw_path.mkdir(parents=True, exist_ok=True)
+
+        modules = dict()
+
+        for entity in model.entities:
+            if not entity.module:
+                entity.module = "unknown"
+            
+            if entity.module not in modules:
+                modules[entity.module] = []
+
+            modules[entity.module].append(entity)
+        
         # Copy the generic ctypes-sugar from resources
-        sugar_path = (self.output / "ctypes_sugar.py").resolve()
+        sugar_path = (output / "ctypes_sugar.py").resolve()
         shutil.copyfile(Path(__file__).parent / sugar_path.name, sugar_path)
         self.sources.append(sugar_path)
 
-        # Generate the bindings / Python API
+        # Copy the generic init file from resources
+        init_path = (output / "__init__.py").resolve()
+        shutil.copyfile(Path(__file__).parent / "init.py", init_path)
+        self.sources.append(init_path)
+
+        # Generate helper files
         files = [
-            ((self.output / f"{model.meta.prefix}.py").resolve(), "file_api"),
-            ((self.output / f"{model.meta.prefix}_check.py").resolve(), "file_check"),
+            ((output / "util.py").resolve(), "util", {}),
+            ((output / f"{model.meta.prefix}_check.py").resolve(), "file_check", { "meta": model.meta }),
+            ((raw_path / "__init__.py").resolve(), "init_raw", { "imports": modules.keys() }),
         ]
-        for path, template in files:
+
+        for path, template, args in files:
             with path.open("w") as file:
                 file.write(
+                    self.emitter.render(template, args, filters)
+                )
+                self.sources.append(path)
+
+        # Generate the bindings / Python API
+        for module, entities in modules.items():
+            module_path = (raw_path / f"{module}.py").resolve()
+
+            with module_path.open("w") as file:
+                file.write(
                     self.emitter.render(
-                        template,
+                        "file_api",
                         {
                             "meta": model.meta,
-                            "entities": model.entities,
+                            "entities": entities,
                             "headers": self.headers,
                         },
-                        {},
+                        filters,
                     )
                 )
-            self.sources.append(path)
+            self.sources.append(module_path)
 
     def format(self):
         """

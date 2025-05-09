@@ -148,6 +148,59 @@ class Typespec(Entity):
         return " ".join(spelling)
 
 
+    def python_spelling(self):
+        """
+        Construct the Python spelling
+        This **should** produce the same as a concatenation of tokens.
+        """
+
+        spelling = []
+
+        if self.void:
+            spelling.append("ctypes.void")
+        elif self.boolean:
+            spelling.append("ctypes.c_bool")
+        elif self.character:
+            spelling.append("ctypes.c_byte" if self.signed else "ctypes.c_ubyte")
+        elif self.size:
+            spelling.append("ctypes.c_ssize_t" if self.signed else "ctypes.c_size_t")
+        elif self.integer and self.width_fixed:
+            spelling.append(f"ctypes.c_int{self.width}" if self.signed else f"ctypes.c_uint{self.width}")
+        elif self.integer:
+            if self.width <= IShort().width:
+                spelling.append("ctypes.c_short" if self.signed else "ctypes.c_ushort")
+            elif self.width <= I().width:
+                spelling.append("ctypes.c_int" if self.signed else "ctypes.c_uint")
+            elif self.width <= ILong().width:
+                spelling.append("ctypes.c_long" if self.signed else "ctypes.c_ulong")
+            elif self.width <= ILongLong().width:
+                spelling.append("ctypes.c_longlong" if self.signed else "ctypes.c_ulonglong")
+        elif self.real:
+            if self.width_fixed: 
+                spelling.append("ctypes.c_float")
+            else:
+                spelling.append("ctypes.c_double")
+        elif self.union:
+            spelling.append(f"Union")
+        elif self.struct:
+            spelling.append(f"{self.sym}")
+        elif self.enum:
+            spelling.append(f"{self.sym}")
+        elif self.pointer and self.pointee:
+            pointee = self.pointee.python_spelling()
+            if any((s in pointee) for s in ["c_char", "c_wchar", "c_void"]):
+                spelling.append(f"ctypes.{pointee}_p")
+            else:
+                spelling.append(f"Pointer[{pointee}]")
+        elif self.pointer:
+            spelling.append(f"{self.sym}")
+        elif self.array:
+            array_typ = self.array_typ.python_spelling()
+            spelling.append(f"{array_typ} * {self.array_length}")
+
+        return " ".join(spelling)
+
+
 class Pointer(Typespec):
     """Pointer"""
 

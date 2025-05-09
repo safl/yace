@@ -1,0 +1,7 @@
+{{ entity.sym }} = 
+{%- if entity.val.key == "str" -%}
+  "{{ entity.val.lit }}"
+{%- else -%}
+  {{entity.val.lit}}
+{%- endif -%}
+{%- if entity.doc %} # {{ entity.doc }}{% endif %}

@@ -1,0 +1,32 @@
+class {{ entity.sym }}(Union):
+{%- if entity.doc.__dict__.values()|map("length")|select|first %}
+	"""
+	{% for doc in [entity.doc.brief, entity.doc.description] if doc|length -%}
+	{{ doc | wrap("	") }}
+	{% if not loop.last %}
+	{% endif %}
+	{%- endfor -%}
+
+	{%- for tag in entity.doc.tags if tag not in entity.key -%}
+	{% if loop.first and [entity.doc.brief, entity.doc.description]|reject("==","")|list|length %}
+	{# A whitespace between description and tags #}
+	{%- endif -%}
+	{{ tag }}: 
+	{%- for key in entity.doc.tags[tag] %}
+	  {{ key }} {{ entity.doc.tags[tag][key] }}
+	{% endfor -%}
+	{% if not loop.last %}
+	{% endif %}
+	{%- endfor -%}
+	"""
+{%- endif %}
+	pass
+
+{{ entity.sym }}._pack_ = 1
+{{ entity.sym }}._fields_ = [
+{%- for member in entity.members %}
+	{% if member.key in ["field", "field_decl"] -%}
+	("{{ member.sym }}", {{ member.typ | emit_typespec }}),
+	{%- endif %}
+{%- endfor %}
+]

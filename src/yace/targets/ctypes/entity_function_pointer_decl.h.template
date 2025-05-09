@@ -1,0 +1,8 @@
+{{ entity.sym }} = FunctionPointer({{entity.ret | emit_typespec}}, 
+{%- for param in entity.parameters -%}
+{{ param.typ | emit_typespec }}{{ "" if loop.last else ", " }}
+{%- endfor -%}
+) 
+{%- if entity.doc.brief -%}
+# {{ entity.doc.brief }}
+{%- endif %}

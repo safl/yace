@@ -1,0 +1,55 @@
+def {{ entity.sym }}(
+{%- for param in entity.parameters -%}
+{{ param.sym }}: {{ param.typ | emit_typespec }}{{ ", " if not loop.last else "" }}
+{%- endfor -%}
+) -> {{ entity.ret | emit_typespec }}:
+{%- if entity.doc.__dict__.values()|map("length")|select|first %}
+	"""
+	{% for doc in [entity.doc.brief, entity.doc.description] if doc|length -%}
+	{{ doc | wrap("	") }}
+	{% if not loop.last %}
+	{% endif %}
+	{%- endfor -%}
+
+	{%- for tag in entity.doc.tags if tag not in ["param", "return"] -%}
+	{% if loop.first and [entity.doc.brief, entity.doc.description]|reject("==","")|list|length %}
+	{# A whitespace between description and tags #}
+	{%- endif -%}
+	{{ tag }}: 
+	{%- for key in entity.doc.tags[tag] %}
+	  {{ key }} {{ entity.doc.tags[tag][key] }}
+	{% endfor -%}
+	{% if not loop.last %}
+	{% endif %}
+	{%- endfor -%}
+
+	{%- if entity.parameters | length %}
+	Args:
+	{%- for param in entity.parameters %}
+	  {{param.sym}} ({{ param.typ | emit_typespec }})
+	  {%- if param.sym in entity.doc.tags.param -%}
+		{%- set param_doc = entity.doc.tags.param[param.sym] -%}
+		{%- if (param_doc | length) < 62 -%}
+	  : {{ param_doc }}
+	  {%- else -%}
+	  :
+		{{ param_doc | wrap("		", 62)  }}
+	  {%- endif -%}
+	  {%- endif %}
+	{%- endfor %}
+	{% endif %}
+	{%- if entity.doc.tags.return %}
+	Returns:
+	{%- for ret in entity.doc.tags.return %}
+	{%- set return_doc = entity.doc.tags.return[ret] -%}
+	{%- if (return_doc | length) < 62 %}
+	  _ ({{entity.ret | emit_typespec}}): {{ret}} {{ return_doc }}
+	{%- else %}
+	  _ ({{entity.ret | emit_typespec}}): 
+		{{ret}} {{ return_doc | wrap("		", 62) }}
+	{%- endif %}
+	{% endfor %}
+	{%- endif -%}
+	"""
+{%- endif %}
+	pass
