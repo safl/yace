@@ -71,7 +71,7 @@ jobs:
 #       mv htmlcov output/
 
     - name: Upload generated sources and doxygen
-      uses: actions/upload-artifact@v3.1.1
+      uses: actions/upload-artifact@v4
       with:
         name: 'archive-${{ matrix.os.name }}-${{ matrix.os.version }}-py${{ matrix.python-version }}'
         path: output/*
