@@ -91,6 +91,7 @@ class Entity(BaseModel):
 
     key: str  # The Yace-IR constructor keyword
     ant: Optional[dict] = Field(default_factory=dict)  # User annotations
+    module: Optional[str] = None # The module that the entity is part of
 
 
 class Documented(BaseModel):

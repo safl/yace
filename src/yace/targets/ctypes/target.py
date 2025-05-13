@@ -45,6 +45,10 @@ class Ctypes(Target):
 
         transformed = copy.deepcopy(model)
 
+        status = Modulizer(transformed).walk()
+        if not all([res for res in status]):
+            raise TransformationError("The transformation to Python modules failed")
+
         status = Camelizer(transformed).walk()
         if not all([res for res in status]):
             raise TransformationError("The CStyle transformation failed")
