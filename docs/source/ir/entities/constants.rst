@@ -1,5 +1,7 @@
 .. _sec-ir-constants:
 
+.. _sec-ir-enumtypes:
+
 Constants
 =========
 
