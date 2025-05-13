@@ -192,7 +192,7 @@ class ModelWalker(object):
         """
 
         res = [self.visit(cur, ancestors, depth)]
-        for attr in ["members", "parameters", "typ", "ret", "val"]:
+        for attr in ["members", "parameters", "typ", "ret", "val", "pointee", "array_typ"]:
             other = getattr(cur, attr, None)
             if other is None:
                 continue
