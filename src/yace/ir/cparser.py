@@ -126,6 +126,11 @@ def typekind_to_typespec(
         case TypeKind.ULONGLONG:
             return datatypes.ULongLong(canonical=canonical, const=const), None
 
+        case TypeKind.FLOAT:
+            return datatypes.F32(canonical=canonical, const=const), None
+        case TypeKind.DOUBLE:
+            return datatypes.F64(canonical=canonical, const=const), None
+
         case TypeKind.ELABORATED | TypeKind.RECORD:
             *head, keyword, sym = tobj.spelling.split()
             match keyword:

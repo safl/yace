@@ -14,6 +14,8 @@ Also, at the IR-level, then coding-conventions such as CamelCase can be
 shared by multiple targets.
 """
 
+import logging as log
+
 from yace.emitters import camelcase
 from yace.ir.derivedtypes import Struct, Union
 from yace.model import ModelWalker
@@ -77,6 +79,41 @@ class Camelizer(ModelWalker):
             current.sym = camelcase(current.sym)
         elif current.key in ["enum_value"]:
             current.sym = current.sym.upper()
+
+        return (True, None)
+
+
+class Modulizer(ModelWalker):
+    """
+    Add module to entities when applicable.
+
+    Module names are extracted from from entity.sym, assuming syms 
+    to be of format <prefix>_<module>_<entity_name>.
+    """
+
+    def visit(self, current, ancestors, depth):
+        if "sym" not in list(current.model_dump().keys()):
+            return (True, None)
+
+        if not current.sym:
+            return (True, None)
+        
+        prefix = self.model.meta.prefix
+
+        has_prefix = current.sym.lower().startswith(prefix + "_")
+        part_of_module = not ("tspec" in current.key or current.key in ["parameter_decl", "field_decl"])
+        if part_of_module and not has_prefix:
+            log.error(f"Entity does not begin with model prefix({prefix}): {current.sym}.")
+            return (False, None)
+        
+        if has_prefix:
+            prefix, module, *_ = current.sym.split("_")
+            
+            current.module = module.lower()
+            ancestor_modules = [a.module for a in ancestors if a.module]
+
+            if not part_of_module and current.module != ancestor_modules[-1]:
+                current.sym = f'{prefix}.raw.{module}.{current.sym}'
 
         return (True, None)
 

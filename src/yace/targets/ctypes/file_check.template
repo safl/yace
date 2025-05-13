@@ -12,11 +12,12 @@ NOTE: This file is auto-generated using yace: https://github.com/safl/yace
 Copyright (C) {{ meta.author }}
 SPDX-License-Identifier: {{ meta.lic }}
 """
-import {{ meta.prefix }}
+from util import check_architecture, load
 
 
 def main():
-	pass
+	check_architecture()
+	load("{{meta.prefix}}")
 
 if __name__ == "__main__":
 	main()

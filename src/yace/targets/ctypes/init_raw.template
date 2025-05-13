@@ -1,0 +1,4 @@
+from . import {% for module in imports -%}
+{{ module }}
+{{- "" if loop.last else ", " }}
+{%- endfor %}

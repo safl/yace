@@ -12,27 +12,12 @@ SPDX-License-Identifier: {{ meta.lic }}
 -------------------------------------------------------------------------------
 NOTE: This file was generated using yace: https://github.com/safl/yace
 """
-from ctypes_sugar import Enum, Structure, Union
+import ctypes
+from ctypes_sugar import Enum, FunctionPointer, Pointer, Structure, Union, check_architecture
 
-{% for entity in entities %}
-{%- if entity.cls in ["define"] -%}
-{{ entity.sym }} = {{ entity.val.lit }} # {{ entity.doc }}
-{%- elif entity.cls in ["enum"] -%}
-class {{ entity.sym }}(Enum):
-	"""{{ entity.doc }}"""
+import {{ meta.prefix }}
 
-{%- for member in entity.members %}
-	{{ member.sym }} = {{ '0x%0x' % member.val.lit }} # {{ member.doc }}
-{%- endfor %}
-{%- elif entity.cls in ["struct", "union"] -%}
-class {{ entity.sym }}({{ "Struct" if entity.cls == "struct" else "Union" }}):
-	"""{{ entity.doc }}"""
-	pass
-{{ entity.sym }}._pack_ = 1
-{{ entity.sym }}._fields_ [
-{%- for member in entity.members %}
-	{% if member.cls == "field" %}("{{ member.sym }}", {{ member | emit_typespec }}),{% endif %}
-{%- endfor %}
-]
-{%- endif %}
+
+{% for entity in entities if entity.key not in ["include_stmt"] -%}
+{{ entity | emit_entity }}
 {% endfor %}
