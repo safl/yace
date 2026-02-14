@@ -38,6 +38,16 @@ test_{{ entity.sym }}_pr(void)
         return 0;
 }
 {% endfor %}
+{% for entity in entities if entity.key == "function_decl" %}
+int
+test_{{ entity.sym }}(void)
+{
+        printf("\n# smoke test: {{ entity.sym }}()\n");
+        {{ entity.sym }}({% for param in entity.parameters %}0{{ ", " if not loop.last else "" }}{% endfor %});
+
+        return 0;
+}
+{% endfor %}
 
 int main(int argc, char *argv[])
 {
@@ -49,6 +59,16 @@ int main(int argc, char *argv[])
 
         {% for entity in entities if entity.key in ["struct_decl", "union_decl"] %}
         err = test_{{ entity.sym }}_pr();
+        if (err) {
+                return err;
+        }
+        {% endfor %}
+        printf("#\n");
+        printf("# Function smoke tests\n");
+        printf("#\n");
+
+        {% for entity in entities if entity.key == "function_decl" %}
+        err = test_{{ entity.sym }}();
         if (err) {
                 return err;
         }
