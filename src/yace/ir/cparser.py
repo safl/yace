@@ -281,6 +281,10 @@ class CParser(object):
         tokens = [tok.spelling for tok in cursor.get_tokens()]
         log.debug(f"({cursor.spelling}), tokens({tokens})")
 
+        if len(tokens) == 1:
+            log.debug(f"Skipping value-less define: '#define {tokens[0]}'")
+            return None, None
+
         if len(tokens) != 2:
             error = UnsupportedDatatype.from_cursor(
                 cursor,
@@ -568,15 +572,17 @@ def c_to_yace(paths: List[Path], output: Path) -> List[Error]:
         entities, parse_errors = parser.tu_to_data(tu, path)
         errors += parse_errors
 
+        stem = path.stem
         data = {
             "meta": {
                 "lic": "Unknown License",
                 "version": "0.0.1",
                 "author": "Foo Bar <foo@example.com>",
-                "project": "foo",
-                "prefix": "foo",
+                "project": stem,
+                "prefix": stem,
                 "brief": "Brief Description",
                 "full": "Full Description",
+                "pkg": "",
             },
         }
         data["entities"] = entities
