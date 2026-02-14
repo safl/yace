@@ -49,7 +49,7 @@ class Model(BaseModel):
     """
 
     MAPPING: ClassVar = {
-        obj.__fields__["key"].default: obj
+        obj.model_fields["key"].default: obj
         for _, obj in (
             inspect.getmembers(base)
             + inspect.getmembers(constants)
@@ -61,7 +61,7 @@ class Model(BaseModel):
         if (
             inspect.isclass(obj)
             and issubclass(obj, base.Entity)
-            and isinstance(obj.__fields__["key"].default, str)
+            and isinstance(obj.model_fields["key"].default, str)
         )
     }
 

@@ -37,7 +37,7 @@ import inspect
 import sys
 from typing import Literal, Optional, Union
 
-from pydantic import BaseModel, root_validator
+from pydantic import BaseModel, model_validator
 
 from .base import Entity
 
@@ -85,7 +85,8 @@ class Typespec(Entity):
     array_typ: Optional["Typespec"] = None
     array_length: int = 0  # This could also be a symbolic constant
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def check_signage(cls, values):
         unsigned = values.get("unsigned")
         signed = values.get("signed")
@@ -681,7 +682,7 @@ def classes():
 
 
 def get_shorthand_to_cls():
-    return {cls.__fields__["key"].default: cls for cls in classes()}
+    return {cls.model_fields["key"].default: cls for cls in classes()}
 
 
 def classes_shorthand_data():
@@ -691,7 +692,7 @@ def classes_shorthand_data():
 
     shorthands = {}  # Map to return
     for cls in classes():
-        if cls.__fields__["key"].default in ["pointer_tspec", "array_tspec"]:
+        if cls.model_fields["key"].default in ["pointer_tspec", "array_tspec"]:
             continue
 
         data = cls().model_dump()  # Setup data
@@ -707,7 +708,7 @@ def classes_shorthand_data():
 
 # Create a Literal type from the list of strings
 TypespecShorthand = Literal[
-    tuple(sorted([cls.__fields__["key"].default for cls in classes()]))
+    tuple(sorted([cls.model_fields["key"].default for cls in classes()]))
 ]
 
 
