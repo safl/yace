@@ -1,3 +1,8 @@
+#ifndef FOO_H
+#define FOO_H
+
+#include <stdint.h>
+
 #define PLOT_SERIAL "WYRD1234"
 #define PLOT_FOO 0xACDC
 #define PLOT_VERSION_MAJOR 1
@@ -51,7 +56,6 @@ union feature {
  */
 int foo(int x, int y);
 
-
 /**
  * This is a function pointer prototype
  *
@@ -61,3 +65,5 @@ int foo(int x, int y);
  * @return Something on success, -1 on error.
  */
 typedef int (*binop_func)(int x, int y);
+
+#endif /* LIBFOO_H */

@@ -18,7 +18,7 @@ Invoking it
 C Header
 ~~~~~~~~
 
-.. literalinclude:: ../../../models/example.h
+.. literalinclude:: ../../../examples/libfoo/include/foo.h
    :language: c
    :caption:
 

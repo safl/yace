@@ -23,8 +23,8 @@ The following section shows the details of how to generate a C API from a
 Example
 -------
 
-Below, **yace** is invoked on the ``models/example.yaml`` from the **yace**
-git-repository.
+Below, **yace** is invoked on the ``output/foo.yaml`` generated from the example
+library header.
 
 .. literalinclude:: 200_yace.cmd
    :language: bash

@@ -34,4 +34,6 @@ apt-get -qy install \
   build-essential \
   clang-format \
   doxygen \
-  graphviz
+  graphviz \
+  meson \
+  ninja-build

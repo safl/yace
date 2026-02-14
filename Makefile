@@ -66,13 +66,26 @@ clean:
 	rm -r dist || true
 	rm -r output || true
 
+EXAMPLE_PREFIX=$(shell pwd)/output/prefix
+EXAMPLE_PKG_CONFIG_PATH=$(EXAMPLE_PREFIX)/lib/pkgconfig
+
+define example-build-help
+# Build and install the example libfoo library
+endef
+.PHONY: example-build
+example-build:
+	meson setup examples/libfoo/builddir examples/libfoo --prefix=$(EXAMPLE_PREFIX) --libdir=lib --reconfigure 2>/dev/null || meson setup examples/libfoo/builddir examples/libfoo --prefix=$(EXAMPLE_PREFIX) --libdir=lib
+	meson compile -C examples/libfoo/builddir
+	meson install -C examples/libfoo/builddir
+
 define example-help
-# Run the example
+# Run yace on the example library (parse header, emit C API, compile and link)
 endef
 .PHONY: example
-example:
-	yace models/example.h --output output
-	yace output/*.yaml --output output
+example: example-build
+	yace examples/libfoo/include/foo.h --output output
+	sed -i.bak "s/pkg: ''/pkg: foo/" output/foo.yaml && rm -f output/foo.yaml.bak
+	PKG_CONFIG_PATH=$(EXAMPLE_PKG_CONFIG_PATH) LD_LIBRARY_PATH=$(EXAMPLE_PREFIX)/lib yace output/foo.yaml --emit capi --output output
 
 define coverage-help
 # Run emitter with coverage
@@ -80,8 +93,9 @@ endef
 .PHONY: coverage
 coverage:
 	coverage erase
-	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace models/example.h --output output
-	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace models/example.yaml --emit capi --output output
+	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace examples/libfoo/include/foo.h --output output
+	sed -i.bak "s/pkg: ''/pkg: foo/" output/foo.yaml && rm -f output/foo.yaml.bak
+	PKG_CONFIG_PATH=$(EXAMPLE_PKG_CONFIG_PATH) LD_LIBRARY_PATH=$(EXAMPLE_PREFIX)/lib coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace output/foo.yaml --emit capi --output output
 	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace tests/parsing/example.h --output output
 	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m pytest -v tests || true
 	coverage report
@@ -129,7 +143,7 @@ define docs-kmdo-help
 # Generate command output using kmdo
 endef
 .PHONY: docs-kmdo-help
-docs-kmdo:
+docs-kmdo: example
 	kmdo docs/src/codebase
 	kmdo docs/src/ir
 	kmdo docs/src/install
