@@ -139,9 +139,29 @@ class CAPI(Target):
 
         self.tools["doxygen"].run([Doxygen.DOXYGEN_CONF])
 
-    def check(self):
+    def check(self, model):
         """Build generated sources and run the generated test-program"""
 
+        extra_cflags = []
+        extra_ldflags = []
+        if model.meta.pkg:
+            from subprocess import check_output
+
+            extra_cflags = (
+                check_output(["pkg-config", "--cflags", model.meta.pkg])
+                .decode()
+                .split()
+            )
+            extra_ldflags = (
+                check_output(["pkg-config", "--libs", model.meta.pkg])
+                .decode()
+                .split()
+            )
+
         self.tools["gcc"].run(
-            CAPI.CFLAGS + ["-I", str(self.output)] + [str(p) for p in self.sources]
+            CAPI.CFLAGS
+            + ["-I", str(self.output)]
+            + extra_cflags
+            + [str(p) for p in self.sources]
+            + extra_ldflags
         )

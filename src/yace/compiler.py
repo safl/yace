@@ -76,7 +76,7 @@ class Compiler(object):
 
             if "check" in stages:
                 log.info("Stage: 'check'")
-                err = target.check()
+                err = target.check(model)
                 if err:
                     log.error("Got error, stopping.")
                     break

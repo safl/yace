@@ -87,7 +87,7 @@ class Ctypes(Target):
         for tool in ["black", "isort"]:
             self.tools[tool].run([str(path) for path in self.sources])
 
-    def check(self):
+    def check(self, model):
         """Build generated sources and run the generated test-program"""
 
         log.info("Not there yet...")

@@ -39,6 +39,7 @@ class Meta(BaseModel):
         "This description is provided with the default IR-meta, to "
         "change it, then make sure you have a meta-lbl in your yace-file"
     )
+    pkg: str = ""
 
 
 class Model(BaseModel):

@@ -55,7 +55,7 @@ class Target(ABC):
         """
 
     @abstractmethod
-    def check(self):
+    def check(self, model):
         """
         Compile the generated code and execute it. Or in case of an interpreted
         language just execute something verifying the generated code. This
