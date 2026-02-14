@@ -6,15 +6,18 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+import yace
+
 project = "yace"
-copyright = "2022-2023, Simon A. F. Lund"
+copyright = "2022-2026, Simon A. F. Lund"
 author = "Simon A. F. Lund"
-release = "0.5.8"
+release = yace.__version__
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
+    "myst_parser",
     "sphinx.ext.autodoc",
     "sphinx.ext.coverage",
     "sphinx.ext.extlinks",
@@ -29,7 +32,10 @@ autodoc_default_options = {
         "model_dump, "
         "model_dump_json, "
         "model_copy, "
-        "model_json_schema"
+        "model_json_schema, "
+        "model_validate, "
+        "model_validate_json, "
+        "model_validate_strings"
     )
 }
 
@@ -38,7 +44,7 @@ gtagjs_ids = [
 ]
 
 templates_path = ["_templates"]
-exclude_patterns = []
+exclude_patterns = ["README.rst"]
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output

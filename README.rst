@@ -1,4 +1,4 @@
-.. image:: docs/source/_static/yace-mascot.png
+.. image:: docs/src/_static/yace-mascot.png
    :alt: yace
 
 Welcome to yace

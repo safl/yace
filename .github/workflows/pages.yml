@@ -38,12 +38,27 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+
+    - name: System, setup Python (${{ matrix.python-version }})
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: System, adjust the GITHUB_PATH
+      run: |
+        echo "$(python3 -m site --user-base)/bin" >> $GITHUB_PATH
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: System, upgrade pipx
+      run: |
+        python3 -m pip install --user --upgrade pipx
+
     - name: Setup Pages
       uses: actions/configure-pages@v5
 
     - name: System, tools
       run: |
-        sudo ./auxi/pkgs/${{ matrix.os.name }}.sh
+        sudo ./toolbox/pkgs/${{ matrix.os.name }}.sh
 
     - name: Yace, Build and install
       run: make install docs
@@ -51,7 +66,7 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v3
       with:
-        path: 'docs/build/html'
+        path: 'docs/builddir/html'
     - name: Deploy to GitHub Pages
       id: deployment
       uses: actions/deploy-pages@v4

@@ -93,4 +93,3 @@ Entity Listing
 * ``parameter_decl``: :py:class:`yace.ir.functiontypes.Parameter`; Function parameter
 
 * ``include_stmt``: :py:class:`yace.ir.directives.IncludeDirective`; Something like
-

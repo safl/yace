@@ -1,5 +1,5 @@
 PROJECT=yace
-AUX_PATH=auxi
+AUX_PATH=toolbox
 PIPX_LOCAL_VENVS=$(shell pipx environment --value PIPX_LOCAL_VENVS)
 
 ifeq ($(PLATFORM_ID),Windows)
@@ -80,10 +80,9 @@ endef
 .PHONY: coverage
 coverage:
 	coverage erase
-	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace models/example.yaml --emit capi
-	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace models/example.yaml --format
-	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace models/example.yaml --lint
-	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace tests/parsing/foo.h --c-to-yace
+	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace models/example.h --output output
+	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace models/example.yaml --emit capi --output output
+	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m yace tests/parsing/example.h --output output
 	coverage run -a --omit "*ctypes_sugar.py" --source=yace -m pytest -v tests || true
 	coverage report
 	coverage html
@@ -119,54 +118,51 @@ release: clean release-build release-upload
 	@echo -n "# rel: "; date
 
 define docs-build-prep-help
-# Install Sphinx Doc. in a pipx-venv along with jinja2, pygments-ansi-color, and sphinxcontrib-gtagjs
+# Install docs tooling and dependencies
 endef
 .PHONY: docs-build-prep
 docs-build-prep: install
-	pipx inject yace sphinx
-	pipx inject yace jinja2
-	pipx inject yace pygments-ansi-color
-	pipx inject yace sphinxcontrib-gtagjs
-	pipx inject yace furo
+	pipx install docs/tooling --force
+	pipx inject yace-docs --editable . --force
 
 define docs-kmdo-help
 # Generate command output using kmdo
 endef
 .PHONY: docs-kmdo-help
 docs-kmdo:
-	kmdo docs/source/codebase
-	kmdo docs/source/ir
-	kmdo docs/source/install
-	kmdo docs/source/targets/capi
-	kmdo docs/source/usage
+	kmdo docs/src/codebase
+	kmdo docs/src/ir
+	kmdo docs/src/install
+	kmdo docs/src/targets/capi
+	kmdo docs/src/usage
 
 define docs-gen-entities-help
 # Generate documentation of IR entities
 endef
 .PHONY: docs-gen-entities
 docs-gen-entities:
-	$(PIPX_LOCAL_VENVS)/yace/bin/python ./$(AUX_PATH)/gen_entity_index.py > docs/source/ir/list.rst
+	yace-docs-gen-entities
 
 define docs-build-help
 # generate documentation
 endef
 .PHONY: docs-build
 docs-build:
-	cd docs && rm -rf build
-	cd docs && make html
+	yace-docs-clean
+	yace-docs-build-html
 
 define docs-view-help
 # open the HTML version documentation
 endef
 .PHONY: docs-view
 docs-view:
-	xdg-open docs/build/html/index.html | open docs/build/html/index.html | true
+	yace-docs-serve --open-browser
 
 define docs-help
 # generate documentation (command-output, section-gen, HTML) and open the HTML
 endef
 .PHONY: docs
-docs: docs-build-prep docs-kmdo docs-gen-entities docs-build docs-view
+docs: docs-build-prep docs-kmdo docs-gen-entities docs-build
 
 define format-help
 # run code format (style, code-conventions and language-integrity) on staged changes

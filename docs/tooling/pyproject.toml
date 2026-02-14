@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=69.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yace-docs"
+version = "0.0.1"
+requires-python = ">=3.12"
+dependencies = [
+    "sphinx>=9.0",
+    "sphinx-autobuild>=2024.0",
+    "furo",
+    "myst-parser",
+    "sphinxcontrib-gtagjs",
+    "jinja2",
+    "pygments-ansi-color",
+    "pyyaml",
+]
+
+[project.scripts]
+yace-docs-build-html = "yace_docs:build_html"
+yace-docs-serve = "yace_docs:serve"
+yace-docs-clean = "yace_docs:clean"
+yace-docs-gen-entities = "yace_docs:gen_entities"
