@@ -5,16 +5,11 @@ import pytest
 
 from yace.compiler import Compiler
 
-VALID = [
-    Path("models") / "example.yaml",
-    Path("models") / "example-mini.yaml",
-    Path("models") / "nvme.yaml",
-    Path("models") / "xnvme.yaml",
-]
+MODELS = Path("models")
 
-INVALID = [
-    Path("models") / "example-invalid.yaml",
-]
+VALID = [p for p in sorted(MODELS.glob("*.yaml")) if "invalid" not in p.name]
+
+INVALID = [p for p in sorted(MODELS.glob("*invalid*.yaml"))]
 
 
 @pytest.mark.parametrize("path,target", product(VALID, Compiler.TARGETS))

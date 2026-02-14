@@ -260,7 +260,7 @@ class CParser(object):
                 if path.suffix in [".dylib", ".so"]:
                     searchpath = str(path.parent)
                     break
-        if searchpath:
+        if searchpath and not Config.loaded:
             Config().set_library_path(searchpath)
 
         self.index = Index.create()
@@ -269,7 +269,8 @@ class CParser(object):
         """Parse the given file into a :class:`clang.cindex.TranslationUnit`."""
 
         return self.index.parse(
-            path, options=clang.cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD
+            str(path),
+            options=clang.cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
         )
 
     def parse_macro(
