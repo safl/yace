@@ -114,8 +114,7 @@ define release-build-help
 endef
 .PHONY: release-build
 release-build:
-	$(PIPX_LOCAL_VENVS)/yace/bin/python -m build --sdist
-	$(PIPX_LOCAL_VENVS)/yace/bin/python -m build --wheel
+	$(PIPX_LOCAL_VENVS)/yace/bin/python -m build
 
 define release-upload-help
 # Upload Python distribution (sdist, bdist_wheel)
