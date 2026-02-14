@@ -14,6 +14,6 @@ def test_unsupported():
         paths = [path for path in Path(__file__).parent.glob("*.h")]
         output_path = Path(tmpdir)
 
-        errors = c_to_yace(paths, output_path)
+        _, errors = c_to_yace(paths, output_path)
 
         assert errors, "Parser did not produce any errors"

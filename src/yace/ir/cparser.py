@@ -542,6 +542,9 @@ class CParser(object):
                     entity, error = self.parse_macro(cursor)
                 case CursorKind.INCLUSION_DIRECTIVE:
                     entity, error = self.parse_inclusion_directive(cursor)
+                case CursorKind.MACRO_INSTANTIATION:
+                    log.debug(f"Skipping macro instantiation: {cursor.spelling}")
+                    continue
                 case _:
                     error = Error(message=f"Unhandled cursor({cursor.kind})")
 
@@ -558,9 +561,14 @@ class CParser(object):
         return entities, errors
 
 
-def c_to_yace(paths: List[Path], output: Path) -> List[Error]:
-    """Optimistically / best-offort transformation of a C Header to YACE File"""
+def c_to_yace(paths: List[Path], output: Path) -> Tuple[int, List[Error]]:
+    """Best-effort transformation of a C Header to a YACE File
 
+    Returns a tuple of (entity_count, errors). The YAML is written regardless
+    of errors — unsupported constructs are skipped and reported.
+    """
+
+    entity_count = 0
     errors: List[Error] = []
 
     output.mkdir(parents=True, exist_ok=True)
@@ -571,6 +579,7 @@ def c_to_yace(paths: List[Path], output: Path) -> List[Error]:
 
         entities, parse_errors = parser.tu_to_data(tu, path)
         errors += parse_errors
+        entity_count += len(entities)
 
         stem = path.stem
         data = {
@@ -590,4 +599,17 @@ def c_to_yace(paths: List[Path], output: Path) -> List[Error]:
         model = Model(**data)
         model.to_file(output / path.with_suffix(".yaml").name)
 
-    return errors
+        # Write status file
+        status_path = output / path.with_suffix(".status").name
+        with status_path.open("w") as status:
+            status.write(f"Parsed {len(entities)} entities")
+            if parse_errors:
+                status.write(f", skipped {len(parse_errors)} constructs")
+            status.write("\n")
+
+            if parse_errors:
+                status.write("\nSkipped:\n")
+                for error in parse_errors:
+                    status.write(f"  {error}\n")
+
+    return entity_count, errors

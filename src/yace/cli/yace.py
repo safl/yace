@@ -92,11 +92,21 @@ def main():
         if suffixes[0] == ".h":  # C to Yace-file Compiler
             log.info("Got .h will convert to Yace IR")
 
-            errors = c_to_yace(args.filepath, args.output)
+            entity_count, errors = c_to_yace(args.filepath, args.output)
             for error in errors:
-                log.error(error)
+                log.warning(error)
 
-            return sys.exit(1 if errors else 0)
+            if errors:
+                status_files = [
+                    str(args.output / p.with_suffix(".status").name)
+                    for p in args.filepath
+                ]
+                log.info(
+                    f"Parsed {entity_count} entities, skipped "
+                    f"{len(errors)} constructs -- see {', '.join(status_files)}"
+                )
+
+            return sys.exit(0)
 
         log.info(f"Got .yaml, will do '{args.emit}'")
         yace = Compiler(args.emit, args.output)
