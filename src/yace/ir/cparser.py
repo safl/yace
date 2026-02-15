@@ -11,6 +11,7 @@ In this specific instance, to parse C Headers, and emit equivalent
 import logging as log
 import os
 import re
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -352,6 +353,70 @@ class CParser(object):
         except ValidationError as exc:
             return None, [ParseError.from_exception(exc, cursor)]
 
+    def evaluate_expression_macros(
+        self, macro_names: List[str], header_path: Path
+    ) -> Dict[str, int]:
+        """Evaluate expression macros by wrapping them in enum constants.
+
+        Generates a temporary C file that includes the original header and
+        defines an enum with each macro as a value. Clang evaluates the
+        expressions at parse time, and we extract the integer results.
+
+        Returns a dict of {macro_name: evaluated_value} for macros that
+        successfully evaluate to integer constants.
+        """
+
+        if not macro_names:
+            return {}
+
+        # Build the temporary C source — use absolute path for the include
+        abs_header = str(header_path.resolve())
+        include_dir = str(header_path.resolve().parent)
+
+        # Split into batches to avoid enum overflow (enum values are int-sized)
+        # and to isolate failures
+        BATCH_SIZE = 200
+        results: Dict[str, int] = {}
+
+        for i in range(0, len(macro_names), BATCH_SIZE):
+            batch = macro_names[i : i + BATCH_SIZE]
+
+            lines = [f'#include "{abs_header}"\n', "enum __yace_eval {\n"]
+            for name in batch:
+                lines.append(f"    __yace_{name} = {name},\n")
+            lines.append("};\n")
+
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".c", delete=True
+            ) as tmp:
+                tmp.write("".join(lines))
+                tmp.flush()
+
+                try:
+                    tu = self.index.parse(
+                        tmp.name,
+                        args=[f"-I{include_dir}"],
+                        options=clang.cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
+                    )
+                except Exception:
+                    log.debug("Failed to parse macro evaluation file")
+                    continue
+
+                for cursor in tu.cursor.get_children():
+                    if cursor.kind != CursorKind.ENUM_DECL:
+                        continue
+                    if cursor.spelling != "__yace_eval":
+                        continue
+                    for child in cursor.get_children():
+                        if child.kind != CursorKind.ENUM_CONSTANT_DECL:
+                            continue
+                        name = child.spelling
+                        if name.startswith("__yace_"):
+                            original_name = name[7:]
+                            results[original_name] = child.enum_value
+
+        return results
+
     def parse_inclusion_directive(
         self, cursor
     ) -> Tuple[Optional[yace.model.base.Entity], Optional[yace.errors.Error]]:
@@ -569,6 +634,8 @@ class CParser(object):
         path.resolve()
 
         entities = []
+        expression_macros: List[str] = []
+
         for cursor in tu.cursor.get_children():
             if not cursor.location.file:
                 log.debug("Ignored definition which is not from the file")
@@ -590,6 +657,14 @@ class CParser(object):
                         entity, error = self.parse_function(cursor)
                     case CursorKind.MACRO_DEFINITION:
                         entity, error = self.parse_macro(cursor)
+                        # Collect unresolved macros for second-pass enum trick
+                        # evaluation — covers both expression macros (ntokens>2)
+                        # and symbolic aliases (#define FOO BAR)
+                        if error and (
+                            "unsupported amount of ntokens" in str(error)
+                            or "Failed converting" in str(error)
+                        ):
+                            expression_macros.append(cursor.spelling)
                     case CursorKind.INCLUSION_DIRECTIVE:
                         entity, error = self.parse_inclusion_directive(cursor)
                     case CursorKind.MACRO_INSTANTIATION:
@@ -610,6 +685,35 @@ class CParser(object):
                 continue
 
             entities.append(entity.model_dump())
+
+        # Second pass: evaluate expression macros via the enum trick
+        if expression_macros:
+            evaluated = self.evaluate_expression_macros(expression_macros, path)
+            if evaluated:
+                log.debug(
+                    f"Evaluated {len(evaluated)}/{len(expression_macros)} "
+                    "expression macros"
+                )
+                # Remove errors for successfully evaluated macros
+                resolved_msgs = set()
+                for name in evaluated:
+                    resolved_msgs.add(f"'#define {name}'")  # expression macros
+                    resolved_msgs.add(f"sym({name}),")  # alias macros
+                errors = [
+                    e for e in errors
+                    if not any(msg in str(e) for msg in resolved_msgs)
+                ]
+                # Add Define entities for evaluated macros
+                for name, value in evaluated.items():
+                    if value < 0:
+                        val = constants.Dec(lit=value)
+                    elif value > 255:
+                        val = constants.Hex(lit=value)
+                    else:
+                        val = constants.Dec(lit=value)
+                    entities.append(
+                        constants.Define(sym=name, val=val).model_dump()
+                    )
 
         return entities, errors
 
