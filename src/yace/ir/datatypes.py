@@ -105,6 +105,16 @@ class Typespec(Entity):
 
         return values
 
+    @staticmethod
+    def _param_c_spelling(p) -> str:
+        """Get C spelling for a function pointer parameter descriptor."""
+        if isinstance(p, dict) and "typ" in p:
+            typ = p["typ"]
+            if isinstance(typ, dict):
+                typ = Typespec(**typ)
+            return typ.c_spelling()
+        return "void"
+
     def c_spelling(self):
         """
         Construct the C spelling
@@ -143,9 +153,20 @@ class Typespec(Entity):
             spelling.append(f"struct {self.sym}")
         elif self.enum:
             spelling.append(f"enum {self.sym}")
-        elif self.pointer:
+        elif self.pointer and self.ret is not None:
+            # Function pointer with full signature
+            params = ", ".join(
+                self._param_c_spelling(p)
+                for p in (self.parameters or [])
+            ) or "void"
+            sym = self.sym or ""
+            return f"{self.ret.c_spelling()} (*{sym})({params})"
+        elif self.pointer and self.pointee is not None:
             spelling.append(self.pointee.c_spelling())
             spelling.append("*")
+        elif self.pointer:
+            # Function pointer without signature or opaque pointer
+            spelling.append(self.sym or "void (*)(void)")
         elif self.array:
             spelling.append(f"{self.array_typ.c_spelling()}")
             spelling.append(f"{self.sym}[{self.array_length}]")
@@ -178,8 +199,7 @@ class FunctionPointer(Typespec):
     def c_spelling(self):
         if self.ret is not None:
             params = ", ".join(
-                p["typ"].c_spelling() if isinstance(p, dict) and "typ" in p
-                else "void"
+                self._param_c_spelling(p)
                 for p in (self.parameters or [])
             ) or "void"
             sym = self.sym or ""
