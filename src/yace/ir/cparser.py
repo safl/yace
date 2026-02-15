@@ -68,6 +68,25 @@ def get_fixed_width(tokens):
     return inst
 
 
+def _fptr_typespec(
+    proto: clang.cindex.Type, sym: str, cursor: clang.cindex.Cursor
+) -> Tuple[Optional[datatypes.FunctionPointer], Optional[Error]]:
+    """Build a FunctionPointer typespec with full signature from a FUNCTIONPROTO type."""
+
+    ret_typespec, err = typekind_to_typespec(proto.get_result(), cursor)
+    if err:
+        return datatypes.FunctionPointer(sym=sym), None  # fallback: no signature
+
+    params = []
+    for i, arg_type in enumerate(proto.argument_types()):
+        ptyp, perr = typekind_to_typespec(arg_type, cursor)
+        if perr:
+            return datatypes.FunctionPointer(sym=sym), None  # fallback
+        params.append({"typ": ptyp, "sym": f"arg{i}"})
+
+    return datatypes.FunctionPointer(sym=sym, ret=ret_typespec, parameters=params), None
+
+
 def typekind_to_typespec(
     tobj: clang.cindex.Type, cursor: clang.cindex.Cursor
 ) -> Tuple[Optional[datatypes.Typespec], Error]:
@@ -201,6 +220,10 @@ def typekind_to_typespec(
             if pointee.is_const_qualified() and pointee.kind == TypeKind.CHAR_S:
                 return datatypes.CString(), None
 
+            # Special-case for function pointers: void (*cb)(int, int)
+            if pointee.kind == TypeKind.FUNCTIONPROTO:
+                return _fptr_typespec(pointee, tobj.spelling, cursor)
+
             # General case pointer to anything, everything, or nothing ;)
             typespec, error = typekind_to_typespec(pointee, cursor)
             if error:
@@ -219,12 +242,17 @@ def typekind_to_typespec(
                 canonical_type.kind == TypeKind.POINTER
                 and canonical_type.get_pointee().kind == TypeKind.FUNCTIONPROTO
             ):
-                return datatypes.FunctionPointer(sym=tobj.spelling), None
+                return _fptr_typespec(
+                    canonical_type.get_pointee(), tobj.spelling, cursor
+                )
 
             # General case: resolve the typedef to its canonical type
             return typekind_to_typespec(canonical_type, cursor)
 
-        case TypeKind.FUNCTIONPROTO | TypeKind.FUNCTIONNOPROTO:
+        case TypeKind.FUNCTIONPROTO:
+            return _fptr_typespec(tobj, tobj.spelling, cursor)
+
+        case TypeKind.FUNCTIONNOPROTO:
             return datatypes.FunctionPointer(sym=tobj.spelling), None
 
         case TypeKind.CONSTANTARRAY:
