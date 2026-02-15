@@ -12,7 +12,7 @@ import logging as log
 import os
 import re
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import clang
 from clang.cindex import Config, CursorKind, Index, TypeKind
@@ -50,14 +50,19 @@ def get_fixed_width(tokens):
         return None
 
     if len(tokens) > 2:
-        assert tokens[0] == "const", tokens[0]
+        if tokens[0] != "const":
+            return None
 
     unsigned = match.group("unsigned") == "u"
     width = int(match.group("width"))
     shorthand = "".join(["u" if unsigned else "i", str(width), "_tspec"])
-    inst = SHORTHAND_TO_CLS.get(shorthand)()
+    cls = SHORTHAND_TO_CLS.get(shorthand)
+    if cls is None:
+        return None
+    inst = cls()
 
-    assert inst.c_spelling() == " ".join(tokens[:-1])
+    if inst.c_spelling() != " ".join(tokens[:-1]):
+        return None
 
     return inst
 
@@ -421,17 +426,20 @@ class CParser(object):
     def parse_typedef(
         self, cursor
     ) -> Tuple[Optional[yace.model.base.Entity], Optional[yace.errors.Error]]:
-        """Parse function-pointer typedefs that are pointers to function prototypes"""
+        """Parse typedef declarations.
+
+        Function-pointer typedefs produce FunctionPointer entities.
+        Other typedefs (type aliases) are silently skipped — they are
+        resolved transparently when used as field/parameter types.
+        """
 
         underlying_kind = cursor.underlying_typedef_type.kind
         if underlying_kind != clang.cindex.TypeKind.POINTER:
-            return None, ParseError.from_cursor(
-                f"{cursor.canonical.kind} not supported for {underlying_kind})", cursor
-            )
+            return None, None
 
         pointee = cursor.underlying_typedef_type.get_pointee()
         if pointee.kind != clang.cindex.TypeKind.FUNCTIONPROTO:
-            return None, ParseError.from_cursor("No support for typedef", cursor)
+            return None, None
 
         parameters = []
         for child in cursor.get_children():
@@ -467,10 +475,6 @@ class CParser(object):
             )
         except ValidationError as exc:
             return None, ParseError.from_exception(exc, cursor)
-
-        print("Type, not a function-pointer")
-
-        return None, ParseError.from_cursor("Unsupported typedef-decl.", cursor)
 
     def parse_function(self, cursor):
         """Parse function declaration"""
@@ -529,24 +533,28 @@ class CParser(object):
                 log.debug(f"Skipped {cursor.location.file.name} != {path.name}")
                 continue
 
-            match cursor.kind:
-                case CursorKind.ENUM_DECL:
-                    entity, error = self.parse_enum(cursor)
-                case CursorKind.STRUCT_DECL | CursorKind.UNION_DECL:
-                    entity, error = self.parse_record(cursor)
-                case CursorKind.TYPEDEF_DECL:
-                    entity, error = self.parse_typedef(cursor)
-                case CursorKind.FUNCTION_DECL:
-                    entity, error = self.parse_function(cursor)
-                case CursorKind.MACRO_DEFINITION:
-                    entity, error = self.parse_macro(cursor)
-                case CursorKind.INCLUSION_DIRECTIVE:
-                    entity, error = self.parse_inclusion_directive(cursor)
-                case CursorKind.MACRO_INSTANTIATION:
-                    log.debug(f"Skipping macro instantiation: {cursor.spelling}")
-                    continue
-                case _:
-                    error = Error(message=f"Unhandled cursor({cursor.kind})")
+            try:
+                match cursor.kind:
+                    case CursorKind.ENUM_DECL:
+                        entity, error = self.parse_enum(cursor)
+                    case CursorKind.STRUCT_DECL | CursorKind.UNION_DECL:
+                        entity, error = self.parse_record(cursor)
+                    case CursorKind.TYPEDEF_DECL:
+                        entity, error = self.parse_typedef(cursor)
+                    case CursorKind.FUNCTION_DECL:
+                        entity, error = self.parse_function(cursor)
+                    case CursorKind.MACRO_DEFINITION:
+                        entity, error = self.parse_macro(cursor)
+                    case CursorKind.INCLUSION_DIRECTIVE:
+                        entity, error = self.parse_inclusion_directive(cursor)
+                    case CursorKind.MACRO_INSTANTIATION:
+                        log.debug(f"Skipping macro instantiation: {cursor.spelling}")
+                        continue
+                    case _:
+                        error = Error(message=f"Unhandled cursor({cursor.kind})")
+            except Exception as exc:
+                errors.append(Error(message=f"Exception parsing {cursor.spelling}: {exc}"))
+                continue
 
             if error:
                 errors.append(error)
@@ -575,7 +583,11 @@ def c_to_yace(paths: List[Path], output: Path) -> Tuple[int, List[Error]]:
 
     parser = CParser()
     for path in [p.resolve() for p in paths]:
-        tu = parser.parse_file(path)
+        try:
+            tu = parser.parse_file(path)
+        except Exception as exc:
+            errors.append(Error(message=f"Failed to parse translation unit: {exc}"))
+            continue
 
         entities, parse_errors = parser.tu_to_data(tu, path)
         errors += parse_errors
