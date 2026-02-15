@@ -68,12 +68,13 @@ class Docstring(BaseModel):
 
         tags = {}
         for tag, param, desc in matches:
-            if tag not in tags:
-                tags[tag] = {}
             if param:
+                if tag not in tags or not isinstance(tags[tag], dict):
+                    tags[tag] = {}
                 tags[tag][param] = desc.strip()
             else:
-                tags[tag] = desc.strip()
+                if tag not in tags:
+                    tags[tag] = desc.strip()
 
         data["tags"] = tags
 
