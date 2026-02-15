@@ -80,6 +80,9 @@ docs/builddir/
 # Meson build directories
 examples/*/builddir/
 
+# Survey generated report
+toolbox/survey/report.md
+
 # PyBuilder
 target/
 

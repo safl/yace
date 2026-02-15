@@ -204,6 +204,15 @@ bump:
 	@./$(AUX_PATH)/bump.py
 	@echo "## ${PROJECT}: bump [DONE]"
 
+define survey-help
+# Run yace parser survey across ~90 popular C libraries
+endef
+.PHONY: survey
+survey:
+	@echo "## ${PROJECT}: survey"
+	@python3 ./$(AUX_PATH)/survey/survey.py
+	@echo "## ${PROJECT}: survey [DONE]"
+
 define help-help
 # Print the description of every target
 endef
