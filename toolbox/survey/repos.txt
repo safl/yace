@@ -1,0 +1,8 @@
+# Non-packaged repos to clone and survey (multi-header libraries)
+# Format: name<TAB>git_url<TAB>include_glob<TAB>exclude_glob (optional)
+# Globs are relative to the cloned repo root.
+# exclude_glob removes matches from include_glob (comma-separated basenames).
+#
+# Storage / NVMe (not in Debian)
+xnvme	https://github.com/xnvme/xnvme.git	include/libxnvme*.h
+libvfn	https://github.com/SamsungDS/libvfn.git	include/vfn/*.h

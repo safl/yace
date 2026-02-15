@@ -1,0 +1,104 @@
+# Header-only / vendored / non-packaged C libraries
+# These are downloaded as single files and only measure parse coverage.
+# They cannot go through yace's full compile+link pipeline.
+# Format: name<TAB>url
+#
+# Data Structures / Collections
+uthash	https://raw.githubusercontent.com/troydhanson/uthash/master/src/uthash.h
+utlist	https://raw.githubusercontent.com/troydhanson/uthash/master/src/utlist.h
+utarray	https://raw.githubusercontent.com/troydhanson/uthash/master/src/utarray.h
+stb_ds	https://raw.githubusercontent.com/nothings/stb/master/stb_ds.h
+sds	https://raw.githubusercontent.com/antirez/sds/master/sds.h
+vec	https://raw.githubusercontent.com/rxi/vec/master/src/vec.h
+map	https://raw.githubusercontent.com/rxi/map/master/src/map.h
+dg_dynarr	https://raw.githubusercontent.com/DanielGibson/Snippets/master/DG_dynarr.h
+stc_vec	https://raw.githubusercontent.com/stclib/STC/master/include/stc/vec.h
+hashmap	https://raw.githubusercontent.com/tidwall/hashmap.c/master/hashmap.h
+#
+# Serialization (JSON/XML/YAML/TOML)
+jsmn	https://raw.githubusercontent.com/zserge/jsmn/master/jsmn.h
+yyjson	https://raw.githubusercontent.com/ibireme/yyjson/master/src/yyjson.h
+tomlc99	https://raw.githubusercontent.com/cktan/tomlc99/master/toml.h
+parson	https://raw.githubusercontent.com/kgabis/parson/master/parson.h
+ezxml	https://raw.githubusercontent.com/lxfontes/ezxml/master/ezxml.h
+json_h	https://raw.githubusercontent.com/sheredom/json.h/master/json.h
+cgltf	https://raw.githubusercontent.com/jkuhlmann/cgltf/master/cgltf.h
+#
+# Crypto / Hashing
+monocypher	https://raw.githubusercontent.com/LoupVaillant/Monocypher/master/src/monocypher.h
+xxhash	https://raw.githubusercontent.com/Cyan4973/xxHash/dev/xxhash.h
+blake2	https://raw.githubusercontent.com/BLAKE2/BLAKE2/master/ref/blake2.h
+md5	https://raw.githubusercontent.com/Zunawe/md5-c/main/md5.h
+sha256	https://raw.githubusercontent.com/B-Con/crypto-algorithms/master/sha256.h
+#
+# Compression
+miniz	https://raw.githubusercontent.com/richgel999/miniz/master/miniz.h
+snappy_c	https://raw.githubusercontent.com/andikleen/snappy-c/master/snappy.h
+#
+# Image / Graphics / UI
+stb_image	https://raw.githubusercontent.com/nothings/stb/master/stb_image.h
+stb_image_write	https://raw.githubusercontent.com/nothings/stb/master/stb_image_write.h
+stb_truetype	https://raw.githubusercontent.com/nothings/stb/master/stb_truetype.h
+stb_rect_pack	https://raw.githubusercontent.com/nothings/stb/master/stb_rect_pack.h
+stb_sprintf	https://raw.githubusercontent.com/nothings/stb/master/stb_sprintf.h
+stb_vorbis	https://raw.githubusercontent.com/nothings/stb/master/stb_vorbis.c
+qoi	https://raw.githubusercontent.com/phoboslab/qoi/master/qoi.h
+nanosvg	https://raw.githubusercontent.com/memononen/nanosvg/master/src/nanosvg.h
+nanovg	https://raw.githubusercontent.com/memononen/nanovg/master/src/nanovg.h
+fontstash	https://raw.githubusercontent.com/memononen/fontstash/master/src/fontstash.h
+raylib	https://raw.githubusercontent.com/raysan5/raylib/master/src/raylib.h
+nuklear	https://raw.githubusercontent.com/Immediate-Mode-UI/Nuklear/master/nuklear.h
+microui	https://raw.githubusercontent.com/rxi/microui/master/src/microui.h
+clay	https://raw.githubusercontent.com/nicbarker/clay/main/clay.h
+cute_c2	https://raw.githubusercontent.com/RandyGaul/cute_headers/master/cute_c2.h
+cute_sound	https://raw.githubusercontent.com/RandyGaul/cute_headers/master/cute_sound.h
+cute_tiled	https://raw.githubusercontent.com/RandyGaul/cute_headers/master/cute_tiled.h
+par_shapes	https://raw.githubusercontent.com/prideout/par/master/par_shapes.h
+physac	https://raw.githubusercontent.com/victorfisac/Physac/master/src/physac.h
+#
+# Audio
+miniaudio	https://raw.githubusercontent.com/mackron/miniaudio/master/miniaudio.h
+dr_flac	https://raw.githubusercontent.com/mackron/dr_libs/master/dr_flac.h
+dr_wav	https://raw.githubusercontent.com/mackron/dr_libs/master/dr_wav.h
+dr_mp3	https://raw.githubusercontent.com/mackron/dr_libs/master/dr_mp3.h
+sokol_audio	https://raw.githubusercontent.com/floooh/sokol/master/sokol_audio.h
+#
+# Networking
+mongoose	https://raw.githubusercontent.com/cesanta/mongoose/master/mongoose.h
+#
+# Scripting / Parsing
+wren	https://raw.githubusercontent.com/wren-lang/wren/main/src/include/wren.h
+mpc	https://raw.githubusercontent.com/orangeduck/mpc/master/mpc.h
+#
+# String / Text
+utf8	https://raw.githubusercontent.com/sheredom/utf8.h/master/utf8.h
+cwalk	https://raw.githubusercontent.com/likle/cwalk/master/include/cwalk.h
+linenoise	https://raw.githubusercontent.com/antirez/linenoise/master/linenoise.h
+#
+# Testing
+greatest	https://raw.githubusercontent.com/silentbicycle/greatest/master/greatest.h
+minunit	https://raw.githubusercontent.com/siu/minunit/master/minunit.h
+munit	https://raw.githubusercontent.com/nemequ/munit/master/munit.h
+unity	https://raw.githubusercontent.com/ThrowTheSwitch/Unity/master/src/unity.h
+#
+# Threading
+tinycthread	https://raw.githubusercontent.com/tinycthread/tinycthread/master/source/tinycthread.h
+#
+# System / Utility
+whereami	https://raw.githubusercontent.com/gpakosz/whereami/master/src/whereami.h
+tinydir	https://raw.githubusercontent.com/cxong/tinydir/master/tinydir.h
+log_c	https://raw.githubusercontent.com/rxi/log.c/master/src/log.h
+sokol_log	https://raw.githubusercontent.com/floooh/sokol/master/sokol_log.h
+sokol_time	https://raw.githubusercontent.com/floooh/sokol/master/sokol_time.h
+sokol_gfx	https://raw.githubusercontent.com/floooh/sokol/master/sokol_gfx.h
+argparse	https://raw.githubusercontent.com/cofyc/argparse/master/argparse.h
+cargs	https://raw.githubusercontent.com/likle/cargs/master/include/cargs.h
+optparse	https://raw.githubusercontent.com/skeeto/optparse/master/optparse.h
+parg	https://raw.githubusercontent.com/jibsen/parg/master/parg.h
+ini	https://raw.githubusercontent.com/benhoyt/inih/master/ini.h
+tlsf	https://raw.githubusercontent.com/mattconte/tlsf/master/tlsf.h
+tinyexpr	https://raw.githubusercontent.com/codeplea/tinyexpr/master/tinyexpr.h
+pocketfft	https://raw.githubusercontent.com/mreineck/pocketfft/master/pocketfft.h
+#
+# Storage / NVMe (non-packaged, need repo clone)
+# These are in repos.txt for multi-header clone-and-test
