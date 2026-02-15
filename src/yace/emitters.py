@@ -11,7 +11,7 @@ def camelcase(symbol, pascalcase=True):
     """Format the given 'symbol' as (C|c)amelCase"""
 
     camelized = "".join(
-        [part[0].upper() + part[1:].lower() for part in symbol.split("_")]
+        [part[0].upper() + part[1:].lower() for part in symbol.split("_") if part]
     )
     if pascalcase:
         return camelized
