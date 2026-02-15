@@ -56,9 +56,13 @@ def load_tsv(path: Path, min_cols: int = 2) -> List[List[str]]:
     return rows
 
 
-def load_packaged() -> List[Tuple[str, str, str]]:
-    """Return [(name, deb_pkg, header_path), ...]."""
-    return [(r[0], r[1], r[2]) for r in load_tsv(PACKAGED_FILE, 3)]
+def load_packaged() -> List[Tuple[str, str, str, str]]:
+    """Return [(name, deb_pkg, header_path, pkg_config_name), ...]."""
+    rows = []
+    for r in load_tsv(PACKAGED_FILE, 3):
+        pkg = r[3] if len(r) >= 4 else ""
+        rows.append((r[0], r[1], r[2], pkg))
+    return rows
 
 
 def load_vendored() -> List[Tuple[str, str]]:
@@ -212,6 +216,104 @@ def run_yace_on_header(header: Path, outdir: Path) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Generator runner
+# ---------------------------------------------------------------------------
+
+def run_generators(
+    name: str, yaml_path: Path, outdir: Path, pkg_name: str
+) -> Dict[str, str]:
+    """Run capi and ctypes generators on a parsed YAML, return status per target.
+
+    Before running generators, patches meta.pkg in the YAML so the capi check
+    stage can compile and link against the original library via pkg-config.
+
+    Returns e.g. {"capi": "ok", "ctypes": "emit_error"}.
+    """
+    result: Dict[str, str] = {}
+
+    # Patch meta.pkg in the YAML if a pkg-config name is available
+    if pkg_name and yaml_path.exists():
+        try:
+            import yaml as pyyaml
+
+            data = pyyaml.safe_load(yaml_path.read_text())
+            if data and "meta" in data:
+                data["meta"]["pkg"] = pkg_name
+                yaml_path.write_text(
+                    pyyaml.dump(data, default_flow_style=None, indent=2)
+                )
+        except Exception as exc:
+            result["yaml_patch"] = f"error: {exc}"
+
+    for target in ["capi", "ctypes"]:
+        target_outdir = outdir / target
+        target_outdir.mkdir(parents=True, exist_ok=True)
+        try:
+            proc = subprocess.run(
+                [
+                    "yace", str(yaml_path),
+                    "--emit", target,
+                    "--output", str(target_outdir) + "/",
+                ],
+                capture_output=True, text=True, timeout=120,
+            )
+            if proc.returncode == 0:
+                result[target] = "ok"
+            else:
+                # Try to identify which stage failed from stderr
+                stderr = proc.stderr.lower()
+                if "transform" in stderr:
+                    result[target] = "transform_error"
+                elif "emit" in stderr:
+                    result[target] = "emit_error"
+                elif "format" in stderr:
+                    result[target] = "format_error"
+                elif "check" in stderr or "gcc" in stderr or "compile" in stderr:
+                    result[target] = "check_error"
+                else:
+                    result[target] = "error"
+                result[f"{target}_stderr"] = proc.stderr[:500]
+        except subprocess.TimeoutExpired:
+            result[target] = "timeout"
+        except Exception as exc:
+            result[target] = f"error: {exc}"
+
+    return result
+
+
+def run_generators_on_results(
+    results: Dict[str, Any],
+) -> None:
+    """Run generators on all successfully parsed libraries (in-place update).
+
+    Only runs on packaged libraries that have a YAML output and a pkg-config
+    name.  Updates each result dict with a "generators" key.
+    """
+    for name, data in results.items():
+        if data.get("status") != "ok":
+            continue
+
+        pkg_name = data.get("pkg", "")
+
+        # Find the YAML file produced by the parser
+        outdir = OUTPUT_DIR / f"{name}_pkg"
+        yamls = list(outdir.glob("*.yaml"))
+        if not yamls:
+            data["generators"] = {"capi": "no_yaml", "ctypes": "no_yaml"}
+            print(f"  SKIP  {name} (no YAML found)")
+            continue
+
+        yaml_path = yamls[0]
+        gen_outdir = outdir / "gen"
+        gen_result = run_generators(name, yaml_path, gen_outdir, pkg_name)
+        data["generators"] = gen_result
+
+        capi = gen_result.get("capi", "skip")
+        ctypes = gen_result.get("ctypes", "skip")
+        print(f"  GEN   {name}: capi={capi} ctypes={ctypes}")
+
+
+# ---------------------------------------------------------------------------
 # Survey runners
 # ---------------------------------------------------------------------------
 
@@ -247,11 +349,11 @@ def _glob_system_headers(header_glob: str) -> List[Path]:
     return sorted(set(found))
 
 
-def run_packaged_survey(entries: List[Tuple[str, str, str]]) -> Dict[str, Any]:
+def run_packaged_survey(entries: List[Tuple[str, str, str, str]]) -> Dict[str, Any]:
     """Run yace on system-installed headers from Debian packages."""
     results: Dict[str, Any] = {}
 
-    for name, deb_pkg, header_path in entries:
+    for name, deb_pkg, header_path, pkg_name in entries:
         # Find the header(s) on the system
         if "*" in header_path:
             # Glob pattern — multi-header package
@@ -298,6 +400,7 @@ def run_packaged_survey(entries: List[Tuple[str, str, str]]) -> Dict[str, Any]:
                 "status": "ok",
                 "source": "packaged",
                 "deb_pkg": deb_pkg,
+                "pkg": pkg_name,
                 "headers_count": len(headers),
                 "headers_crashed": crashed,
                 "per_header": per_header,
@@ -322,6 +425,7 @@ def run_packaged_survey(entries: List[Tuple[str, str, str]]) -> Dict[str, Any]:
             result = run_yace_on_header(header, outdir)
             result["source"] = "packaged"
             result["deb_pkg"] = deb_pkg
+            result["pkg"] = pkg_name
             results[name] = result
 
             if result["status"] == "ok":
@@ -627,6 +731,65 @@ def generate_report(results: Dict[str, Any]) -> str:
             lines.append(f"| {cat} | {count} |")
         lines.append("")
 
+    # Generator results (if any)
+    gen_libs = {
+        k: v for k, v in ok.items() if "generators" in v
+    }
+    if gen_libs:
+        lines.append("## Generator Results\n")
+
+        # Aggregate stats
+        capi_ok = sum(
+            1 for v in gen_libs.values()
+            if v["generators"].get("capi") == "ok"
+        )
+        capi_fail = sum(
+            1 for v in gen_libs.values()
+            if v["generators"].get("capi", "").endswith("error")
+        )
+        ctypes_ok = sum(
+            1 for v in gen_libs.values()
+            if v["generators"].get("ctypes") == "ok"
+        )
+        ctypes_fail = sum(
+            1 for v in gen_libs.values()
+            if v["generators"].get("ctypes", "").endswith("error")
+        )
+
+        lines.append(f"- **Libraries with generators**: {len(gen_libs)}")
+        lines.append(f"- **CAPI**: {capi_ok} ok, {capi_fail} failed")
+        lines.append(f"- **Ctypes**: {ctypes_ok} ok, {ctypes_fail} failed\n")
+
+        lines.append("| # | Library | CAPI | Ctypes |")
+        lines.append("|---|---------|------|--------|")
+        for i, (name, data) in enumerate(
+            sorted(gen_libs.items()), 1
+        ):
+            gen = data["generators"]
+            capi = gen.get("capi", "skip")
+            ctypes = gen.get("ctypes", "skip")
+            lines.append(f"| {i} | {name} | {capi} | {ctypes} |")
+        lines.append("")
+
+        # List failures with stderr snippets
+        gen_failures = {
+            k: v for k, v in gen_libs.items()
+            if v["generators"].get("capi", "") not in ("ok", "no_yaml")
+            or v["generators"].get("ctypes", "") not in ("ok", "no_yaml")
+        }
+        if gen_failures:
+            lines.append("### Generator Failures\n")
+            for name, data in sorted(gen_failures.items()):
+                gen = data["generators"]
+                for target in ["capi", "ctypes"]:
+                    status = gen.get(target, "skip")
+                    if status not in ("ok", "skip", "no_yaml"):
+                        stderr = gen.get(f"{target}_stderr", "")
+                        lines.append(f"**{name}** ({target}): {status}")
+                        if stderr:
+                            lines.append(f"```\n{stderr[:300]}\n```")
+                        lines.append("")
+
     lines.append("## Estimated Coverage Improvement\n")
     lines.append("| Fix | Additional Entities | Cumulative Rate |")
     lines.append("|-----|--------------------|--------------------|")
@@ -676,6 +839,10 @@ def main() -> None:
     parser.add_argument(
         "--repos-only", action="store_true",
         help="Only survey cloned repos",
+    )
+    parser.add_argument(
+        "--with-generators", action="store_true",
+        help="After parsing, run capi and ctypes generators on each library",
     )
     args = parser.parse_args()
 
@@ -730,6 +897,11 @@ def main() -> None:
     if not results:
         print("No libraries surveyed.")
         return
+
+    if args.with_generators:
+        print("Running generators (capi + ctypes) on parsed libraries...")
+        run_generators_on_results(results)
+        print()
 
     RESULTS_FILE.write_text(json.dumps(results, indent=2))
     generate_report(results)
