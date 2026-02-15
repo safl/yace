@@ -122,12 +122,22 @@ class Model(BaseModel):
         attributes = {}
         for attr, attr_data in cur.items():
             if attr in ["typ", "ret", "val"]:
-                attributes[attr] = Model.entity_from_data(attr_data, cur, depth)
+                if attr_data is None:
+                    attributes[attr] = None
+                else:
+                    attributes[attr] = Model.entity_from_data(attr_data, cur, depth)
             elif attr in ["members", "parameters"]:
-                attributes[attr] = [
-                    Model.entity_from_data(child, cur, depth + 1)
-                    for child in cur.get(attr)
-                ]
+                items = []
+                for child in cur.get(attr) or []:
+                    if isinstance(child, dict) and "key" not in child and "typ" in child:
+                        # Function pointer parameter descriptor: {"sym": ..., "typ": ...}
+                        child = dict(child)
+                        if child["typ"] is not None:
+                            child["typ"] = cls.entity_from_data(child["typ"], cur, depth + 1)
+                        items.append(child)
+                    else:
+                        items.append(cls.entity_from_data(child, cur, depth + 1))
+                attributes[attr] = items
             else:
                 attributes[attr] = attr_data
 
@@ -200,7 +210,9 @@ class ModelWalker(object):
 
             if attr in ["members", "parameters"]:
                 for child in other:
-                    res += self._traverse(child, ancestors + [cur], depth + 1)
+                    if isinstance(child, BaseModel):
+                        res += self._traverse(child, ancestors + [cur], depth + 1)
+                    # Skip plain dicts (e.g. function pointer parameter descriptors)
             else:
                 res += self._traverse(other, ancestors + [cur], depth + 1)
 
