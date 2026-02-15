@@ -85,6 +85,10 @@ class Typespec(Entity):
     array_typ: Optional["Typespec"] = None
     array_length: int = 0  # This could also be a symbolic constant
 
+    # Function pointer signature (populated when pointer is a function pointer)
+    ret: Optional["Typespec"] = None  # Return type of function pointer
+    parameters: Optional[list] = None  # Parameter list: [{"typ": Typespec, "sym": str}]
+
     @model_validator(mode="before")
     @classmethod
     def check_signage(cls, values):
@@ -159,11 +163,29 @@ class Pointer(Typespec):
 
 
 class FunctionPointer(Typespec):
-    """Function pointer"""
+    """Function pointer with full signature information.
+
+    When used as a field or parameter type, ``ret`` and ``parameters``
+    carry the return type and parameter types so code generators can
+    emit the correct signature (e.g. for ctypes CFUNCTYPE or Rust
+    ``extern "C" fn``).
+    """
 
     key: str = "function_pointer_tspec"
 
     pointer: bool = True
+
+    def c_spelling(self):
+        if self.ret is not None:
+            params = ", ".join(
+                p["typ"].c_spelling() if isinstance(p, dict) and "typ" in p
+                else "void"
+                for p in (self.parameters or [])
+            ) or "void"
+            sym = self.sym or ""
+            return f"{self.ret.c_spelling()} (*{sym})({params})"
+        # Fallback: just the typedef name
+        return self.sym or "void (*)(void)"
 
 
 class Array(Typespec):
