@@ -131,35 +131,67 @@ def typekind_to_typespec(
         case TypeKind.ULONGLONG:
             return datatypes.ULongLong(canonical=canonical, const=const), None
 
+        case TypeKind.FLOAT:
+            return datatypes.F32(canonical=canonical, const=const), None
+        case TypeKind.DOUBLE:
+            return datatypes.F64(canonical=canonical, const=const), None
+
+        case TypeKind.ENUM:
+            # Bare enum type (not wrapped in ELABORATED)
+            sym = tobj.get_declaration().spelling
+            return (
+                datatypes.Enumeration(
+                    sym=sym, enum=True, canonical=canonical, const=const
+                ),
+                None,
+            )
+
         case TypeKind.ELABORATED | TypeKind.RECORD:
-            *head, keyword, sym = tobj.spelling.split()
-            match keyword:
-                case "union":
-                    return (
-                        datatypes.Record(
-                            sym=sym, union=True, canonical=canonical, const=const
-                        ),
-                        None,
-                    )
-                case "struct":
+            spelling = tobj.spelling
+            # Strip leading const/volatile qualifiers
+            for qual in ("const ", "volatile ", "restrict "):
+                spelling = spelling.removeprefix(qual)
+
+            parts = spelling.split(None, 1)
+            keyword = parts[0] if parts else ""
+
+            if keyword == "struct" and len(parts) == 2:
+                sym = parts[1]
+                if "(unnamed" not in sym:
                     return (
                         datatypes.Record(
                             sym=sym, struct=True, canonical=canonical, const=const
                         ),
                         None,
                     )
-                case "enum":
+            elif keyword == "union" and len(parts) == 2:
+                sym = parts[1]
+                if "(unnamed" not in sym:
                     return (
-                        datatypes.Enumeration(
-                            sym=sym, enum=True, canonical=canonical, const=const
+                        datatypes.Record(
+                            sym=sym, union=True, canonical=canonical, const=const
                         ),
                         None,
                     )
-                case _:
-                    return None, ParseError.from_cursor(
-                        message=f"kw({keyword}), sym({sym}), head({head}); {tobj}",
-                        cursor=cursor,
-                    )
+            elif keyword == "enum" and len(parts) == 2:
+                sym = parts[1]
+                return (
+                    datatypes.Enumeration(
+                        sym=sym, enum=True, canonical=canonical, const=const
+                    ),
+                    None,
+                )
+
+            # Typedef-based elaborated type (e.g., "const point_t") or
+            # unnamed struct/union — resolve via canonical type
+            canonical_type = tobj.get_canonical()
+            if canonical_type.kind != tobj.kind:
+                return typekind_to_typespec(canonical_type, cursor)
+
+            return None, ParseError.from_cursor(
+                message=f"Unresolved elaborated type: {tobj.spelling}",
+                cursor=cursor,
+            )
 
         case TypeKind.POINTER:
             pointee = tobj.get_pointee()
@@ -179,16 +211,20 @@ def typekind_to_typespec(
             )
 
         case TypeKind.TYPEDEF:
-            if not (
-                ((canonical := tobj.get_canonical()).kind == TypeKind.POINTER)
-                and (pointee := canonical.get_pointee()).kind == TypeKind.FUNCTIONPROTO
-            ):
-                return None, ParseError.from_cursor(
-                    message=f"Unsuported typedef({tobj.get_canonical().kind})",
-                    cursor=cursor,
-                )
+            canonical_type = tobj.get_canonical()
 
-            return datatypes.FunctionPointer(sym=tobj.spelling, doc=""), None
+            # Special case: pointer to function prototype
+            if (
+                canonical_type.kind == TypeKind.POINTER
+                and canonical_type.get_pointee().kind == TypeKind.FUNCTIONPROTO
+            ):
+                return datatypes.FunctionPointer(sym=tobj.spelling), None
+
+            # General case: resolve the typedef to its canonical type
+            return typekind_to_typespec(canonical_type, cursor)
+
+        case TypeKind.FUNCTIONPROTO | TypeKind.FUNCTIONNOPROTO:
+            return datatypes.FunctionPointer(sym=tobj.spelling), None
 
         case TypeKind.CONSTANTARRAY:
             array_typ, error = typekind_to_typespec(
@@ -230,7 +266,7 @@ def literal_from_text(
     regex = (
         r"(?P<hex>0x[0-9a-fA-F]+)|"  # Hexi-decimal
         r"(?P<int>\d+)|"  # Plain integers
-        r"(?:\"(?P<str>[\s\wa-zA-Z0-9]+)\")"  # String constants
+        r"(?:\"(?P<str>[^\"]+)\")"  # String constants
     )
 
     mapping = {
@@ -379,10 +415,19 @@ class CParser(object):
 
                 case CursorKind.STRUCT_DECL | CursorKind.UNION_DECL:
                     if list(field.get_children()):
-                        return None, ParseError.from_cursor(
-                            f"unexpected '{field.kind}'; with children",
-                            cursor=field,
-                        )
+                        # Inline anonymous struct/union definition — skip the
+                        # type definition node; its fields appear as FIELD_DECLs
+                        # in the parent record.
+                        continue
+
+                case CursorKind.PACKED_ATTR:
+                    # __attribute__((packed)) — skip, doesn't affect IR
+                    continue
+
+                case CursorKind.ENUM_DECL:
+                    # Inline enum definition inside a struct — skip the
+                    # definition node; the field using it follows as FIELD_DECL.
+                    continue
 
                 case _:
                     return None, ParseError.from_cursor(
