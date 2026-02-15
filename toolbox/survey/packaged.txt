@@ -1,100 +1,101 @@
 # Libraries installable via apt on Debian Trixie
 # These can be parsed, compiled, linked, and run via yace's full pipeline.
-# Format: name<TAB>debian_pkg<TAB>header_path (relative to system include)
+# Format: name<TAB>debian_pkg<TAB>header_path<TAB>pkg_config_name
 #
 # The header_path is what you'd pass to yace after apt install <debian_pkg>.
-# For multi-header libs, use a glob pattern. Exclude patterns can be appended
-# after a second TAB as comma-separated basenames.
+# For multi-header libs, use a glob pattern.
+# The pkg_config_name is used by --with-generators to set meta.pkg for the
+# capi check stage (compile + link). Leave empty if unknown or unavailable.
 #
 # Compression
-zlib	zlib1g-dev	zlib.h
-bzip2	libbz2-dev	bzlib.h
-lz4	liblz4-dev	lz4.h
-zstd	libzstd-dev	zstd.h
-brotli	libbrotli-dev	brotli/encode.h
-snappy	libsnappy-dev	snappy-c.h
-lzo	liblzo2-dev	lzo/lzo1x.h
+zlib	zlib1g-dev	zlib.h	zlib
+bzip2	libbz2-dev	bzlib.h	bzip2
+lz4	liblz4-dev	lz4.h	liblz4
+zstd	libzstd-dev	zstd.h	libzstd
+brotli	libbrotli-dev	brotli/encode.h	libbrotlienc
+snappy	libsnappy-dev	snappy-c.h	snappy
+lzo	liblzo2-dev	lzo/lzo1x.h	lzo2
 #
 # Crypto / Hashing / TLS
-mbedtls	libmbedtls-dev	mbedtls/*.h
-openssl	libssl-dev	openssl/ssl.h
-gnutls	libgnutls28-dev	gnutls/gnutls.h
-libsodium	libsodium-dev	sodium.h
-nettle	nettle-dev	nettle/nettle-meta.h
-libgcrypt	libgcrypt20-dev	gcrypt.h
+mbedtls	libmbedtls-dev	mbedtls/*.h	mbedtls
+openssl	libssl-dev	openssl/ssl.h	openssl
+gnutls	libgnutls28-dev	gnutls/gnutls.h	gnutls
+libsodium	libsodium-dev	sodium.h	libsodium
+nettle	nettle-dev	nettle/nettle-meta.h	nettle
+libgcrypt	libgcrypt20-dev	gcrypt.h	libgcrypt
 #
 # Serialization
-cjson	libcjson-dev	cjson/cJSON.h
-jansson	libjansson-dev	jansson.h
-protobuf_c	libprotobuf-c-dev	protobuf-c/protobuf-c.h
-msgpack	libmsgpack-c-dev	msgpack.h
-yaml	libyaml-dev	yaml.h
-expat	libexpat1-dev	expat.h
-libxml2	libxml2-dev	libxml2/libxml/parser.h
+cjson	libcjson-dev	cjson/cJSON.h	libcjson
+jansson	libjansson-dev	jansson.h	jansson
+protobuf_c	libprotobuf-c-dev	protobuf-c/protobuf-c.h	libprotobuf-c
+msgpack	libmsgpack-c-dev	msgpack.h	msgpack-c
+yaml	libyaml-dev	yaml.h	yaml-0.1
+expat	libexpat1-dev	expat.h	expat
+libxml2	libxml2-dev	libxml2/libxml/parser.h	libxml-2.0
 #
 # Networking / IO
-mosquitto	libmosquitto-dev	mosquitto.h
-nanomsg	libnanomsg-dev	nanomsg/nn.h
+mosquitto	libmosquitto-dev	mosquitto.h	libmosquitto
+nanomsg	libnanomsg-dev	nanomsg/nn.h	nanomsg
 nng	libnng-dev	nng/nng.h
-event2	libevent-dev	event2/event.h
-uv	libuv1-dev	uv.h
-curl	libcurl4-openssl-dev	curl/curl.h
-libssh2	libssh2-1-dev	libssh2.h
-libssh	libssh-dev	libssh/libssh.h
-zeromq	libzmq3-dev	zmq.h
-libmicrohttpd	libmicrohttpd-dev	microhttpd.h
-libwebsockets	libwebsockets-dev	libwebsockets.h
+event2	libevent-dev	event2/event.h	libevent
+uv	libuv1-dev	uv.h	libuv
+curl	libcurl4-openssl-dev	curl/curl.h	libcurl
+libssh2	libssh2-1-dev	libssh2.h	libssh2
+libssh	libssh-dev	libssh/libssh.h	libssh
+zeromq	libzmq3-dev	zmq.h	libzmq
+libmicrohttpd	libmicrohttpd-dev	microhttpd.h	libmicrohttpd
+libwebsockets	libwebsockets-dev	libwebsockets.h	libwebsockets
 #
 # Database
-lmdb	liblmdb-dev	lmdb.h
-sqlite3	libsqlite3-dev	sqlite3.h
-hiredis	libhiredis-dev	hiredis/hiredis.h
-libpq	libpq-dev	postgresql/libpq-fe.h
+lmdb	liblmdb-dev	lmdb.h	lmdb
+sqlite3	libsqlite3-dev	sqlite3.h	sqlite3
+hiredis	libhiredis-dev	hiredis/hiredis.h	hiredis
+libpq	libpq-dev	postgresql/libpq-fe.h	libpq
 #
 # Scripting
-lua	liblua5.4-dev	lua5.4/lua.h
+lua	liblua5.4-dev	lua5.4/lua.h	lua5.4
 #
 # String / Text
-utf8proc	libutf8proc-dev	utf8proc.h
-cmark	libcmark-dev	cmark.h
-pcre2	libpcre2-dev	pcre2.h
-libonig	libonig-dev	oniguruma.h
+utf8proc	libutf8proc-dev	utf8proc.h	libutf8proc
+cmark	libcmark-dev	cmark.h	libcmark
+pcre2	libpcre2-dev	pcre2.h	libpcre2-8
+libonig	libonig-dev	oniguruma.h	oniguruma
 #
 # Image / Graphics
-libpng	libpng-dev	png.h
-libjpeg	libjpeg-dev	jpeglib.h
-giflib	libgif-dev	gif_lib.h
-cairo	libcairo2-dev	cairo/cairo.h
-sdl2	libsdl2-dev	SDL2/SDL.h
-libdrm	libdrm-dev	xf86drm.h
-opengl	libgl-dev	GL/gl.h
-glew	libglew-dev	GL/glew.h
+libpng	libpng-dev	png.h	libpng
+libjpeg	libjpeg-dev	jpeglib.h	libjpeg
+giflib	libgif-dev	gif_lib.h	libgif
+cairo	libcairo2-dev	cairo/cairo.h	cairo
+sdl2	libsdl2-dev	SDL2/SDL.h	sdl2
+libdrm	libdrm-dev	xf86drm.h	libdrm
+opengl	libgl-dev	GL/gl.h	gl
+glew	libglew-dev	GL/glew.h	glew
 #
 # Audio
-libao	libao-dev	ao/ao.h
-libsndfile	libsndfile1-dev	sndfile.h
-opus	libopus-dev	opus/opus.h
-vorbis	libvorbis-dev	vorbis/vorbisenc.h
+libao	libao-dev	ao/ao.h	ao
+libsndfile	libsndfile1-dev	sndfile.h	sndfile
+opus	libopus-dev	opus/opus.h	opus
+vorbis	libvorbis-dev	vorbis/vorbisenc.h	vorbisenc
 #
 # System / Utility
-libffi	libffi-dev	ffi.h
-libelf	libelf-dev	libelf.h
-libseccomp	libseccomp-dev	seccomp.h
-libcap	libcap-dev	sys/capability.h
-libsystemd	libsystemd-dev	systemd/sd-bus.h
-libudev	libudev-dev	libudev.h
-libbpf	libbpf-dev	bpf/libbpf.h
+libffi	libffi-dev	ffi.h	libffi
+libelf	libelf-dev	libelf.h	libelf
+libseccomp	libseccomp-dev	seccomp.h	libseccomp
+libcap	libcap-dev	sys/capability.h	libcap
+libsystemd	libsystemd-dev	systemd/sd-bus.h	libsystemd
+libudev	libudev-dev	libudev.h	libudev
+libbpf	libbpf-dev	bpf/libbpf.h	libbpf
 #
 # Math / Science
-gsl	libgsl-dev	gsl/gsl_math.h
-fftw3	libfftw3-dev	fftw3.h
+gsl	libgsl-dev	gsl/gsl_math.h	gsl
+fftw3	libfftw3-dev	fftw3.h	fftw3
 #
 # Hardware / Embedded
-libusb	libusb-1.0-0-dev	libusb-1.0/libusb.h
-hidapi	libhidapi-dev	hidapi/hidapi.h
-libgpiod	libgpiod-dev	gpiod.h
+libusb	libusb-1.0-0-dev	libusb-1.0/libusb.h	libusb-1.0
+hidapi	libhidapi-dev	hidapi/hidapi.h	hidapi-hidraw
+libgpiod	libgpiod-dev	gpiod.h	libgpiod
 #
 # Storage
-libnvme	libnvme-dev	libnvme.h
-liburing	liburing-dev	liburing.h
+libnvme	libnvme-dev	libnvme.h	libnvme
+liburing	liburing-dev	liburing.h	liburing
 libaio	libaio-dev	libaio.h
