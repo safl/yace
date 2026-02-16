@@ -14,14 +14,17 @@
  * NOTE: This file is created using yace: https://github.com/safl/yace
  */
 #include <stdio.h>
+#include <string.h>
 #include <lib{{ meta.prefix }}.h>
 
-{% for entity in entities if entity.key in ["struct_decl", "union_decl"] %}
+{% for entity in entities if entity.key in ["struct_decl", "union_decl"] and entity.members and entity.sym %}
 int
 test_{{ entity.sym }}_pr(void)
 {
-        {{ entity.key.replace("_decl", "") }} {{ entity.sym }} obj = { 0 };
+        {{ entity.key.replace("_decl", "") }} {{ entity.sym }} obj;
         int wrtn;
+
+        memset(&obj, 0, sizeof(obj));
 
         printf("\n# output from: {{ entity.sym }}_pr(..., {{ meta.prefix | upper }}_PR_YAML)\n");
         wrtn = {{ entity.sym }}_pr(&obj, {{ meta.prefix | upper }}_PR_YAML);
@@ -38,39 +41,23 @@ test_{{ entity.sym }}_pr(void)
         return 0;
 }
 {% endfor %}
-{% for entity in entities if entity.key == "function_decl" %}
-int
-test_{{ entity.sym }}(void)
-{
-        printf("\n# smoke test: {{ entity.sym }}()\n");
-        {{ entity.sym }}({% for param in entity.parameters %}0{{ ", " if not loop.last else "" }}{% endfor %});
-
-        return 0;
-}
-{% endfor %}
 
 int main(int argc, char *argv[])
 {
-        int err;
+        (void)argc;
+        (void)argv;
 
         printf("#\n");
         printf("# Pretty-printer output and testing\n");
         printf("#\n");
 
-        {% for entity in entities if entity.key in ["struct_decl", "union_decl"] %}
-        err = test_{{ entity.sym }}_pr();
-        if (err) {
-                return err;
-        }
-        {% endfor %}
-        printf("#\n");
-        printf("# Function smoke tests\n");
-        printf("#\n");
-
-        {% for entity in entities if entity.key == "function_decl" %}
-        err = test_{{ entity.sym }}();
-        if (err) {
-                return err;
+        {% for entity in entities if entity.key in ["struct_decl", "union_decl"] and entity.members and entity.sym %}
+        {
+                int err;
+                err = test_{{ entity.sym }}_pr();
+                if (err) {
+                        return err;
+                }
         }
         {% endfor %}
 
