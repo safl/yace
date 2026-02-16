@@ -1,16 +1,22 @@
-{% if entity.doc %}
+{% if entity.sym %}
+{%- if entity.doc %}
 /**
- * {{ entity.doc.brief }}
+ * {{ entity.doc.brief | sanitize_comment }}
  *
 {%- if entity.doc.description %}
- * {{ entity.doc.description.replace("\n", "\n * ") }}
+ * {{ entity.doc.description.replace("\n", "\n * ") | sanitize_comment }}
  *
 {%- endif %}
  * @struct {{ entity.sym }}
  */
 {%- endif %}
+{% if entity.members %}
 struct {{ entity.sym }} {
     {% for member in entity.members -%}
-    {{ member.typ.c_spelling() }} {{ member.sym }};{% if member.doc %} ///< {{ member.doc.brief }}{% endif %}
+    {{ member.typ.c_decl(member.sym) }};{% if member.doc %} ///< {{ member.doc.brief }}{% endif %}
 	{% endfor %}
 };
+{% else %}
+struct {{ entity.sym }};
+{% endif %}
+{%- endif %}
