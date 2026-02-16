@@ -16,6 +16,16 @@
  * NOTE: This file is created using yace: https://github.com/safl/yace
  */
 
+{% for entity in entities if entity.key == "struct_decl" and entity.sym -%}
+struct {{ entity.sym }};
+{% endfor %}
+{%- for entity in entities if entity.key == "union_decl" and entity.sym -%}
+union {{ entity.sym }};
+{% endfor %}
+{%- for sym in entities | collect_forward_decls -%}
+struct {{ sym }};
+{% endfor %}
+
 {% for entity in entities -%}
 {{ entity | emit_entity }}
 {% endfor %}
