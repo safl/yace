@@ -222,6 +222,16 @@ class Typespec(Entity):
 
         return " ".join(spelling)
 
+    _C_RESERVED = frozenset({
+        "auto", "break", "case", "char", "const", "continue", "default",
+        "do", "double", "else", "enum", "extern", "float", "for", "goto",
+        "if", "inline", "int", "long", "register", "restrict", "return",
+        "short", "signed", "sizeof", "static", "struct", "switch",
+        "typedef", "union", "unsigned", "void", "volatile", "while",
+        "_Bool", "_Complex", "_Imaginary",
+        "bool", "true", "false",  # C99/C11 via stdbool.h
+    })
+
     def c_decl(self, name=""):
         """
         Produce a full C declaration: type + declarator name.
@@ -231,6 +241,9 @@ class Typespec(Entity):
         embedded inside the type syntax.
         """
 
+        if name in self._C_RESERVED:
+            name = name + "_"
+
         # Function pointer with full signature — name goes inside (*name)
         if self.pointer and self.ret is not None:
             params = ", ".join(
@@ -238,6 +251,20 @@ class Typespec(Entity):
                 for p in (self.parameters or [])
             ) or "void"
             return f"{self.ret.c_spelling()} (*{name})({params})"
+
+        # Pointer to function pointer — name goes inside (**name)
+        if (
+            self.pointer
+            and self.pointee is not None
+            and self.pointee.pointer
+            and self.pointee.ret is not None
+        ):
+            ptee = self.pointee
+            params = ", ".join(
+                self._param_c_decl(p)
+                for p in (ptee.parameters or [])
+            ) or "void"
+            return f"{ptee.ret.c_spelling()} (**{name})({params})"
 
         # Array type — name goes between base type and [N]
         if self.array:

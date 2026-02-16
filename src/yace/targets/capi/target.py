@@ -93,17 +93,20 @@ def emit_cstr_cast(typespec, accessor):
 
 
 def collect_forward_decls(entities):
-    """Collect all struct/union types that need forward declarations."""
+    """Collect all struct/union types that need forward declarations.
+
+    Returns a list of (tag, sym) tuples where tag is 'struct' or 'union'.
+    """
     entity_syms = {e.sym for e in entities if hasattr(e, 'key') and e.key in ("struct_decl", "union_decl")}
-    seen = set()
+    seen = {}  # sym -> tag
 
     def _scan_typespec(typ):
         if typ is None:
             return
         if typ.struct and typ.sym and typ.sym not in entity_syms and typ.sym not in seen:
-            seen.add(typ.sym)
+            seen[typ.sym] = "struct"
         if typ.union and typ.sym and typ.sym not in entity_syms and typ.sym not in seen:
-            seen.add(typ.sym)
+            seen[typ.sym] = "union"
         if typ.pointee:
             _scan_typespec(typ.pointee)
         if typ.ret:
@@ -132,7 +135,7 @@ def collect_forward_decls(entities):
         if hasattr(entity, 'ret') and entity.ret:
             _scan_typespec(entity.ret)
 
-    return sorted(seen)
+    return [(tag, sym) for sym, tag in sorted(seen.items())]
 
 
 def emit_typespec(typespec, anon: bool = False):
@@ -191,23 +194,30 @@ class CAPI(Target):
             if sym:
                 _known_syms.add(sym)
 
-        # Build a set of struct/union syms that have members (complete types)
+        # Placeholder — populated after is_ffi_compatible is defined
         _complete_records = set()
-        for e in model.entities:
-            ekey = getattr(e, "key", "")
-            esym = getattr(e, "sym", "")
-            if ekey in ("struct_decl", "union_decl") and esym:
-                if getattr(e, "members", None):
-                    _complete_records.add(esym)
+
+        _building_records = [False]  # mutable container for closure
 
         def _is_incomplete_field(typ):
             """Check if a type used as a struct field is incomplete (by-value)."""
+            if _building_records[0]:
+                return False
             if typ.pointer:
                 return False
             if (typ.struct or typ.union) and typ.sym:
                 if typ.sym not in _complete_records:
                     return True
             return False
+
+        # Collect all enum member syms to detect define/enum collisions
+        _enum_member_syms = set()
+        for e in model.entities:
+            if getattr(e, "key", "") == "enum":
+                for m in getattr(e, "members", []) or []:
+                    msym = getattr(m, "sym", "")
+                    if msym:
+                        _enum_member_syms.add(msym)
 
         _STDLIB_TYPES = {
             "size_t", "ssize_t", "ptrdiff_t", "intptr_t", "uintptr_t",
@@ -229,6 +239,10 @@ class CAPI(Target):
             if key == "enum" and not sym:
                 return False
 
+            # Skip defines that collide with enum member names
+            if key == "define" and sym in _enum_member_syms:
+                return False
+
             # Function declarations with FFI-incompatible types
             if key == "function_decl":
                 ret = getattr(entity, "ret", None)
@@ -242,8 +256,11 @@ class CAPI(Target):
                     if typ and _has_ffi_issue(typ):
                         return False
 
-            # Function pointer decls with FFI-incompatible parameter types
+            # Function pointer decls with FFI-incompatible types
             if key == "function_pointer_decl":
+                ret = getattr(entity, "ret", None)
+                if ret and _has_ffi_issue(ret):
+                    return False
                 for param in getattr(entity, "parameters", []) or []:
                     typ = getattr(param, "typ", None)
                     if typ and _has_ffi_issue(typ):
@@ -310,6 +327,69 @@ class CAPI(Target):
                 return True
             return False
 
+        def topo_sort_records(entities):
+            """Sort struct/union entities so by-value dependencies come first."""
+            records = [
+                e for e in entities
+                if getattr(e, "key", "") in ("struct_decl", "union_decl")
+            ]
+            sym_to_entity = {}
+            for e in records:
+                s = getattr(e, "sym", "")
+                if s:
+                    sym_to_entity[s] = e
+
+            def _deps(entity):
+                """Get by-value struct/union field dependencies."""
+                deps = set()
+                for m in getattr(entity, "members", []) or []:
+                    typ = getattr(m, "typ", None)
+                    if typ and not typ.pointer and (typ.struct or typ.union) and typ.sym:
+                        if typ.sym in sym_to_entity:
+                            deps.add(typ.sym)
+                return deps
+
+            # Simple topological sort
+            result = []
+            visited = set()
+            visiting = set()
+
+            def _visit(sym):
+                if sym in visited:
+                    return
+                if sym in visiting:
+                    return  # cycle — break it
+                visiting.add(sym)
+                e = sym_to_entity.get(sym)
+                if e:
+                    for dep in _deps(e):
+                        _visit(dep)
+                visiting.discard(sym)
+                visited.add(sym)
+                if e:
+                    result.append(e)
+
+            for e in records:
+                s = getattr(e, "sym", "")
+                if s:
+                    _visit(s)
+                else:
+                    result.append(e)
+
+            return result
+
+        # Populate _complete_records: structs/unions that have members and
+        # whose members pass FFI checks. Temporarily disable the incomplete
+        # field check to avoid circular dependency.
+        _building_records[0] = True
+        for e in model.entities:
+            ekey = getattr(e, "key", "")
+            esym = getattr(e, "sym", "")
+            if ekey in ("struct_decl", "union_decl") and esym:
+                if getattr(e, "members", None) and is_ffi_compatible(e):
+                    _complete_records.add(esym)
+        _building_records[0] = False
+
         filters = {
             "emit_cstr_fmt": emit_cstr_fmt,
             "emit_cstr_cast": emit_cstr_cast,
@@ -318,6 +398,7 @@ class CAPI(Target):
             "sanitize_comment": sanitize_comment,
             "c_ident": c_ident,
             "is_ffi_compatible": is_ffi_compatible,
+            "topo_sort_records": topo_sort_records,
         }
 
         files = [
