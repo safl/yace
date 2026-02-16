@@ -13,7 +13,7 @@
 #include <inttypes.h>
 #include <lib{{ meta.prefix }}.h>
 
-{%- for entity in entities %}
+{%- for entity in entities if entity | is_ffi_compatible %}
 {%- if entity["key"] in ["enum"] %}
 const char *
 {{ entity.sym }}_str(int enum_val)
@@ -130,11 +130,11 @@ int
 {{ entity.sym }}_fpr(FILE *stream, const {{ entity.key.replace("_decl", "") }} {{ entity.sym }} *obj, int flags)
 {
 	switch (flags) {
-	case {{ meta.prefix | upper }}_PR_DEF:
-	case {{ meta.prefix | upper }}_PR_YAML:
+	case {{ meta.prefix | upper | c_ident }}_PR_DEF:
+	case {{ meta.prefix | upper | c_ident }}_PR_YAML:
 		return {{ entity.sym }}_yaml(stream, obj, flags);
 
-	case {{ meta.prefix | upper }}_PR_JSON:
+	case {{ meta.prefix | upper | c_ident }}_PR_JSON:
 		return {{ entity.sym }}_json(stream, obj, flags);
 	}
 

@@ -26,6 +26,18 @@ union {{ entity.sym }};
 struct {{ sym }};
 {% endfor %}
 
-{% for entity in entities -%}
+{% for entity in entities if entity | is_ffi_compatible and entity.key == "define" -%}
+{{ entity | emit_entity }}
+{% endfor %}
+{%- for entity in entities if entity | is_ffi_compatible and entity.key == "enum" -%}
+{{ entity | emit_entity }}
+{% endfor %}
+{%- for entity in entities if entity | is_ffi_compatible and entity.key in ("struct_decl", "union_decl") -%}
+{{ entity | emit_entity }}
+{% endfor %}
+{%- for entity in entities if entity | is_ffi_compatible and entity.key == "function_pointer_decl" -%}
+{{ entity | emit_entity }}
+{% endfor %}
+{%- for entity in entities if entity | is_ffi_compatible and entity.key == "function_decl" -%}
 {{ entity | emit_entity }}
 {% endfor %}

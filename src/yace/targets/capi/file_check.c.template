@@ -17,7 +17,7 @@
 #include <string.h>
 #include <lib{{ meta.prefix }}.h>
 
-{% for entity in entities if entity.key in ["struct_decl", "union_decl"] and entity.members and entity.sym %}
+{% for entity in entities if entity.key in ["struct_decl", "union_decl"] and entity.members and entity.sym and entity | is_ffi_compatible %}
 int
 test_{{ entity.sym }}_pr(void)
 {
@@ -26,14 +26,14 @@ test_{{ entity.sym }}_pr(void)
 
         memset(&obj, 0, sizeof(obj));
 
-        printf("\n# output from: {{ entity.sym }}_pr(..., {{ meta.prefix | upper }}_PR_YAML)\n");
-        wrtn = {{ entity.sym }}_pr(&obj, {{ meta.prefix | upper }}_PR_YAML);
+        printf("\n# output from: {{ entity.sym }}_pr(..., {{ meta.prefix | upper | c_ident }}_PR_YAML)\n");
+        wrtn = {{ entity.sym }}_pr(&obj, {{ meta.prefix | upper | c_ident }}_PR_YAML);
         if (wrtn < 0) {
                 return 1;
         }
 
-        printf("\n# output from: {{ entity.sym }}_pr(..., {{ meta.prefix | upper }}_PR_JSON)\n");
-        wrtn = {{ entity.sym }}_pr(&obj, {{ meta.prefix | upper }}_PR_JSON);
+        printf("\n# output from: {{ entity.sym }}_pr(..., {{ meta.prefix | upper | c_ident }}_PR_JSON)\n");
+        wrtn = {{ entity.sym }}_pr(&obj, {{ meta.prefix | upper | c_ident }}_PR_JSON);
         if (wrtn < 0) {
                 return 1;
         }
@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
         printf("# Pretty-printer output and testing\n");
         printf("#\n");
 
-        {% for entity in entities if entity.key in ["struct_decl", "union_decl"] and entity.members and entity.sym %}
+        {% for entity in entities if entity.key in ["struct_decl", "union_decl"] and entity.members and entity.sym and entity | is_ffi_compatible %}
         {
                 int err;
                 err = test_{{ entity.sym }}_pr();
