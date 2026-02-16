@@ -52,7 +52,7 @@ class Bitfield(Field):
     """
 
     key: str = "bitfield_decl"
-    nbits: int
+    nbits: int = 0
 
 
 class Struct(Entity, Named, Documented):
