@@ -235,6 +235,17 @@ def typekind_to_typespec(
             )
 
         case TypeKind.TYPEDEF:
+            # Preserve well-known platform typedefs instead of canonicalizing
+            _KNOWN_TYPEDEFS = {
+                "size_t": lambda: datatypes.USize(canonical="size_t"),
+                "ssize_t": lambda: datatypes.ISize(canonical="ssize_t"),
+            }
+            typedef_name = tobj.spelling
+            if typedef_name in _KNOWN_TYPEDEFS:
+                typ = _KNOWN_TYPEDEFS[typedef_name]()
+                typ.const = const
+                return typ, None
+
             canonical_type = tobj.get_canonical()
 
             # Special case: pointer to function prototype
@@ -335,11 +346,37 @@ class CParser(object):
 
         self.index = Index.create()
 
+    def _clang_builtin_include(self):
+        """Find clang's built-in include directory (contains stddef.h, etc.)."""
+
+        # Check alongside the libclang shared library
+        searchpath = os.environ.get("YACE_SEARCHPATH_LIBCLANG")
+        if searchpath:
+            base = Path(searchpath).parent
+        else:
+            base = Path(clang.__file__).resolve().parent
+
+        for include_dir in base.rglob("stddef.h"):
+            return str(include_dir.parent)
+
+        # Fallback: search common system paths
+        for ver in sorted(Path("/usr/lib").glob("llvm-*/lib/clang/*/include"), reverse=True):
+            if (ver / "stddef.h").exists():
+                return str(ver)
+
+        return None
+
     def parse_file(self, path: Path):
         """Parse the given file into a :class:`clang.cindex.TranslationUnit`."""
 
+        args = []
+        builtin_inc = self._clang_builtin_include()
+        if builtin_inc:
+            args.extend(["-isystem", builtin_inc])
+
         return self.index.parse(
             str(path),
+            args=args,
             options=clang.cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
         )
 
