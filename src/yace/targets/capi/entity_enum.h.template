@@ -11,6 +11,6 @@
 {%- endif %}
 enum {{ entity.sym }} {
 {%- for member in entity.members %}
-	{{ member.sym }} = {{ '0x%0x' % member.val.lit }},{% if member.doc %} ///< {{ member.doc.brief }}{% endif %}
+	{{ member.sym }} = {% if member.val.lit < 0 %}{{ member.val.lit }}{% else %}{{ '0x%0x' % member.val.lit }}{% endif %},{% if member.doc %} ///< {{ member.doc.brief | sanitize_comment }}{% endif %}
 {%- endfor %}
 };
