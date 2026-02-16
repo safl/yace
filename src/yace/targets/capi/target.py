@@ -39,13 +39,95 @@ from yace.tools import ClangFormat, Doxygen, Gcc
 from yace.transformations import CStyle
 
 
+_INTEGER_KEY_TO_FMT = {
+    "i_tspec": "%d",
+    "u_tspec": "%u",
+    "ih_tspec": "%hd",
+    "us_tspec": "%hu",
+    "il_tspec": "%ld",
+    "ul_tspec": "%lu",
+    "ill_tspec": "%lld",
+    "ull_tspec": "%llu",
+}
+
+
 def emit_cstr_fmt(typespec):
-    if typespec.integer:
+    # Check pointer/function-pointer first — a pointer-to-int is still a pointer
+    if typespec.pointer or typespec.ret is not None:
+        return "%p"
+    elif typespec.character:
+        return "%c"
+    elif typespec.size:
+        return "%zu" if typespec.unsigned else "%zd"
+    elif typespec.integer and typespec.width and typespec.width_fixed:
         return f'%"PRIx{ typespec.width }"'
+    elif typespec.integer:
+        return _INTEGER_KEY_TO_FMT.get(typespec.key, "%d")
     elif typespec.boolean:
         return "%d"
+    elif typespec.enum:
+        return "%d"
+    elif typespec.real:
+        if typespec.width == 64:
+            return "%lf"
+        return "%f"
 
-    return f"MISSING_CSTR_FMT({typespec})"
+    return "%d"  # fallback
+
+
+def emit_cstr_cast(typespec, accessor):
+    """Wrap an accessor with a cast when needed for printf format safety."""
+    if typespec.ret is not None:
+        # Function pointer: cast via intermediate to avoid ISO C warning
+        return f"(void *)(uintptr_t){accessor}"
+    if typespec.pointer:
+        return f"(void *){accessor}"
+    if typespec.pointee is not None:
+        return f"(void *){accessor}"
+    return accessor
+
+
+def collect_forward_decls(entities):
+    """Collect all struct/union types that need forward declarations."""
+    entity_syms = {e.sym for e in entities if hasattr(e, 'key') and e.key in ("struct_decl", "union_decl")}
+    seen = set()
+
+    def _scan_typespec(typ):
+        if typ is None:
+            return
+        if typ.struct and typ.sym and typ.sym not in entity_syms and typ.sym not in seen:
+            seen.add(typ.sym)
+        if typ.union and typ.sym and typ.sym not in entity_syms and typ.sym not in seen:
+            seen.add(typ.sym)
+        if typ.pointee:
+            _scan_typespec(typ.pointee)
+        if typ.ret:
+            _scan_typespec(typ.ret)
+        if typ.parameters:
+            for p in typ.parameters:
+                if isinstance(p, dict) and "typ" in p:
+                    ptyp = p["typ"]
+                    if isinstance(ptyp, dict):
+                        from yace.ir.datatypes import Typespec
+                        ptyp = Typespec(**ptyp)
+                    _scan_typespec(ptyp)
+
+    for entity in entities:
+        # Scan function parameters
+        if hasattr(entity, 'parameters') and entity.parameters:
+            for param in entity.parameters:
+                if hasattr(param, 'typ'):
+                    _scan_typespec(param.typ)
+        # Scan struct/union members
+        if hasattr(entity, 'members') and entity.members:
+            for member in entity.members:
+                if hasattr(member, 'typ'):
+                    _scan_typespec(member.typ)
+        # Scan return types
+        if hasattr(entity, 'ret') and entity.ret:
+            _scan_typespec(entity.ret)
+
+    return sorted(seen)
 
 
 def emit_typespec(typespec, anon: bool = False):
@@ -89,9 +171,16 @@ class CAPI(Target):
     def emit(self, model):
         """Emit code"""
 
+        def sanitize_comment(text):
+            """Escape nested comment markers in doc strings."""
+            return text.replace("/*", "/ *").replace("*/", "* /")
+
         filters = {
             "emit_cstr_fmt": emit_cstr_fmt,
+            "emit_cstr_cast": emit_cstr_cast,
             "emit_typespec": emit_typespec,
+            "collect_forward_decls": collect_forward_decls,
+            "sanitize_comment": sanitize_comment,
         }
 
         files = [

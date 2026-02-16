@@ -22,8 +22,9 @@
  * ------------------------------------------------------------------------------------------------
  * NOTE: This file is auto-generated using yace: https://github.com/safl/yace
  */
-#ifndef __LIB{{ meta.prefix | upper }}_H
-#define __LIB{{ meta.prefix | upper }}_H
+{% set guard = "__LIB" + meta.prefix | upper | replace("-", "_") | replace(".", "_") + "_H" %}
+#ifndef {{ guard }}
+#define {{ guard }}
 
 #ifdef __cplusplus
 extern "C" {
@@ -45,4 +46,4 @@ extern "C" {
 }
 #endif
 
-#endif /* __LIB{{ meta.prefix | upper }}_H */
+#endif /* {{ guard }} */
