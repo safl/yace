@@ -22,8 +22,8 @@ struct {{ entity.sym }};
 {%- for entity in entities if entity.key == "union_decl" and entity.sym -%}
 union {{ entity.sym }};
 {% endfor %}
-{%- for sym in entities | collect_forward_decls -%}
-struct {{ sym }};
+{%- for tag, sym in entities | collect_forward_decls -%}
+{{ tag }} {{ sym }};
 {% endfor %}
 
 {% for entity in entities if entity | is_ffi_compatible and entity.key == "define" -%}
@@ -32,7 +32,7 @@ struct {{ sym }};
 {%- for entity in entities if entity | is_ffi_compatible and entity.key == "enum" -%}
 {{ entity | emit_entity }}
 {% endfor %}
-{%- for entity in entities if entity | is_ffi_compatible and entity.key in ("struct_decl", "union_decl") -%}
+{%- for entity in entities | topo_sort_records if entity | is_ffi_compatible -%}
 {{ entity | emit_entity }}
 {% endfor %}
 {%- for entity in entities if entity | is_ffi_compatible and entity.key == "function_pointer_decl" -%}
