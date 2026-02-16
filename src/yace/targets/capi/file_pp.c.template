@@ -9,6 +9,8 @@
  * ------------------------------------------------------------------------------------------------
  * NOTE: This file is created using yace: https://github.com/safl/yace
  */
+#include <errno.h>
+#include <inttypes.h>
 #include <lib{{ meta.prefix }}.h>
 
 {%- for entity in entities %}
@@ -17,15 +19,21 @@ const char *
 {{ entity.sym }}_str(int enum_val)
 {
 	switch (enum_val) {
+	{%- set seen_vals = [] %}
 	{%- for member in entity.members %}
+	{%- if member.val.lit not in seen_vals %}
 	case {{ member.sym }}:
 		return "{{ member.sym }}";
+	{%- do seen_vals.append(member.val.lit) %}
+	{%- endif %}
 	{%- endfor %}
+	default:
+		break;
 	}
 
 	return "ENOSYS";
 }
-{%- elif entity["key"] in ["struct_decl", "union_decl"] %}
+{%- elif entity["key"] in ["struct_decl", "union_decl"] and entity.members and entity.sym %}
 static int
 {{ entity.sym }}_yaml(FILE *stream, const {{ entity.key.replace("_decl", "") }} {{ entity.sym }} *obj, int flags)
 {
@@ -53,7 +61,7 @@ static int
 
     {%- elif member.key in ["field_decl"] and "record" not in member.typ.key -%}
 
-        wrtn += fprintf(stream, "%*s{{ member.sym }}: {{ member.typ | emit_cstr_fmt }}\n", {{ indent }}, "", {{ accessor }});
+        wrtn += fprintf(stream, "%*s{{ member.sym }}: {{ member.typ | emit_cstr_fmt }}\n", {{ indent }}, "", {{ member.typ | emit_cstr_cast(accessor) }});
 
     {%- elif member.key in ["bitfield_decl"] -%}
 	
@@ -68,7 +76,7 @@ static int
 		*/
 
 	{%- else -%}
-        // What is this? {{ member.key }}
+        /* unhandled member: {{ member.key }} */
 	{%- endif -%}
 	{% endfor %}
 
@@ -95,17 +103,17 @@ static int
 	{%- elif "invalid" in member.sym -%}
         wrtn += fprintf(stream, "%*s{{ member.sym }}: \"INVALID\"", {{ indent }}, "");
 
-	{%- elif member.key in ["field_decl"] and member.typ.integer -%}
-        wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": {{ member.typ | emit_cstr_fmt }}", {{ indent }}, "", {{ accessor }});
+	{%- elif member.key in ["field_decl"] and "record" not in member.typ.key -%}
+        wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": {{ member.typ | emit_cstr_fmt }}", {{ indent }}, "", {{ member.typ | emit_cstr_cast(accessor) }});
 
     {%- elif member.key in ["union_decl", "struct_decl", "bitfield_struct_decl"] -%}
-	
+
         wrtn += fprintf(stream, "%*s\"{{ member.sym }}\": {\n", {{ indent }}, "");
 		//{{ loop(zip([accessor + "."] * len(member.members), member.members)) }}
         wrtn += fprintf(stream, "%*s}", {{ indent }}, "");
 
 	{%- else -%}
-        // What is this? {{ member.key }}
+        /* unhandled member: {{ member.key }} */
 	{%- endif -%}
 
         wrtn += fprintf(stream, "{{ "" if loop.last else "," }}\n" );
