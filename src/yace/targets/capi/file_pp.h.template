@@ -34,7 +34,7 @@ enum {{ meta.prefix }}_pr {
  * "ENOSYS" is returned.
  */
 const char * {{ entity.sym }}_str(int enum_val);
-{% elif entity['key'] in ['struct_decl', 'union_decl'] %}
+{% elif entity['key'] in ['struct_decl', 'union_decl'] and entity.members and entity.sym %}
 /**
  * Prints the given ::{{ entity.sym }} 'obj' to the given output 'stream'
  *
