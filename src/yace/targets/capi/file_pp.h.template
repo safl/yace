@@ -15,15 +15,15 @@
  *
  * Options determines the format the pretty-printer uses, e.g. Yaml or JSON
  *
- * @enum {{ meta.prefix }}_pr
+ * @enum {{ meta.prefix | c_ident }}_pr
  */
-enum {{ meta.prefix }}_pr {
-	{{ meta.prefix | upper }}_PR_DEF = 0x0,
-	{{ meta.prefix | upper }}_PR_YAML = 0x1,
-	{{ meta.prefix | upper }}_PR_JSON = 0x2,
+enum {{ meta.prefix | c_ident }}_pr {
+	{{ meta.prefix | upper | c_ident }}_PR_DEF = 0x0,
+	{{ meta.prefix | upper | c_ident }}_PR_YAML = 0x1,
+	{{ meta.prefix | upper | c_ident }}_PR_JSON = 0x2,
 };
 
-{%- for entity in entities %}
+{%- for entity in entities if entity | is_ffi_compatible %}
 {% if entity.key in ['enum'] %}
 /**
  * Produces a string representation of the given ::{{ entity.sym }}

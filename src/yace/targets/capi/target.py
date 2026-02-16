@@ -52,6 +52,9 @@ _INTEGER_KEY_TO_FMT = {
 
 
 def emit_cstr_fmt(typespec):
+    # Arrays decay to pointers in C expressions
+    if typespec.array:
+        return "%p"
     # Check pointer/function-pointer first — a pointer-to-int is still a pointer
     if typespec.pointer or typespec.ret is not None:
         return "%p"
@@ -77,6 +80,8 @@ def emit_cstr_fmt(typespec):
 
 def emit_cstr_cast(typespec, accessor):
     """Wrap an accessor with a cast when needed for printf format safety."""
+    if typespec.array:
+        return f"(void *){accessor}"
     if typespec.ret is not None:
         # Function pointer: cast via intermediate to avoid ISO C warning
         return f"(void *)(uintptr_t){accessor}"
@@ -175,12 +180,144 @@ class CAPI(Target):
             """Escape nested comment markers in doc strings."""
             return text.replace("/*", "/ *").replace("*/", "* /")
 
+        def c_ident(text):
+            """Sanitize text for use as a C identifier."""
+            return text.replace("-", "_").replace(".", "_").replace(" ", "_")
+
+        # Build set of known type symbols from entities
+        _known_syms = set()
+        for e in model.entities:
+            sym = getattr(e, "sym", "")
+            if sym:
+                _known_syms.add(sym)
+
+        # Build a set of struct/union syms that have members (complete types)
+        _complete_records = set()
+        for e in model.entities:
+            ekey = getattr(e, "key", "")
+            esym = getattr(e, "sym", "")
+            if ekey in ("struct_decl", "union_decl") and esym:
+                if getattr(e, "members", None):
+                    _complete_records.add(esym)
+
+        def _is_incomplete_field(typ):
+            """Check if a type used as a struct field is incomplete (by-value)."""
+            if typ.pointer:
+                return False
+            if (typ.struct or typ.union) and typ.sym:
+                if typ.sym not in _complete_records:
+                    return True
+            return False
+
+        _STDLIB_TYPES = {
+            "size_t", "ssize_t", "ptrdiff_t", "intptr_t", "uintptr_t",
+            "int8_t", "int16_t", "int32_t", "int64_t",
+            "uint8_t", "uint16_t", "uint32_t", "uint64_t",
+            "wchar_t", "FILE", "va_list",
+        }
+
+        def is_ffi_compatible(entity):
+            """Check if an entity can be represented across an FFI boundary."""
+            key = getattr(entity, "key", "")
+            sym = getattr(entity, "sym", "")
+
+            # Skip standard library types that should not be re-emitted
+            if sym in _STDLIB_TYPES:
+                return False
+
+            # Anonymous enums can't be referenced by FFI
+            if key == "enum" and not sym:
+                return False
+
+            # Function declarations with FFI-incompatible types
+            if key == "function_decl":
+                ret = getattr(entity, "ret", None)
+                if ret and _has_ffi_issue(ret):
+                    return False
+                # Function returning a function pointer — can't emit in C
+                if ret and ret.ret is not None:
+                    return False
+                for param in getattr(entity, "parameters", []) or []:
+                    typ = getattr(param, "typ", None)
+                    if typ and _has_ffi_issue(typ):
+                        return False
+
+            # Function pointer decls with FFI-incompatible parameter types
+            if key == "function_pointer_decl":
+                for param in getattr(entity, "parameters", []) or []:
+                    typ = getattr(param, "typ", None)
+                    if typ and _has_ffi_issue(typ):
+                        return False
+
+            # Struct/union members with FFI-incompatible types
+            if key in ("struct_decl", "union_decl"):
+                for member in getattr(entity, "members", []) or []:
+                    typ = getattr(member, "typ", None)
+                    if typ and _has_ffi_issue(typ):
+                        return False
+                    # Non-pointer struct/union field with incomplete type
+                    if typ and _is_incomplete_field(typ):
+                        return False
+
+            return True
+
+        def _has_ffi_issue(typ):
+            """Check if a typespec has FFI-incompatible attributes."""
+            # Anonymous enum type (no tag)
+            if typ.enum and not typ.sym:
+                return True
+            # Bare enum used by tag (not typedef) — C forbids forward enum refs
+            # and FFI tools can't resolve the enum without a typedef
+            if typ.enum and typ.sym and not typ.pointer and typ.sym not in _known_syms:
+                return True
+            # Function pointer return type without typedef name
+            if typ.ret is not None and not typ.pointer and not typ.sym:
+                return True
+            # Reference to a typedef/type not defined in our entity set
+            if _is_undefined_type_ref(typ):
+                return True
+            # Check pointee recursively
+            if typ.pointee and _has_ffi_issue(typ.pointee):
+                return True
+            # Check function pointer parameters recursively
+            if typ.ret is not None and typ.parameters:
+                for p in typ.parameters:
+                    if isinstance(p, dict) and "typ" in p:
+                        ptyp = p["typ"]
+                        if isinstance(ptyp, dict):
+                            from yace.ir.datatypes import Typespec as _Ts
+                            ptyp = _Ts(**ptyp)
+                        if _has_ffi_issue(ptyp):
+                            return True
+            return False
+
+        def _is_undefined_type_ref(typ):
+            """Check if a typespec references a type not in the entity set."""
+            sym = getattr(typ, "sym", "")
+            if not sym:
+                return False
+            # struct/union/enum types are forward-declared, so they're fine
+            if typ.struct or typ.union or typ.enum:
+                return False
+            # Primitives with a sym (e.g. int, char) are fine
+            if typ.integer or typ.boolean or typ.character or typ.real or typ.void or typ.size:
+                return False
+            # Pointers to known types are fine (the pointee carries the type)
+            if typ.pointer and typ.pointee:
+                return False
+            # This is a typedef reference; check if it's in our entity set
+            if sym not in _known_syms:
+                return True
+            return False
+
         filters = {
             "emit_cstr_fmt": emit_cstr_fmt,
             "emit_cstr_cast": emit_cstr_cast,
             "emit_typespec": emit_typespec,
             "collect_forward_decls": collect_forward_decls,
             "sanitize_comment": sanitize_comment,
+            "c_ident": c_ident,
+            "is_ffi_compatible": is_ffi_compatible,
         }
 
         files = [
