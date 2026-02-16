@@ -51,6 +51,7 @@ class Compiler(object):
             log.error("One or more targets !ready; see above/log. stopping.")
             return False
 
+        ok = True
         for target in targets:
             log.info("Target: %s", target.NAME)
 
@@ -65,6 +66,7 @@ class Compiler(object):
                 err = target.emit(model)
                 if err:
                     log.error("Got error, stopping.")
+                    ok = False
                     break
 
             if "format" in stages:
@@ -72,6 +74,7 @@ class Compiler(object):
                 err = target.format()
                 if err:
                     log.error("Got error, stopping.")
+                    ok = False
                     break
 
             if "check" in stages:
@@ -79,6 +82,7 @@ class Compiler(object):
                 err = target.check(model)
                 if err:
                     log.error("Got error, stopping.")
+                    ok = False
                     break
 
-        return True
+        return ok

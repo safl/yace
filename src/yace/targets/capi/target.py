@@ -158,10 +158,39 @@ class CAPI(Target):
                 .split()
             )
 
-        self.tools["gcc"].run(
+        binary = self.output / f"{model.meta.prefix}_check"
+
+        rcode, _ = self.tools["gcc"].run(
             CAPI.CFLAGS
             + ["-I", str(self.output)]
             + extra_cflags
             + [str(p) for p in self.sources]
+            + ["-o", str(binary)]
             + extra_ldflags
         )
+        if rcode:
+            return rcode
+
+        from subprocess import STDOUT, run as subprocess_run
+
+        logpath = (self.output / "check.log").resolve()
+        with logpath.open("w") as logfile:
+            logfile.write(f"# running {binary}\n")
+            logfile.flush()
+            proc = subprocess_run(
+                [str(binary)],
+                stdout=logfile,
+                stderr=STDOUT,
+                check=False,
+                cwd=str(self.output),
+            )
+        if proc.returncode:
+            log.error(
+                "check program %s exited with rcode(%d), see %s",
+                binary,
+                proc.returncode,
+                logpath,
+            )
+            return proc.returncode
+
+        return 0
