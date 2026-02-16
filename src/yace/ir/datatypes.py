@@ -115,6 +115,29 @@ class Typespec(Entity):
             return typ.c_spelling()
         return "void"
 
+    @staticmethod
+    def _param_c_decl(p) -> str:
+        """Get C declaration for a function parameter (type + name)."""
+        if isinstance(p, dict) and "typ" in p:
+            typ = p["typ"]
+            sym = p.get("sym", "")
+            if isinstance(typ, dict):
+                typ = Typespec(**typ)
+            return typ.c_decl(sym)
+        return "void"
+
+    # Map non-fixed-width integer keys to their C type keyword
+    _INTEGER_KEY_TO_CTYPE = {
+        "i_tspec": "int",
+        "u_tspec": "int",
+        "ih_tspec": "short int",
+        "us_tspec": "short int",
+        "il_tspec": "long int",
+        "ul_tspec": "long int",
+        "ill_tspec": "long long int",
+        "ull_tspec": "long long int",
+    }
+
     def c_spelling(self):
         """
         Construct the C spelling
@@ -122,36 +145,59 @@ class Typespec(Entity):
         """
 
         spelling = []
-        if self.const:
-            spelling.append("const")
 
         if self.static:
             spelling.append("static")
 
         if self.void:
+            if self.const:
+                spelling.append("const")
             spelling.append("void")
         elif self.boolean:
+            if self.const:
+                spelling.append("const")
             spelling.append("bool")
         elif self.character:
-            spelling.append("signed" if self.signed else "unsigned")
+            if self.const:
+                spelling.append("const")
+            if self.unsigned:
+                spelling.append("unsigned")
             spelling.append("char")
         elif self.size:
+            if self.const:
+                spelling.append("const")
             spelling.append("ssize_t" if self.signed else "size_t")
         elif self.integer and self.width_fixed:
+            if self.const:
+                spelling.append("const")
             if self.signed:
                 spelling.append(f"int{self.width}_t")
             else:
                 spelling.append(f"uint{self.width}_t")
-
         elif self.integer and not self.width_fixed:
-            spelling.append("int")
+            if self.const:
+                spelling.append("const")
+            if self.unsigned:
+                spelling.append("unsigned")
+            spelling.append(self._INTEGER_KEY_TO_CTYPE.get(self.key, "int"))
         elif self.real:
-            spelling.append("float")
+            if self.const:
+                spelling.append("const")
+            if self.width == 64:
+                spelling.append("double")
+            else:
+                spelling.append("float")
         elif self.union:
+            if self.const:
+                spelling.append("const")
             spelling.append(f"union {self.sym}")
         elif self.struct:
+            if self.const:
+                spelling.append("const")
             spelling.append(f"struct {self.sym}")
         elif self.enum:
+            if self.const:
+                spelling.append("const")
             spelling.append(f"enum {self.sym}")
         elif self.pointer and self.ret is not None:
             # Function pointer with full signature
@@ -162,6 +208,9 @@ class Typespec(Entity):
             sym = self.sym or ""
             return f"{self.ret.c_spelling()} (*{sym})({params})"
         elif self.pointer and self.pointee is not None:
+            # Emit const only if the pointee doesn't already carry it
+            if self.const and not self.pointee.const:
+                spelling.append("const")
             spelling.append(self.pointee.c_spelling())
             spelling.append("*")
         elif self.pointer:
@@ -172,6 +221,32 @@ class Typespec(Entity):
             spelling.append(f"{self.sym}[{self.array_length}]")
 
         return " ".join(spelling)
+
+    def c_decl(self, name=""):
+        """
+        Produce a full C declaration: type + declarator name.
+
+        For most types this is just ``c_spelling() + " " + name``, but
+        function-pointer types and array types require the name to be
+        embedded inside the type syntax.
+        """
+
+        # Function pointer with full signature — name goes inside (*name)
+        if self.pointer and self.ret is not None:
+            params = ", ".join(
+                self._param_c_decl(p)
+                for p in (self.parameters or [])
+            ) or "void"
+            return f"{self.ret.c_spelling()} (*{name})({params})"
+
+        # Array type — name goes between base type and [N]
+        if self.array:
+            return f"{self.array_typ.c_spelling()} {name}[{self.array_length}]"
+
+        spelling = self.c_spelling()
+        if name:
+            return f"{spelling} {name}"
+        return spelling
 
 
 class Pointer(Typespec):
@@ -206,6 +281,19 @@ class FunctionPointer(Typespec):
             return f"{self.ret.c_spelling()} (*{sym})({params})"
         # Fallback: just the typedef name
         return self.sym or "void (*)(void)"
+
+    def c_decl(self, name=""):
+        if self.ret is not None:
+            params = ", ".join(
+                self._param_c_decl(p)
+                for p in (self.parameters or [])
+            ) or "void"
+            return f"{self.ret.c_spelling()} (*{name})({params})"
+        # Fallback: use the typedef name as the type, append the field name
+        spelling = self.sym or "void (*)(void)"
+        if name:
+            return f"{spelling} {name}"
+        return spelling
 
 
 class Array(Typespec):
