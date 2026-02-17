@@ -68,7 +68,7 @@ languages.
 
 .. list-table::
    :header-rows: 1
-   :widths: 20 16 12 12 12 12 12
+   :widths: 22 18 14 14 14 14
 
    * - Library
      - Domain
@@ -76,7 +76,6 @@ languages.
      - Python
      - Rust
      - Go
-     - Zig
 
    * - zlib
      - Compression
@@ -84,47 +83,40 @@ languages.
      - yes
      - yes (flate2)
      - yes (compress/zlib)
-     - yes (std.compress)
    * - bzip2
      - Compression
      - 80.4%
      - yes (bz2)
      - yes (bzip2)
      - yes (dsnet/compress)
-     -
    * - lz4
      - Compression
      - 57.1%
      - yes (lz4)
      - yes (lz4)
      - yes (pierrec/lz4)
-     -
    * - zstd
      - Compression
      - 80.8%
      - yes (zstandard)
      - yes (zstd)
      - yes (klauspost/compress)
-     - yes (std.compress)
    * - brotli
      - Compression
      - 75.8%
      - yes (brotli)
      - yes (brotli)
      - yes (google/brotli)
-     -
    * - snappy
      - Compression
      - 71.4%
      - yes (python-snappy)
      - yes (snap)
      - yes (golang/snappy)
-     -
    * - lzo
      - Compression
      - 100.0%
      - yes (python-lzo)
-     -
      -
      -
 
@@ -134,18 +126,15 @@ languages.
      -
      - yes (mbedtls)
      -
-     - yes (zig-mbedtls)
    * - openssl
      - Crypto / TLS
      - 99.4%
      - yes (pyOpenSSL)
      - yes (openssl)
      - yes (crypto/tls)
-     -
    * - gnutls
      - Crypto / TLS
      - 85.0%
-     -
      -
      -
      -
@@ -155,18 +144,15 @@ languages.
      - yes (PyNaCl)
      - yes (sodiumoxide)
      - yes (jamesruan/sodium)
-     -
    * - nettle
      - Crypto / TLS
      - 24.7%
      -
      - yes (nettle)
      -
-     -
    * - libgcrypt
      - Crypto / TLS
      - 98.1%
-     -
      -
      -
      -
@@ -177,13 +163,11 @@ languages.
      -
      -
      -
-     -
    * - jansson
      - Serialization
      - 96.2%
      -
      - yes (jansson-sys)
-     -
      -
    * - protobuf_c
      - Serialization
@@ -191,34 +175,29 @@ languages.
      - yes (protobuf)
      - yes (prost)
      - yes (protobuf)
-     -
    * - msgpack
      - Serialization
      - 100.0%
      - yes (msgpack)
      - yes (rmp)
      - yes (msgpack-go)
-     - yes (zig-msgpack)
    * - yaml
      - Serialization
      - 65.9%
      - yes (PyYAML)
      - yes (yaml-rust)
      - yes (go-yaml)
-     - yes (zig-yaml)
    * - expat
      - Serialization
      - 72.3%
      - yes (xml.parsers.expat)
      -
      - yes (encoding/xml)
-     -
    * - libxml2
      - Serialization
      - 56.9%
      - yes (lxml)
      - yes (libxml)
-     -
      -
 
    * - mosquitto
@@ -227,25 +206,21 @@ languages.
      - yes (paho-mqtt)
      - yes (rumqttc)
      - yes (paho.mqtt.golang)
-     -
    * - nanomsg
      - Networking / IO
      - 100.0%
      - yes (nanomsg)
      - yes (nanomsg)
      - yes (go-nanomsg)
-     -
    * - nng
      - Networking / IO
      - 96.4%
      - yes (pynng)
      - yes (nng-rs)
      - yes (go-nng)
-     -
    * - event2
      - Networking / IO
      - 100.0%
-     -
      -
      -
      -
@@ -255,46 +230,39 @@ languages.
      - yes (pyuv)
      - yes (uv)
      -
-     - yes (zig-libuv)
    * - curl
      - Networking / IO
      - 96.5%
      - yes (pycurl)
      - yes (curl-rust)
      - yes (net/http)
-     -
    * - libssh2
      - Networking / IO
      - 97.0%
      - yes (paramiko)
      - yes (ssh2)
      - yes (crypto/ssh)
-     -
    * - libssh
      - Networking / IO
      - 92.7%
      - yes (paramiko)
      -
      - yes (crypto/ssh)
-     -
    * - zeromq
      - Networking / IO
      - 98.9%
      - yes (pyzmq)
      - yes (zmq)
      - yes (pebbe/zmq4)
-     -
    * - libmicrohttpd
      - Networking / IO
      - 85.0%
      -
      -
      -
-     -
    * - libwebsockets
      - Networking / IO
      - 100.0%
-     -
      -
      -
      -
@@ -305,28 +273,24 @@ languages.
      - yes (lmdb)
      - yes (lmdb)
      - yes (bmatsuo/lmdb-go)
-     -
    * - sqlite3
      - Database
      - 97.7%
      - yes (sqlite3)
      - yes (rusqlite)
      - yes (mattn/go-sqlite3)
-     - yes (zig-sqlite)
    * - hiredis
      - Database
      - 85.5%
      - yes (redis-py)
      - yes (redis-rs)
      - yes (go-redis)
-     -
    * - libpq
      - Database
      - 82.2%
      - yes (psycopg2)
      - yes (postgres)
      - yes (lib/pq)
-     -
 
    * - lua
      - Scripting
@@ -334,7 +298,6 @@ languages.
      - yes (lupa)
      - yes (rlua)
      - yes (yuin/gopher-lua)
-     - yes (ziglua)
 
    * - utf8proc
      - String / Text
@@ -342,27 +305,23 @@ languages.
      -
      - yes (utf8proc)
      -
-     -
    * - cmark
      - String / Text
      - 95.0%
      - yes (cmark)
      - yes (comrak)
      - yes (yuin/goldmark)
-     -
    * - pcre2
      - String / Text
      - 100.0%
      -
      - yes (pcre2)
      -
-     -
    * - libonig
      - String / Text
      - 85.7%
      -
      - yes (onig)
-     -
      -
 
    * - libpng
@@ -371,41 +330,35 @@ languages.
      - yes (Pillow)
      - yes (png)
      - yes (image/png)
-     - yes (zig-png)
    * - libjpeg
      - Image / Graphics
      - 94.6%
      - yes (Pillow)
      - yes (jpeg-decoder)
      - yes (image/jpeg)
-     -
    * - giflib
      - Image / Graphics
      - 96.6%
      - yes (Pillow)
      -
      - yes (image/gif)
-     -
    * - cairo
      - Image / Graphics
      - 95.8%
      - yes (pycairo)
      - yes (cairo-rs)
      - yes (nicholasgasior/gocairo)
-     -
    * - sdl2
      - Image / Graphics
      - 100.0%
      - yes (pygame)
      - yes (sdl2)
      - yes (veandco/go-sdl2)
-     - yes (SDL.zig)
    * - libdrm
      - Image / Graphics
      - 92.0%
      -
      - yes (drm-rs)
-     -
      -
    * - opengl
      - Image / Graphics
@@ -413,11 +366,9 @@ languages.
      - yes (PyOpenGL)
      - yes (gl)
      - yes (go-gl)
-     - yes (zgl)
    * - glew
      - Image / Graphics
      - 78.6%
-     -
      -
      -
      -
@@ -428,13 +379,11 @@ languages.
      -
      -
      -
-     -
    * - libsndfile
      - Audio
      - 89.9%
      - yes (soundfile)
      - yes (sndfile)
-     -
      -
    * - opus
      - Audio
@@ -442,13 +391,11 @@ languages.
      - yes (opuslib)
      - yes (opus)
      - yes (hraban/opus)
-     -
    * - vorbis
      - Audio
      - 100.0%
      -
      - yes (lewton)
-     -
      -
 
    * - libffi
@@ -457,41 +404,35 @@ languages.
      - yes (cffi)
      - yes (libffi)
      -
-     -
    * - libelf
      - System / Utility
      - 67.8%
      - yes (pyelftools)
      -
      - yes (debug/elf)
-     -
    * - libseccomp
      - System / Utility
      - 99.4%
      -
      - yes (libseccomp)
      - yes (seccomp-golang)
-     -
    * - libcap
      - System / Utility
      - 95.7%
      -
      - yes (caps-rs)
      - yes (syndtr/gocapability)
-     -
    * - libsystemd
      - System / Utility
      - 81.0%
      - yes (pystemd)
      - yes (zbus)
      - yes (coreos/go-systemd)
-     -
    * - libudev
      - System / Utility
      - 98.1%
      - yes (pyudev)
      - yes (udev-rs)
-     -
      -
    * - libbpf
      - System / Utility
@@ -499,7 +440,6 @@ languages.
      -
      - yes (libbpf-rs)
      - yes (cilium/ebpf)
-     -
 
    * - gsl
      - Math / Science
@@ -507,13 +447,11 @@ languages.
      -
      - yes (GSL)
      -
-     -
    * - fftw3
      - Math / Science
      - 59.1%
      - yes (pyFFTW)
      - yes (fftw)
-     -
      -
 
    * - libusb
@@ -522,20 +460,17 @@ languages.
      - yes (pyusb)
      - yes (rusb)
      - yes (google/gousb)
-     -
    * - hidapi
      - Hardware / Embedded
      - 97.4%
      - yes (hidapi)
      - yes (hidapi)
      - yes (karalabe/hid)
-     -
    * - libgpiod
      - Hardware / Embedded
      - 100.0%
      - yes (gpiod)
      - yes (gpiod)
-     -
      -
 
    * - libnvme
@@ -544,18 +479,15 @@ languages.
      - yes (libnvme)
      -
      -
-     -
    * - liburing
      - Storage
      - 95.7%
      -
      - yes (io-uring)
      -
-     - yes (zig-liburing)
    * - libaio
      - Storage
      - 93.8%
-     -
      -
      -
      -
@@ -563,7 +495,7 @@ languages.
 The **Parse rate** column shows the percentage of entities in the library's
 headers that yace successfully parses. A rate below 100% means some C idioms
 in that library are not yet handled (see the next section for details). The
-**Python**, **Rust**, **Go**, and **Zig** columns indicate whether the library
+**Python**, **Rust**, and **Go** columns indicate whether the library
 has well-known bindings or wrappers for those languages --- these are the
 languages where yace-generated FFI can complement or replace hand-written
 bindings.
