@@ -30,7 +30,7 @@ Entity Listing
 
 * ``f64_tspec``: :py:class:`yace.ir.datatypes.F64`; Floating point numerical value, possibly 64 bits wide
 
-* ``function_pointer_tspec``: :py:class:`yace.ir.datatypes.FunctionPointer`; Function pointer
+* ``function_pointer_tspec``: :py:class:`yace.ir.datatypes.FunctionPointer`; Function pointer with full signature information.
 
 * ``i_tspec``: :py:class:`yace.ir.datatypes.I`; Signed integer at least 16 bits wide.
 
