@@ -45,5 +45,5 @@ plenty of things to do.
    ir/index.rst
    targets/index.rst
    tools/index.rst
+   survey/index.rst
    codebase/index.rst
-   background/index.rst
