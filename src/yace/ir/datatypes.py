@@ -201,10 +201,10 @@ class Typespec(Entity):
             spelling.append(f"enum {self.sym}")
         elif self.pointer and self.ret is not None:
             # Function pointer with full signature
-            params = ", ".join(
-                self._param_c_spelling(p)
-                for p in (self.parameters or [])
-            ) or "void"
+            params = (
+                ", ".join(self._param_c_spelling(p) for p in (self.parameters or []))
+                or "void"
+            )
             sym = self.sym or ""
             return f"{self.ret.c_spelling()} (*{sym})({params})"
         elif self.pointer and self.pointee is not None:
@@ -222,15 +222,50 @@ class Typespec(Entity):
 
         return " ".join(spelling)
 
-    _C_RESERVED = frozenset({
-        "auto", "break", "case", "char", "const", "continue", "default",
-        "do", "double", "else", "enum", "extern", "float", "for", "goto",
-        "if", "inline", "int", "long", "register", "restrict", "return",
-        "short", "signed", "sizeof", "static", "struct", "switch",
-        "typedef", "union", "unsigned", "void", "volatile", "while",
-        "_Bool", "_Complex", "_Imaginary",
-        "bool", "true", "false",  # C99/C11 via stdbool.h
-    })
+    _C_RESERVED = frozenset(
+        {
+            "auto",
+            "break",
+            "case",
+            "char",
+            "const",
+            "continue",
+            "default",
+            "do",
+            "double",
+            "else",
+            "enum",
+            "extern",
+            "float",
+            "for",
+            "goto",
+            "if",
+            "inline",
+            "int",
+            "long",
+            "register",
+            "restrict",
+            "return",
+            "short",
+            "signed",
+            "sizeof",
+            "static",
+            "struct",
+            "switch",
+            "typedef",
+            "union",
+            "unsigned",
+            "void",
+            "volatile",
+            "while",
+            "_Bool",
+            "_Complex",
+            "_Imaginary",
+            "bool",
+            "true",
+            "false",  # C99/C11 via stdbool.h
+        }
+    )
 
     def c_decl(self, name=""):
         """
@@ -246,10 +281,10 @@ class Typespec(Entity):
 
         # Function pointer with full signature — name goes inside (*name)
         if self.pointer and self.ret is not None:
-            params = ", ".join(
-                self._param_c_decl(p)
-                for p in (self.parameters or [])
-            ) or "void"
+            params = (
+                ", ".join(self._param_c_decl(p) for p in (self.parameters or []))
+                or "void"
+            )
             return f"{self.ret.c_spelling()} (*{name})({params})"
 
         # Pointer to function pointer — name goes inside (**name)
@@ -260,10 +295,10 @@ class Typespec(Entity):
             and self.pointee.ret is not None
         ):
             ptee = self.pointee
-            params = ", ".join(
-                self._param_c_decl(p)
-                for p in (ptee.parameters or [])
-            ) or "void"
+            params = (
+                ", ".join(self._param_c_decl(p) for p in (ptee.parameters or []))
+                or "void"
+            )
             return f"{ptee.ret.c_spelling()} (**{name})({params})"
 
         # Array type — name goes between base type and [N]
@@ -300,10 +335,10 @@ class FunctionPointer(Typespec):
 
     def c_spelling(self):
         if self.ret is not None:
-            params = ", ".join(
-                self._param_c_spelling(p)
-                for p in (self.parameters or [])
-            ) or "void"
+            params = (
+                ", ".join(self._param_c_spelling(p) for p in (self.parameters or []))
+                or "void"
+            )
             sym = self.sym or ""
             return f"{self.ret.c_spelling()} (*{sym})({params})"
         # Fallback: just the typedef name
@@ -311,10 +346,10 @@ class FunctionPointer(Typespec):
 
     def c_decl(self, name=""):
         if self.ret is not None:
-            params = ", ".join(
-                self._param_c_decl(p)
-                for p in (self.parameters or [])
-            ) or "void"
+            params = (
+                ", ".join(self._param_c_decl(p) for p in (self.parameters or []))
+                or "void"
+            )
             return f"{self.ret.c_spelling()} (*{name})({params})"
         # Fallback: use the typedef name as the type, append the field name
         spelling = self.sym or "void (*)(void)"

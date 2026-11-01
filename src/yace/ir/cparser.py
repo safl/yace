@@ -71,7 +71,7 @@ def get_fixed_width(tokens):
 def _fptr_typespec(
     proto: clang.cindex.Type, sym: str, cursor: clang.cindex.Cursor
 ) -> Tuple[Optional[datatypes.FunctionPointer], Optional[Error]]:
-    """Build a FunctionPointer typespec with full signature from a FUNCTIONPROTO type."""
+    """Build a FunctionPointer typespec with its signature from a FUNCTIONPROTO."""
 
     ret_typespec, err = typekind_to_typespec(proto.get_result(), cursor)
     if err:
@@ -360,7 +360,9 @@ class CParser(object):
             return str(include_dir.parent)
 
         # Fallback: search common system paths
-        for ver in sorted(Path("/usr/lib").glob("llvm-*/lib/clang/*/include"), reverse=True):
+        for ver in sorted(
+            Path("/usr/lib").glob("llvm-*/lib/clang/*/include"), reverse=True
+        ):
             if (ver / "stddef.h").exists():
                 return str(ver)
 
@@ -451,9 +453,7 @@ class CParser(object):
                 lines.append(f"    __yace_{name} = {name},\n")
             lines.append("};\n")
 
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".c", delete=True
-            ) as tmp:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".c", delete=True) as tmp:
                 tmp.write("".join(lines))
                 tmp.flush()
 
@@ -738,7 +738,9 @@ class CParser(object):
                     case _:
                         error = Error(message=f"Unhandled cursor({cursor.kind})")
             except Exception as exc:
-                errors.append(Error(message=f"Exception parsing {cursor.spelling}: {exc}"))
+                errors.append(
+                    Error(message=f"Exception parsing {cursor.spelling}: {exc}")
+                )
                 continue
 
             if error:
@@ -765,8 +767,7 @@ class CParser(object):
                     resolved_msgs.add(f"'#define {name}'")  # expression macros
                     resolved_msgs.add(f"sym({name}),")  # alias macros
                 errors = [
-                    e for e in errors
-                    if not any(msg in str(e) for msg in resolved_msgs)
+                    e for e in errors if not any(msg in str(e) for msg in resolved_msgs)
                 ]
                 # Add Define entities for evaluated macros
                 for name, value in evaluated.items():
@@ -776,9 +777,7 @@ class CParser(object):
                         val = constants.Hex(lit=value)
                     else:
                         val = constants.Dec(lit=value)
-                    entities.append(
-                        constants.Define(sym=name, val=val).model_dump()
-                    )
+                    entities.append(constants.Define(sym=name, val=val).model_dump())
 
         return entities, errors
 

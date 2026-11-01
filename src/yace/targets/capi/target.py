@@ -38,7 +38,6 @@ from yace.targets.target import Target
 from yace.tools import ClangFormat, Doxygen, Gcc
 from yace.transformations import CStyle
 
-
 _INTEGER_KEY_TO_FMT = {
     "i_tspec": "%d",
     "u_tspec": "%u",
@@ -97,13 +96,22 @@ def collect_forward_decls(entities):
 
     Returns a list of (tag, sym) tuples where tag is 'struct' or 'union'.
     """
-    entity_syms = {e.sym for e in entities if hasattr(e, 'key') and e.key in ("struct_decl", "union_decl")}
+    entity_syms = {
+        e.sym
+        for e in entities
+        if hasattr(e, "key") and e.key in ("struct_decl", "union_decl")
+    }
     seen = {}  # sym -> tag
 
     def _scan_typespec(typ):
         if typ is None:
             return
-        if typ.struct and typ.sym and typ.sym not in entity_syms and typ.sym not in seen:
+        if (
+            typ.struct
+            and typ.sym
+            and typ.sym not in entity_syms
+            and typ.sym not in seen
+        ):
             seen[typ.sym] = "struct"
         if typ.union and typ.sym and typ.sym not in entity_syms and typ.sym not in seen:
             seen[typ.sym] = "union"
@@ -117,22 +125,23 @@ def collect_forward_decls(entities):
                     ptyp = p["typ"]
                     if isinstance(ptyp, dict):
                         from yace.ir.datatypes import Typespec
+
                         ptyp = Typespec(**ptyp)
                     _scan_typespec(ptyp)
 
     for entity in entities:
         # Scan function parameters
-        if hasattr(entity, 'parameters') and entity.parameters:
+        if hasattr(entity, "parameters") and entity.parameters:
             for param in entity.parameters:
-                if hasattr(param, 'typ'):
+                if hasattr(param, "typ"):
                     _scan_typespec(param.typ)
         # Scan struct/union members
-        if hasattr(entity, 'members') and entity.members:
+        if hasattr(entity, "members") and entity.members:
             for member in entity.members:
-                if hasattr(member, 'typ'):
+                if hasattr(member, "typ"):
                     _scan_typespec(member.typ)
         # Scan return types
-        if hasattr(entity, 'ret') and entity.ret:
+        if hasattr(entity, "ret") and entity.ret:
             _scan_typespec(entity.ret)
 
     return [(tag, sym) for sym, tag in sorted(seen.items())]
@@ -220,10 +229,22 @@ class CAPI(Target):
                         _enum_member_syms.add(msym)
 
         _STDLIB_TYPES = {
-            "size_t", "ssize_t", "ptrdiff_t", "intptr_t", "uintptr_t",
-            "int8_t", "int16_t", "int32_t", "int64_t",
-            "uint8_t", "uint16_t", "uint32_t", "uint64_t",
-            "wchar_t", "FILE", "va_list",
+            "size_t",
+            "ssize_t",
+            "ptrdiff_t",
+            "intptr_t",
+            "uintptr_t",
+            "int8_t",
+            "int16_t",
+            "int32_t",
+            "int64_t",
+            "uint8_t",
+            "uint16_t",
+            "uint32_t",
+            "uint64_t",
+            "wchar_t",
+            "FILE",
+            "va_list",
         }
 
         def is_ffi_compatible(entity):
@@ -303,6 +324,7 @@ class CAPI(Target):
                         ptyp = p["typ"]
                         if isinstance(ptyp, dict):
                             from yace.ir.datatypes import Typespec as _Ts
+
                             ptyp = _Ts(**ptyp)
                         if _has_ffi_issue(ptyp):
                             return True
@@ -317,7 +339,14 @@ class CAPI(Target):
             if typ.struct or typ.union or typ.enum:
                 return False
             # Primitives with a sym (e.g. int, char) are fine
-            if typ.integer or typ.boolean or typ.character or typ.real or typ.void or typ.size:
+            if (
+                typ.integer
+                or typ.boolean
+                or typ.character
+                or typ.real
+                or typ.void
+                or typ.size
+            ):
                 return False
             # Pointers to known types are fine (the pointee carries the type)
             if typ.pointer and typ.pointee:
@@ -330,7 +359,8 @@ class CAPI(Target):
         def topo_sort_records(entities):
             """Sort struct/union entities so by-value dependencies come first."""
             records = [
-                e for e in entities
+                e
+                for e in entities
                 if getattr(e, "key", "") in ("struct_decl", "union_decl")
             ]
             sym_to_entity = {}
@@ -344,7 +374,12 @@ class CAPI(Target):
                 deps = set()
                 for m in getattr(entity, "members", []) or []:
                     typ = getattr(m, "typ", None)
-                    if typ and not typ.pointer and (typ.struct or typ.union) and typ.sym:
+                    if (
+                        typ
+                        and not typ.pointer
+                        and (typ.struct or typ.union)
+                        and typ.sym
+                    ):
                         if typ.sym in sym_to_entity:
                             deps.add(typ.sym)
                 return deps
@@ -460,9 +495,7 @@ class CAPI(Target):
                 .split()
             )
             extra_ldflags = (
-                check_output(["pkg-config", "--libs", model.meta.pkg])
-                .decode()
-                .split()
+                check_output(["pkg-config", "--libs", model.meta.pkg]).decode().split()
             )
 
         binary = self.output / f"{model.meta.prefix}_check"
@@ -478,7 +511,8 @@ class CAPI(Target):
         if rcode:
             return rcode
 
-        from subprocess import STDOUT, run as subprocess_run
+        from subprocess import STDOUT
+        from subprocess import run as subprocess_run
 
         logpath = (self.output / "check.log").resolve()
         with logpath.open("w") as logfile:

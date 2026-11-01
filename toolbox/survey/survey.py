@@ -41,6 +41,7 @@ REPORT_FILE = SCRIPT_DIR / "report.md"
 # File loaders
 # ---------------------------------------------------------------------------
 
+
 def load_tsv(path: Path, min_cols: int = 2) -> List[List[str]]:
     """Load a TSV file, skipping comments and blank lines."""
     rows = []
@@ -85,6 +86,7 @@ def load_repos() -> List[Tuple[str, str, str, Set[str]]]:
 # Download / clone helpers
 # ---------------------------------------------------------------------------
 
+
 def download_headers(entries: List[Tuple[str, str]]) -> None:
     """Download vendored headers, skipping cached ones."""
     HEADERS_DIR.mkdir(parents=True, exist_ok=True)
@@ -115,7 +117,9 @@ def clone_repos(entries: List[Tuple[str, str, str, Set[str]]]) -> None:
         try:
             subprocess.run(
                 ["git", "clone", "--depth", "1", git_url, str(dest)],
-                capture_output=True, text=True, timeout=120,
+                capture_output=True,
+                text=True,
+                timeout=120,
             )
             print("ok")
         except Exception as e:
@@ -125,6 +129,7 @@ def clone_repos(entries: List[Tuple[str, str, str, Set[str]]]) -> None:
 # ---------------------------------------------------------------------------
 # Error categorization
 # ---------------------------------------------------------------------------
+
 
 def categorize_error(err_msg: str) -> str:
     """Categorize a .status error line into a short category string."""
@@ -160,6 +165,7 @@ def categorize_error(err_msg: str) -> str:
 # yace runner
 # ---------------------------------------------------------------------------
 
+
 def parse_status_file(status_path: Path) -> Optional[Tuple[int, int, Dict[str, int]]]:
     """Parse a .status file. Returns (parsed, skipped, error_cats) or None."""
     if not status_path.exists():
@@ -191,7 +197,9 @@ def run_yace_on_header(header: Path, outdir: Path) -> Dict[str, Any]:
     try:
         subprocess.run(
             ["yace", str(header), "--output", str(outdir) + "/"],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
     except subprocess.TimeoutExpired:
         return {"status": "timeout"}
@@ -218,6 +226,7 @@ def run_yace_on_header(header: Path, outdir: Path) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Generator runner
 # ---------------------------------------------------------------------------
+
 
 def run_generators(
     name: str, yaml_path: Path, outdir: Path, pkg_name: str
@@ -251,11 +260,16 @@ def run_generators(
         try:
             proc = subprocess.run(
                 [
-                    "yace", str(yaml_path),
-                    "--emit", target,
-                    "--output", str(target_outdir) + "/",
+                    "yace",
+                    str(yaml_path),
+                    "--emit",
+                    target,
+                    "--output",
+                    str(target_outdir) + "/",
                 ],
-                capture_output=True, text=True, timeout=120,
+                capture_output=True,
+                text=True,
+                timeout=120,
             )
             if proc.returncode == 0:
                 result[target] = "ok"
@@ -317,13 +331,15 @@ def run_generators_on_results(
 # Survey runners
 # ---------------------------------------------------------------------------
 
+
 def _system_include_dirs() -> List[str]:
     """Return system include directories (base + multiarch)."""
     dirs = ["/usr/include"]
     try:
         arch = subprocess.check_output(
             ["dpkg-architecture", "-qDEB_HOST_MULTIARCH"],
-            text=True, stderr=subprocess.DEVNULL,
+            text=True,
+            stderr=subprocess.DEVNULL,
         ).strip()
         if arch:
             dirs.append(f"/usr/include/{arch}")
@@ -468,9 +484,7 @@ def run_vendored_survey(entries: List[Tuple[str, str]]) -> Dict[str, Any]:
     return results
 
 
-def run_repo_survey(
-    entries: List[Tuple[str, str, str, Set[str]]]
-) -> Dict[str, Any]:
+def run_repo_survey(entries: List[Tuple[str, str, str, Set[str]]]) -> Dict[str, Any]:
     """Run yace on each header in cloned repos, aggregating per-repo."""
     results: Dict[str, Any] = {}
 
@@ -483,7 +497,8 @@ def run_repo_survey(
 
         pattern = str(repo_dir / include_glob)
         headers = sorted(
-            p for p in (Path(f) for f in globmod.glob(pattern, recursive=True))
+            p
+            for p in (Path(f) for f in globmod.glob(pattern, recursive=True))
             if p.name not in excludes
         )
         if not headers:
@@ -542,6 +557,7 @@ def run_repo_survey(
 # Report generation
 # ---------------------------------------------------------------------------
 
+
 def _results_table(
     items: List[Tuple[str, Dict[str, Any]]], show_headers: bool = False
 ) -> List[str]:
@@ -560,7 +576,9 @@ def _results_table(
         lines.append(
             "| # | Library | Parsed | Skipped | Total | Rate | Top Skip Reason |"
         )
-        lines.append("|---|---------|--------|---------|-------|------|-----------------|")
+        lines.append(
+            "|---|---------|--------|---------|-------|------|-----------------|"
+        )
 
     for i, (name, data) in enumerate(items, 1):
         top_err = ""
@@ -607,8 +625,7 @@ def generate_report(results: Dict[str, Any]) -> str:
     packaged = {k: v for k, v in ok.items() if v.get("source") == "packaged"}
     repos = {k: v for k, v in ok.items() if v.get("source") == "repo"}
     vendored = {
-        k: v for k, v in ok.items()
-        if v.get("source") not in ("packaged", "repo")
+        k: v for k, v in ok.items() if v.get("source") not in ("packaged", "repo")
     }
 
     # Packaged libraries
@@ -666,9 +683,7 @@ def generate_report(results: Dict[str, Any]) -> str:
             status = data.get("status", "unknown")
             detail = data.get("deb_pkg", "")
             if not detail:
-                detail = data.get(
-                    "stderr", data.get("error", data.get("raw", ""))
-                )[:80]
+                detail = data.get("stderr", data.get("error", data.get("raw", "")))[:80]
             lines.append(f"| {name} | {status} | {detail} |")
         lines.append("")
 
@@ -732,27 +747,25 @@ def generate_report(results: Dict[str, Any]) -> str:
         lines.append("")
 
     # Generator results (if any)
-    gen_libs = {
-        k: v for k, v in ok.items() if "generators" in v
-    }
+    gen_libs = {k: v for k, v in ok.items() if "generators" in v}
     if gen_libs:
         lines.append("## Generator Results\n")
 
         # Aggregate stats
         capi_ok = sum(
-            1 for v in gen_libs.values()
-            if v["generators"].get("capi") == "ok"
+            1 for v in gen_libs.values() if v["generators"].get("capi") == "ok"
         )
         capi_fail = sum(
-            1 for v in gen_libs.values()
+            1
+            for v in gen_libs.values()
             if v["generators"].get("capi", "").endswith("error")
         )
         ctypes_ok = sum(
-            1 for v in gen_libs.values()
-            if v["generators"].get("ctypes") == "ok"
+            1 for v in gen_libs.values() if v["generators"].get("ctypes") == "ok"
         )
         ctypes_fail = sum(
-            1 for v in gen_libs.values()
+            1
+            for v in gen_libs.values()
             if v["generators"].get("ctypes", "").endswith("error")
         )
 
@@ -762,9 +775,7 @@ def generate_report(results: Dict[str, Any]) -> str:
 
         lines.append("| # | Library | CAPI | Ctypes |")
         lines.append("|---|---------|------|--------|")
-        for i, (name, data) in enumerate(
-            sorted(gen_libs.items()), 1
-        ):
+        for i, (name, data) in enumerate(sorted(gen_libs.items()), 1):
             gen = data["generators"]
             capi = gen.get("capi", "skip")
             ctypes = gen.get("ctypes", "skip")
@@ -773,7 +784,8 @@ def generate_report(results: Dict[str, Any]) -> str:
 
         # List failures with stderr snippets
         gen_failures = {
-            k: v for k, v in gen_libs.items()
+            k: v
+            for k, v in gen_libs.items()
             if v["generators"].get("capi", "") not in ("ok", "no_yaml")
             or v["generators"].get("ctypes", "") not in ("ok", "no_yaml")
         }
@@ -818,30 +830,37 @@ def generate_report(results: Dict[str, Any]) -> str:
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Survey C libraries with yace")
     parser.add_argument(
-        "--skip-download", action="store_true",
+        "--skip-download",
+        action="store_true",
         help="Skip downloading headers and cloning repos (reuse cached)",
     )
     parser.add_argument(
-        "--report-only", action="store_true",
+        "--report-only",
+        action="store_true",
         help="Only regenerate report from existing results.json",
     )
     parser.add_argument(
-        "--packaged-only", action="store_true",
+        "--packaged-only",
+        action="store_true",
         help="Only survey packaged (Debian) libraries",
     )
     parser.add_argument(
-        "--vendored-only", action="store_true",
+        "--vendored-only",
+        action="store_true",
         help="Only survey vendored/header-only libraries",
     )
     parser.add_argument(
-        "--repos-only", action="store_true",
+        "--repos-only",
+        action="store_true",
         help="Only survey cloned repos",
     )
     parser.add_argument(
-        "--with-generators", action="store_true",
+        "--with-generators",
+        action="store_true",
         help="After parsing, run capi and ctypes generators on each library",
     )
     args = parser.parse_args()

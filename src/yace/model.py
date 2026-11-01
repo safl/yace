@@ -129,11 +129,17 @@ class Model(BaseModel):
             elif attr in ["members", "parameters"]:
                 items = []
                 for child in cur.get(attr) or []:
-                    if isinstance(child, dict) and "key" not in child and "typ" in child:
-                        # Function pointer parameter descriptor: {"sym": ..., "typ": ...}
+                    if (
+                        isinstance(child, dict)
+                        and "key" not in child
+                        and "typ" in child
+                    ):
+                        # Function pointer parameter: {"sym": ..., "typ": ...}
                         child = dict(child)
                         if child["typ"] is not None:
-                            child["typ"] = cls.entity_from_data(child["typ"], cur, depth + 1)
+                            child["typ"] = cls.entity_from_data(
+                                child["typ"], cur, depth + 1
+                            )
                         items.append(child)
                     else:
                         items.append(cls.entity_from_data(child, cur, depth + 1))
