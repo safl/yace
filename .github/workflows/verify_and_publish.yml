@@ -1,0 +1,135 @@
+---
+name: verify_and_publish
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths-ignore:
+    - "docs/**"
+    - "**.md"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Grab source
+      uses: actions/checkout@v5.0.1
+
+    - name: Set up Python
+      uses: actions/setup-python@v6.0.0
+      with:
+        python-version: '3.12'
+
+    - name: Install pre-commit
+      run: |
+        pipx install pre-commit --python python3
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: Run pre-commit
+      run: |
+        make format-all
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Grab source
+      uses: actions/checkout@v5.0.1
+
+    - name: Set up Python
+      uses: actions/setup-python@v6.0.0
+      with:
+        python-version: '3.12'
+
+    - name: Build tools
+      run: |
+        make deps
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: Build the sdist and wheel
+      run: |
+        make build
+
+    - name: Upload the build
+      uses: actions/upload-artifact@v6.0.0
+      with:
+        name: dist
+        path: dist/
+        if-no-files-found: error
+
+  unittest:
+    needs: [format, build]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15]
+        python-version: ['3.12', '3.13']
+
+    steps:
+    - name: Grab source
+      uses: actions/checkout@v5.0.1
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v6.0.0
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Download the build
+      uses: actions/download-artifact@v7.0.0
+      with:
+        name: dist
+        path: dist/
+
+    - name: Install the build and test it
+      run: |
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        export PATH="$HOME/.local/bin:$PATH"
+        make install test
+
+  example:
+    needs: [format, build]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Grab source
+      uses: actions/checkout@v5.0.1
+
+    - name: Set up Python
+      uses: actions/setup-python@v6.0.0
+      with:
+        python-version: '3.12'
+
+    - name: The C toolchain the capi target formats, documents and checks with
+      run: |
+        sudo apt-get -qq update
+        sudo apt-get -qq install -y clang-format doxygen meson ninja-build
+
+    - name: Download the build
+      uses: actions/download-artifact@v7.0.0
+      with:
+        name: dist
+        path: dist/
+
+    - name: Install the build
+      run: |
+        make install
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: Parse libfoo, emit its C API, and compile and run the check
+      run: |
+        make example
+
+    - name: Upload the emitted code
+      if: always()
+      uses: actions/upload-artifact@v6.0.0
+      with:
+        name: example-output
+        path: output/
+        if-no-files-found: ignore

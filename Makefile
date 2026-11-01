@@ -1,6 +1,7 @@
 PROJECT=yace
 AUX_PATH=toolbox
 PIPX_LOCAL_VENVS=$(shell pipx environment --value PIPX_LOCAL_VENVS)
+PYTEST=$(PIPX_LOCAL_VENVS)/$(PROJECT)/bin/pytest
 
 ifeq ($(PLATFORM_ID),Windows)
 else
@@ -20,10 +21,27 @@ endef
 default: help
 
 define all-help
-# Do all: uninstall clean install docs
+# Do all: uninstall clean deps build install test
 endef
 .PHONY: all
-all: uninstall clean install docs
+all: uninstall clean deps build install test
+
+define deps-help
+# Tools for building yace and uploading it to PyPI
+endef
+.PHONY: deps
+deps:
+	pipx install build || true
+	pipx install twine || true
+
+define build-help
+# Build the package (sdist and wheel)
+endef
+.PHONY: build
+build:
+	@echo "## ${PROJECT}: make build"
+	@pyproject-build
+	@echo "## ${PROJECT}: make build [DONE]"
 
 define docker-help
 # drop into a docker instance with the repository bind-mounted at /tmp/yace
@@ -35,18 +53,37 @@ docker:
 	@echo "## ${PROJECT}: docker [DONE]"
 
 define install-help
-# install using pipx and the Python interpreter resolve to by 'python3'
+# install the wheel from 'make build' using pipx, with what 'make test' needs
 endef
 .PHONY: install
 install:
 	@echo "## ${PROJECT}: make install"
+	@pipx install --python python3 --force dist/*.whl
+	@pipx inject yace pytest pytest-cov coverage --force
+	@echo "## ${PROJECT}: make install [DONE]"
+
+define install-source-help
+# install the source tree, editable, using pipx along with the dev tools
+endef
+.PHONY: install-source
+install-source:
+	@echo "## ${PROJECT}: make install-source"
 	@pipx install --python python3 --include-deps --force --editable .[dev]
 	@pipx inject yace black --include-deps
 	@pipx inject yace build --include-deps
 	@pipx inject yace ipdb --include-deps
 	@pipx inject yace isort --include-deps
-	@pipx inject yace pytest --include-deps
-	@echo "## ${PROJECT}: make install [DONE]"
+	@pipx inject yace pytest pytest-cov --include-deps
+	@echo "## ${PROJECT}: make install-source [DONE]"
+
+define test-help
+# run pytest, from the pipx environment of yace, with coverage
+endef
+.PHONY: test
+test:
+	@echo "## ${PROJECT}: make test"
+	@$(PYTEST) --cov=yace --cov-branch tests
+	@echo "## ${PROJECT}: make test [DONE]"
 
 define uninstall-help
 # uninstall via pipx
@@ -109,32 +146,11 @@ endef
 view:
 	less output/*
 
-define release-build-help
-# Produce Python distribution (sdist, bdist_wheel)
-endef
-.PHONY: release-build
-release-build:
-	$(PIPX_LOCAL_VENVS)/yace/bin/python -m build
-
-define release-upload-help
-# Upload Python distribution (sdist, bdist_wheel)
-endef
-.PHONY: release-upload
-release-upload:
-	twine upload dist/*
-
-define release-upload-help
-# Produce + Upload Python distribution (sdist, bdist_wheel)
-endef
-.PHONY: release
-release: clean release-build release-upload
-	@echo -n "# rel: "; date
-
 define docs-build-prep-help
 # Install docs tooling and dependencies
 endef
 .PHONY: docs-build-prep
-docs-build-prep: install
+docs-build-prep: install-source
 	pipx install docs/tooling --force
 	pipx inject yace-docs --editable . --force
 
@@ -196,7 +212,7 @@ format-all:
 	@echo "## ${PROJECT}: format-all [DONE]"
 
 define bump-help
-# run code format (style, code-conventions and language-integrity) on all files
+# bump the patch version in src/yace/__init__.py
 endef
 .PHONY: bump
 bump:
