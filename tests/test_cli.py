@@ -1,0 +1,50 @@
+import json
+import subprocess
+import sys
+
+from tests.conftest import HEADERS
+
+
+def yace(*args):
+    return subprocess.run(
+        [sys.executable, "-m", "yace", *map(str, args)], capture_output=True, text=True
+    )
+
+
+def test_a_header_in_the_subset_passes_strict(tmp_path):
+    proc = yace(HEADERS / "valid.h", "--output", tmp_path, "--strict")
+    assert proc.returncode == 0, proc.stderr
+    assert (tmp_path / "valid.yaml").exists()
+    assert (tmp_path / "valid.status").read_text().startswith("Parsed ")
+
+
+def test_strict_fails_outside_the_subset(tmp_path):
+    header = tmp_path / "bad.h"
+    header.write_text("struct s { unsigned int a : 3; };\n")
+
+    lenient = yace(header, "--output", tmp_path)
+    assert lenient.returncode == 0
+    assert "bitfield" in lenient.stderr
+
+    strict = yace(header, "--output", tmp_path, "--strict")
+    assert strict.returncode == 1
+
+
+def test_meta_is_applied(tmp_path):
+    meta = tmp_path / "meta.yaml"
+    meta.write_text("name: Valid\nprefix: val\nlicense: MIT\n")
+    proc = yace(HEADERS / "valid.h", "--output", tmp_path, "--meta", meta)
+    assert proc.returncode == 0, proc.stderr
+    assert "prefix: val" in (tmp_path / "valid.yaml").read_text()
+
+
+def test_schema(tmp_path):
+    proc = yace("--schema")
+    assert proc.returncode == 0
+    assert "Struct" in json.loads(proc.stdout)["$defs"]
+
+
+def test_unknown_target(tmp_path):
+    proc = yace(HEADERS / "valid.h", "--output", tmp_path, "--emit", "nope")
+    assert proc.returncode == 1
+    assert "no target" in proc.stderr

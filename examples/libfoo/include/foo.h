@@ -3,11 +3,11 @@
 
 #include <stdint.h>
 
-#define PLOT_SERIAL "WYRD1234"
-#define PLOT_FOO 0xACDC
-#define PLOT_VERSION_MAJOR 1
-#define PLOT_VERSION_MINOR 2
-#define PLOT_VERSION_PATCH 3
+#define PLOT_SERIAL "WYRD1234" ///< Serial number of the plotter
+#define PLOT_FOO 0xACDC        ///< A magic value
+#define PLOT_VERSION_MAJOR 1   ///< Major version
+#define PLOT_VERSION_MINOR 2   ///< Minor version
+#define PLOT_VERSION_PATCH 3   ///< Patch version
 
 /**
  * Description of enum

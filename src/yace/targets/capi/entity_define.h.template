@@ -1,8 +1,0 @@
-{% set guard = entity.sym | replace("-", "_") | replace(".", "_") | replace(" ", "_") %}
-#ifndef {{ guard }}
-#define {{ guard }}
-{%- if entity.val.key == "str" %} "{{ entity.val.lit }}"
-{%- elif entity.val.key == "hex" %} 0x{{ '%X' % entity.val.lit }}
-{%- elif entity.val.key == "dec" %} {{ entity.val.lit }}
-{%- endif %}
-#endif

@@ -1,1 +1,1 @@
-yace models/example.yaml --emit capi ctypes --output output
+yace examples/libfoo/include/foo.h --meta examples/libfoo/meta.yaml --output output --emit capi --strict

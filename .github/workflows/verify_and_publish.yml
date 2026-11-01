@@ -106,11 +106,6 @@ jobs:
       with:
         python-version: '3.12'
 
-    - name: The C toolchain the capi target formats, documents and checks with
-      run: |
-        sudo apt-get -qq update
-        sudo apt-get -qq install -y clang-format doxygen meson ninja-build
-
     - name: Download the build
       uses: actions/download-artifact@v7.0.0
       with:
@@ -122,7 +117,7 @@ jobs:
         make install
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-    - name: Parse libfoo, emit its C API, and compile and run the check
+    - name: Parse libfoo strictly, emit its C API, and build and run the check
       run: |
         make example
 

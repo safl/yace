@@ -4,49 +4,34 @@
  Interface Definition
 ======================
 
-In **Yace**, one defines an abstract **FFI** as a subset of valid C.
+In **yace**, the FFI boundary of a C API is described by a C header in a subset
+of C99. The subset is what can be described equivalently in C, C++, Python,
+Rust and Zig: the types, the records and the functions that cross the boundary,
+and nothing that only makes sense in one of them.
 
-Commonly then **FFIs** only enable calling functions. The challenge is then to
-to ensure that the data the function operates on is mapped correctly from one
-language to the other. This is often a delicate and highly error-prone process
-leading to frustation due to unexpected behavior.
+The header is parsed into the IR, the intermediate representation, which the
+targets generate code from. Each target generates code that is idiomatic for its
+language, the C target included: the C header it generates is not the one you
+wrote, but the C API derived from it, and may use what C allows and the subset
+does not.
 
-Issues arise alread in the representation of data types, onwards to a lack
-in equivalent representation of data structures. **Yace** seeks to lower this
-frustration by:
+What is the same across all of them is the ABI: the layout of every record and
+the signature of every function. The IR records the layout as the compiler laid
+it out, and every target checks what it generates against it.
 
-* Describing the IR
-
-  - How data types are mapped
-  - How data structures are representated
-
-And more importantly **Why**, by describing the portability / interoperability
-of a given C API, and how to turn it into something less frustrating by making
-it more robust and predictable.
-
-As a reference, then the **Yace** IR is by design primarily restricted by
-the FFI capabilties of Rust and Python. These are selected as their serve to
-extremes of statically compiled and safe usage, and dynamically loaded and
-completely unsafe code for rapid prototyping and experimentation.
-
-Here a description of things that are perfectly valid C but dis-allowed in
-**Yace** are described, along with the internal representation and storage
-**format**.
-
-
-* :ref:`sec-ir-files`
-
-  * :ref:`sec-ir-cparser`
-
-* :ref:`sec-ir-entities`
-* :ref:`sec-ir-list`
+* :ref:`sec-ir-csubset`, the subset, and why
+* :ref:`sec-ir-rules`, the rules, as **yace** reports them
+* :ref:`sec-ir-cparser`, parsing a header
+* :ref:`sec-ir-files`, the IR as stored
+* :ref:`sec-ir-entities`, the IR as Python classes
 
 .. toctree::
    :maxdepth: 2
    :hidden:
 
    csubset.rst
-   files.rst
+   rules.rst
    cparser.rst
+   files.rst
    entities/index.rst
    list.rst

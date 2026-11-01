@@ -1,3 +1,5 @@
+import sys
+
 from yace.cli.yace import main
 
-main()
+sys.exit(main())

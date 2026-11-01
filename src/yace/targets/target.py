@@ -1,63 +1,42 @@
 """
-
+The interface of a **yace** target: what generates the bindings of an API for
+one language from its IR. Targets are found through the ``yace.targets`` entry
+point group, so a package can provide one without changes to **yace**.
 """
 
-import os
 from abc import ABC, abstractmethod
+from importlib.metadata import entry_points
+from pathlib import Path
+from typing import Dict, List, Optional
 
 
 class Target(ABC):
-    """
-    Encapsulation of a **yace** Emitter Target (yet). This serves as
-    documentation for what is needed when adding a target to **yace**.
-    Additionally, the Target-constructur sets up commonly used attributes of
-    the Target and creates the sub-directory for artifacts produced by the
-    target. Labelled, as artifacts, as it is not just for the emitted code, but
-    also log-files from running tools, and other similar side-effects.
-    """
+    """Emit code for the IR into '<output>/<NAME>', and check what it emitted"""
 
-    def __init__(self, name, output):
-        self.name = name  # Name of the compiler-target
-        self.output = output / name  # Location to emit code to
+    NAME = ""
 
-        self.headers = []  # Resolved paths to emitted headers
-        self.sources = []  # Resolved paths to emitted sources
-        self.aux = []  # Resolved paths to auxilary files e.g. Doxy Conf
-
-        self.tools = {}  # Dictionary of :class:`yace.tools.Tool` instances
-
-        os.makedirs(self.output, exist_ok=True)
-
-    def is_ready(self):
-        """Pre-flight check, inspect availability of self.tools"""
-
-        return all([tool.exists() for label, tool in self.tools.items()])
+    def __init__(self, output: Path, include: Optional[List[Path]] = None):
+        self.output = Path(output) / self.NAME
+        self.output.mkdir(parents=True, exist_ok=True)
+        self.include = [Path(path) for path in include or []]
 
     @abstractmethod
-    def transform(self, model):
-        """
-        Transform the given model for code-emission.
-        """
+    def emit(self, model) -> list:
+        """Emit the code for 'model'; returns the paths written"""
 
     @abstractmethod
-    def emit(self, model):
-        """
-        Emit code for the given model, using your weapons of choice, common
-        choice would be to utilize an instance of the class:`.Emitter`.
-        """
+    def check(self, model) -> list:
+        """Build and exercise what emit() wrote; returns the failures, if any"""
 
-    @abstractmethod
-    def format(self):
-        """
-        Format the emitted source-code, e.g. call tools such as clang-format,
-        black, isort, rustfmt, etc. depending of what applies to the generated
-        code.
-        """
 
-    @abstractmethod
-    def check(self, model):
-        """
-        Compile the generated code and execute it. Or in case of an interpreted
-        language just execute something verifying the generated code. This
-        could for example be a test-program emitted earlier.
-        """
+def targets() -> Dict[str, type]:
+    """The installed targets by name, loaded when asked for"""
+
+    return {ep.name: ep for ep in entry_points(group="yace.targets")}
+
+
+def load(name: str) -> type:
+    found = targets()
+    if name not in found:
+        raise KeyError(f"no target '{name}'; installed: {', '.join(sorted(found))}")
+    return found[name].load()

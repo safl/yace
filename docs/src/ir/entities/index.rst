@@ -4,15 +4,36 @@
  Entities
 ==========
 
-.. automodule:: yace.ir.base
+The IR is a set of pydantic models. A :py:class:`yace.ir.model.Model` is the
+root; its entities are declarations, in :py:mod:`yace.ir.decls`, and the types
+they use are in :py:mod:`yace.ir.types`.
+
+Model
+=====
+
+.. automodule:: yace.ir.model
    :members:
-   :undoc-members:
 
-.. toctree::
-   :maxdepth: 2
-   :hidden:
+Declarations
+============
 
-   constants.rst
-   datatypes.rst
-   derivedtypes.rst
-   functiontypes.rst
+.. automodule:: yace.ir.decls
+   :members:
+
+Types
+=====
+
+.. automodule:: yace.ir.types
+   :members:
+
+Documentation
+=============
+
+.. automodule:: yace.ir.doc
+   :members:
+
+Diagnostics
+===========
+
+.. automodule:: yace.ir.diagnostics
+   :members:

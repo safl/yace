@@ -56,16 +56,18 @@ all = ["yace[dev]"]
 [project.scripts]
 yace = "yace.cli.yace:main"
 
+[project.entry-points."yace.targets"]
+capi = "yace.targets.capi.target:CAPI"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"yace" = ["**/*.clang-format", "**/*.template"]
+"yace" = ["**/*.template"]
 
 
 [tool.ruff]
 lint.select = ["E", "F", "I"]
-lint.per-file-ignores = { "src/yace/ir/datatypes.py" = ["E742"] }
 
 [tool.pylsp]
 [tool.pylsp.plugins]

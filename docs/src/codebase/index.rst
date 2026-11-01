@@ -4,11 +4,10 @@
  Codebase
 ==========
 
-This is a quick documentation-draft for the parts of the codebase which is not
-directly user-facing. That is, the argumenting-parsing of the
-:ref:`sec-codebase-cli`, the logic-dispatch of the
-:ref:`sec-codebase-compiler`, and the encapsulation of ``Entities`` in the
-:ref:`sec-codebase-model`.
+The parts of the codebase which are not described elsewhere: the
+:ref:`sec-codebase-cli` and the :ref:`sec-codebase-compiler` running the
+targets. The IR is described in :ref:`sec-ir-entities`, and the targets in
+:ref:`sec-targets`.
 
 .. _sec-codebase-toolbox:
 
@@ -36,7 +35,3 @@ TOC
 
   cli.rst
   compiler.rst
-  model.rst
-  transformations.rst
-  emitters.rst
-  errors.rst
