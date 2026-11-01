@@ -4,8 +4,7 @@ Install
 =======
 
 The **yace** command-line tool is implemented in :lang-python:`Python <>`. It
-requires :lang-python:`Python <>` 3.7+ along with the third-party modules:
-:pyyaml:`pyyaml <>` and :jinja2:`jinja2 <>`. **yace** is distributed via the
+requires :lang-python:`Python <>` 3.12+. **yace** is distributed via the
 Python Package Index and thus installable by:
 
 .. literalinclude:: 000_install.cmd
@@ -49,21 +48,9 @@ handful of other tools, compilers, build-systems and documentation generators.
 Install: tools
 --------------
 
-Tools are utilized by the **yace** code-emitter :ref:`sec-targets`, each target
-documents which tools they use, and for what purpose. It is not required to
-install all tools ahead-of-time, since **yace** will exit-early, in case a tool
-is missing and inform you.
-
-However, if you are curious, then have a look at the :ref:`sec-tools` section,
-it describes all the tools currently utilized by :ref:`sec-targets`.
-Additionally, then the scripts in ``toolbox/pkgs/`` install the tools on Ubuntu
-and macOS. These scripts are used by the **yace** CI, thus, they have
-everything needed for :ref:`sec-targets`, plus some additional packages for
-ci-tasks.
-
-Regardless or whether you choose to install the tools ahead-of-time or
-just-in-time, then continue to the next section for a brief introduction to
-using **yace** in the :ref:`sec-usage` section.
+Parsing headers needs nothing more; the libclang it uses is installed with
+**yace**. Checking generated code needs the compiler of the target language,
+for the C target a C compiler, ``cc`` or what ``$CC`` names.
 
 Dockerized Build
 ----------------

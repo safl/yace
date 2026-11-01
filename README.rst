@@ -8,7 +8,7 @@ Welcome to yace
    :target: https://pypi.org/project/yace
    :alt: PyPI
 
-.. image:: https://github.com/safl/yace/actions/workflows/build_deploy.yml/badge.svg
+.. image:: https://github.com/safl/yace/actions/workflows/docs.yml/badge.svg
    :target: https://github.com/safl/yace/actions
    :alt: Build Status
 
@@ -19,9 +19,12 @@ Welcome to yace
    :target: https://github.com/safl/yace/blob/main/.pre-commit-config.yaml
    :alt: pre-commit
 
-**yace** is a foreign-function-interface (FFI) compiler designed to ease the
-development and maintenance of C APIs, their libraries and the
-FFI-bindings/wrappers using them.
+**yace** generates the bindings of a C API for other languages. You describe the
+FFI boundary of the API as a C header, in a subset of C99 that can be described
+equivalently in C, C++, Python, Rust and Zig, and **yace** generates, for each,
+code that is idiomatic for that language: for C, a C API with pretty-printers
+for every struct, union and enum. Headers outside the subset are parsed too,
+with every place they step outside it reported.
 
 * The project is hosted on `GitHUB`_
 

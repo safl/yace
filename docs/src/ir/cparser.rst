@@ -3,29 +3,27 @@
 C Parser
 ========
 
-The **Yace**-file generator, invoked by: ``yace <file.c>``. Below are examples
-of what you can expect to see when running it on C a header.
+Given a C header, ``yace`` parses it into the IR with libclang. Any header can
+be parsed; everything that can be represented is, and every place the header
+steps outside the C subset is reported as a diagnostic, naming the rule, see
+:ref:`sec-ir-rules`. Nothing is dropped or changed without one.
 
-.. note:: The C Parser is implemented using Python bindings to libclang.
-   Thus, libclang must be loadable on the system.
-
-Invoking it
------------
+Invoking it on the example library:
 
 .. literalinclude:: 400_cparser.cmd
    :language: bash
 
 C Header
-~~~~~~~~
+--------
 
 .. literalinclude:: ../../../examples/libfoo/include/foo.h
    :language: c
    :caption:
 
-Yace File
-~~~~~~~~~
+IR
+--
 
-.. literalinclude:: ../../../models/example.yaml
+.. literalinclude:: ../../../output/foo.yaml
    :language: yaml
    :caption:
 
@@ -35,6 +33,4 @@ Implementation
 --------------
 
 .. automodule:: yace.ir.cparser
-   :inherited-members:
    :members:
-   :undoc-members:

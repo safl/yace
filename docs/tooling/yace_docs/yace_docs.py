@@ -96,41 +96,54 @@ def serve():
 
 
 def gen_entities():
-    """Generate the IR entity listing RST file."""
+    """Generate the listing of the IR entities and types, and of the C subset rules"""
 
-    from jinja2 import BaseLoader, Environment
+    import typing
 
-    from yace.model import Model
+    from yace.ir import decls, types
+    from yace.ir.diagnostics import RULES
 
-    template_str = """\
-.. _sec-ir-list:
-
-Entity Listing
-==============
-
-{% for entity in entities %}
-* ``{{ entity.key }}``: :py:class:`{{ entity.mod }}`; {{ entity.doc }}
-{% endfor %}
-"""
     docs_root = find_docs_root()
-    output_path = docs_root / "src" / "ir" / "list.rst"
 
-    template = Environment(loader=BaseLoader()).from_string(template_str)
+    def classes(annotated):
+        union = typing.get_args(annotated)[0]
+        return typing.get_args(union)
 
-    entities = []
-    for key, cls in Model.MAPPING.items():
-        doc, *_ = [
-            x.strip() for x in cls.__dict__.get("__doc__").split("\n") if x.strip()
-        ]
-        entities.append(
-            {
-                "key": key,
-                "mod": ".".join([cls.__module__, cls.__name__]),
-                "doc": doc.replace(":", ""),
-            }
-        )
+    def first_line(cls):
+        doc = (cls.__doc__ or "").strip()
+        return doc.splitlines()[0].rstrip(".") if doc else ""
 
-    output_path.write_text(template.render(entities=entities))
+    lines = [
+        ".. _sec-ir-list:",
+        "",
+        "Entity Listing",
+        "==============",
+        "",
+        "Entities, by ``key``:",
+        "",
+    ]
+    for cls in classes(decls.Entity):
+        key = cls.model_fields["key"].default
+        lines.append(f"* ``{key}``: :py:class:`{cls.__module__}.{cls.__name__}`")
+    lines += ["", "Types, by ``key``:", ""]
+    for cls in classes(types.Type):
+        key = cls.model_fields["key"].default
+        lines.append(f"* ``{key}``: :py:class:`{cls.__module__}.{cls.__name__}`")
+    (docs_root / "src" / "ir" / "list.rst").write_text("\n".join(lines) + "\n")
+
+    lines = [
+        ".. _sec-ir-rules:",
+        "",
+        "Rules",
+        "=====",
+        "",
+        "The rules of the C subset, by the name a diagnostic gives. A header",
+        "breaking one is still parsed; ``--strict`` makes any diagnostic an error.",
+        "",
+    ]
+    for rule, text in RULES.items():
+        lines += [f"``{rule}``", f"  {text}.", ""]
+    (docs_root / "src" / "ir" / "rules.rst").write_text("\n".join(lines))
 
 
 def clean():

@@ -4,35 +4,20 @@
  Targets
 =========
 
-The **yace** emitter targets are encapsulations of the various components
-needed in **yace** to add support for a foreign-function-interface or a C
-API/ABI variant.
+A target generates the code of an API, from its IR, for one language, and
+checks it: that it builds, that its records have the layout recorded in the IR,
+and that it works. Targets are found through the ``yace.targets`` entry point
+group, so a package can provide one without changes to **yace**; see
+:py:mod:`yace.targets.target`.
 
-Ideally, then targets could be defined externally from the yace code-base and
-possibly just be small variations to the targets provided with yace. However,
-at the moment, such pluggable infratructure is not implemented, and one has to
-add the target as part of the targets in the yace package.
-
-* Ensure that ``yets`` are pluggable
-
-  * Produce a cookie-cutter template to create the boiler-plate for a new **yet**
-  * Distribute **yets** via PyPI e.g. ``yace-yet-zig``
-
-For now, this part of **yace** is tied into a single instance of the
-code-emitter. However, this pat of the docs are provided to briefly describe
-the roadmap and intent of **yace**.
-
-A good handful of subsections are provided here, however, they are
-documentation placeholders as they are yet to be written.
+The C target is the one available. Python, Rust, Zig and C++ are planned, each
+generating bindings idiomatic for its language from the same IR.
 
 .. toctree::
    :maxdepth: 2
    :hidden:
 
    capi/index.rst
-   cgo/index.rst
-   cpp/index.rst
-   ctypes/index.rst
-   cython/index.rst
-   rust/index.rst
-   zig/index.rst
+
+.. automodule:: yace.targets.target
+   :members:

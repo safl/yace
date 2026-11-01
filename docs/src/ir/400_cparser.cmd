@@ -1,1 +1,1 @@
-yace tests/parsing/example.h --output output
+yace examples/libfoo/include/foo.h --meta examples/libfoo/meta.yaml --output output

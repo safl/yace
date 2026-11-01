@@ -1,537 +1,212 @@
 """
-The :class:`.CAPI` emits a C API consisting of the following files:
+The C target: an idiomatic C header for the API, pretty-printers for every
+struct, union and enum, and a check program asserting the layout recorded in
+the IR and exercising the pretty-printers
 
-* ``lib{meta.prefix}.h``        -- Library header bundle
-* ``lib{meta.prefix}_core.h``   -- The core API declarations
-* ``lib{meta.prefix}_pp.h``     -- Pretty-printer definitions
-* ``{meta.prefix}_pp.c``        -- Pretty-printer implementation
+Emits, into ``<output>/capi``:
 
-additionally then:
-
-* ``{meta.prefix}_check.c``     -- ``main()`` program checking generated code
-
-This program is utilized by the 'check-stage' and is as such not part of the
-emitted C API but rather a test of it.
-
-Last then:
-
-* ``doxygen.conf``              -- Doxygen configuration for the above
-
-Is emitted, this is to produce DoxyGen documentation for API.
-
-The 'format' stage also emits the files:
-
-* ``hdr.clang-format`` -- clang-format rule-file for header-files
-* ``src.clang-format`` -- clang-format rule-file for source-files
-
-Thus, the above files are what you should expect to see in the output-directory
+* ``lib<prefix>.h``, the C API
+* ``<prefix>_pp.c``, the pretty-printers
+* ``<prefix>_check.c``, the check program
 """
 
-import copy
-import logging as log
+import json
+import os
 import shutil
+import subprocess
+import textwrap
 from pathlib import Path
 
-from yace.emitters import Emitter
-from yace.errors import TransformationError
+import yaml
+from jinja2 import Environment, FileSystemLoader, StrictUndefined
+
+from yace.ir import decls
+from yace.ir.model import Model, host_abi
 from yace.targets.target import Target
-from yace.tools import ClangFormat, Doxygen, Gcc
-from yace.transformations import CStyle
 
-_INTEGER_KEY_TO_FMT = {
-    "i_tspec": "%d",
-    "u_tspec": "%u",
-    "ih_tspec": "%hd",
-    "us_tspec": "%hu",
-    "il_tspec": "%ld",
-    "ul_tspec": "%lu",
-    "ill_tspec": "%lld",
-    "ull_tspec": "%llu",
-}
+from . import cgen
 
-
-def emit_cstr_fmt(typespec):
-    # Arrays decay to pointers in C expressions
-    if typespec.array:
-        return "%p"
-    # Check pointer/function-pointer first — a pointer-to-int is still a pointer
-    if typespec.pointer or typespec.ret is not None:
-        return "%p"
-    elif typespec.character:
-        return "%c"
-    elif typespec.size:
-        return "%zu" if typespec.unsigned else "%zd"
-    elif typespec.integer and typespec.width and typespec.width_fixed:
-        return f'%"PRIx{ typespec.width }"'
-    elif typespec.integer:
-        return _INTEGER_KEY_TO_FMT.get(typespec.key, "%d")
-    elif typespec.boolean:
-        return "%d"
-    elif typespec.enum:
-        return "%d"
-    elif typespec.real:
-        if typespec.width == 64:
-            return "%lf"
-        return "%f"
-
-    return "%d"  # fallback
+# ISO C, strictly; with what glibc declares by default, as the parser saw it
+CFLAGS = [
+    "-std=c11",
+    "-D_DEFAULT_SOURCE",
+    "-pedantic-errors",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+]
 
 
-def emit_cstr_cast(typespec, accessor):
-    """Wrap an accessor with a cast when needed for printf format safety."""
-    if typespec.array:
-        return f"(void *){accessor}"
-    if typespec.ret is not None:
-        # Function pointer: cast via intermediate to avoid ISO C warning
-        return f"(void *)(uintptr_t){accessor}"
-    if typespec.pointer:
-        return f"(void *){accessor}"
-    if typespec.pointee is not None:
-        return f"(void *){accessor}"
-    return accessor
+def comment(text: str) -> str:
+    """Make 'text' safe inside a C block comment"""
+
+    return text.replace("/*", "/ *").replace("*/", "* /")
 
 
-def collect_forward_decls(entities):
-    """Collect all struct/union types that need forward declarations.
+def docblock(doc, indent: str = "") -> str:
+    """'doc' as a Doxygen comment, wrapped, or nothing when it is empty"""
 
-    Returns a list of (tag, sym) tuples where tag is 'struct' or 'union'.
-    """
-    entity_syms = {
-        e.sym
-        for e in entities
-        if hasattr(e, "key") and e.key in ("struct_decl", "union_decl")
-    }
-    seen = {}  # sym -> tag
+    if doc.is_empty():
+        return ""
 
-    def _scan_typespec(typ):
-        if typ is None:
-            return
-        if (
-            typ.struct
-            and typ.sym
-            and typ.sym not in entity_syms
-            and typ.sym not in seen
-        ):
-            seen[typ.sym] = "struct"
-        if typ.union and typ.sym and typ.sym not in entity_syms and typ.sym not in seen:
-            seen[typ.sym] = "union"
-        if typ.pointee:
-            _scan_typespec(typ.pointee)
-        if typ.ret:
-            _scan_typespec(typ.ret)
-        if typ.parameters:
-            for p in typ.parameters:
-                if isinstance(p, dict) and "typ" in p:
-                    ptyp = p["typ"]
-                    if isinstance(ptyp, dict):
-                        from yace.ir.datatypes import Typespec
+    width = 80 - len(indent.expandtabs()) - 3
 
-                        ptyp = Typespec(**ptyp)
-                    _scan_typespec(ptyp)
+    def para(text, prefix=""):
+        lines = textwrap.wrap(
+            comment(text),
+            width,
+            initial_indent=prefix,
+            subsequent_indent="  " if prefix else "",
+        )
+        return [f" * {line}" for line in lines] or [" *"]
 
-    for entity in entities:
-        # Scan function parameters
-        if hasattr(entity, "parameters") and entity.parameters:
-            for param in entity.parameters:
-                if hasattr(param, "typ"):
-                    _scan_typespec(param.typ)
-        # Scan struct/union members
-        if hasattr(entity, "members") and entity.members:
-            for member in entity.members:
-                if hasattr(member, "typ"):
-                    _scan_typespec(member.typ)
-        # Scan return types
-        if hasattr(entity, "ret") and entity.ret:
-            _scan_typespec(entity.ret)
+    body = []
+    if doc.brief:
+        body += para(doc.brief)
+    for paragraph in [p for p in doc.description.split("\n\n") if p]:
+        body += [" *"] + para(paragraph)
+    tags = [
+        ("param", f"{cgen.param_name(name)} {text}")
+        for name, text in doc.params.items()
+    ]
+    tags += [("return", doc.returns)] if doc.returns else []
+    tags += list(doc.tags.items())
+    if tags:
+        body.append(" *")
+    for tag, text in tags:
+        body += para(text, f"@{tag} ")
 
-    return [(tag, sym) for sym, tag in sorted(seen.items())]
+    lines = ["/**"] + body + [" */"]
+    return "\n" + "\n".join(f"{indent}{line}".rstrip() for line in lines)
 
 
-def emit_typespec(typespec, anon: bool = False):
-    return typespec.c_spelling()
+def string_literal(text: str, control: str = "\\{:03o}") -> str:
+    """'text' as a string literal of C, and of the languages escaping as C does;
+    'control' formats a control character, a byte that is not UTF-8, and a '?'
+    followed by another, which C would read as a trigraph"""
+
+    named = {"\\": "\\\\", '"': '\\"', "\n": "\\n", "\t": "\\t", "\r": "\\r"}
+
+    def escape(idx: int, ch: str) -> str:
+        code = ord(ch)
+        if 0xDC80 <= code <= 0xDCFF:
+            return control.format(code - 0xDC00)
+        if code < 0x20 or code == 0x7F or text[idx : idx + 2] == "??":
+            return control.format(code)
+        return ch
+
+    escaped = (named.get(ch) or escape(idx, ch) for idx, ch in enumerate(text))
+    return '"' + "".join(escaped) + '"'
+
+
+def define_value(value) -> str:
+    if isinstance(value, decls.StrLiteral):
+        return string_literal(value.value)
+    if value.base == 16 and value.value >= 0:
+        return hex(value.value)
+    return str(value.value)
 
 
 class CAPI(Target):
-    """
-    Several helper functions
-    """
-
     NAME = "capi"
-    CFLAGS = ["-std=c11", "-pedantic-errors", "-Wall", "-Werror"]
 
-    def __init__(self, output):
-        super().__init__(self.NAME, output)
+    def environment(self) -> Environment:
+        env = Environment(
+            loader=FileSystemLoader(Path(__file__).parent),
+            undefined=StrictUndefined,
+            keep_trailing_newline=True,
+        )
+        env.filters.update(
+            comment=comment,
+            decl=cgen.decl,
+            docblock=docblock,
+            define_value=define_value,
+            field_decl=cgen.field_decl,
+            signature=cgen.signature,
+            tag=cgen.tag,
+        )
+        return env
 
-        self.emitter = Emitter(Path(__file__).parent)
-
-        self.tools["clang-format"] = ClangFormat(self.output)
-        self.tools["doxygen"] = Doxygen(self.output)
-        self.tools["gcc"] = Gcc(self.output)
-
-    def transform(self, model):
-        """
-        Transform the given model
-
-        * Transform symbols according to :class:`yace.transformation.CStyle`
-
-        That it currently the only thing done to the **yace** IR.
-        """
-
-        transformed = copy.deepcopy(model)
-
-        status = CStyle(transformed).walk()
-        if not all([res for res in status]):
-            raise TransformationError("The CStyle transformation failed")
-
-        return transformed
-
-    def emit(self, model):
-        """Emit code"""
-
-        def sanitize_comment(text):
-            """Escape nested comment markers in doc strings."""
-            return text.replace("/*", "/ *").replace("*/", "* /")
-
-        def c_ident(text):
-            """Sanitize text for use as a C identifier."""
-            return text.replace("-", "_").replace(".", "_").replace(" ", "_")
-
-        # Build set of known type symbols from entities
-        _known_syms = set()
-        for e in model.entities:
-            sym = getattr(e, "sym", "")
-            if sym:
-                _known_syms.add(sym)
-
-        # Placeholder — populated after is_ffi_compatible is defined
-        _complete_records = set()
-
-        _building_records = [False]  # mutable container for closure
-
-        def _is_incomplete_field(typ):
-            """Check if a type used as a struct field is incomplete (by-value)."""
-            if _building_records[0]:
-                return False
-            if typ.pointer:
-                return False
-            if (typ.struct or typ.union) and typ.sym:
-                if typ.sym not in _complete_records:
-                    return True
-            return False
-
-        # Collect all enum member syms to detect define/enum collisions
-        _enum_member_syms = set()
-        for e in model.entities:
-            if getattr(e, "key", "") == "enum":
-                for m in getattr(e, "members", []) or []:
-                    msym = getattr(m, "sym", "")
-                    if msym:
-                        _enum_member_syms.add(msym)
-
-        _STDLIB_TYPES = {
-            "size_t",
-            "ssize_t",
-            "ptrdiff_t",
-            "intptr_t",
-            "uintptr_t",
-            "int8_t",
-            "int16_t",
-            "int32_t",
-            "int64_t",
-            "uint8_t",
-            "uint16_t",
-            "uint32_t",
-            "uint64_t",
-            "wchar_t",
-            "FILE",
-            "va_list",
-        }
-
-        def is_ffi_compatible(entity):
-            """Check if an entity can be represented across an FFI boundary."""
-            key = getattr(entity, "key", "")
-            sym = getattr(entity, "sym", "")
-
-            # Skip standard library types that should not be re-emitted
-            if sym in _STDLIB_TYPES:
-                return False
-
-            # Anonymous enums can't be referenced by FFI
-            if key == "enum" and not sym:
-                return False
-
-            # Skip defines that collide with enum member names
-            if key == "define" and sym in _enum_member_syms:
-                return False
-
-            # Function declarations with FFI-incompatible types
-            if key == "function_decl":
-                ret = getattr(entity, "ret", None)
-                if ret and _has_ffi_issue(ret):
-                    return False
-                # Function returning a function pointer — can't emit in C
-                if ret and ret.ret is not None:
-                    return False
-                for param in getattr(entity, "parameters", []) or []:
-                    typ = getattr(param, "typ", None)
-                    if typ and _has_ffi_issue(typ):
-                        return False
-
-            # Function pointer decls with FFI-incompatible types
-            if key == "function_pointer_decl":
-                ret = getattr(entity, "ret", None)
-                if ret and _has_ffi_issue(ret):
-                    return False
-                for param in getattr(entity, "parameters", []) or []:
-                    typ = getattr(param, "typ", None)
-                    if typ and _has_ffi_issue(typ):
-                        return False
-
-            # Struct/union members with FFI-incompatible types
-            if key in ("struct_decl", "union_decl"):
-                for member in getattr(entity, "members", []) or []:
-                    typ = getattr(member, "typ", None)
-                    if typ and _has_ffi_issue(typ):
-                        return False
-                    # Non-pointer struct/union field with incomplete type
-                    if typ and _is_incomplete_field(typ):
-                        return False
-
-            return True
-
-        def _has_ffi_issue(typ):
-            """Check if a typespec has FFI-incompatible attributes."""
-            # Anonymous enum type (no tag)
-            if typ.enum and not typ.sym:
-                return True
-            # Bare enum used by tag (not typedef) — C forbids forward enum refs
-            # and FFI tools can't resolve the enum without a typedef
-            if typ.enum and typ.sym and not typ.pointer and typ.sym not in _known_syms:
-                return True
-            # Function pointer return type without typedef name
-            if typ.ret is not None and not typ.pointer and not typ.sym:
-                return True
-            # Reference to a typedef/type not defined in our entity set
-            if _is_undefined_type_ref(typ):
-                return True
-            # Check pointee recursively
-            if typ.pointee and _has_ffi_issue(typ.pointee):
-                return True
-            # Check function pointer parameters recursively
-            if typ.ret is not None and typ.parameters:
-                for p in typ.parameters:
-                    if isinstance(p, dict) and "typ" in p:
-                        ptyp = p["typ"]
-                        if isinstance(ptyp, dict):
-                            from yace.ir.datatypes import Typespec as _Ts
-
-                            ptyp = _Ts(**ptyp)
-                        if _has_ffi_issue(ptyp):
-                            return True
-            return False
-
-        def _is_undefined_type_ref(typ):
-            """Check if a typespec references a type not in the entity set."""
-            sym = getattr(typ, "sym", "")
-            if not sym:
-                return False
-            # struct/union/enum types are forward-declared, so they're fine
-            if typ.struct or typ.union or typ.enum:
-                return False
-            # Primitives with a sym (e.g. int, char) are fine
-            if (
-                typ.integer
-                or typ.boolean
-                or typ.character
-                or typ.real
-                or typ.void
-                or typ.size
-            ):
-                return False
-            # Pointers to known types are fine (the pointee carries the type)
-            if typ.pointer and typ.pointee:
-                return False
-            # This is a typedef reference; check if it's in our entity set
-            if sym not in _known_syms:
-                return True
-            return False
-
-        def topo_sort_records(entities):
-            """Sort struct/union entities so by-value dependencies come first."""
-            records = [
-                e
+    def context(self, model: Model) -> dict:
+        prefix = cgen.c_ident(model.meta.prefix).upper()
+        entities = model.entities
+        printer = cgen.Printer(model)
+        records = [e for e in entities if isinstance(e, decls.RECORDS)]
+        defaults = {"stdbool.h", "stddef.h", "stdint.h", "stdio.h"}
+        return {
+            "meta": model.meta,
+            "PREFIX": prefix,
+            "guard": f"LIB{prefix}_H",
+            "includes": [
+                f"<{e.name}>" if e.system else f'"{e.name}"'
                 for e in entities
-                if getattr(e, "key", "") in ("struct_decl", "union_decl")
-            ]
-            sym_to_entity = {}
-            for e in records:
-                s = getattr(e, "sym", "")
-                if s:
-                    sym_to_entity[s] = e
-
-            def _deps(entity):
-                """Get by-value struct/union field dependencies."""
-                deps = set()
-                for m in getattr(entity, "members", []) or []:
-                    typ = getattr(m, "typ", None)
-                    if (
-                        typ
-                        and not typ.pointer
-                        and (typ.struct or typ.union)
-                        and typ.sym
-                    ):
-                        if typ.sym in sym_to_entity:
-                            deps.add(typ.sym)
-                return deps
-
-            # Simple topological sort
-            result = []
-            visited = set()
-            visiting = set()
-
-            def _visit(sym):
-                if sym in visited:
-                    return
-                if sym in visiting:
-                    return  # cycle — break it
-                visiting.add(sym)
-                e = sym_to_entity.get(sym)
-                if e:
-                    for dep in _deps(e):
-                        _visit(dep)
-                visiting.discard(sym)
-                visited.add(sym)
-                if e:
-                    result.append(e)
-
-            for e in records:
-                s = getattr(e, "sym", "")
-                if s:
-                    _visit(s)
-                else:
-                    result.append(e)
-
-            return result
-
-        # Populate _complete_records: structs/unions that have members and
-        # whose members pass FFI checks. Temporarily disable the incomplete
-        # field check to avoid circular dependency.
-        _building_records[0] = True
-        for e in model.entities:
-            ekey = getattr(e, "key", "")
-            esym = getattr(e, "sym", "")
-            if ekey in ("struct_decl", "union_decl") and esym:
-                if getattr(e, "members", None) and is_ffi_compatible(e):
-                    _complete_records.add(esym)
-        _building_records[0] = False
-
-        filters = {
-            "emit_cstr_fmt": emit_cstr_fmt,
-            "emit_cstr_cast": emit_cstr_cast,
-            "emit_typespec": emit_typespec,
-            "collect_forward_decls": collect_forward_decls,
-            "sanitize_comment": sanitize_comment,
-            "c_ident": c_ident,
-            "is_ffi_compatible": is_ffi_compatible,
-            "topo_sort_records": topo_sort_records,
+                if isinstance(e, decls.Include) and e.name not in defaults
+            ],
+            "defines": [e for e in entities if isinstance(e, decls.Define)],
+            "enums": [e for e in entities if isinstance(e, decls.Enum)],
+            "records": records,
+            "complete": cgen.ordered_records(model),
+            "typedefs": [e for e in entities if isinstance(e, decls.Typedef)],
+            "functions": [e for e in entities if isinstance(e, decls.Function)],
+            "printer": printer,
+            "helpers": printer.helpers(cgen.ordered_records(model)),
+            "layout": model.meta.abi == host_abi(),
         }
+
+    def emit(self, model: Model) -> list:
+        env = self.environment()
+        context = self.context(model)
+        prefix = model.meta.prefix
 
         files = [
-            (f"lib{model.meta.prefix}_core.h", "file_core.h", self.headers),
-            (f"lib{model.meta.prefix}_pp.h", "file_pp.h", self.headers),
-            (f"lib{model.meta.prefix}.h", "file_bundle.h", self.headers),
-            (f"{model.meta.prefix}_pp.c", "file_pp.c", self.sources),
-            (f"{model.meta.prefix}_check.c", "file_check.c", self.sources),
-            ("doxygen.conf", "doxygen", self.aux),
+            (f"lib{prefix}.h", "header.h.template"),
+            (f"{prefix}_pp.c", "pp.c.template"),
+            (f"{prefix}_check.c", "check.c.template"),
         ]
-        for filename, template, container in files:
-            path = (self.output / filename).resolve()
-            with (path).open("w") as file:
-                content = self.emitter.render(
-                    template,
-                    {
-                        "meta": model.meta,
-                        "entities": model.entities,
-                        "headers": self.headers,
-                    },
-                    filters,
-                )
-                if content[-1] != "\n":
-                    content += "\n"
-                file.write(content)
+        paths = []
+        for filename, template in files:
+            path = self.output / filename
+            path.write_text(env.get_template(template).render(**context))
+            paths.append(path)
 
-            log.info("produced: %s", path)
-            container.append(path)
+        return paths
 
-    def format(self):
-        """
-        Transfer the clang-format definition from package to output and
-        invokes the clang-formater
-        """
+    def check(self, model: Model) -> list:
+        """Build and run the check program; returns what failed, if anything"""
 
-        path = Path(__file__).parent
-        for rules, container in [
-            (ClangFormat.CLANGFORMAT_STYLE_C, self.sources),
-            (ClangFormat.CLANGFORMAT_STYLE_H, self.headers),
-        ]:
-            shutil.copyfile(path / rules, self.output / rules)
-            self.tools["clang-format"].run(
-                [f"--style=file:{rules}", "-i"] + [str(f) for f in container],
-            )
+        prefix = model.meta.prefix
+        cc = os.environ.get("CC", "cc")
+        if not shutil.which(cc):
+            return [f"no C compiler ('{cc}'); set CC"]
 
-        self.tools["doxygen"].run([Doxygen.DOXYGEN_CONF])
-
-    def check(self, model):
-        """Build generated sources and run the generated test-program"""
-
-        extra_cflags = []
-        extra_ldflags = []
-        if model.meta.pkg:
-            from subprocess import check_output
-
-            extra_cflags = (
-                check_output(["pkg-config", "--cflags", model.meta.pkg])
-                .decode()
-                .split()
-            )
-            extra_ldflags = (
-                check_output(["pkg-config", "--libs", model.meta.pkg]).decode().split()
-            )
-
-        binary = self.output / f"{model.meta.prefix}_check"
-
-        rcode, _ = self.tools["gcc"].run(
-            CAPI.CFLAGS
-            + ["-I", str(self.output)]
-            + extra_cflags
-            + [str(p) for p in self.sources]
-            + ["-o", str(binary)]
-            + extra_ldflags
+        binary = self.output / f"{prefix}_check"
+        cmd = [cc, *CFLAGS, "-I", str(self.output)]
+        cmd += [f"-I{path}" for path in self.include]
+        cmd += [
+            str(self.output / f"{prefix}_pp.c"),
+            str(self.output / f"{prefix}_check.c"),
+        ]
+        cmd += ["-o", str(binary)]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        (self.output / "cc.log").write_text(
+            f"{' '.join(cmd)}\n{proc.stdout}{proc.stderr}"
         )
-        if rcode:
-            return rcode
-
-        from subprocess import STDOUT
-        from subprocess import run as subprocess_run
-
-        logpath = (self.output / "check.log").resolve()
-        with logpath.open("w") as logfile:
-            logfile.write(f"# running {binary}\n")
-            logfile.flush()
-            proc = subprocess_run(
-                [str(binary)],
-                stdout=logfile,
-                stderr=STDOUT,
-                check=False,
-                cwd=str(self.output),
-            )
         if proc.returncode:
-            log.error(
-                "check program %s exited with rcode(%d), see %s",
-                binary,
-                proc.returncode,
-                logpath,
-            )
-            return proc.returncode
+            return [f"compiling the check failed:\n{proc.stderr}"]
 
-        return 0
+        failures = []
+        for fmt in ("yaml", "json"):
+            proc = subprocess.run([str(binary), fmt], capture_output=True, text=True)
+            (self.output / f"check.{fmt}").write_text(proc.stdout)
+            if proc.returncode:
+                failures.append(f"the check exited {proc.returncode} printing {fmt}")
+                continue
+            try:
+                if fmt == "yaml":
+                    list(yaml.safe_load_all(proc.stdout))
+                else:
+                    [json.loads(line) for line in proc.stdout.splitlines()]
+            except (yaml.YAMLError, json.JSONDecodeError) as exc:
+                failures.append(f"the pretty-printers print invalid {fmt}: {exc}")
+
+        return failures

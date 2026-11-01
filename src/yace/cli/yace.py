@@ -1,121 +1,161 @@
 #!/usr/bin/env python3
 """
-The is the command-line interface to **yace**.
+The command-line interface of **yace**
 
-TODO
-====
-
-* Discover 'adhoc' targets, e.g. targets available in the
-  current-workding-directory
-* Discover targets via packages under the namespace 'yace.targets.{NAME}`
-
+Given C headers, parses them into the IR, writing '<stem>.yaml' and the
+diagnostics to '<stem>.status', and reports every place the headers step outside
+the C subset. Given IR files, '.yaml', reads them. Either way, '--emit' then
+generates the code of the given targets and checks it.
 """
+
 import argparse
+import json
 import logging as log
 import sys
 from pathlib import Path
 
+import yaml
+
 from yace import __version__ as version
-from yace.compiler import Compiler
+from yace.compiler import process
+from yace.ir import model as ir
 from yace.ir.cparser import c_to_yace
+from yace.targets.target import targets
 
 
 def parse_args():
-    """Parse command-line arguments"""
-
-    parser = argparse.ArgumentParser()
-
+    parser = argparse.ArgumentParser(
+        description="Describe a C API in a subset of C, and generate its bindings"
+    )
     parser.add_argument(
         "filepath",
-        nargs="+",
+        nargs="*",
         type=Path,
-        help="path to one or more Yace-file(s) or C Header(s)",
+        help="C headers (.h) to parse, or IR files (.yaml) to emit code from",
     )
-
     parser.add_argument(
         "--emit",
         nargs="+",
-        choices=sorted([target.NAME for target in Compiler.TARGETS]),
-        default="capi",
-        help="treat filepath(s) as Yace-file, and emit code using target(s), then exit",
+        default=[],
+        metavar="TARGET",
+        help=f"targets to generate code for; installed: {', '.join(sorted(targets()))}",
     )
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=f"%(prog)s {version}",
-    )
-
     parser.add_argument(
         "--output",
         type=Path,
         default=Path.cwd(),
-        help="path to output directory, for emitted code / artifacts",
+        help="directory to write the IR, the status and the generated code to",
     )
+    parser.add_argument(
+        "--meta",
+        type=Path,
+        help="YAML file of the IR meta, such as its name, prefix and license",
+    )
+    parser.add_argument(
+        "-I",
+        dest="include",
+        action="append",
+        default=[],
+        help="include directory, for parsing headers and building the checks",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="fail when a header steps outside the C subset",
+    )
+    parser.add_argument(
+        "--no-check",
+        action="store_true",
+        help="emit the code, but do not build and check it",
+    )
+    parser.add_argument(
+        "--schema", action="store_true", help="print the JSON Schema of the IR"
+    )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {version}")
     parser.add_argument(
         "--log-level",
         "-l",
-        action="append_const",
-        const=1,
-        default=[],
-        help="increase log-level.",
+        action="count",
+        default=0,
+        help="increase the log level",
     )
 
     return parser.parse_args()
 
 
 def main():
-    """Emit enums, structs, and pretty-printer functions for them"""
+    args = parse_args()
 
-    ok = False
-    try:
-        args = parse_args()
-        args.filepath = [filepath.resolve() for filepath in args.filepath]
+    levels = [log.WARNING, log.INFO, log.DEBUG]
+    log.basicConfig(
+        format="%(levelname)s: %(message)s",
+        level=levels[min(args.log_level, len(levels) - 1)],
+    )
 
-        levels = [log.ERROR, log.INFO, log.DEBUG]
-        log.basicConfig(
-            format="%(levelname)s:%(module)s:%(funcName)s(): %(message)s",
-            level=levels[min(sum(args.log_level), len(levels) - 1)],
+    if args.schema:
+        print(json.dumps(ir.schema(), indent=2))
+        return 0
+
+    if not args.filepath:
+        log.error("give C headers (.h) or IR files (.yaml)")
+        return 1
+
+    missing = [str(path) for path in args.filepath if not path.exists()]
+    if missing:
+        log.error("does not exist: %s", ", ".join(missing))
+        return 1
+
+    suffixes = {path.suffix for path in args.filepath}
+    if len(suffixes) != 1 or not suffixes <= {".h", ".yaml"}:
+        log.error("give either C headers (.h) or IR files (.yaml), not %s", suffixes)
+        return 1
+
+    unknown = [name for name in args.emit if name not in targets()]
+    if unknown:
+        log.error("no target %s; installed: %s", unknown, ", ".join(sorted(targets())))
+        return 1
+
+    if ".h" in suffixes:
+        meta = yaml.safe_load(args.meta.read_text()) if args.meta else None
+        args_clang = [f"-I{path}" for path in args.include]
+        results = c_to_yace(args.filepath, args.output, meta, args_clang)
+        violations = 0
+        for path, model, diagnostics in results:
+            for diagnostic in diagnostics:
+                print(diagnostic, file=sys.stderr)
+            violations += len(diagnostics)
+            log.info(
+                "%s: %d entities, %d diagnostics",
+                path.name,
+                len(model.entities),
+                len(diagnostics),
+            )
+        if violations:
+            print(
+                f"yace: {violations} diagnostics; the headers step outside the C"
+                " subset, see the .status files",
+                file=sys.stderr,
+            )
+            if args.strict:
+                return 1
+        models = [model for _, model, _ in results]
+    else:
+        models = [ir.load(path) for path in args.filepath]
+
+    failures = []
+    for model in models:
+        failures += process(
+            model,
+            args.emit,
+            args.output,
+            check=not args.no_check,
+            include=[Path(path) for path in args.include],
         )
+    for failure in failures:
+        print(f"yace: {failure}", file=sys.stderr)
 
-        suffixes = list(
-            set(path.suffix for path in args.filepath if path.suffix in [".h", ".yaml"])
-        )
-        if len(suffixes) != 1:
-            log.error(f"Suffixes({suffixes}); provide either .h or .yaml")
-            return sys.exit(1)
+    return 1 if failures else 0
 
-        missing = [str(path) for path in args.filepath if not path.exists()]
-        if missing:
-            log.error(f"Does not exist: {missing}")
-            return sys.exit(1)
 
-        if suffixes[0] == ".h":  # C to Yace-file Compiler
-            log.info("Got .h will convert to Yace IR")
-
-            entity_count, errors = c_to_yace(args.filepath, args.output)
-            for error in errors:
-                log.warning(error)
-
-            if errors:
-                status_files = [
-                    str(args.output / p.with_suffix(".status").name)
-                    for p in args.filepath
-                ]
-                log.info(
-                    f"Parsed {entity_count} entities, skipped "
-                    f"{len(errors)} constructs -- see {', '.join(status_files)}"
-                )
-
-            return sys.exit(0)
-
-        log.info(f"Got .yaml, will do '{args.emit}'")
-        yace = Compiler(args.emit, args.output)
-        ok = all([yace.process(path, yace.STAGES) for path in args.filepath])
-        return sys.exit(0 if ok else 1)
-
-    except Exception as exc:
-        log.error("Unhandled Exception: message(%s)", exc)
-        log.error("Unhandled Exception: increase log-level (-ll) for trace")
-        log.error("Unhandled Exception(%s)", exc, exc_info=True)
-
-    return sys.exit(1)
+if __name__ == "__main__":
+    sys.exit(main())

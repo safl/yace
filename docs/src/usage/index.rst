@@ -4,90 +4,67 @@
  Usage
 =======
 
-Running **yace** requires that you have:
-
-1. Installed **yace** and auxilary :ref:`sec-tools`
-2. A :ref:`sec-ir` file describing your C API or a Yace-compatible C-header
-
-To satisfy the first point, then see :ref:`sec-install`. For the second
-point, then you can consult :ref:`sec-ir` for reference to define
-a :ref:`sec-ir-files` from scratch.
+You describe the FFI boundary of a C API as a C header, in the subset of C99
+described in :ref:`sec-ir-csubset`. **yace** parses the header into its
+:ref:`sec-ir`, and generates the code of the API for each target language from
+the IR.
 
 Command-Line Interface
 ======================
 
-Invoking the command-line interface of **yace**:
-
 .. literalinclude:: 050_yace_help.cmd
-   :language: yaml
+   :language: bash
    :lines: 1-
-
-looks like
 
 .. literalinclude:: 050_yace_help.out
-   :language: yaml
+   :language: text
    :lines: 1-
 
-.. note::
-   Notice that unless an error occurs then **yace** is silent. To make **yace**
-   chatty, then increase the log-level using the arguments: ``-l`` / ``-ll`` /
-   ``-lll``.
+Given C headers, **yace** writes the IR of each to ``<stem>.yaml`` and its
+diagnostics to ``<stem>.status``, and prints the diagnostics. A diagnostic is a
+place where the header steps outside the C subset; the header is still parsed,
+and its code still generated, but what the diagnostics point at will likely not
+bind well, or at all. With ``--strict``, any diagnostic is an error.
+
+Given IR files, ``.yaml``, **yace** reads them instead. Either way, ``--emit``
+generates the code of the given targets, and checks it, unless ``--no-check``.
+
+The IR has no place in a C header for the name, prefix, license and so on of
+the API; give those in a YAML file with ``--meta``, of the fields of
+:py:class:`yace.ir.model.Meta`.
 
 Example
 =======
 
-To get a quick sense of **yace** then you can utilize this simple example:
+The header of the example library, ``examples/libfoo/include/foo.h``:
 
-.. literalinclude:: ../../../models/example.yaml
+.. literalinclude:: ../../../examples/libfoo/include/foo.h
+   :language: c
+   :caption:
+   :lines: 1-
+
+Its meta, ``examples/libfoo/meta.yaml``:
+
+.. literalinclude:: ../../../examples/libfoo/meta.yaml
    :language: yaml
    :caption:
    :lines: 1-
 
-With it, invoke **yace** like so:
+Parse it, strictly, and generate and check its C API:
 
 .. literalinclude:: 200_example.cmd
    :language: bash
    :lines: 1-
 
-**yace** will then populate the output-directory ``output`` with the following
-emitted code and artifacts:
+which writes:
 
 .. literalinclude:: 300_output.out
-   :language: bash
+   :language: text
    :lines: 1-
 
-Example: capi
--------------
+The C API generated:
 
-The C API header generated from the above looks like:
-
-.. literalinclude:: ../../../output/capi/libfoo_core.h
+.. literalinclude:: ../../../output/capi/libfoo.h
    :language: c
    :caption:
    :lines: 1-
-
-The emitted C header above has been modified by ``clang-format`` after it was
-emitted. This is one of the **stages** that a **yace** target goes through by
-default.
-
-Example: ctypes
----------------
-
-The ``ctypes`` target produces the following:
-
-.. literalinclude:: ../../../output/ctypes/foo.py
-   :language: Python
-   :caption:
-   :lines: 1-
-
-Note, this is early stage of the :ref:`sec-targets-ctypes` target.
-
-Additional Examples
-===================
-
-For more elaborate examples, then take a look at:
-
-* The irs in the **yace** repository at
-  https://github.com/safl/yace/tree/main/models
-* The target-specific output in the :ref:`sec-targets` section
-* The artifacts produces on the :github-yace-actions:`GitHUB Actions Page <>`

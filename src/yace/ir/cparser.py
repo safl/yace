@@ -1,340 +1,188 @@
 """
-The goal of this module is to provide the buildings blocks for a yace-file
-generator. That is, something to aid the creation of **Yace**-files.
+Parse a C header into the **yace** IR
 
-In this specific instance, to parse C Headers, and emit equivalent
-**Yace**-files.
+The header describes an FFI boundary in a subset of C99. Any header is parsed,
+also one outside the subset: everything that can be represented is, and every
+place the header steps outside the subset is reported as a
+:class:`yace.ir.diagnostics.Diagnostic`. Nothing is dropped or changed without
+one, so the IR of a header outside the subset is usable, and the diagnostics say
+what to change for it to be within.
 
-* :class:`.CParser`, parse a C header and emit a **Yace**-file
+* :class:`.CParser` parses a header into a :class:`yace.ir.model.Model`
+* :func:`.c_to_yace` writes the IR and the diagnostics of headers to files
 """
 
 import logging as log
 import os
+import platform
 import re
+import shutil
+import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import clang
-from clang.cindex import Config, CursorKind, Index, TypeKind
-from pydantic import ValidationError
+from clang.cindex import (
+    Config,
+    CursorKind,
+    Index,
+    StorageClass,
+    TokenKind,
+    TranslationUnit,
+    TypeKind,
+)
+from pydantic import BaseModel
 
-import yace
-from yace.errors import Error, ParseError, UnsupportedDatatype
-from yace.ir import constants, datatypes, directives
-from yace.ir.base import Docstring
-from yace.model import Model
+from . import decls, doc, types
+from .diagnostics import Diagnostic
+from .model import Meta, Model, host_abi
 
-REGEX_INTEGER_FIXEDWIDTH = "(?P<unsigned>u)?int(?P<width>8|16|32|64|128)_t"
+BUILTIN_KINDS = {
+    TypeKind.VOID: "void",
+    TypeKind.BOOL: "bool",
+    TypeKind.CHAR_S: "char",
+    TypeKind.CHAR_U: "char",
+    TypeKind.SCHAR: "signed char",
+    TypeKind.UCHAR: "unsigned char",
+    TypeKind.SHORT: "short",
+    TypeKind.USHORT: "unsigned short",
+    TypeKind.INT: "int",
+    TypeKind.UINT: "unsigned int",
+    TypeKind.LONG: "long",
+    TypeKind.ULONG: "unsigned long",
+    TypeKind.LONGLONG: "long long",
+    TypeKind.ULONGLONG: "unsigned long long",
+    TypeKind.FLOAT: "float",
+    TypeKind.DOUBLE: "double",
+}
 
-SHORTHAND_DATA = datatypes.classes_shorthand_data()
+RECORD_KINDS = (CursorKind.STRUCT_DECL, CursorKind.UNION_DECL)
 
-SHORTHAND_TO_CLS = datatypes.get_shorthand_to_cls()
+CALLBACK_SUFFIXES = ("_cb", "_callback", "_fn", "_fun", "_func", "_function")
 
-QUALIFIERS = [("volatile", False), ("restrict", False), ("const", True)]
+# What a typedef of its own name and its record or enum report a missing doc as
+DOCUMENTED = ("struct", "union", "enum", "typedef")
 
-
-def typedef_is_fixed_width_integer(text):
-    """Returns true when the given typedef-spelling is a fixed-width integer typedef"""
-
-    return re.match(f"^{REGEX_INTEGER_FIXEDWIDTH}$", text) is not None
-
-
-def get_fixed_width(tokens):
-    """Returns Typespec-instance for a fixed-width type when applicable"""
-
-    if len(tokens) < 2:
-        return None
-
-    match = re.match(REGEX_INTEGER_FIXEDWIDTH, tokens[-2])
-    if not match:
-        return None
-
-    if len(tokens) > 2:
-        if tokens[0] != "const":
-            return None
-
-    unsigned = match.group("unsigned") == "u"
-    width = int(match.group("width"))
-    shorthand = "".join(["u" if unsigned else "i", str(width), "_tspec"])
-    cls = SHORTHAND_TO_CLS.get(shorthand)
-    if cls is None:
-        return None
-    inst = cls()
-
-    if inst.c_spelling() != " ".join(tokens[:-1]):
-        return None
-
-    return inst
+EVAL_BATCH = 200  # macros evaluated per generated translation unit
 
 
-def _fptr_typespec(
-    proto: clang.cindex.Type, sym: str, cursor: clang.cindex.Cursor
-) -> Tuple[Optional[datatypes.FunctionPointer], Optional[Error]]:
-    """Build a FunctionPointer typespec with its signature from a FUNCTIONPROTO."""
-
-    ret_typespec, err = typekind_to_typespec(proto.get_result(), cursor)
-    if err:
-        return datatypes.FunctionPointer(sym=sym), None  # fallback: no signature
-
-    params = []
-    for i, arg_type in enumerate(proto.argument_types()):
-        ptyp, perr = typekind_to_typespec(arg_type, cursor)
-        if perr:
-            return datatypes.FunctionPointer(sym=sym), None  # fallback
-        params.append({"typ": ptyp, "sym": f"arg{i}"})
-
-    return datatypes.FunctionPointer(sym=sym, ret=ret_typespec, parameters=params), None
+class Unsupported(Exception):
+    """A type that the IR cannot represent; the message says which"""
 
 
-def typekind_to_typespec(
-    tobj: clang.cindex.Type, cursor: clang.cindex.Cursor
-) -> Tuple[Optional[datatypes.Typespec], Error]:
-    canonical = tobj.get_canonical().spelling
-    const = tobj.is_const_qualified()
-
-    # Handle fixed-width integers
-    fw_typ = get_fixed_width([tok.spelling for tok in cursor.get_tokens()])
-    if fw_typ:
-        fw_typ.canonical = fw_typ.c_spelling()
-        fw_typ.const = const
-        return fw_typ, None
-
-    # When a TYPEDEF makes it here...
-    fw_typ = get_fixed_width(tobj.spelling.split(" ") + ["foo"])
-    if fw_typ:
-        fw_typ.canonical = fw_typ.c_spelling()
-        fw_typ.const = const
-        return fw_typ, None
-
-    match tobj.kind:
-        case TypeKind.CHAR_S | TypeKind.CHAR_U:
-            return datatypes.Char(
-                canonical="signed char", signed=True, const=const
-            ), UnsupportedDatatype.from_cursor(
-                cursor,
-                f"Unsupported type({TypeKind.CHAR_S}); from 'char' without sign."
-                f" Coercing '{canonical}' into 'signed char'.",
-            )
-
-        case TypeKind.SCHAR:
-            return datatypes.Char(canonical=canonical, signed=True, const=const), None
-
-        case TypeKind.UCHAR:
-            return datatypes.Char(canonical=canonical, signed=False, const=const), None
-
-        case TypeKind.VOID:
-            return datatypes.Void(canonical=canonical, const=const), None
-
-        case TypeKind.BOOL:
-            return datatypes.Bool(canonical=canonical, const=const), None
-
-        case TypeKind.INT:
-            return datatypes.I(canonical=canonical, const=const), None
-
-        case TypeKind.UINT:
-            return datatypes.U(canonical=canonical, const=const), None
-
-        case TypeKind.SHORT:
-            return datatypes.IShort(canonical=canonical, const=const), None
-
-        case TypeKind.USHORT:
-            return datatypes.UShort(canonical=canonical, const=const), None
-
-        case TypeKind.LONG:
-            return datatypes.ILong(canonical=canonical, const=const), None
-        case TypeKind.ULONG:
-            return datatypes.ULong(canonical=canonical, const=const), None
-
-        case TypeKind.LONGLONG:
-            return datatypes.ILongLong(canonical=canonical, const=const), None
-        case TypeKind.ULONGLONG:
-            return datatypes.ULongLong(canonical=canonical, const=const), None
-
-        case TypeKind.FLOAT:
-            return datatypes.F32(canonical=canonical, const=const), None
-        case TypeKind.DOUBLE:
-            return datatypes.F64(canonical=canonical, const=const), None
-
-        case TypeKind.ENUM:
-            # Bare enum type (not wrapped in ELABORATED)
-            sym = tobj.get_declaration().spelling
-            return (
-                datatypes.Enumeration(
-                    sym=sym, enum=True, canonical=canonical, const=const
-                ),
-                None,
-            )
-
-        case TypeKind.ELABORATED | TypeKind.RECORD:
-            spelling = tobj.spelling
-            # Strip leading const/volatile qualifiers
-            for qual in ("const ", "volatile ", "restrict "):
-                spelling = spelling.removeprefix(qual)
-
-            parts = spelling.split(None, 1)
-            keyword = parts[0] if parts else ""
-
-            if keyword == "struct" and len(parts) == 2:
-                sym = parts[1]
-                if "(unnamed" not in sym:
-                    return (
-                        datatypes.Record(
-                            sym=sym, struct=True, canonical=canonical, const=const
-                        ),
-                        None,
-                    )
-            elif keyword == "union" and len(parts) == 2:
-                sym = parts[1]
-                if "(unnamed" not in sym:
-                    return (
-                        datatypes.Record(
-                            sym=sym, union=True, canonical=canonical, const=const
-                        ),
-                        None,
-                    )
-            elif keyword == "enum" and len(parts) == 2:
-                sym = parts[1]
-                return (
-                    datatypes.Enumeration(
-                        sym=sym, enum=True, canonical=canonical, const=const
-                    ),
-                    None,
-                )
-
-            # Typedef-based elaborated type (e.g., "const point_t") or
-            # unnamed struct/union — resolve via canonical type
-            canonical_type = tobj.get_canonical()
-            if canonical_type.kind != tobj.kind:
-                return typekind_to_typespec(canonical_type, cursor)
-
-            return None, ParseError.from_cursor(
-                message=f"Unresolved elaborated type: {tobj.spelling}",
-                cursor=cursor,
-            )
-
-        case TypeKind.POINTER:
-            pointee = tobj.get_pointee()
-
-            # Special-case for string-representation
-            if pointee.is_const_qualified() and pointee.kind == TypeKind.CHAR_S:
-                return datatypes.CString(), None
-
-            # Special-case for function pointers: void (*cb)(int, int)
-            if pointee.kind == TypeKind.FUNCTIONPROTO:
-                return _fptr_typespec(pointee, tobj.spelling, cursor)
-
-            # General case pointer to anything, everything, or nothing ;)
-            typespec, error = typekind_to_typespec(pointee, cursor)
-            if error:
-                return None, error
-
-            return (
-                datatypes.Pointer(pointee=typespec, canonical=canonical, const=const),
-                None,
-            )
-
-        case TypeKind.TYPEDEF:
-            # Preserve well-known platform typedefs instead of canonicalizing
-            _KNOWN_TYPEDEFS = {
-                "size_t": lambda: datatypes.USize(canonical="size_t"),
-                "ssize_t": lambda: datatypes.ISize(canonical="ssize_t"),
-            }
-            typedef_name = tobj.spelling
-            if typedef_name in _KNOWN_TYPEDEFS:
-                typ = _KNOWN_TYPEDEFS[typedef_name]()
-                typ.const = const
-                return typ, None
-
-            canonical_type = tobj.get_canonical()
-
-            # Special case: pointer to function prototype
-            if (
-                canonical_type.kind == TypeKind.POINTER
-                and canonical_type.get_pointee().kind == TypeKind.FUNCTIONPROTO
-            ):
-                return _fptr_typespec(
-                    canonical_type.get_pointee(), tobj.spelling, cursor
-                )
-
-            # General case: resolve the typedef to its canonical type
-            return typekind_to_typespec(canonical_type, cursor)
-
-        case TypeKind.FUNCTIONPROTO:
-            return _fptr_typespec(tobj, tobj.spelling, cursor)
-
-        case TypeKind.FUNCTIONNOPROTO:
-            return datatypes.FunctionPointer(sym=tobj.spelling), None
-
-        case TypeKind.CONSTANTARRAY:
-            array_typ, error = typekind_to_typespec(
-                cursor.type.get_array_element_type(), cursor
-            )
-            if error:
-                return None, error
-
-            return (
-                datatypes.Array(
-                    array=True,
-                    array_typ=array_typ,
-                    array_length=cursor.type.get_array_size(),
-                    const=cursor.type.is_const_qualified(),
-                ),
-                None,
-            )
-
-        case _:
-            return None, ParseError.from_cursor(
-                message=f"Unhandled TypeKind({tobj.kind})",
-                cursor=cursor,
-            )
+ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "a": "\a", "b": "\b", "f": "\f"}
+ESCAPES.update({"v": "\v", "\\": "\\", '"': '"', "'": "'", "?": "?"})
 
 
-def literal_from_text(
-    text: str,
-) -> Optional[Union[constants.Dec, constants.Hex, constants.String]]:
+def unescape(text: str) -> str:
+    """The value of the body of a C string literal, its escapes decoded; bytes
+    that are not UTF-8 are kept as the surrogates of 'surrogateescape'"""
+
+    found = bytearray()
+    pos = 0
+    for match in re.finditer(r"\\(x[0-9a-fA-F]+|[0-7]{1,3}|.)", text):
+        found += text[pos : match.start()].encode()
+        esc = match.group(1)
+        if esc[0] == "x":
+            found.append(int(esc[1:], 16) & 0xFF)
+        elif esc[0] in "01234567":
+            found.append(int(esc, 8) & 0xFF)
+        else:
+            found += ESCAPES.get(esc, esc).encode()
+        pos = match.end()
+    found += text[pos:].encode()
+    return found.decode("utf-8", "surrogateescape")
+
+
+CXX_KEYWORDS = set(
+    "alignas alignof and and_eq asm bitand bitor bool catch char8_t char16_t"
+    " char32_t class compl concept consteval constexpr constinit const_cast"
+    " co_await co_return co_yield decltype delete dynamic_cast explicit export"
+    " false friend mutable namespace new noexcept not not_eq nullptr operator or"
+    " or_eq private protected public reinterpret_cast requires static_assert"
+    " static_cast template this thread_local throw true try typeid typename using"
+    " virtual wchar_t xor xor_eq".split()
+)
+
+
+def attribute(cursor) -> str:
+    """The name of an attribute, from its tokens where libclang has none"""
+
+    if cursor.spelling:
+        return cursor.spelling
+    tokens = [t.spelling for t in cursor.get_tokens()]
+    return tokens[0] if tokens else cursor.kind.name
+
+
+def element(ctype):
+    """The type 'ctype' is made of, through pointers and arrays"""
+
+    while ctype.kind in (
+        TypeKind.POINTER,
+        TypeKind.CONSTANTARRAY,
+        TypeKind.INCOMPLETEARRAY,
+        TypeKind.VARIABLEARRAY,
+    ):
+        if ctype.kind == TypeKind.POINTER:
+            ctype = ctype.get_pointee()
+        else:
+            ctype = ctype.element_type
+    return ctype
+
+
+def location(cursor) -> Tuple[str, int, int]:
+    loc = cursor.location
+    return (loc.file.name if loc.file else "", loc.line or 0, loc.column or 0)
+
+
+def is_unnamed(cursor) -> bool:
+    """Whether the record or enum has no tag; libclang spells such a one '' or
+    '(anonymous ...)' / '(unnamed ...)', and is_anonymous() misses typedef'd ones"""
+
+    spelling = cursor.spelling
+    return not spelling or "(anonymous" in spelling or "(unnamed" in spelling
+
+
+def decl_key(cursor) -> Tuple[str, int]:
+    """Identifies a declaration, also an anonymous one, within a translation unit"""
+
+    loc = cursor.location
+    return (loc.file.name if loc.file else "", loc.offset)
+
+
+def comment_before(lines: List[str], lineno: int) -> Optional[str]:
     """
-    Given a string on the forms:
-
-    * 42
-    * 0xACDC
-    * "foobar is the baz!"
-
-    Will return the correct instance
+    The Doxygen comment ending on the line above 'lineno', or trailing on it;
+    libclang does not attach comments to macros, so they are found in the source
     """
 
-    regex = (
-        r"(?P<hex>0x[0-9a-fA-F]+)|"  # Hexi-decimal
-        r"(?P<int>\d+)|"  # Plain integers
-        r"(?:\"(?P<str>[^\"]+)\")"  # String constants
-    )
+    line = lines[lineno - 1] if 0 < lineno <= len(lines) else ""
+    trailing = re.search(r"((?:///|//!)<.*|/\*[*!]<.*\*/)\s*$", line)
+    if trailing:
+        return trailing.group(1)
 
-    mapping = {
-        "hex": (constants.Hex, lambda x: int(x, 16)),
-        "int": (constants.Dec, lambda x: int(x, 10)),
-        "str": (constants.String, str),
-    }
-
-    match = re.match(regex, text)
-    if not match:
+    end = lineno - 2
+    if end < 0:
         return None
-
-    for key, val in match.groupdict().items():
-        if val:
-            cls, transform = mapping[key]
-            return cls(lit=transform(val))
-
+    if lines[end].strip().startswith(("///", "//!")):
+        start = end
+        while start > 0 and lines[start - 1].strip().startswith(("///", "//!")):
+            start -= 1
+        return "\n".join(lines[start : end + 1])
+    if lines[end].strip().endswith("*/"):
+        start = end
+        while start >= 0 and "/*" not in lines[start]:
+            start -= 1
+        if start >= 0 and lines[start].strip().startswith(("/**", "/*!")):
+            return "\n".join(lines[start : end + 1])
     return None
 
 
 class CParser(object):
-    """
-    Primitive wrapper around libclang Python bindings
-    """
+    """Wraps libclang; parse a header with :meth:`.parse`"""
 
-    def __init__(self):
-        """Figure out a way to setup the index..."""
-
+    def __init__(self, args: Optional[List[str]] = None):
         searchpath = os.environ.get("YACE_SEARCHPATH_LIBCLANG")
         if not searchpath:
             for path in Path(clang.__file__).resolve().parent.rglob("*libclang.*"):
@@ -345,21 +193,54 @@ class CParser(object):
             Config().set_library_path(searchpath)
 
         self.index = Index.create()
+        self.args = list(args or [])
+        builtin = self._clang_builtin_include()
+        if builtin:
+            self.args += ["-isystem", builtin]
+        sysroot = self._sysroot()
+        if sysroot:
+            self.args += ["-isysroot", sysroot]
 
-    def _clang_builtin_include(self):
-        """Find clang's built-in include directory (contains stddef.h, etc.)."""
+    @staticmethod
+    def _sysroot() -> Optional[str]:
+        """
+        The SDK of macOS, where its C headers are; the libclang of the libclang
+        package has no default for it, as Apple's clang does
+        """
 
-        # Check alongside the libclang shared library
+        if platform.system() != "Darwin":
+            return None
+        try:
+            found = subprocess.run(
+                ["xcrun", "--show-sdk-path"], capture_output=True, text=True
+            ).stdout.strip()
+        except OSError:
+            return None
+        return found if found and Path(found).is_dir() else None
+
+    @staticmethod
+    def _clang_builtin_include() -> Optional[str]:
+        """clang's own include directory, with stddef.h and friends"""
+
         searchpath = os.environ.get("YACE_SEARCHPATH_LIBCLANG")
-        if searchpath:
-            base = Path(searchpath).parent
-        else:
-            base = Path(clang.__file__).resolve().parent
+        base = (
+            Path(searchpath).parent
+            if searchpath
+            else Path(clang.__file__).resolve().parent
+        )
+        for found in base.rglob("stddef.h"):
+            return str(found.parent)
 
-        for include_dir in base.rglob("stddef.h"):
-            return str(include_dir.parent)
+        for cc in (os.environ.get("CC", ""), "clang", "cc"):
+            if not cc or not shutil.which(cc):
+                continue
+            proc = subprocess.run(
+                [cc, "-print-resource-dir"], capture_output=True, text=True
+            )
+            include = Path(proc.stdout.strip()) / "include"
+            if proc.returncode == 0 and (include / "stddef.h").exists():
+                return str(include)
 
-        # Fallback: search common system paths
         for ver in sorted(
             Path("/usr/lib").glob("llvm-*/lib/clang/*/include"), reverse=True
         ):
@@ -368,473 +249,962 @@ class CParser(object):
 
         return None
 
-    def parse_file(self, path: Path):
-        """Parse the given file into a :class:`clang.cindex.TranslationUnit`."""
+    def parse(self, path: Path, meta: Optional[dict] = None):
+        """Parse the header at 'path'; returns the (Model, [Diagnostic])"""
 
-        args = []
-        builtin_inc = self._clang_builtin_include()
-        if builtin_inc:
-            args.extend(["-isystem", builtin_inc])
+        return _HeaderParser(self, Path(path).resolve(), meta or {}).run()
 
-        return self.index.parse(
-            str(path),
-            args=args,
-            options=clang.cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
+
+class _HeaderParser(object):
+    """The state of parsing one header"""
+
+    def __init__(self, parser: CParser, path: Path, meta: dict):
+        self.parser = parser
+        self.path = path
+        self.meta = meta
+        self.lines = path.read_text(errors="replace").splitlines()
+        self.diagnostics: List[Diagnostic] = []
+        self.names: Dict[Tuple[str, int], str] = {}  # anonymous decl -> its name
+        self.absorbed: set = set()  # typedefs naming an anonymous record or enum
+        self.aliases: set = set()  # typedefs of the record or enum of their name
+        self.skipped: set = set()  # typedefs skipped, which their uses are too
+        self.skipped_records: set = set()  # records skipped, by name, as typedefs
+        self.external: set = set()  # records declared outside the header
+        self.typedefs: set = set()  # typedef names declared in the header
+        self.defined: set = set()  # records defined in the header, by name
+
+    def report(self, rule: str, message: str, cursor=None):
+        file, line, column = location(cursor) if cursor is not None else ("", 0, 0)
+        self.diagnostics.append(
+            Diagnostic(
+                rule=rule,
+                message=message,
+                file=Path(file).name if file else "",
+                line=line,
+                column=column,
+            )
         )
 
-    def parse_macro(
-        self, cursor
-    ) -> Tuple[Optional[yace.model.base.Entity], Optional[yace.errors.Error]]:
-        """TODO: hex + int"""
+    def in_header(self, cursor) -> bool:
+        file = cursor.location.file
+        return bool(file) and Path(file.name).resolve() == self.path
 
-        tokens = [tok.spelling for tok in cursor.get_tokens()]
-        log.debug(f"({cursor.spelling}), tokens({tokens})")
+    def typ(self, ctype, cursor) -> types.Type:
+        """The IR type of the libclang 'ctype'; raises Unsupported"""
 
-        if len(tokens) == 1:
-            log.debug(f"Skipping value-less define: '#define {tokens[0]}'")
-            return None, None
+        found = self._typ(ctype, cursor)
+        if ctype.is_const_qualified() and hasattr(found, "const"):
+            found.const = True
+        return found
 
-        if len(tokens) != 2:
-            error = UnsupportedDatatype.from_cursor(
+    def _typ(self, ctype, cursor) -> types.Type:
+        const = ctype.is_const_qualified()
+        kind = ctype.kind
+
+        if kind in BUILTIN_KINDS:
+            return types.Builtin(name=BUILTIN_KINDS[kind], const=const)
+
+        if kind == TypeKind.ELABORATED:
+            return self.typ(ctype.get_named_type(), cursor)
+
+        if kind == TypeKind.TYPEDEF:
+            decl = ctype.get_declaration()
+            name = decl.spelling
+            if name in types.BUILTINS and not self.in_header(decl):
+                return types.Builtin(name=name, const=const)
+            if self.in_header(decl):
+                if decl_key(decl) in self.skipped:
+                    raise Unsupported(f"'{name}', a typedef that is skipped")
+                if decl_key(decl) in self.absorbed | self.aliases:
+                    found = self.typ(decl.underlying_typedef_type, cursor)
+                    found.const = found.const or const
+                    return found
+                return types.TypedefRef(name=name, const=const)
+            self.report(
+                "external-type",
+                f"'{name}' is declared outside the header, in"
+                f" {Path(location(decl)[0]).name or 'the compiler'}",
                 cursor,
-                f"'#define {tokens[0]}' unsupported amount of ntokens({len(tokens)}); "
-                "expecting two, e.g. 'FOO_MAX 42'",
             )
-            return None, error
+            # Of a record, a type of its own the bindings declare opaque; of
+            # anything else, an integer, a pointer, an array, that type
+            canonical = ctype.get_canonical()
+            if canonical.kind == TypeKind.RECORD:
+                self.external.add(name)
+                return types.TypedefRef(name=name, const=const)
+            found = self.typ(canonical, cursor)
+            if hasattr(found, "const"):
+                found.const = found.const or const
+            return found
 
-        sym, lit, *excess = list([tok.spelling for tok in cursor.get_tokens()])
-        if excess:
-            return None, ParseError.from_cursor(
-                message=f"sym({sym}), lit({lit}); Unexpected ntokens({len(excess)})",
-                cursor=cursor,
-            )
-
-        val = literal_from_text(lit)
-        if not val:
-            return None, ParseError.from_cursor(
-                message=f"sym({sym}), lit({lit}); Failed converting", cursor=cursor
-            )
-
-        try:
-            return constants.Define(sym=sym, val=val), None
-        except ValidationError as exc:
-            return None, [ParseError.from_exception(exc, cursor)]
-
-    def evaluate_expression_macros(
-        self, macro_names: List[str], header_path: Path
-    ) -> Dict[str, int]:
-        """Evaluate expression macros by wrapping them in enum constants.
-
-        Generates a temporary C file that includes the original header and
-        defines an enum with each macro as a value. Clang evaluates the
-        expressions at parse time, and we extract the integer results.
-
-        Returns a dict of {macro_name: evaluated_value} for macros that
-        successfully evaluate to integer constants.
-        """
-
-        if not macro_names:
-            return {}
-
-        # Build the temporary C source — use absolute path for the include
-        abs_header = str(header_path.resolve())
-        include_dir = str(header_path.resolve().parent)
-
-        # Split into batches to avoid enum overflow (enum values are int-sized)
-        # and to isolate failures
-        BATCH_SIZE = 200
-        results: Dict[str, int] = {}
-
-        for i in range(0, len(macro_names), BATCH_SIZE):
-            batch = macro_names[i : i + BATCH_SIZE]
-
-            lines = [f'#include "{abs_header}"\n', "enum __yace_eval {\n"]
-            for name in batch:
-                lines.append(f"    __yace_{name} = {name},\n")
-            lines.append("};\n")
-
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".c", delete=True) as tmp:
-                tmp.write("".join(lines))
-                tmp.flush()
-
-                try:
-                    tu = self.index.parse(
-                        tmp.name,
-                        args=[f"-I{include_dir}"],
-                        options=clang.cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
-                    )
-                except Exception:
-                    log.debug("Failed to parse macro evaluation file")
-                    continue
-
-                for cursor in tu.cursor.get_children():
-                    if cursor.kind != CursorKind.ENUM_DECL:
-                        continue
-                    if cursor.spelling != "__yace_eval":
-                        continue
-                    for child in cursor.get_children():
-                        if child.kind != CursorKind.ENUM_CONSTANT_DECL:
-                            continue
-                        name = child.spelling
-                        if name.startswith("__yace_"):
-                            original_name = name[7:]
-                            results[original_name] = child.enum_value
-
-        return results
-
-    def parse_inclusion_directive(
-        self, cursor
-    ) -> Tuple[Optional[yace.model.base.Entity], Optional[yace.errors.Error]]:
-        return directives.IncludeDirective(**{"filename": cursor.displayname}), None
-
-    def parse_enum(
-        self, cursor
-    ) -> Tuple[Optional[yace.model.base.Entity], Optional[yace.errors.Error]]:
-        """Parse into key-objects enum and enum_value"""
-
-        members = []
-        for child in cursor.get_children():
-            if child.kind not in [CursorKind.ENUM_CONSTANT_DECL]:
-                return None, ParseError.from_cursor(
-                    f"expected ENUM_CONSTANT_DECL; got: ({child})", cursor=child
+        if kind in (TypeKind.RECORD, TypeKind.ENUM):
+            decl = ctype.get_declaration()
+            name = self.names.get(decl_key(decl), decl.spelling)
+            if is_unnamed(decl) and decl_key(decl) not in self.names:
+                raise Unsupported(f"an anonymous {ctype.spelling} with no name")
+            if not self.in_header(decl):
+                self.report(
+                    "external-type",
+                    f"'{ctype.spelling}' is declared outside the header",
+                    cursor,
                 )
+                self.external.add(name)
+                if kind == TypeKind.ENUM:  # by value, as its integer
+                    return self.typ(decl.enum_type, cursor)
+            if kind == TypeKind.ENUM:
+                return types.EnumRef(name=name, const=const)
+            if name in self.skipped_records:
+                raise Unsupported(f"'{name}', a record that is skipped")
+            tag = "union" if decl.kind == CursorKind.UNION_DECL else "struct"
+            return types.Record(tag=tag, name=name, const=const)
 
-            try:
-                members.append(
-                    constants.EnumValue(
-                        sym=child.spelling,
-                        doc=Docstring.from_cursor(child),
-                        val=constants.Dec(lit=child.enum_value),
-                    )
-                )
-            except ValidationError as exc:
-                return None, ParseError.from_exception(exc, child)
+        if kind == TypeKind.POINTER:
+            return types.Pointer(to=self.typ(ctype.get_pointee(), cursor), const=const)
 
-        try:
-            return (
-                constants.Enum(
-                    sym=cursor.spelling,
-                    doc=Docstring.from_cursor(cursor),
-                    members=members,
-                ),
-                None,
+        if kind == TypeKind.CONSTANTARRAY:
+            return types.Array(
+                of=self.typ(ctype.element_type, cursor), length=ctype.element_count
             )
-        except ValidationError as exc:
-            return None, ParseError.from_exception(exc, cursor)
 
-    def parse_record(
-        self, cursor
-    ) -> Tuple[Optional[yace.model.base.Entity], Optional[yace.errors.Error]]:
-        try:
-            cls = yace.model.derivedtypes.Struct
-            if cursor.kind == CursorKind.UNION_DECL:
-                cls = yace.model.derivedtypes.Union
+        if kind == TypeKind.INCOMPLETEARRAY:
+            return types.Array(of=self.typ(ctype.element_type, cursor), length=None)
 
-            record = cls(
-                sym=cursor.spelling,
-                doc=Docstring.from_cursor(cursor),
-                members=[],
+        if kind == TypeKind.FUNCTIONPROTO:
+            args = list(ctype.argument_types())
+            parms = [c for c in cursor.get_children() if c.kind == CursorKind.PARM_DECL]
+            if len(parms) != len(args):
+                parms = [cursor] * len(args)
+            params = [self.typ(arg, parm) for arg, parm in zip(args, parms)]
+            names = [p.spelling if p is not cursor else "" for p in parms]
+            return types.FunctionType(
+                ret=self.typ(ctype.get_result(), cursor),
+                params=[types.TypeParam(name=n, typ=p) for n, p in zip(names, params)],
+                variadic=ctype.is_function_variadic(),
             )
-        except ValidationError as exc:
-            return None, ParseError.from_exception(exc, cursor)
 
-        for field in cursor.get_children():
-            match field.kind:
-                case CursorKind.FIELD_DECL:
-                    pass
+        canonical = ctype.get_canonical()
+        if canonical.kind != kind and canonical.kind in BUILTIN_KINDS:
+            return self.typ(canonical, cursor)
 
-                case CursorKind.STRUCT_DECL | CursorKind.UNION_DECL:
-                    if list(field.get_children()):
-                        # Inline anonymous struct/union definition — skip the
-                        # type definition node; its fields appear as FIELD_DECLs
-                        # in the parent record.
-                        continue
+        raise Unsupported(f"'{ctype.spelling}' ({kind.spelling})")
 
-                case CursorKind.PACKED_ATTR:
-                    # __attribute__((packed)) — skip, doesn't affect IR
-                    continue
+    def doc_of(self, cursor) -> doc.Doc:
+        """The doc of a declaration; libclang joins adjacent comments into one,
+        which is reported rather than read as one doc"""
 
-                case CursorKind.ENUM_DECL:
-                    # Inline enum definition inside a struct — skip the
-                    # definition node; the field using it follows as FIELD_DECL.
-                    continue
+        raw = cursor.raw_comment or ""
+        lines = [line.lstrip() for line in raw.splitlines()]
+        blocks = len(re.findall(r"(?:^|\*/)\s*/\*[*!]", raw, re.M))
+        if blocks > 1 or blocks and any(t.startswith(("///", "//!")) for t in lines):
+            self.report(
+                "doc-comment",
+                f"'{cursor.spelling}' has more than one doc comment",
+                cursor,
+            )
+        return doc.parse(cursor.raw_comment)
 
-                case _:
-                    return None, ParseError.from_cursor(
-                        f"expected FIELD_DECL; got: {field.kind}", cursor=field
-                    )
+    def share_docs(self, entities: list):
+        """A typedef of the record or enum of its own name is that type, so
+        the doc of either is the doc of both, and neither then lacks one"""
 
-            ftyp, error = typekind_to_typespec(field.type, field)
-            if error:
-                return None, error
-
-            if field.is_bitfield():
-                field = yace.model.derivedtypes.Bitfield(
-                    sym=field.spelling,
-                    doc=Docstring.from_cursor(field),
-                    nbits=field.get_bitfield_width(),
-                    typ=ftyp,
-                )
+        tags = {
+            e.name: e for e in entities if isinstance(e, (*decls.RECORDS, decls.Enum))
+        }
+        shared = set()
+        for typedef in entities:
+            tag = tags.get(getattr(typedef, "name", None))
+            if not isinstance(typedef, decls.Typedef) or tag is None:
+                continue
+            if getattr(typedef.typ, "name", None) != typedef.name:
+                continue
+            if tag.doc.is_empty() and not typedef.doc.is_empty():
+                tag.doc = typedef.doc
+            elif typedef.doc.is_empty() and not tag.doc.is_empty():
+                typedef.doc = tag.doc
             else:
-                field = yace.model.derivedtypes.Field(
-                    sym=field.spelling,
-                    doc=Docstring.from_cursor(field),
-                    typ=ftyp,
+                continue
+            shared |= {f"{w} '{typedef.name}' has no doc" for w in DOCUMENTED}
+        seen: set = set()  # a record declared, then defined, lacks one doc
+        kept = []
+        for d in self.diagnostics:
+            if d.rule == "missing-doc" and (d.message in shared or d.message in seen):
+                continue
+            seen.add(d.message if d.rule == "missing-doc" else None)
+            kept.append(d)
+        self.diagnostics = kept
+
+    def by_value(self, typ):
+        """'typ', unless it holds a record declared outside the header by
+        value, whose layout is unknown here; raises Unsupported then"""
+
+        held = typ
+        while isinstance(held, types.Array):
+            held = held.of
+        if isinstance(held, (types.Record, types.TypedefRef)) and (
+            held.name in self.external
+        ):
+            spelled = f"{held.tag} {held.name}" if held.key == "record" else held.name
+            raise Unsupported(f"'{spelled}', declared outside the header, by value")
+        function = held.to if isinstance(held, types.Pointer) else held
+        if isinstance(function, types.FunctionType):
+            for param in function.params:
+                self.by_value(param.typ)
+            self.by_value(function.ret)
+        return typ
+
+    def drop_uses(self, entities: list) -> list:
+        """'entities' without those using a record or typedef that is skipped,
+        each reported; one declared before the skip got through the parse"""
+
+        def used(node, kind):
+            if isinstance(node, kind):
+                yield node.name
+            if isinstance(node, BaseModel):
+                node = list(vars(node).values())
+            if isinstance(node, list):
+                for item in node:
+                    yield from used(item, kind)
+
+        typedefs: set = set()
+        while True:
+            kept = []
+            for entity in entities:
+                records = set(used(entity, types.Record)) & self.skipped_records
+                aliases = set(used(entity, types.TypedefRef)) & typedefs
+                if isinstance(entity, decls.RECORDS) and entity.name in records:
+                    records.discard(entity.name)
+                if not records and not aliases:
+                    kept.append(entity)
+                    continue
+                self.report(
+                    "unsupported-type",
+                    f"'{entity.name}' uses '{sorted(records | aliases)[0]}', which"
+                    " is skipped; it is skipped",
                 )
+                if isinstance(entity, decls.RECORDS):
+                    self.skipped_records.add(entity.name)
+                elif isinstance(entity, decls.Typedef):
+                    typedefs.add(entity.name)
+            if len(kept) == len(entities):
+                return kept
+            entities = kept
 
-            record.members.append(field)
+    def check_doc(self, entity, what: str, cursor):
+        if entity.doc.is_empty():
+            self.report("missing-doc", f"{what} '{entity.name}' has no doc", cursor)
 
-        return record, None
+    def record(self, cursor, name: str) -> list:
+        """The record, after the records nested in it, which are hoisted"""
 
-    def parse_union(
-        self, cursor
-    ) -> Tuple[Optional[yace.model.base.Entity], Optional[yace.errors.Error]]:
-        """Parse union declaration"""
+        self.keyword(name, "a record", cursor)
+        hoisted: list = []
+        fields: List[decls.Field] = []
+        children = list(cursor.get_children())
+        anon_count = 0
+        member = ""
 
-        try:
-            return yace.model.derivedtypes.Union(
-                sym=cursor.spelling, doc=Docstring.from_cursor(cursor)
-            )
-        except ValidationError as exc:
-            return None, ParseError.from_exception(exc, cursor)
+        for idx, child in enumerate(children):
+            if child.kind in RECORD_KINDS + (CursorKind.ENUM_DECL,):
+                if not child.is_definition():
+                    continue
 
-    def parse_typedef(
-        self, cursor
-    ) -> Tuple[Optional[yace.model.base.Entity], Optional[yace.errors.Error]]:
-        """Parse typedef declarations.
+                user = next(
+                    (
+                        c
+                        for c in children[idx + 1 :]
+                        if c.kind == CursorKind.FIELD_DECL
+                        and decl_key(element(c.type).get_declaration())
+                        == decl_key(child)
+                    ),
+                    None,
+                )
+                kind = child.kind.name.split("_")[0].lower()
+                if is_unnamed(child) and user is not None:
+                    nested = f"{name}_{user.spelling}"
+                    self.report(
+                        "anonymous-record",
+                        f"field '{user.spelling}' of '{name}' has an anonymous"
+                        f" {kind} type; it is named '{nested}'",
+                        child,
+                    )
+                elif is_unnamed(child) and child.kind == CursorKind.ENUM_DECL:
+                    nested = f"{name}_anon{anon_count}"
+                    anon_count += 1
+                    self.report(
+                        "anonymous-record",
+                        f"'{name}' has an anonymous enum; it is named '{nested}'",
+                        child,
+                    )
+                elif is_unnamed(child):
+                    nested = f"{name}_anon{anon_count}"
+                    member = f"anon{anon_count}"
+                    anon_count += 1
+                    self.report(
+                        "anonymous-record",
+                        f"'{name}' has an anonymous {kind} member; it is"
+                        f" named '{nested}' and made the field '{member}'",
+                        child,
+                    )
+                else:
+                    nested = child.spelling
+                    self.report(
+                        "nested-record",
+                        f"{kind} '{nested}' is defined inside '{name}'; it is"
+                        " hoisted to the top level",
+                        child,
+                    )
+                self.names[decl_key(child)] = nested
 
-        Function-pointer typedefs produce FunctionPointer entities.
-        Other typedefs (type aliases) are silently skipped — they are
-        resolved transparently when used as field/parameter types.
-        """
+                if child.kind == CursorKind.ENUM_DECL:
+                    hoisted.append(self.enum(child, nested))
+                else:
+                    hoisted += self.record(child, nested)
+                found = hoisted[-1] if hoisted else None
+                if not is_unnamed(child) and getattr(found, "name", None) == nested:
+                    kind = "enum" if child.kind == CursorKind.ENUM_DECL else "struct"
+                    if child.kind == CursorKind.UNION_DECL:
+                        kind = "union"
+                    self.check_doc(found, kind, child)
 
-        underlying_kind = cursor.underlying_typedef_type.kind
-        if underlying_kind != clang.cindex.TypeKind.POINTER:
-            return None, None
-
-        pointee = cursor.underlying_typedef_type.get_pointee()
-        if pointee.kind != clang.cindex.TypeKind.FUNCTIONPROTO:
-            return None, None
-
-        parameters = []
-        for child in cursor.get_children():
-            if child.kind not in [CursorKind.PARM_DECL]:
-                log.warning(f"Skipping: {child} not PARM_DECL")
+                if (
+                    is_unnamed(child)
+                    and user is None
+                    and child.kind != CursorKind.ENUM_DECL
+                ):
+                    first = next(
+                        (
+                            c
+                            for c in child.get_children()
+                            if c.kind == CursorKind.FIELD_DECL
+                        ),
+                        None,
+                    )
+                    offset = None
+                    if first is not None:
+                        found = cursor.type.get_offset(first.spelling)
+                        offset = found - max(first.get_field_offsetof(), 0)
+                    tag = "union" if child.kind == CursorKind.UNION_DECL else "struct"
+                    fields.append(
+                        decls.Field(
+                            name=member,
+                            typ=types.Record(tag=tag, name=nested),
+                            offset=(
+                                offset if offset is not None and offset >= 0 else None
+                            ),
+                        )
+                    )
                 continue
 
-            ptyp, error = typekind_to_typespec(child.type, child)
-            if error:
-                return None, error
+            if child.kind == CursorKind.FIELD_DECL:
+                self.keyword(child.spelling, f"a field of '{name}'", child)
+                try:
+                    typ = self.by_value(self.typ(child.type, child))
+                except Unsupported as exc:
+                    if name not in self.skipped_records:
+                        self.report(
+                            "unsupported-type",
+                            f"field '{child.spelling}' of '{name}' has the type"
+                            f" {exc}; '{name}' is skipped",
+                            child,
+                        )
+                    self.skipped_records.add(name)
+                    continue  # for the records nested after it, which are kept
+                if name in self.skipped_records:
+                    continue
 
-            parameters.append(
-                yace.model.functiontypes.Parameter(
-                    typ=ptyp,
-                    sym=child.spelling,
-                    doc=Docstring.from_cursor(child),
+                self.inline_callback(
+                    typ, f"field '{child.spelling}' of '{name}'", child
                 )
+                bits = None
+                if child.is_bitfield():
+                    bits = child.get_bitfield_width()
+                    self.report(
+                        "bitfield",
+                        (
+                            f"field '{child.spelling}' of '{name}' is a bit-field"
+                            if child.spelling
+                            else f"'{name}' has an unnamed bit-field, as padding"
+                        ),
+                        child,
+                    )
+                if isinstance(typ, types.Array) and typ.length is None:
+                    self.report(
+                        "flexible-array",
+                        f"field '{child.spelling}' of '{name}' is a flexible array",
+                        child,
+                    )
+                offset = child.get_field_offsetof()
+                fields.append(
+                    decls.Field(
+                        name=child.spelling,
+                        typ=typ,
+                        bits=bits,
+                        offset=offset if offset >= 0 else None,
+                        doc=self.doc_of(child),
+                    )
+                )
+                continue
+
+            if child.kind.is_attribute():
+                self.report(
+                    "attribute",
+                    f"'{name}' has the attribute '{attribute(child)}'",
+                    child,
+                )
+                continue
+
+            self.report(
+                "unsupported-declaration",
+                f"'{name}' contains a {child.kind.name}, which is skipped",
+                child,
             )
 
+        if fields and not any(f.name for f in fields):
+            self.report(
+                "unsupported-declaration",
+                f"'{name}' has only unnamed bit-fields, which ISO C does not allow;"
+                " it is skipped",
+                cursor,
+            )
+            self.skipped_records.add(name)
+        if name in self.skipped_records:
+            return hoisted
+        size, align = cursor.type.get_size(), cursor.type.get_align()
+        cls = decls.Union if cursor.kind == CursorKind.UNION_DECL else decls.Struct
+        return hoisted + [
+            cls(
+                name=name,
+                fields=fields,
+                size=size if size > 0 else None,
+                align=align if align > 0 else None,
+                doc=self.doc_of(cursor),
+            )
+        ]
+
+    def enum(self, cursor, name: str) -> decls.Enum:
+        underlying = None
         try:
-            rtyp, error = typekind_to_typespec(pointee.get_result(), cursor)
-            if error:
-                return None, error
+            found = self.typ(cursor.enum_type, cursor)
+            if isinstance(found, types.Builtin):
+                underlying = found
+        except Unsupported:
+            pass
 
-            return (
-                yace.model.functiontypes.FunctionPointer(
-                    sym=cursor.spelling,
-                    doc=Docstring.from_cursor(cursor),
-                    ret=rtyp,
-                    parameters=parameters,
-                ),
-                None,
-            )
-        except ValidationError as exc:
-            return None, ParseError.from_exception(exc, cursor)
+        self.keyword(name, "an enum", cursor)
+        for child in cursor.get_children():
+            if child.kind == CursorKind.ENUM_CONSTANT_DECL:
+                self.keyword(child.spelling, f"a member of '{name}'", child)
+            if child.kind == CursorKind.ENUM_CONSTANT_DECL and not (
+                -(2**31) <= child.enum_value < 2**31
+            ):
+                self.report(
+                    "enum-value",
+                    f"'{child.spelling}' of enum '{name}' does not fit an int",
+                    child,
+                )
+        return decls.Enum(
+            name=name,
+            members=[
+                decls.EnumMember(
+                    name=child.spelling, value=child.enum_value, doc=self.doc_of(child)
+                )
+                for child in cursor.get_children()
+                if child.kind == CursorKind.ENUM_CONSTANT_DECL
+            ],
+            underlying=underlying,
+            doc=self.doc_of(cursor),
+        )
 
-    def parse_function(self, cursor):
-        """Parse function declaration"""
+    def signature_checks(self, fname: str, ret, params, cursor):
+        """Report records by value and enums, as parameters or as the return"""
 
-        parameters = []
-        for child in cursor.get_arguments():
-            if child.kind not in [CursorKind.PARM_DECL]:
-                return None, ParseError.from_cursor(
-                    f"Skipping: {child.spelling} {cursor.spelling} not PARM_DECL",
+        for what, typ in [("returns", ret)] + [
+            (f"parameter '{p.name}'", p.typ) for p in params
+        ]:
+            if isinstance(typ, types.Record):
+                self.report(
+                    "record-by-value",
+                    f"'{fname}' {what} {typ.tag} {typ.name} by value",
+                    cursor,
+                )
+            if isinstance(typ, types.EnumRef):
+                self.report(
+                    "enum-in-signature",
+                    f"'{fname}' {what} enum {typ.name}",
                     cursor,
                 )
 
-            ptyp, error = typekind_to_typespec(child.type, child)
-            if error:
-                return None, error
-
-            parameters.append(
-                yace.model.functiontypes.Parameter(
-                    typ=ptyp,
-                    sym=child.spelling,
-                    doc=Docstring.from_cursor(child),
-                )
+    def function(self, cursor) -> Optional[decls.Function]:
+        name = cursor.spelling
+        self.keyword(name, "a function", cursor)
+        if cursor.storage_class == StorageClass.STATIC or cursor.is_definition():
+            self.report(
+                "unsupported-declaration",
+                f"'{name}' is a static or inline function; it is skipped",
+                cursor,
             )
+            return None
+
+        for child in cursor.get_children():
+            if child.kind.is_attribute():
+                self.report(
+                    "attribute",
+                    f"'{name}' has the attribute '{attribute(child)}';"
+                    " it is ignored",
+                    child,
+                )
 
         try:
-            rtyp, error = typekind_to_typespec(cursor.result_type, cursor)
-            if error:
-                return None, error
+            params = []
+            for idx, arg in enumerate(cursor.get_arguments()):
+                if not arg.spelling:
+                    self.report(
+                        "param-name",
+                        f"parameter {idx} of '{name}' has no name",
+                        cursor,
+                    )
+                if "va_list" in arg.type.spelling:
+                    raise Unsupported(f"'{arg.type.spelling}', which no binding passes")
+                typ = self.typ(arg.type, arg)
+                if isinstance(typ, types.Array):
+                    self.report(
+                        "array-parameter",
+                        f"parameter '{arg.spelling}' of '{name}' is an array",
+                        arg,
+                    )
+                    typ = types.Pointer(to=typ.of)  # as C passes it
+                typ = self.by_value(typ)
+                params.append(decls.Param(name=arg.spelling, typ=typ))
+                self.inline_callback(
+                    typ, f"parameter '{arg.spelling}' of '{name}'", arg
+                )
+            ret = self.by_value(self.typ(cursor.result_type, cursor))
+            self.inline_callback(ret, f"the return of '{name}'", cursor)
+        except Unsupported as exc:
+            self.report(
+                "unsupported-type",
+                f"'{name}' uses the type {exc}; it is skipped",
+                cursor,
+            )
+            return None
 
-            return (
-                yace.model.functiontypes.Function(
-                    sym=cursor.spelling,
-                    doc=Docstring.from_cursor(cursor),
-                    ret=rtyp,
-                    parameters=parameters,
-                ),
-                None,
+        variadic = cursor.type.is_function_variadic()
+        if variadic:
+            self.report("variadic-function", f"'{name}' is variadic", cursor)
+        self.signature_checks(name, ret, params, cursor)
+
+        function = decls.Function(
+            name=name,
+            ret=ret,
+            params=params,
+            variadic=variadic,
+            doc=self.doc_of(cursor),
+        )
+        self.check_doc(function, "function", cursor)
+        return function
+
+    def typedef(self, cursor) -> Optional[decls.Typedef]:
+        name = cursor.spelling
+        self.keyword(name, "a typedef", cursor)
+        try:
+            typ = self.by_value(self.typ(cursor.underlying_typedef_type, cursor))
+        except Unsupported as exc:
+            self.report(
+                "unsupported-type",
+                f"typedef '{name}' is of the type {exc}; it is skipped",
+                cursor,
+            )
+            self.skipped.add(decl_key(cursor))
+            return None
+
+        tags = set()
+        node = typ
+        while isinstance(node, (types.Pointer, types.Array)):
+            node = node.to if isinstance(node, types.Pointer) else node.of
+        if isinstance(node, (types.Record, types.EnumRef)) and node is not typ:
+            tags.add(node.name)
+        if name in tags:
+            self.report(
+                "typedef",
+                f"typedef '{name}' is another type than the record or enum of its"
+                " name, which no binding can declare beside it; its type is used"
+                " in its place",
+                cursor,
+            )
+            self.absorbed.add(decl_key(cursor))
+            return None
+
+        if isinstance(typ, types.Pointer) and isinstance(typ.to, types.FunctionType):
+            for param in typ.to.params:
+                self.inline_callback(
+                    param.typ, f"parameter '{param.name}' of '{name}'", cursor
+                )
+            self.inline_callback(typ.to.ret, f"the return of '{name}'", cursor)
+            if not name.endswith(CALLBACK_SUFFIXES):
+                self.report(
+                    "callback-name",
+                    f"function pointer '{name}' does not end in one of"
+                    f" {', '.join(CALLBACK_SUFFIXES)}",
+                    cursor,
+                )
+            unnamed = [i for i, p in enumerate(typ.to.params) if not p.name]
+            if unnamed:
+                self.report(
+                    "callback-param-name",
+                    f"function pointer '{name}' has unnamed parameters",
+                    cursor,
+                )
+        elif isinstance(typ, (types.Record, types.EnumRef)) and typ.name == name:
+            self.aliases.add(decl_key(cursor))  # that type, where it is used
+        else:
+            self.report(
+                "typedef",
+                f"'{name}' is a typedef of something other than a function pointer",
+                cursor,
             )
 
-        except ValidationError as exc:
-            return None, ParseError.from_exception(exc, cursor)
+        typedef = decls.Typedef(name=name, typ=typ, doc=self.doc_of(cursor))
+        self.check_doc(typedef, "typedef", cursor)
+        return typedef
 
-    def tu_to_data(self, tu, path: Path) -> Tuple[List[Any], List[Error]]:
-        """Transform the given translation-unit (tu) to data"""
+    def macro(self, cursor):
+        """A Define, None when skipped, or the name of a macro to evaluate"""
 
-        errors: List[Error] = []
-        path.resolve()
+        tokens = list(cursor.get_tokens())
+        if len(tokens) < 2:
+            return None  # no value, such as an include guard
 
-        entities = []
-        expression_macros: List[str] = []
+        name = tokens[0].spelling
+        self.keyword(name, "a define", cursor)
+        if (
+            tokens[1].spelling == "("
+            and tokens[1].extent.start.offset == tokens[0].extent.end.offset
+        ):
+            self.report(
+                "function-like-macro", f"'{name}' is a function-like macro", cursor
+            )
+            return None
 
-        for cursor in tu.cursor.get_children():
-            if not cursor.location.file:
-                log.debug("Ignored definition which is not from the file")
-                continue
+        values = tokens[1:]
+        if all(
+            t.kind == TokenKind.LITERAL and t.spelling.startswith('"') for t in values
+        ):
+            text = "".join(unescape(t.spelling[1:-1]) for t in values)
+            return decls.Define(
+                name=name,
+                value=decls.StrLiteral(value=text),
+                doc=self.macro_doc(cursor),
+            )
 
-            if Path(cursor.location.file.name).name != path.name:
-                log.debug(f"Skipped {cursor.location.file.name} != {path.name}")
-                continue
+        return name
 
-            try:
-                match cursor.kind:
-                    case CursorKind.ENUM_DECL:
-                        entity, error = self.parse_enum(cursor)
-                    case CursorKind.STRUCT_DECL | CursorKind.UNION_DECL:
-                        entity, error = self.parse_record(cursor)
-                    case CursorKind.TYPEDEF_DECL:
-                        entity, error = self.parse_typedef(cursor)
-                    case CursorKind.FUNCTION_DECL:
-                        entity, error = self.parse_function(cursor)
-                    case CursorKind.MACRO_DEFINITION:
-                        entity, error = self.parse_macro(cursor)
-                        # Collect unresolved macros for second-pass enum trick
-                        # evaluation — covers both expression macros (ntokens>2)
-                        # and symbolic aliases (#define FOO BAR)
-                        if error and (
-                            "unsupported amount of ntokens" in str(error)
-                            or "Failed converting" in str(error)
-                        ):
-                            expression_macros.append(cursor.spelling)
-                    case CursorKind.INCLUSION_DIRECTIVE:
-                        entity, error = self.parse_inclusion_directive(cursor)
-                    case CursorKind.MACRO_INSTANTIATION:
-                        log.debug(f"Skipping macro instantiation: {cursor.spelling}")
+    def macro_doc(self, cursor) -> doc.Doc:
+        return doc.parse(comment_before(self.lines, cursor.location.line))
+
+    def evaluate(self, names: List[str]) -> Dict[str, int]:
+        """
+        The integer value of each macro clang can evaluate as a constant; each is
+        made the value of an enumerator in a translation unit including the
+        header, as a long long, or else, where it does not fit one, an unsigned
+        """
+
+        found: Dict[str, int] = {}
+        for idx in range(0, len(names), EVAL_BATCH):
+            batch = names[idx : idx + EVAL_BATCH]
+            source = [f'#include "{self.path}"']
+            for enum, underlying in (("s", "long long"), ("u", "unsigned long long")):
+                source.append(f"enum yace_eval_{enum} : {underlying} {{")
+                source += [f"\tyace_eval_{enum}_{name} = ({name})," for name in batch]
+                source.append("};")
+            source.append("")
+
+            with tempfile.NamedTemporaryFile("w", suffix=".c") as tmp:
+                tmp.write("\n".join(source))
+                tmp.flush()
+                tu = self.parser.index.parse(
+                    tmp.name, args=self.parser.args + [f"-I{self.path.parent}"]
+                )
+                invalid = {
+                    diag.location.line
+                    for diag in tu.diagnostics
+                    if diag.severity >= 3
+                    and diag.location.file
+                    and diag.location.file.name == tmp.name
+                }
+                for cursor in tu.cursor.get_children():
+                    if cursor.kind != CursorKind.ENUM_DECL:
                         continue
-                    case _:
-                        error = Error(message=f"Unhandled cursor({cursor.kind})")
-            except Exception as exc:
-                errors.append(
-                    Error(message=f"Exception parsing {cursor.spelling}: {exc}")
+                    if cursor.spelling not in ("yace_eval_s", "yace_eval_u"):
+                        continue
+                    for child in cursor.get_children():
+                        if child.location.line in invalid:
+                            continue
+                        name = child.spelling[len("yace_eval_s_") :]
+                        found.setdefault(name, child.enum_value)
+        return found
+
+    def run(self):
+        tu = self.parser.index.parse(
+            str(self.path),
+            args=self.parser.args,
+            options=TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
+        )
+        for diag in tu.diagnostics:
+            if diag.severity >= 3:
+                self.diagnostics.append(
+                    Diagnostic(
+                        rule="parse-error",
+                        message=diag.spelling,
+                        file=(
+                            Path(diag.location.file.name).name
+                            if diag.location.file
+                            else ""
+                        ),
+                        line=diag.location.line,
+                        column=diag.location.column,
+                    )
+                )
+
+        cursors = [c for c in tu.cursor.get_children() if self.in_header(c)]
+
+        for cursor in cursors:
+            if cursor.kind != CursorKind.TYPEDEF_DECL:
+                continue
+            underlying = cursor.underlying_typedef_type
+            if underlying.kind == TypeKind.ELABORATED:
+                underlying = underlying.get_named_type()
+            decl = underlying.get_declaration()
+            if (
+                decl.kind in RECORD_KINDS + (CursorKind.ENUM_DECL,)
+                and is_unnamed(decl)
+                and decl_key(decl) not in self.names
+            ):
+                self.names[decl_key(decl)] = cursor.spelling
+                self.absorbed.add(decl_key(cursor))
+            self.typedefs.add(cursor.spelling)
+
+        defined = {
+            c.spelling
+            for c in cursors
+            if c.kind in RECORD_KINDS + (CursorKind.ENUM_DECL,) and c.is_definition()
+        }
+
+        entities: list = []  # entities, and names of macros to evaluate
+        declared: set = set()
+        for cursor in cursors:
+            try:
+                entities += self.declaration(cursor, defined, declared)
+            except Exception as exc:  # a bug in yace, not in the header
+                log.debug("internal error", exc_info=True)
+                self.report(
+                    "internal-error",
+                    f"'{cursor.spelling}': {type(exc).__name__}: {exc}",
+                    cursor,
+                )
+
+        macros = [e for e in entities if isinstance(e, tuple)]
+        values = self.evaluate([name for name, _ in macros]) if macros else {}
+        resolved = []
+        for entity in entities:
+            if not isinstance(entity, tuple):
+                resolved.append(entity)
+                continue
+            name, cursor = entity
+            if name not in values:
+                self.report(
+                    "macro-value",
+                    f"'{name}' is not a string literal or integer constant expression",
+                    cursor,
                 )
                 continue
-
-            if error:
-                errors.append(error)
-                continue
-
-            if not entity:
-                log.debug("No entity and no error for current cursor")
-                continue
-
-            entities.append(entity.model_dump())
-
-        # Second pass: evaluate expression macros via the enum trick
-        if expression_macros:
-            evaluated = self.evaluate_expression_macros(expression_macros, path)
-            if evaluated:
-                log.debug(
-                    f"Evaluated {len(evaluated)}/{len(expression_macros)} "
-                    "expression macros"
+            text = " ".join(t.spelling for t in list(cursor.get_tokens())[1:])
+            base = (
+                16 if re.match(r"^\(?\s*0[xX][0-9a-fA-F]+[uUlL]*\s*\)?$", text) else 10
+            )
+            resolved.append(
+                decls.Define(
+                    name=name,
+                    value=decls.IntLiteral(value=values[name], base=base),
+                    doc=self.macro_doc(cursor),
                 )
-                # Remove errors for successfully evaluated macros
-                resolved_msgs = set()
-                for name in evaluated:
-                    resolved_msgs.add(f"'#define {name}'")  # expression macros
-                    resolved_msgs.add(f"sym({name}),")  # alias macros
-                errors = [
-                    e for e in errors if not any(msg in str(e) for msg in resolved_msgs)
-                ]
-                # Add Define entities for evaluated macros
-                for name, value in evaluated.items():
-                    if value < 0:
-                        val = constants.Dec(lit=value)
-                    elif value > 255:
-                        val = constants.Hex(lit=value)
-                    else:
-                        val = constants.Dec(lit=value)
-                    entities.append(constants.Define(sym=name, val=val).model_dump())
+            )
 
-        return entities, errors
+        for entity in resolved:
+            if isinstance(entity, decls.Define):
+                self.check_doc(entity, "define", None)
+
+        # A record declared, then defined nested in another, is the definition
+        nested = {
+            e.name: e for e in resolved if isinstance(e, decls.RECORDS) and e.fields
+        }
+        for opaque in resolved:
+            if isinstance(opaque, decls.RECORDS) and not opaque.fields:
+                if opaque.name in nested and nested[opaque.name].doc.is_empty():
+                    nested[opaque.name].doc = opaque.doc
+        resolved = [
+            e
+            for e in resolved
+            if not (isinstance(e, decls.RECORDS) and not e.fields and e.name in nested)
+        ]
+        resolved = self.drop_uses(resolved)
+        self.share_docs(resolved)
+
+        meta = {
+            "name": self.path.stem,
+            "prefix": self.path.stem,
+            "header": self.path.name,
+            "abi": host_abi(),
+        }
+        meta.update(self.meta)
+
+        return Model(meta=Meta(**meta), entities=resolved), self.diagnostics
+
+    def inline_callback(self, typ, what: str, cursor):
+        """Report a function pointer not named by a typedef, also one within a
+        pointer or array"""
+
+        while isinstance(typ, (types.Pointer, types.Array)):
+            inner = typ.to if isinstance(typ, types.Pointer) else typ.of
+            if isinstance(typ, types.Pointer) and isinstance(inner, types.FunctionType):
+                self.report(
+                    "callback-typedef",
+                    f"{what} is a function pointer not typedef'd",
+                    cursor,
+                )
+                return
+            typ = inner
+
+    def keyword(self, name: str, what: str, cursor):
+        """Report 'name' where C++ reserves it; parameters are renamed instead"""
+
+        if name in CXX_KEYWORDS:
+            self.report("cxx-keyword", f"'{name}', {what}, is a keyword of C++", cursor)
+
+    def declaration(self, cursor, defined: set, declared: set) -> list:
+        kind = cursor.kind
+
+        if kind == CursorKind.INCLUSION_DIRECTIVE:
+            system = any(t.spelling == "<" for t in cursor.get_tokens())
+            return [decls.Include(name=cursor.displayname, system=system)]
+
+        if kind == CursorKind.MACRO_DEFINITION:
+            found = self.macro(cursor)
+            if found is None:
+                return []
+            if isinstance(found, str):
+                return [(found, cursor)]
+            return [found]
+
+        if kind == CursorKind.MACRO_INSTANTIATION:
+            return []
+
+        if kind in RECORD_KINDS + (CursorKind.ENUM_DECL,):
+            what = kind.name.split("_")[0].lower()
+            if decl_key(cursor) in self.names:
+                name = self.names[decl_key(cursor)]
+                self.report(
+                    "anonymous-record",
+                    f"the anonymous {what} named by typedef '{name}' is named"
+                    f" '{name}'",
+                    cursor,
+                )
+            elif is_unnamed(cursor) and kind == CursorKind.ENUM_DECL:
+                return self.anonymous_enum(cursor)
+            elif is_unnamed(cursor):
+                self.report(
+                    "unsupported-declaration",
+                    f"an anonymous {what} not named by a typedef is skipped",
+                    cursor,
+                )
+                return []
+            else:
+                name = cursor.spelling
+
+            if not cursor.is_definition():
+                if name in defined or name in declared or kind == CursorKind.ENUM_DECL:
+                    return []  # a forward declaration of what the header defines
+                declared.add(name)
+                cls = decls.Union if kind == CursorKind.UNION_DECL else decls.Struct
+                opaque = cls(name=name, fields=[], doc=self.doc_of(cursor))
+                self.check_doc(opaque, what, cursor)
+                return [opaque]
+
+            declared.add(name)
+            if kind == CursorKind.ENUM_DECL:
+                enum = self.enum(cursor, name)
+                self.check_doc(enum, "enum", cursor)
+                return [enum]
+            found = self.record(cursor, name)
+            if found and found[-1].name == name:
+                self.check_doc(found[-1], what, cursor)
+            return found
+
+        if kind == CursorKind.TYPEDEF_DECL:
+            if decl_key(cursor) in self.absorbed:
+                return []
+            typedef = self.typedef(cursor)
+            return [typedef] if typedef else []
+
+        if kind == CursorKind.FUNCTION_DECL:
+            function = self.function(cursor)
+            return [function] if function else []
+
+        if kind == CursorKind.VAR_DECL:
+            self.report(
+                "unsupported-declaration",
+                f"variable '{cursor.spelling}' is skipped",
+                cursor,
+            )
+            return []
+
+        self.report(
+            "unsupported-declaration",
+            f"'{cursor.spelling}', a {kind.name}, is skipped",
+            cursor,
+        )
+        return []
+
+    def anonymous_enum(self, cursor) -> list:
+        """The members of an anonymous enum, as integer constants"""
+
+        self.report(
+            "anonymous-record",
+            "an anonymous enum; its members are made constants",
+            cursor,
+        )
+        return [
+            decls.Define(
+                name=child.spelling,
+                value=decls.IntLiteral(value=child.enum_value),
+                doc=self.doc_of(child),
+            )
+            for child in cursor.get_children()
+            if child.kind == CursorKind.ENUM_CONSTANT_DECL
+        ]
 
 
-def c_to_yace(paths: List[Path], output: Path) -> Tuple[int, List[Error]]:
-    """Best-effort transformation of a C Header to a YACE File
-
-    Returns a tuple of (entity_count, errors). The YAML is written regardless
-    of errors — unsupported constructs are skipped and reported.
+def c_to_yace(
+    paths: List[Path], output: Path, meta: Optional[dict] = None, args=None
+) -> List[Tuple[Path, Model, List[Diagnostic]]]:
+    """
+    Parse each header in 'paths', writing its IR to '<output>/<stem>.yaml' and
+    its diagnostics to '<output>/<stem>.status'
     """
 
-    entity_count = 0
-    errors: List[Error] = []
-
     output.mkdir(parents=True, exist_ok=True)
+    parser = CParser(args)
 
-    parser = CParser()
-    for path in [p.resolve() for p in paths]:
-        try:
-            tu = parser.parse_file(path)
-        except Exception as exc:
-            errors.append(Error(message=f"Failed to parse translation unit: {exc}"))
-            continue
+    results = []
+    for path in [Path(p).resolve() for p in paths]:
+        model, diagnostics = parser.parse(path, meta)
+        model.save(output / f"{path.stem}.yaml")
 
-        entities, parse_errors = parser.tu_to_data(tu, path)
-        errors += parse_errors
-        entity_count += len(entities)
+        lines = [
+            f"Parsed {len(model.entities)} entities," f" {len(diagnostics)} diagnostics"
+        ]
+        lines += [str(diag) for diag in diagnostics]
+        (output / f"{path.stem}.status").write_text("\n".join(lines) + "\n")
 
-        stem = path.stem
-        data = {
-            "meta": {
-                "lic": "Unknown License",
-                "version": "0.0.1",
-                "author": "Foo Bar <foo@example.com>",
-                "project": stem,
-                "prefix": stem,
-                "brief": "Brief Description",
-                "full": "Full Description",
-                "pkg": "",
-            },
-        }
-        data["entities"] = entities
+        results.append((path, model, diagnostics))
 
-        model = Model(**data)
-        model.to_file(output / path.with_suffix(".yaml").name)
-
-        # Write status file
-        status_path = output / path.with_suffix(".status").name
-        with status_path.open("w") as status:
-            status.write(f"Parsed {len(entities)} entities")
-            if parse_errors:
-                status.write(f", skipped {len(parse_errors)} constructs")
-            status.write("\n")
-
-            if parse_errors:
-                status.write("\nSkipped:\n")
-                for error in parse_errors:
-                    status.write(f"  {error}\n")
-
-    return entity_count, errors
+    return results
