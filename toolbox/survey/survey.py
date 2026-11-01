@@ -1,20 +1,26 @@
 #!/usr/bin/env python3
 """
-Survey popular C libraries to measure yace parser coverage.
+Survey C libraries with yace: that it parses any header without failing, and
+which rules of the C subset the headers break
 
-Three library sources:
-  packaged.txt  — Debian packages (apt install, parse system headers)
-  vendored.txt  — Single-file downloads (header-only / vendored)
-  repos.txt     — Git repos to clone (multi-header, non-packaged)
+Headers written for other purposes are expected to step outside the subset;
+that is reported, by rule, not counted against yace. What counts against yace
+is failing: a traceback, a timeout, or an 'internal-error' diagnostic. With
+'--with-capi', the C API is also generated and checked; for a header outside
+the subset that may not build, which is reported but is not a failure of yace.
+
+Three sources of libraries:
+  packaged.txt  Debian packages, parsing the installed headers
+  vendored.txt  Single-file headers, downloaded
+  repos.txt     Git repositories, cloned
 
 Usage:
-    python3 toolbox/survey/survey.py                  # full run
-    python3 toolbox/survey/survey.py --skip-download  # reuse cached data
-    python3 toolbox/survey/survey.py --report-only    # regenerate report
-    python3 toolbox/survey/survey.py --packaged-only  # only packaged libs
-    python3 toolbox/survey/survey.py --vendored-only  # only vendored libs
-    python3 toolbox/survey/survey.py --repos-only     # only cloned repos
+    python3 toolbox/survey/survey.py --packaged-only --with-capi
+    python3 toolbox/survey/survey.py --skip-download --report-only
+
+Exits non-zero when yace failed on any header.
 """
+
 import argparse
 import glob as globmod
 import json
@@ -22,8 +28,9 @@ import re
 import subprocess
 import sys
 import urllib.request
+from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List
 
 SCRIPT_DIR = Path(__file__).parent
 PACKAGED_FILE = SCRIPT_DIR / "packaged.txt"
@@ -36,304 +43,23 @@ OUTPUT_DIR = WORK_DIR / "output"
 RESULTS_FILE = WORK_DIR / "results.json"
 REPORT_FILE = SCRIPT_DIR / "report.md"
 
+TIMEOUT = 120
+STATUS = re.compile(r"^Parsed (\d+) entities, (\d+) diagnostics")
+DIAGNOSTIC = re.compile(r"^[^:]*:\d+:\d+: ([a-z-]+): |^<header>: ([a-z-]+): ")
 
-# ---------------------------------------------------------------------------
-# File loaders
-# ---------------------------------------------------------------------------
 
-
-def load_tsv(path: Path, min_cols: int = 2) -> List[List[str]]:
-    """Load a TSV file, skipping comments and blank lines."""
+def load_tsv(path: Path, min_cols: int) -> List[List[str]]:
     rows = []
-    if not path.exists():
-        return rows
-    for line in path.read_text().splitlines():
+    for line in path.read_text().splitlines() if path.exists() else []:
         line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        parts = [p.strip() for p in line.split("\t")]
-        if len(parts) >= min_cols:
-            rows.append(parts)
+        if line and not line.startswith("#"):
+            parts = [p.strip() for p in line.split("\t")]
+            if len(parts) >= min_cols:
+                rows.append(parts)
     return rows
 
 
-def load_packaged() -> List[Tuple[str, str, str, str]]:
-    """Return [(name, deb_pkg, header_path, pkg_config_name), ...]."""
-    rows = []
-    for r in load_tsv(PACKAGED_FILE, 3):
-        pkg = r[3] if len(r) >= 4 else ""
-        rows.append((r[0], r[1], r[2], pkg))
-    return rows
-
-
-def load_vendored() -> List[Tuple[str, str]]:
-    """Return [(name, url), ...]."""
-    return [(r[0], r[1]) for r in load_tsv(VENDORED_FILE, 2)]
-
-
-def load_repos() -> List[Tuple[str, str, str, Set[str]]]:
-    """Return [(name, git_url, include_glob, excludes), ...]."""
-    entries = []
-    for r in load_tsv(REPOS_FILE, 3):
-        excludes: Set[str] = set()
-        if len(r) >= 4:
-            excludes = {e.strip() for e in r[3].split(",")}
-        entries.append((r[0], r[1], r[2], excludes))
-    return entries
-
-
-# ---------------------------------------------------------------------------
-# Download / clone helpers
-# ---------------------------------------------------------------------------
-
-
-def download_headers(entries: List[Tuple[str, str]]) -> None:
-    """Download vendored headers, skipping cached ones."""
-    HEADERS_DIR.mkdir(parents=True, exist_ok=True)
-    for name, url in entries:
-        dest = HEADERS_DIR / f"{name}.h"
-        if dest.exists() and dest.stat().st_size > 0:
-            continue
-        print(f"  downloading {name}...", end=" ", flush=True)
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "yace-survey/1.0"})
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                dest.write_bytes(resp.read())
-            print("ok")
-        except Exception as e:
-            print(f"FAILED: {e}")
-            if dest.exists():
-                dest.unlink()
-
-
-def clone_repos(entries: List[Tuple[str, str, str, Set[str]]]) -> None:
-    """Shallow-clone repos, skipping cached ones."""
-    REPOS_DIR.mkdir(parents=True, exist_ok=True)
-    for name, git_url, _, _ in entries:
-        dest = REPOS_DIR / name
-        if dest.exists() and (dest / ".git").exists():
-            continue
-        print(f"  cloning {name}...", end=" ", flush=True)
-        try:
-            subprocess.run(
-                ["git", "clone", "--depth", "1", git_url, str(dest)],
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
-            print("ok")
-        except Exception as e:
-            print(f"FAILED: {e}")
-
-
-# ---------------------------------------------------------------------------
-# Error categorization
-# ---------------------------------------------------------------------------
-
-
-def categorize_error(err_msg: str) -> str:
-    """Categorize a .status error line into a short category string."""
-    if "unsupported amount of ntokens" in err_msg:
-        return "expression_macro"
-    if "Unsuported typedef" in err_msg:
-        m = re.search(r"Unsuported typedef\(TypeKind\.(\w+)\)", err_msg)
-        return f"typedef_{m.group(1).lower()}" if m else "typedef_other"
-    if "TYPEDEF_DECL not supported" in err_msg:
-        m = re.search(r"TypeKind\.(\w+)", err_msg)
-        return f"typedef_decl_{m.group(1).lower()}" if m else "typedef_decl_other"
-    if "No support for typedef" in err_msg:
-        return "typedef_no_support"
-    if "Unhandled TypeKind" in err_msg:
-        m = re.search(r"TypeKind\.(\w+)", err_msg)
-        return f"unhandled_{m.group(1).lower()}" if m else "unhandled_other"
-    if "Unsupported type(TypeKind.CHAR_S)" in err_msg:
-        return "unsupported_char"
-    if "Unsupported type" in err_msg:
-        return "unsupported_type_other"
-    if "Failed converting" in err_msg:
-        return "alias_macro"
-    if "expected FIELD_DECL; got: CursorKind.PACKED_ATTR" in err_msg:
-        return "packed_attr"
-    if "unexpected 'CursorKind.UNION_DECL'" in err_msg:
-        return "anonymous_union"
-    if "unexpected 'CursorKind.STRUCT_DECL'" in err_msg:
-        return "anonymous_struct"
-    return f"other: {err_msg[:60]}"
-
-
-# ---------------------------------------------------------------------------
-# yace runner
-# ---------------------------------------------------------------------------
-
-
-def parse_status_file(status_path: Path) -> Optional[Tuple[int, int, Dict[str, int]]]:
-    """Parse a .status file. Returns (parsed, skipped, error_cats) or None."""
-    if not status_path.exists():
-        return None
-    content = status_path.read_text()
-    m = re.match(r"Parsed (\d+) entities(?:, skipped (\d+) constructs)?", content)
-    if not m:
-        return None
-
-    parsed = int(m.group(1))
-    skipped = int(m.group(2)) if m.group(2) else 0
-
-    error_cats: Dict[str, int] = {}
-    for line in content.split("\n"):
-        if "error:" in line:
-            err_match = re.search(r"error: (.+)$", line)
-            if err_match:
-                cat = categorize_error(err_match.group(1).strip())
-                error_cats[cat] = error_cats.get(cat, 0) + 1
-
-    return parsed, skipped, error_cats
-
-
-def run_yace_on_header(header: Path, outdir: Path) -> Dict[str, Any]:
-    """Run yace on a single header. Returns result dict."""
-    outdir.mkdir(parents=True, exist_ok=True)
-    stem = header.stem
-
-    try:
-        subprocess.run(
-            ["yace", str(header), "--output", str(outdir) + "/"],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-    except subprocess.TimeoutExpired:
-        return {"status": "timeout"}
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
-
-    status_file = outdir / f"{stem}.status"
-    result = parse_status_file(status_file)
-    if result is None:
-        return {"status": "no_status"}
-
-    parsed, skipped, error_cats = result
-    total = parsed + skipped
-    return {
-        "parsed": parsed,
-        "skipped": skipped,
-        "total": total,
-        "parse_rate": round(parsed / total * 100, 1) if total else 0,
-        "errors": error_cats,
-        "status": "ok",
-    }
-
-
-# ---------------------------------------------------------------------------
-# Generator runner
-# ---------------------------------------------------------------------------
-
-
-def run_generators(
-    name: str, yaml_path: Path, outdir: Path, pkg_name: str
-) -> Dict[str, str]:
-    """Run capi and ctypes generators on a parsed YAML, return status per target.
-
-    Before running generators, patches meta.pkg in the YAML so the capi check
-    stage can compile and link against the original library via pkg-config.
-
-    Returns e.g. {"capi": "ok", "ctypes": "emit_error"}.
-    """
-    result: Dict[str, str] = {}
-
-    # Patch meta.pkg in the YAML if a pkg-config name is available
-    if pkg_name and yaml_path.exists():
-        try:
-            import yaml as pyyaml
-
-            data = pyyaml.safe_load(yaml_path.read_text())
-            if data and "meta" in data:
-                data["meta"]["pkg"] = pkg_name
-                yaml_path.write_text(
-                    pyyaml.dump(data, default_flow_style=None, indent=2)
-                )
-        except Exception as exc:
-            result["yaml_patch"] = f"error: {exc}"
-
-    for target in ["capi", "ctypes"]:
-        target_outdir = outdir / target
-        target_outdir.mkdir(parents=True, exist_ok=True)
-        try:
-            proc = subprocess.run(
-                [
-                    "yace",
-                    str(yaml_path),
-                    "--emit",
-                    target,
-                    "--output",
-                    str(target_outdir) + "/",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
-            if proc.returncode == 0:
-                result[target] = "ok"
-            else:
-                # Try to identify which stage failed from stderr
-                stderr = proc.stderr.lower()
-                if "transform" in stderr:
-                    result[target] = "transform_error"
-                elif "emit" in stderr:
-                    result[target] = "emit_error"
-                elif "format" in stderr:
-                    result[target] = "format_error"
-                elif "check" in stderr or "gcc" in stderr or "compile" in stderr:
-                    result[target] = "check_error"
-                else:
-                    result[target] = "error"
-                result[f"{target}_stderr"] = proc.stderr[:500]
-        except subprocess.TimeoutExpired:
-            result[target] = "timeout"
-        except Exception as exc:
-            result[target] = f"error: {exc}"
-
-    return result
-
-
-def run_generators_on_results(
-    results: Dict[str, Any],
-) -> None:
-    """Run generators on all successfully parsed libraries (in-place update).
-
-    Only runs on packaged libraries that have a YAML output and a pkg-config
-    name.  Updates each result dict with a "generators" key.
-    """
-    for name, data in results.items():
-        if data.get("status") != "ok":
-            continue
-
-        pkg_name = data.get("pkg", "")
-
-        # Find the YAML file produced by the parser
-        outdir = OUTPUT_DIR / f"{name}_pkg"
-        yamls = list(outdir.glob("*.yaml"))
-        if not yamls:
-            data["generators"] = {"capi": "no_yaml", "ctypes": "no_yaml"}
-            print(f"  SKIP  {name} (no YAML found)")
-            continue
-
-        yaml_path = yamls[0]
-        gen_outdir = outdir / "gen"
-        gen_result = run_generators(name, yaml_path, gen_outdir, pkg_name)
-        data["generators"] = gen_result
-
-        capi = gen_result.get("capi", "skip")
-        ctypes = gen_result.get("ctypes", "skip")
-        print(f"  GEN   {name}: capi={capi} ctypes={ctypes}")
-
-
-# ---------------------------------------------------------------------------
-# Survey runners
-# ---------------------------------------------------------------------------
-
-
-def _system_include_dirs() -> List[str]:
-    """Return system include directories (base + multiarch)."""
+def system_include_dirs() -> List[str]:
     dirs = ["/usr/include"]
     try:
         arch = subprocess.check_output(
@@ -343,592 +69,236 @@ def _system_include_dirs() -> List[str]:
         ).strip()
         if arch:
             dirs.append(f"/usr/include/{arch}")
-    except Exception:
+    except (OSError, subprocess.CalledProcessError):
         pass
     return dirs
 
 
-def _find_system_header(header_path: str) -> Optional[Path]:
-    """Find a single header across system include dirs."""
-    for d in _system_include_dirs():
-        p = Path(d) / header_path
-        if p.exists():
-            return p
-    return None
+def packaged() -> Dict[str, List[Path]]:
+    """The installed headers of each packaged library, by name"""
+
+    found = {}
+    for row in load_tsv(PACKAGED_FILE, 3):
+        name, pattern = row[0], row[2]
+        headers = set()
+        for include in system_include_dirs():
+            headers.update(Path(p) for p in globmod.glob(f"{include}/{pattern}"))
+        found[name] = sorted(headers)
+    return found
 
 
-def _glob_system_headers(header_glob: str) -> List[Path]:
-    """Glob for headers across system include dirs."""
-    found: List[Path] = []
-    for d in _system_include_dirs():
-        found.extend(Path(p) for p in globmod.glob(f"{d}/{header_glob}"))
-    return sorted(set(found))
+def vendored(download: bool) -> Dict[str, List[Path]]:
+    HEADERS_DIR.mkdir(parents=True, exist_ok=True)
+    found = {}
+    for name, url, *_ in load_tsv(VENDORED_FILE, 2):
+        dest = HEADERS_DIR / f"{name}.h"
+        if download and not (dest.exists() and dest.stat().st_size):
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "yace-survey"})
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    dest.write_bytes(resp.read())
+            except OSError as exc:
+                print(f"  download of {name} failed: {exc}")
+        found[name] = [dest] if dest.exists() else []
+    return found
 
 
-def run_packaged_survey(entries: List[Tuple[str, str, str, str]]) -> Dict[str, Any]:
-    """Run yace on system-installed headers from Debian packages."""
-    results: Dict[str, Any] = {}
-
-    for name, deb_pkg, header_path, pkg_name in entries:
-        # Find the header(s) on the system
-        if "*" in header_path:
-            # Glob pattern — multi-header package
-            headers = _glob_system_headers(header_path)
-            if not headers:
-                results[name] = {
-                    "status": "not_installed",
-                    "deb_pkg": deb_pkg,
-                }
-                print(f"  SKIP  {name} ({deb_pkg} not installed)")
-                continue
-
-            total_parsed = 0
-            total_skipped = 0
-            all_errors: Dict[str, int] = {}
-            per_header: List[str] = []
-            crashed = 0
-
-            for header in headers:
-                hname = header.stem
-                outdir = OUTPUT_DIR / f"{name}_pkg" / hname
-                result = run_yace_on_header(header, outdir)
-
-                if result["status"] == "ok":
-                    total_parsed += result["parsed"]
-                    total_skipped += result["skipped"]
-                    for cat, count in result["errors"].items():
-                        all_errors[cat] = all_errors.get(cat, 0) + count
-                    per_header.append(
-                        f"{hname}: {result['parsed']}/{result['total']} "
-                        f"({result['parse_rate']}%)"
-                    )
-                else:
-                    crashed += 1
-                    per_header.append(f"{hname}: {result['status']}")
-
-            total = total_parsed + total_skipped
-            results[name] = {
-                "parsed": total_parsed,
-                "skipped": total_skipped,
-                "total": total,
-                "parse_rate": round(total_parsed / total * 100, 1) if total else 0,
-                "errors": all_errors,
-                "status": "ok",
-                "source": "packaged",
-                "deb_pkg": deb_pkg,
-                "pkg": pkg_name,
-                "headers_count": len(headers),
-                "headers_crashed": crashed,
-                "per_header": per_header,
-            }
-            print(
-                f"  OK    {name}: {total_parsed}/{total} "
-                f"({results[name]['parse_rate']}%) "
-                f"[{len(headers)} headers, {crashed} crashed]"
+def repos(download: bool) -> Dict[str, List[Path]]:
+    REPOS_DIR.mkdir(parents=True, exist_ok=True)
+    found = {}
+    for row in load_tsv(REPOS_FILE, 3):
+        name, url, pattern = row[0], row[1], row[2]
+        excludes = {e.strip() for e in row[3].split(",")} if len(row) > 3 else set()
+        dest = REPOS_DIR / name
+        if download and not (dest / ".git").exists():
+            subprocess.run(
+                ["git", "clone", "--depth", "1", url, str(dest)],
+                capture_output=True,
+                timeout=TIMEOUT,
             )
-        else:
-            # Single header
-            header = _find_system_header(header_path)
-            if header is None:
-                results[name] = {
-                    "status": "not_installed",
-                    "deb_pkg": deb_pkg,
-                }
-                print(f"  SKIP  {name} ({deb_pkg} not installed)")
-                continue
-
-            outdir = OUTPUT_DIR / f"{name}_pkg"
-            result = run_yace_on_header(header, outdir)
-            result["source"] = "packaged"
-            result["deb_pkg"] = deb_pkg
-            result["pkg"] = pkg_name
-            results[name] = result
-
-            if result["status"] == "ok":
-                print(
-                    f"  OK    {name}: {result['parsed']}/{result['total']} "
-                    f"({result['parse_rate']}%)"
-                )
-            else:
-                print(f"  CRASH {name}")
-
-    return results
-
-
-def run_vendored_survey(entries: List[Tuple[str, str]]) -> Dict[str, Any]:
-    """Run yace on downloaded single-file headers."""
-    results: Dict[str, Any] = {}
-
-    for name, _ in entries:
-        header = HEADERS_DIR / f"{name}.h"
-        if not header.exists():
-            results[name] = {"status": "download_failed"}
-            print(f"  SKIP  {name} (not downloaded)")
-            continue
-
-        outdir = OUTPUT_DIR / name
-        result = run_yace_on_header(header, outdir)
-        result["source"] = "vendored"
-        results[name] = result
-
-        if result["status"] == "ok":
-            print(
-                f"  OK    {name}: {result['parsed']}/{result['total']} "
-                f"({result['parse_rate']}%)"
-            )
-        elif result["status"] == "timeout":
-            print(f"  TIMEOUT {name}")
-        else:
-            print(f"  CRASH {name}")
-
-    return results
-
-
-def run_repo_survey(entries: List[Tuple[str, str, str, Set[str]]]) -> Dict[str, Any]:
-    """Run yace on each header in cloned repos, aggregating per-repo."""
-    results: Dict[str, Any] = {}
-
-    for name, _, include_glob, excludes in entries:
-        repo_dir = REPOS_DIR / name
-        if not repo_dir.exists():
-            results[name] = {"status": "clone_failed"}
-            print(f"  SKIP  {name} (not cloned)")
-            continue
-
-        pattern = str(repo_dir / include_glob)
-        headers = sorted(
+        found[name] = sorted(
             p
-            for p in (Path(f) for f in globmod.glob(pattern, recursive=True))
+            for p in (
+                Path(f) for f in globmod.glob(str(dest / pattern), recursive=True)
+            )
             if p.name not in excludes
         )
-        if not headers:
-            results[name] = {"status": "no_headers", "glob": include_glob}
-            print(f"  SKIP  {name} (no headers matched '{include_glob}')")
-            continue
+    return found
 
-        total_parsed = 0
-        total_skipped = 0
-        all_errors: Dict[str, int] = {}
-        per_header: List[str] = []
-        crashed = 0
 
-        for header in headers:
-            hname = header.stem
-            outdir = OUTPUT_DIR / f"{name}_repo" / hname
-            result = run_yace_on_header(header, outdir)
+def yace(*args) -> Dict[str, Any]:
+    """Run yace; 'failed' when it raised or timed out, rather than reported"""
 
-            if result["status"] == "ok":
-                total_parsed += result["parsed"]
-                total_skipped += result["skipped"]
-                for cat, count in result["errors"].items():
-                    all_errors[cat] = all_errors.get(cat, 0) + count
-                per_header.append(
-                    f"{hname}: {result['parsed']}/{result['total']} "
-                    f"({result['parse_rate']}%)"
-                )
-            else:
-                crashed += 1
-                per_header.append(f"{hname}: {result['status']}")
-
-        total = total_parsed + total_skipped
-        results[name] = {
-            "parsed": total_parsed,
-            "skipped": total_skipped,
-            "total": total,
-            "parse_rate": round(total_parsed / total * 100, 1) if total else 0,
-            "errors": all_errors,
-            "status": "ok",
-            "source": "repo",
-            "headers_count": len(headers),
-            "headers_crashed": crashed,
-            "per_header": per_header,
-        }
-
-        print(
-            f"  OK    {name}: {total_parsed}/{total} "
-            f"({results[name]['parse_rate']}%) "
-            f"[{len(headers)} headers, {crashed} crashed]"
+    try:
+        proc = subprocess.run(
+            ["yace", *map(str, args)], capture_output=True, text=True, timeout=TIMEOUT
         )
+    except subprocess.TimeoutExpired:
+        return {"failed": "timeout", "returncode": None}
+    failed = "traceback" if "Traceback (most recent call last)" in proc.stderr else ""
+    return {"failed": failed, "returncode": proc.returncode, "stderr": proc.stderr}
 
+
+def survey_header(header: Path, outdir: Path, with_capi: bool) -> Dict[str, Any]:
+    outdir.mkdir(parents=True, exist_ok=True)
+    result: Dict[str, Any] = {"header": str(header)}
+
+    parsed = yace(header, "--output", outdir)
+    status = outdir / f"{header.stem}.status"
+    if parsed["failed"] or not status.exists():
+        result["failed"] = parsed["failed"] or "no status"
+        result["stderr"] = parsed.get("stderr", "")[-2000:]
+        return result
+
+    lines = status.read_text().splitlines()
+    match = STATUS.match(lines[0]) if lines else None
+    if not match:
+        result["failed"] = "unreadable status"
+        return result
+    result["entities"] = int(match.group(1))
+    rules = Counter()
+    for line in lines[1:]:
+        found = DIAGNOSTIC.match(line)
+        if found:
+            rules[found.group(1) or found.group(2)] += 1
+    result["rules"] = dict(rules)
+    if rules.get("internal-error"):
+        result["failed"] = "internal-error"
+
+    if with_capi and not result.get("failed"):
+        emitted = yace(
+            outdir / f"{header.stem}.yaml",
+            "--emit",
+            "capi",
+            "--output",
+            outdir,
+            "-I",
+            header.parent,
+        )
+        if emitted["failed"]:
+            result["failed"] = f"capi {emitted['failed']}"
+        result["capi"] = "ok" if emitted["returncode"] == 0 else "does not build"
+
+    return result
+
+
+def survey(libraries: Dict[str, List[Path]], source: str, with_capi: bool) -> Dict:
+    results = {}
+    for name, headers in libraries.items():
+        if not headers:
+            print(f"  SKIP  {name}: no headers")
+            results[name] = {"source": source, "headers": []}
+            continue
+        per_header = [
+            survey_header(h, OUTPUT_DIR / source / name / h.stem, with_capi)
+            for h in headers
+        ]
+        failed = [r for r in per_header if r.get("failed")]
+        rules: Counter = Counter()
+        for r in per_header:
+            rules.update(r.get("rules", {}))
+        results[name] = {
+            "source": source,
+            "headers": per_header,
+            "entities": sum(r.get("entities", 0) for r in per_header),
+            "rules": dict(rules),
+            "failed": len(failed),
+            "capi_builds": sum(r.get("capi") == "ok" for r in per_header),
+        }
+        mark = "FAIL" if failed else "ok"
+        print(
+            f"  {mark:5} {name}: {len(per_header)} headers,"
+            f" {results[name]['entities']} entities, {sum(rules.values())} diagnostics"
+        )
     return results
 
 
-# ---------------------------------------------------------------------------
-# Report generation
-# ---------------------------------------------------------------------------
+def report(results: Dict[str, Any], with_capi: bool) -> str:
+    surveyed = {n: r for n, r in results.items() if r["headers"]}
+    headers = sum(len(r["headers"]) for r in surveyed.values())
+    failed = {n: r for n, r in surveyed.items() if r["failed"]}
+    rules: Counter = Counter()
+    for r in surveyed.values():
+        rules.update(r["rules"])
 
-
-def _results_table(
-    items: List[Tuple[str, Dict[str, Any]]], show_headers: bool = False
-) -> List[str]:
-    """Generate a markdown table from sorted result items."""
-    lines = []
-    if show_headers:
-        lines.append(
-            "| # | Library | Parsed | Skipped | Total | Rate "
-            "| Headers | Top Skip Reason |"
-        )
-        lines.append(
-            "|---|---------|--------|---------|-------|------"
-            "|---------|-----------------|"
-        )
-    else:
-        lines.append(
-            "| # | Library | Parsed | Skipped | Total | Rate | Top Skip Reason |"
-        )
-        lines.append(
-            "|---|---------|--------|---------|-------|------|-----------------|"
-        )
-
-    for i, (name, data) in enumerate(items, 1):
-        top_err = ""
-        if data.get("errors"):
-            top_err = max(data["errors"], key=data["errors"].get)
-        cols = (
-            f"| {i} | {name} | {data['parsed']} | {data['skipped']} | "
-            f"{data['total']} | {data['parse_rate']}%"
-        )
-        if show_headers:
-            hcount = data.get("headers_count", "")
-            crashed = data.get("headers_crashed", 0)
-            hinfo = str(hcount) if not crashed else f"{hcount} ({crashed} crashed)"
-            cols += f" | {hinfo}"
-        cols += f" | {top_err} |"
-        lines.append(cols)
-    return lines
-
-
-def generate_report(results: Dict[str, Any]) -> str:
-    """Generate markdown report from results dict."""
-    ok = {k: v for k, v in results.items() if v.get("status") == "ok"}
-    failed = {k: v for k, v in results.items() if v.get("status") != "ok"}
-
-    total_parsed = sum(v["parsed"] for v in ok.values())
-    total_skipped = sum(v["skipped"] for v in ok.values())
-    total_entities = total_parsed + total_skipped
-    overall_rate = (
-        round(total_parsed / total_entities * 100, 1) if total_entities else 0
-    )
-
-    lines: List[str] = []
-    lines.append("# C Library Survey — yace Parser Coverage\n")
-    lines.append("## Summary\n")
-    lines.append(f"- **Libraries tested**: {len(results)}")
-    lines.append(f"- **Successfully parsed**: {len(ok)}")
-    lines.append(f"- **Crashed / failed**: {len(failed)}")
-    lines.append(f"- **Total entities**: {total_entities}")
-    lines.append(f"- **Parsed**: {total_parsed}")
-    lines.append(f"- **Skipped**: {total_skipped}")
-    lines.append(f"- **Overall parse rate**: {overall_rate}%\n")
-
-    # Split by source
-    packaged = {k: v for k, v in ok.items() if v.get("source") == "packaged"}
-    repos = {k: v for k, v in ok.items() if v.get("source") == "repo"}
-    vendored = {
-        k: v for k, v in ok.items() if v.get("source") not in ("packaged", "repo")
-    }
-
-    # Packaged libraries
-    if packaged:
-        lines.append("## Packaged Libraries (Debian)\n")
-        sorted_pkg = sorted(
-            packaged.items(), key=lambda x: x[1]["parse_rate"], reverse=True
-        )
-        multi = [(k, v) for k, v in sorted_pkg if v.get("headers_count")]
-        single = [(k, v) for k, v in sorted_pkg if not v.get("headers_count")]
-
-        if single:
-            lines.extend(_results_table(single))
-            lines.append("")
-        if multi:
-            lines.extend(_results_table(multi, show_headers=True))
-            lines.append("")
-            lines.append("### Per-Header Breakdown\n")
-            for name, data in multi:
-                lines.append(f"**{name}** ({data['headers_count']} headers):\n")
-                for h in data.get("per_header", []):
-                    lines.append(f"- {h}")
-                lines.append("")
-
-    # Cloned repos
-    if repos:
-        lines.append("## Non-Packaged Repos (cloned)\n")
-        sorted_repos = sorted(
-            repos.items(), key=lambda x: x[1]["parse_rate"], reverse=True
-        )
-        lines.extend(_results_table(sorted_repos, show_headers=True))
-        lines.append("")
-        lines.append("### Per-Header Breakdown\n")
-        for name, data in sorted_repos:
-            lines.append(f"**{name}** ({data['headers_count']} headers):\n")
-            for h in data.get("per_header", []):
-                lines.append(f"- {h}")
-            lines.append("")
-
-    # Vendored / header-only
-    if vendored:
-        lines.append("## Vendored / Header-Only Libraries\n")
-        sorted_v = sorted(
-            vendored.items(), key=lambda x: x[1]["parse_rate"], reverse=True
-        )
-        lines.extend(_results_table(sorted_v))
-        lines.append("")
-
-    # Failed
-    if failed:
-        lines.append("## Crashed / Failed / Not Installed\n")
-        lines.append("| Library | Status | Details |")
-        lines.append("|---------|--------|---------|")
-        for name, data in sorted(failed.items()):
-            status = data.get("status", "unknown")
-            detail = data.get("deb_pkg", "")
-            if not detail:
-                detail = data.get("stderr", data.get("error", data.get("raw", "")))[:80]
-            lines.append(f"| {name} | {status} | {detail} |")
-        lines.append("")
-
-    # Aggregate error analysis
-    all_errors: Dict[str, int] = {}
-    for data in ok.values():
-        for cat, count in data.get("errors", {}).items():
-            all_errors[cat] = all_errors.get(cat, 0) + count
-
-    broad: Dict[str, int] = {
-        "TYPEDEF_USE": 0,
-        "TYPEDEF_DECL": 0,
-        "EXPRESSION_MACRO": 0,
-        "ALIAS_MACRO": 0,
-        "UNHANDLED_TYPE": 0,
-        "UNSUPPORTED_TYPE": 0,
-        "OTHER": 0,
-    }
-    typedef_detail: Dict[str, int] = {}
-    for cat, count in all_errors.items():
-        if cat == "expression_macro":
-            broad["EXPRESSION_MACRO"] += count
-        elif cat == "alias_macro":
-            broad["ALIAS_MACRO"] += count
-        elif cat.startswith("typedef_decl_"):
-            broad["TYPEDEF_DECL"] += count
-            typedef_detail[cat] = count
-        elif cat == "typedef_no_support":
-            broad["TYPEDEF_DECL"] += count
-        elif cat.startswith("typedef_"):
-            broad["TYPEDEF_USE"] += count
-            typedef_detail[cat] = count
-        elif cat.startswith("unhandled_"):
-            broad["UNHANDLED_TYPE"] += count
-        elif cat.startswith("unsupported_"):
-            broad["UNSUPPORTED_TYPE"] += count
-        else:
-            broad["OTHER"] += count
-
-    lines.append("## Error Categories (aggregate)\n")
-    lines.append("| Rank | Category | Skipped | % of All |")
-    lines.append("|------|----------|---------|----------|")
-    total_skips = sum(broad.values())
-    for rank, (cat, count) in enumerate(
-        sorted(broad.items(), key=lambda x: x[1], reverse=True), 1
-    ):
-        if count == 0:
-            continue
-        pct = round(count / total_skips * 100, 1) if total_skips else 0
-        lines.append(f"| {rank} | {cat} | {count} | {pct}% |")
-    lines.append("")
-
-    if typedef_detail:
-        lines.append("## Typedef Detail\n")
-        lines.append("| TypeKind | Count |")
-        lines.append("|----------|-------|")
-        for cat, count in sorted(
-            typedef_detail.items(), key=lambda x: x[1], reverse=True
-        ):
-            lines.append(f"| {cat} | {count} |")
-        lines.append("")
-
-    # Generator results (if any)
-    gen_libs = {k: v for k, v in ok.items() if "generators" in v}
-    if gen_libs:
-        lines.append("## Generator Results\n")
-
-        # Aggregate stats
-        capi_ok = sum(
-            1 for v in gen_libs.values() if v["generators"].get("capi") == "ok"
-        )
-        capi_fail = sum(
-            1
-            for v in gen_libs.values()
-            if v["generators"].get("capi", "").endswith("error")
-        )
-        ctypes_ok = sum(
-            1 for v in gen_libs.values() if v["generators"].get("ctypes") == "ok"
-        )
-        ctypes_fail = sum(
-            1
-            for v in gen_libs.values()
-            if v["generators"].get("ctypes", "").endswith("error")
-        )
-
-        lines.append(f"- **Libraries with generators**: {len(gen_libs)}")
-        lines.append(f"- **CAPI**: {capi_ok} ok, {capi_fail} failed")
-        lines.append(f"- **Ctypes**: {ctypes_ok} ok, {ctypes_fail} failed\n")
-
-        lines.append("| # | Library | CAPI | Ctypes |")
-        lines.append("|---|---------|------|--------|")
-        for i, (name, data) in enumerate(sorted(gen_libs.items()), 1):
-            gen = data["generators"]
-            capi = gen.get("capi", "skip")
-            ctypes = gen.get("ctypes", "skip")
-            lines.append(f"| {i} | {name} | {capi} | {ctypes} |")
-        lines.append("")
-
-        # List failures with stderr snippets
-        gen_failures = {
-            k: v
-            for k, v in gen_libs.items()
-            if v["generators"].get("capi", "") not in ("ok", "no_yaml")
-            or v["generators"].get("ctypes", "") not in ("ok", "no_yaml")
-        }
-        if gen_failures:
-            lines.append("### Generator Failures\n")
-            for name, data in sorted(gen_failures.items()):
-                gen = data["generators"]
-                for target in ["capi", "ctypes"]:
-                    status = gen.get(target, "skip")
-                    if status not in ("ok", "skip", "no_yaml"):
-                        stderr = gen.get(f"{target}_stderr", "")
-                        lines.append(f"**{name}** ({target}): {status}")
-                        if stderr:
-                            lines.append(f"```\n{stderr[:300]}\n```")
-                        lines.append("")
-
-    lines.append("## Estimated Coverage Improvement\n")
-    lines.append("| Fix | Additional Entities | Cumulative Rate |")
-    lines.append("|-----|--------------------|--------------------|")
-    cumulative = total_parsed
-    fixes = [
-        ("typedef struct/record", broad["TYPEDEF_USE"]),
-        ("expression macros", broad["EXPRESSION_MACRO"]),
-        ("typedef declarations", broad["TYPEDEF_DECL"]),
-        ("unhandled types (float/double/etc)", broad["UNHANDLED_TYPE"]),
-        ("unsupported types (char)", broad["UNSUPPORTED_TYPE"]),
-        ("alias macros", broad["ALIAS_MACRO"]),
+    lines = ["# yace survey of C libraries", ""]
+    lines += [
+        f"- Libraries: {len(surveyed)}, headers: {headers}",
+        f"- Headers yace failed on: {sum(r['failed'] for r in surveyed.values())}",
+        f"- Entities parsed: {sum(r['entities'] for r in surveyed.values())}",
+        f"- Diagnostics: {sum(rules.values())}",
+        "",
+        "## Diagnostics by rule",
+        "",
+        "| Rule | Count | Libraries |",
+        "|------|-------|-----------|",
     ]
-    for fix_name, fix_count in fixes:
-        cumulative += fix_count
-        rate = round(cumulative / total_entities * 100, 1) if total_entities else 0
-        lines.append(f"| + {fix_name} | +{fix_count} | {rate}% |")
-    lines.append("")
+    for rule, count in rules.most_common():
+        libs = sum(1 for r in surveyed.values() if rule in r["rules"])
+        lines.append(f"| {rule} | {count} | {libs} |")
 
-    report = "\n".join(lines)
-    REPORT_FILE.write_text(report)
-    print(f"\nReport written to {REPORT_FILE}")
-    return report
+    lines += ["", "## Libraries", ""]
+    header = "| Library | Headers | Entities | Diagnostics | Failed |"
+    sep = "|---------|---------|----------|-------------|--------|"
+    if with_capi:
+        header += " C API builds |"
+        sep += "--------------|"
+    lines += [header, sep]
+    for name, r in sorted(surveyed.items()):
+        row = (
+            f"| {name} | {len(r['headers'])} | {r['entities']} |"
+            f" {sum(r['rules'].values())} | {r['failed']} |"
+        )
+        if with_capi:
+            row += f" {r['capi_builds']}/{len(r['headers'])} |"
+        lines.append(row)
+
+    if failed:
+        lines += ["", "## Failures of yace", ""]
+        for name, r in sorted(failed.items()):
+            for h in r["headers"]:
+                if h.get("failed"):
+                    lines.append(f"- {name}: {Path(h['header']).name}: {h['failed']}")
+
+    return "\n".join(lines) + "\n"
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Survey C libraries with yace")
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--packaged-only", action="store_true")
+    parser.add_argument("--vendored-only", action="store_true")
+    parser.add_argument("--repos-only", action="store_true")
+    parser.add_argument("--skip-download", action="store_true")
+    parser.add_argument("--report-only", action="store_true")
     parser.add_argument(
-        "--skip-download",
-        action="store_true",
-        help="Skip downloading headers and cloning repos (reuse cached)",
-    )
-    parser.add_argument(
-        "--report-only",
-        action="store_true",
-        help="Only regenerate report from existing results.json",
-    )
-    parser.add_argument(
-        "--packaged-only",
-        action="store_true",
-        help="Only survey packaged (Debian) libraries",
-    )
-    parser.add_argument(
-        "--vendored-only",
-        action="store_true",
-        help="Only survey vendored/header-only libraries",
-    )
-    parser.add_argument(
-        "--repos-only",
-        action="store_true",
-        help="Only survey cloned repos",
-    )
-    parser.add_argument(
-        "--with-generators",
-        action="store_true",
-        help="After parsing, run capi and ctypes generators on each library",
+        "--with-capi", action="store_true", help="also generate and check the C API"
     )
     args = parser.parse_args()
 
     if args.report_only:
-        if not RESULTS_FILE.exists():
-            print(f"Error: {RESULTS_FILE} not found. Run full survey first.")
-            sys.exit(1)
         results = json.loads(RESULTS_FILE.read_text())
-        generate_report(results)
-        return
+    else:
+        everything = not (args.packaged_only or args.vendored_only or args.repos_only)
+        results = {}
+        if everything or args.packaged_only:
+            print("Packaged libraries")
+            results.update(survey(packaged(), "packaged", args.with_capi))
+        if everything or args.vendored_only:
+            print("Vendored headers")
+            download = not args.skip_download
+            results.update(survey(vendored(download), "vendored", args.with_capi))
+        if everything or args.repos_only:
+            print("Repositories")
+            download = not args.skip_download
+            results.update(survey(repos(download), "repos", args.with_capi))
+        WORK_DIR.mkdir(parents=True, exist_ok=True)
+        RESULTS_FILE.write_text(json.dumps(results, indent=2))
 
-    # Determine which sources to run
-    run_all = not (args.packaged_only or args.vendored_only or args.repos_only)
+    REPORT_FILE.write_text(report(results, args.with_capi))
+    print(f"Report: {REPORT_FILE}")
 
-    results: Dict[str, Any] = {}
-
-    if run_all or args.packaged_only:
-        pkg_entries = load_packaged()
-        if pkg_entries:
-            print(f"Loaded {len(pkg_entries)} packaged libraries from {PACKAGED_FILE}")
-            print("Running yace on system headers...")
-            results.update(run_packaged_survey(pkg_entries))
-            print()
-
-    if run_all or args.vendored_only:
-        vendored_entries = load_vendored()
-        if vendored_entries:
-            print(
-                f"Loaded {len(vendored_entries)} vendored libraries "
-                f"from {VENDORED_FILE}"
-            )
-            if not args.skip_download:
-                print("Downloading headers...")
-                download_headers(vendored_entries)
-                print()
-            print("Running yace on vendored headers...")
-            results.update(run_vendored_survey(vendored_entries))
-            print()
-
-    if run_all or args.repos_only:
-        repo_entries = load_repos()
-        if repo_entries:
-            print(f"Loaded {len(repo_entries)} repos from {REPOS_FILE}")
-            if not args.skip_download:
-                print("Cloning repos...")
-                clone_repos(repo_entries)
-                print()
-            print("Running yace on cloned repos...")
-            results.update(run_repo_survey(repo_entries))
-            print()
-
-    if not results:
-        print("No libraries surveyed.")
-        return
-
-    if args.with_generators:
-        print("Running generators (capi + ctypes) on parsed libraries...")
-        run_generators_on_results(results)
-        print()
-
-    RESULTS_FILE.write_text(json.dumps(results, indent=2))
-    generate_report(results)
-
-    ok_count = sum(1 for v in results.values() if v.get("status") == "ok")
-    fail_count = len(results) - ok_count
-    print(f"\nDone: {ok_count} parsed, {fail_count} failed/crashed")
+    return 1 if any(r.get("failed") for r in results.values()) else 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
