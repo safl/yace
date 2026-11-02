@@ -170,6 +170,12 @@ main(int argc, char **argv)
 	for (const auto &p : copied) {
 		copied_x += p.x;
 	}
+	std::size_t done_count = 0;
+	auto counter = [&done_count](std::size_t n) { done_count = n; };
+	std::int64_t submit = errno_of([&] { handle.submit(counter); });
+	std::int64_t submit_busy = errno_of([&] { handle.submit(counter); });
+	std::int64_t poke = static_cast<std::int64_t>(handle.poke());
+	std::int64_t poke_again = static_cast<std::int64_t>(handle.poke());
 
 	document("calls", {
 				  {"version", quoted(std::string(foo::version()))},
@@ -190,6 +196,11 @@ main(int argc, char **argv)
 				  {"count_after_add_many", num(count_after)},
 				  {"points_copied", num(static_cast<std::int64_t>(copied.size()))},
 				  {"points_sum_x", num(copied_x)},
+				  {"submit", num(submit)},
+				  {"submit_busy", num(submit_busy)},
+				  {"poke", num(poke)},
+				  {"done_count", num(static_cast<std::int64_t>(done_count))},
+				  {"poke_again", num(poke_again)},
 			  });
 
 	record("foo_point", handle.at(1));

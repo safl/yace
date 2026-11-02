@@ -134,6 +134,52 @@ class Renderer(object):
             else f"_builtins.len({seq})"
         )
 
+    def dispatcher(self, call: Call, arg) -> str:
+        """The C callback, made once, that calls the closure kept under the key
+        the library gives back as the context; called once, the key is dropped"""
+
+        func = self.idioms.decl(call.function)
+        cbtype = self.namer.ctype(func.params[arg.index].typ, True)
+        key = (cbtype, arg.lifetime)
+        if key not in self.dispatchers:
+            fntype = self.namer.resolve(func.params[arg.index].typ)
+            names = [f"a{i}" for i in range(len(fntype.to.params))]
+            passed, ctx = [], None
+            for i, param in enumerate(fntype.to.params):
+                if is_void_ptr(param.typ):
+                    ctx = names[i]
+                elif isinstance(param.typ, types.Pointer) and isinstance(
+                    param.typ.to, types.Record
+                ):
+                    passed.append(f"{names[i]}.contents")
+                elif types.is_string(param.typ):
+                    passed.append(f"_str_out({names[i]})")
+                else:
+                    passed.append(names[i])
+            name = f"_kept{len(self.dispatchers)}"
+            get = f"_KEPT.pop({ctx})" if arg.lifetime == "once" else f"_KEPT[{ctx}]"
+            self.dispatchers[key] = (
+                f"def {name}({', '.join(names)}):\n"
+                f"    return {get}({', '.join(passed)})\n\n\n"
+                f"{name}_c = {cbtype}({name})"
+            )
+        return self.dispatchers[key].splitlines()[-1].split(" = ")[0]
+
+    def keep(self, call: Call, arg) -> List[str]:
+        """Keep the closure given for 'arg', under a key to give as its context"""
+
+        name = self.pname(arg.param)
+        key = self.local(call, arg.param, "key")
+        lines = [
+            f"{key} = _builtins.next(_KEYS)",
+            f"_KEPT[{key}] = {name}",
+        ]
+        if arg.lifetime == "handle":
+            lines.append(f"self._keys.append({key})")
+        return [f"{key} = None", f"if {name} is not None:"] + [
+            f"    {line}" for line in lines
+        ]
+
     def body(self, call: Call) -> List[str]:
         func = self.idioms.decl(call.function)
         pre: List[str] = []
@@ -142,7 +188,9 @@ class Renderer(object):
             name = self.pname(arg.param)
             typ = func.params[arg.index].typ
             if arg.kind == "self":
-                args.append("self._ptr")
+                # Before any closure is kept, so a closed handle keeps none
+                pre.insert(0, "_ptr = self._ptr")
+                args.append("_ptr")
             elif arg.kind == "value" and is_opaque_ptr(typ, self.idioms.handles) in (
                 self.classes
             ):
@@ -174,12 +222,22 @@ class Renderer(object):
                 args.append(self.local(call, arg.param, "c"))
             elif arg.kind == "length":
                 args.append(self.size(call, arg.of))
+            elif arg.kind == "callback" and arg.lifetime in ("once", "handle"):
+                pre += self.keep(call, arg)
+                cbtype = self.namer.ctype(typ, True)
+                disp = self.dispatcher(call, arg)
+                key = self.local(call, arg.param, "key")
+                args.append(f"{disp} if {key} else {cbtype}()")
             elif arg.kind == "callback":
                 pre += self.callback(call, arg)
                 args.append(self.local(call, arg.param, "c"))
             elif arg.kind == "context":
-                made = self.local(call, arg.of, "c")
-                args.append(f"ctypes.cast({made}, ctypes.c_void_p)")
+                owner = next(a for a in call.args if a.param == arg.of)
+                if owner.lifetime in ("once", "handle"):
+                    args.append(self.local(call, arg.of, "key"))
+                else:
+                    made = self.local(call, arg.of, "c")
+                    args.append(f"ctypes.cast({made}, ctypes.c_void_p)")
             elif arg.kind == "out":
                 out = next(o for o in call.outs if o.param == arg.param)
                 if out.kind == "array":
@@ -216,6 +274,13 @@ class Renderer(object):
         raw = pygen.ident(call.function)
         lines = pre + [f"ret = {raw}({', '.join(args)})"]
         if call.errno:
+            for arg in call.args:
+                if arg.kind == "callback" and arg.lifetime in ("once", "handle"):
+                    key = self.local(call, arg.param, "key")
+                    lines.append(f"if ret < 0 and {key}:")
+                    lines.append(f"    _KEPT.pop({key}, None)")
+                    if arg.lifetime == "handle":
+                        lines.append(f"    self._keys.remove({key})")
             lines.append("_check(ret)")
         for arg in call.args:
             if (
@@ -344,6 +409,7 @@ class Renderer(object):
             "    def __init__(self, ptr, owned=True):",
             "        self._handle = ptr",
             "        self._owned = owned",
+            "        self._keys = []",
             "",
             "    @property",
             "    def _ptr(self):",
@@ -351,6 +417,11 @@ class Renderer(object):
             "            raise ValueError("
             f'"the {self.idioms.handle_name(record)} is closed")',
             "        return self._handle",
+            "",
+            "    def _release(self):",
+            "        for key in self._keys:",
+            "            _KEPT.pop(key, None)",
+            "        self._keys = []",
             "",
             "    def __enter__(self):",
             "        return self",
@@ -369,8 +440,11 @@ class Renderer(object):
                 "",
                 "    def __del__(self):",
                 "        if self._owned and self._handle:",
-                f"            {pygen.ident(destructor.function)}(self._handle)",
+                f"            ret = {pygen.ident(destructor.function)}(self._handle)",
             ]
+            if destructor.errno:
+                lines += ["            if ret < 0:", "                self._keys = []"]
+            lines += ["            self._release()"]
         for call in calls["method"]:
             lines += ["", self.function(call, "    ", self_=True)]
         if destructor:
@@ -384,6 +458,9 @@ class Renderer(object):
                 f"            ret = {pygen.ident(destructor.function)}(self._handle)",
                 "            self._handle = None",
             ]
+            if destructor.errno:
+                lines += ["            if ret < 0:", "                self._keys = []"]
+            lines += ["            self._release()"]
             if destructor.errno:
                 lines.append("            _check(ret)")
         return "\n".join(lines)
@@ -409,10 +486,18 @@ class Renderer(object):
         self.classes = [
             name for name in self.idioms.handles if any(self.idioms.of(name).values())
         ]
-        out = ["\n".join(parts)]
-        out += [self.handle(name) for name in self.classes]
+        self.dispatchers: dict = {}
+        out = [self.handle(name) for name in self.classes]
         for call in self.idioms.calls:
             if call.kind == "constructor" and self.usable(call):
                 out.append(self.function(call))
         out += [self.function(c) for c in self.idioms.functions() if self.usable(c)]
-        return "\n\n\n".join(out)
+        if self.dispatchers:
+            parts += [
+                "",
+                "",
+                "_KEPT = {}",
+                "_KEYS = __import__('itertools').count(1)",
+            ]
+        head = ["\n".join(parts)] + list(self.dispatchers.values())
+        return "\n\n\n".join(head + out)

@@ -95,6 +95,12 @@ fn main() -> io::Result<()> {
     let unknown = status(safe::figure_fill(3).map(|_| ()));
     let add_many = count(handle.add_many(&points));
     let copied = handle.points(4)?;
+    let counted = std::rc::Rc::new(std::cell::Cell::new(0));
+    let (once, again) = (counted.clone(), counted.clone());
+    let submit = status(handle.submit(Box::new(move |n| once.set(n))));
+    let submit_busy = status(handle.submit(Box::new(move |n| again.set(n))));
+    let poke = handle.poke();
+    let poke_again = handle.poke();
 
     document(
         "calls",
@@ -117,6 +123,11 @@ fn main() -> io::Result<()> {
             ("count_after_add_many", Value::Int(handle.count() as i64)),
             ("points_copied", Value::Int(copied.len() as i64)),
             ("points_sum_x", Value::Int(copied.iter().map(|p| p.x as i64).sum())),
+            ("submit", Value::Int(submit)),
+            ("submit_busy", Value::Int(submit_busy)),
+            ("poke", Value::Int(poke as i64)),
+            ("done_count", Value::Int(counted.get() as i64)),
+            ("poke_again", Value::Int(poke_again as i64)),
         ],
         as_json,
     );

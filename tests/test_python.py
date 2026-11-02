@@ -1,7 +1,9 @@
+import gc
 import json
 import subprocess
 import sys
 
+import pytest
 import yaml
 
 from tests.conftest import ESCAPED, ESCAPED_VALUE, HEADERS, SKIPPED, needs_cc
@@ -346,7 +348,8 @@ def test_shared_names_module_globals_and_callback_strings(parse, tmp_path, monke
         "/**\n * Bar\n */\nint bar(int x);\n"
         "/**\n * Bar too\n */\nint api_bar(int x);\n"
         "/**\n * Ctypes\n */\nint api_ctypes(int x);\n"
-        "/**\n * Seen\n */\nvoid api_seen(api_seen_cb cb, void *arg);\n"
+        "/**\n * Seen\n * @lifetime cb call\n */\n"
+        "void api_seen(api_seen_cb cb, void *arg);\n"
     )
     model, _ = parse(header)
     assert process(model, ["python"], tmp_path) == []
@@ -393,7 +396,9 @@ def test_parameters_named_as_what_the_body_uses(parse, tmp_path, monkeypatch):
     assert (dev.peer(dev), dev.peer(None)) == (1, 0)
     message = dev.msg()  # a pointer, as its payload follows it
     assert message.contents.len == 3 and api["take_"](1) == 2
-    assert dev.ptr(9, 2) == 7
+    seen = []
+    dev.keep(lambda v: seen.append(v) or 0, 6)
+    assert seen == [6] and dev.ptr(9, 2) == 7
     assert api["api_cb_out_open_"]().me(8) == 8
     assert api["run"](lambda v: 10 * v) == 30
     assert api["rerun"](lambda v: v, 5, 1) == 4
@@ -430,11 +435,14 @@ def test_parameters_named_as_locals_and_constructors_sharing_a_name(
     seen, locals_ = [], list(range(1, 14))
     api["call"](lambda v: seen.append(v) or 0, *locals_)
     api["call"](None, *locals_)
-    assert seen == [91]
-    assert api["sum"]([1, 2], 10, 20) == 33
-    assert api["outs"](2, 4, 5) == (4, [5, 5])
+    api["once"](lambda v: seen.append(v + 1) or 0, *locals_)
+    handle.keep(lambda v: seen.append(v + 2) or 0, *locals_)
+    handle.keep(None, *locals_)
+    assert seen == [91, 92, 93]
     assert api["two"](lambda v: 10 * v, lambda v: v) == 12
     assert api["c"]([1, 2, 3]) == 3
+    assert api["sum"]([1, 2], 10, 20) == 33
+    assert api["outs"](2, 4, 5) == (4, [5, 5])
 
 
 @needs_cc
@@ -445,7 +453,8 @@ def test_contexts_given_c_byte_buffers_written_and_records_named_as_functions(
         "#include <stddef.h>\ntypedef int (*api_cb)(void *arg, int v);\n"
         "/** T */\nstruct api_tag;\n"
         "/**\n * Tag\n */\nint api_tag(int v);\n"
-        "/**\n * Run\n * @errno\n */\nint api_run(api_cb cb, void *arg);\n"
+        "/**\n * Run\n * @lifetime cb call\n * @errno\n */\n"
+        "int api_run(api_cb cb, void *arg);\n"
         "/**\n * Invert\n * @param[in,out] buf B\n * @len buf n\n */\n"
         "void api_invert(void *buf, size_t n);\n"
     )
@@ -470,6 +479,161 @@ def test_contexts_given_c_byte_buffers_written_and_records_named_as_functions(
     buf = bytearray(b"\x00\x0f")
     api["invert"](buf)
     assert buf == bytearray(b"\xff\xf0")
+
+
+@needs_cc
+def test_kept_closures_are_called_and_released(parse, tmp_path, monkeypatch):
+    from tests.test_rust import KEPT, KEPT_C
+
+    model, _ = parse(KEPT)
+    assert process(model, ["python"], tmp_path) == []
+    (tmp_path / "api.c").write_text(KEPT + KEPT_C)
+    library = tmp_path / "libapi.so"
+    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
+    subprocess.run(cmd, check=True)
+    monkeypatch.setenv("API_LIBRARY", str(library))
+
+    api = module(tmp_path)
+    seen = []
+    handle = api["open"]()
+    handle.on(lambda v: seen.append(v) or 0)
+    handle.submit(None)
+    handle.submit(lambda v: seen.append(100 * v) or 0)
+    failed = []
+    for call in (handle.on, handle.submit):
+        try:
+            call(lambda v: seen.append(1000 * v) or 0)
+        except OSError as err:
+            failed.append(err.errno)
+    assert failed == [16, 16] and len(api["_KEPT"]) == 2
+    assert len(handle._keys) == 1
+    assert handle.poke() == 1
+    handle.fire(5)
+    assert seen == [700, 5] and len(api["_KEPT"]) == 1
+    handle.close()
+    assert api["_KEPT"] == {}
+
+
+@needs_cc
+def test_a_kept_callback_given_none_passes_null(parse, tmp_path, monkeypatch):
+    from tests.test_rust import KEPT, KEPT_C
+
+    model, _ = parse(KEPT)
+    assert process(model, ["python"], tmp_path) == []
+    (tmp_path / "api.c").write_text(KEPT + KEPT_C)
+    library = tmp_path / "libapi.so"
+    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
+    subprocess.run(cmd, check=True)
+    monkeypatch.setenv("API_LIBRARY", str(library))
+
+    api = module(tmp_path)
+    handle = api["open"]()
+    handle.on(None)
+    assert api["_KEPT"] == {}
+    try:
+        handle.fire(1)
+        failed = None
+    except OSError as err:
+        failed = err.errno
+    assert failed == 22
+
+
+@needs_cc
+def test_closures_kept_by_a_handle_whose_destructor_fails_are_kept(
+    parse, tmp_path, monkeypatch
+):
+    from tests.test_rust import doc
+
+    header = (
+        "struct api_h;\ntypedef int (*api_cb)(void *arg, int v);\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_h **h);\n"
+        + doc("Close", "@destroys h", "@errno")
+        + "int api_close(struct api_h *h);\n"
+        + doc("On", "@lifetime cb handle")
+        + "void api_on(struct api_h *h, api_cb cb, void *arg);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["python"], tmp_path) == []
+    (tmp_path / "api.c").write_text(
+        header + "static int h;\n"
+        "int api_open(struct api_h **p) { *p = (struct api_h *)&h; return 0; }\n"
+        "int api_close(struct api_h *p) { (void)p; return -5; }\n"
+        "void api_on(struct api_h *p, api_cb cb, void *arg)\n"
+        "{ (void)p; (void)cb; (void)arg; }\n"
+    )
+    library = tmp_path / "libapi.so"
+    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
+    subprocess.run(cmd, check=True)
+    monkeypatch.setenv("API_LIBRARY", str(library))
+
+    api = module(tmp_path)
+    for close in (lambda h: h.close(), lambda h: h.__del__()):
+        handle = api["open"]()
+        handle.on(lambda v: v)
+        try:
+            close(handle)
+        except OSError:
+            pass
+        handle._handle = None
+    assert len(api["_KEPT"]) == 2
+
+
+@needs_cc
+def test_closures_kept_by_a_handle_nothing_destroys_are_kept(
+    parse, tmp_path, monkeypatch
+):
+    from tests.test_rust import doc
+
+    header = (
+        "struct api_h;\ntypedef int (*api_cb)(void *arg, int v);\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_h **h);\n"
+        + doc("On", "@lifetime cb handle")
+        + "void api_on(struct api_h *h, api_cb cb, void *arg);\n"
+        + doc("Fire")
+        + "int api_fire(int v);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["python"], tmp_path) == []
+    (tmp_path / "api.c").write_text(
+        header + "static int h;\nstatic api_cb kept;\nstatic void *kept_arg;\n"
+        "int api_open(struct api_h **p) { *p = (struct api_h *)&h; return 0; }\n"
+        "void api_on(struct api_h *p, api_cb cb, void *arg)\n"
+        "{ (void)p; kept = cb; kept_arg = arg; }\n"
+        "int api_fire(int v) { return kept(kept_arg, v); }\n"
+    )
+    library = tmp_path / "libapi.so"
+    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
+    subprocess.run(cmd, check=True)
+    monkeypatch.setenv("API_LIBRARY", str(library))
+
+    api = module(tmp_path)
+    handle = api["open"]()
+    handle.on(lambda v: v + 1)
+    del handle
+    gc.collect()
+    assert api["fire"](4) == 5
+
+
+@needs_cc
+def test_a_closed_handle_keeps_no_closure(parse, tmp_path, monkeypatch):
+    from tests.test_rust import KEPT, KEPT_C
+
+    model, _ = parse(KEPT)
+    assert process(model, ["python"], tmp_path) == []
+    (tmp_path / "api.c").write_text(KEPT + KEPT_C)
+    library = tmp_path / "libapi.so"
+    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
+    subprocess.run(cmd, check=True)
+    monkeypatch.setenv("API_LIBRARY", str(library))
+
+    api = module(tmp_path)
+    handle = api["open"]()
+    handle.close()
+    with pytest.raises(ValueError):
+        handle.on(lambda v: v)
+    assert api["_KEPT"] == {}
 
 
 def test_skipped_records_and_padding_bits_build(parse, tmp_path):

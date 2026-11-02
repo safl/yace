@@ -132,6 +132,11 @@ Only function pointers may be ``typedef``'d::
 
 so that functions taking callbacks are readable::
 
+  /**
+   * Apply 'op' to 'a' and 'b'
+   *
+   * @lifetime op call
+   */
   int
   apply_func(binop_func op, void *ctx, int a, int b);
 
@@ -184,6 +189,26 @@ The rest is said in the Doxygen comment of the function:
   The function releases the handle given as ``name``, its only parameter. An
   opaque record that a function creates through an ``[out]`` pointer must have a
   function that destroys it.
+
+``@lifetime callback call|once|handle ...``
+  How long the library may invoke the callback; pairs, one for every callback
+  parameter. ``call``: only during the call, as a visitor. ``once``: at most
+  once, after the call has returned, and not at all when it fails, as the
+  completion of a command submitted, invoked from a later call such as a poll.
+  ``handle``: any number of times, until the handle the function is a method of
+  is destroyed, and not at all when the call fails, as a handler registered;
+  the function's first parameter is then a pointer to an opaque record the
+  header declares. In every case the library invokes it on the thread that
+  called into the library. The ``void *`` after the callback, its context, has
+  no ``@len``.
+
+  Nothing in C says which, and yace cannot tell, so ``@lifetime`` is a promise
+  the author of the header makes: the bindings keep the closure, and its
+  context, exactly as long as it says. A ``once`` callback the library never
+  invokes, as when its handle is destroyed first, is leaked rather than freed,
+  as nothing tells the bindings that it never will be. A callback without a
+  ``@lifetime`` breaks the callback-lifetime rule, and is bound only as a raw
+  function pointer.
 
 For example::
 

@@ -100,6 +100,14 @@ const Sum = struct {
     }
 };
 
+const Done = struct {
+    count: usize = 0,
+
+    fn set(self: *Done, count: usize) void {
+        self.count = count;
+    }
+};
+
 fn addX(arg: ?*anyopaque, point: [*c]const foo.FooPoint) callconv(.c) c_int {
     const sum: *i64 = @ptrCast(@alignCast(arg));
     sum.* += point[0].x;
@@ -154,6 +162,11 @@ pub fn main(init: std.process.Init) !void {
     const copied = try handle.points(&copied_buf);
     var copied_x: i64 = 0;
     for (copied) |p| copied_x += p.x;
+    var done = Done{};
+    const submit = errno(handle.submit(&done, Done.set));
+    const submit_busy = errno(handle.submit(&done, Done.set));
+    const poke = handle.poke();
+    const poke_again = handle.poke();
 
     try document(w, "calls", &.{
         .{ "version", .{ .str = foo.version() } },
@@ -174,6 +187,11 @@ pub fn main(init: std.process.Init) !void {
         .{ "count_after_add_many", .{ .int = @intCast(count_after) } },
         .{ "points_copied", .{ .int = @intCast(copied.len) } },
         .{ "points_sum_x", .{ .int = copied_x } },
+        .{ "submit", .{ .int = submit } },
+        .{ "submit_busy", .{ .int = submit_busy } },
+        .{ "poke", .{ .int = @intCast(poke) } },
+        .{ "done_count", .{ .int = @intCast(done.count) } },
+        .{ "poke_again", .{ .int = @intCast(poke_again) } },
     });
 
     try record(w, foo.FooPoint, "foo_point", handle.at(1));

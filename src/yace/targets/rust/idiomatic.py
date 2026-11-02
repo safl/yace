@@ -132,14 +132,18 @@ class Renderer(object):
             return f"&{mut}{self.raw(typ.to)}"
         return self.raw(typ, True)
 
-    def closure_type(self, name: str) -> str:
+    def closure_type(self, name: str, kind: str = "FnMut") -> str:
         func = self.namer.resolve(self.model.find(name, decls.Typedef).typ).to
         params = [
             self.closure_param(p.typ) for p in func.params if not is_void_ptr(p.typ)
         ]
-        return f"dyn FnMut({', '.join(params)}){self.namer.ret(func.ret)}"
+        return f"dyn {kind}({', '.join(params)}){self.namer.ret(func.ret)}"
 
-    def trampoline(self, name: str) -> str:
+    def trampolines(self, name: str, lifetimes: set) -> str:
+        """The closure types of the callback typedef 'name', and a trampoline
+        for each lifetime: a borrowed closure, one boxed and called once, or one
+        boxed and kept by the handle"""
+
         func = self.namer.resolve(self.model.find(name, decls.Typedef).typ).to
         params, passed, ctx = [], [], None
         for i, param in enumerate(func.params):
@@ -154,24 +158,59 @@ class Renderer(object):
             else:
                 passed.append(pname)
         alias = self.alias(name, "Fn")
-        return "\n".join(
-            [
-                f"/// The closures given as {self.namer(name)}",
-                f"pub type {alias}<'a> = {self.closure_type(name)} + 'a;",
+        once = self.alias(name, "Once")
+        head = f"({', '.join(params)}){self.namer.ret(func.ret)} {{"
+        call = f"    f({', '.join(passed)})"
+        lines = [
+            f"/// The closures given as {self.namer(name)}",
+            f"pub type {alias}<'a> = {self.closure_type(name)} + 'a;",
+        ]
+        if "once" in lifetimes:
+            lines += [
                 "",
-                f"unsafe extern \"C\" fn {name}_trampoline({', '.join(params)})"
-                f"{self.namer.ret(func.ret)} {{",
+                f"/// The closures given as {self.namer(name)}, called once",
+                f"pub type {once} = {self.closure_type(name, 'FnOnce')} + 'static;",
+            ]
+        if "call" in lifetimes:
+            lines += [
+                "",
+                f'unsafe extern "C" fn {name}_trampoline{head}',
                 f"    let f = &mut **({ctx} as *mut &mut {alias});",
-                f"    f({', '.join(passed)})",
+                call,
                 "}",
             ]
-        )
+        if "once" in lifetimes:
+            lines += [
+                "",
+                f'unsafe extern "C" fn {name}_once_trampoline{head}',
+                f"    let f = Box::from_raw({ctx} as *mut Box<{once}>);",
+                call,
+                "}",
+            ]
+        if "handle" in lifetimes:
+            lines += [
+                "",
+                f'unsafe extern "C" fn {name}_handle_trampoline{head}',
+                f"    let f = &mut **({ctx} as *mut Box<{alias}<'static>>);",
+                call,
+                "}",
+            ]
+        return "\n".join(lines)
+
+    def raw_callback(self, call: Call, arg: Arg) -> bool:
+        """Whether the context 'arg' is of a callback declared inline, which has
+        no trampoline, so both are given raw"""
+
+        owner = next(a for a in call.args if a.param == arg.of)
+        return self.callback_typedef(owner.typ) is None
 
     def param_type(self, call: Call, arg: Arg) -> Optional[str]:
         """The Rust type of a parameter given by the caller, None when hidden"""
 
         typ = arg.typ
         opt = (lambda t: f"Option<{t}>") if arg.nullable else (lambda t: t)
+        if arg.kind == "context" and self.raw_callback(call, arg):
+            return self.raw(typ, True)
         if arg.kind == "string":
             return opt("&CStr")
         if arg.kind == "sequence":
@@ -181,6 +220,10 @@ class Renderer(object):
             name = self.callback_typedef(typ)
             if name is None:
                 return self.raw(typ, True)
+            if arg.lifetime == "once":
+                return opt(f"Box<{self.alias(name, 'Once')}>")
+            if arg.lifetime == "handle":
+                return opt(f"Box<{self.alias(name, 'Fn')}<'static>>")
             return opt(f"&mut {self.alias(name, 'Fn')}")
         if arg.kind == "capacity":
             return self.raw(typ, True)
@@ -229,6 +272,8 @@ class Renderer(object):
             if self.callback_typedef(typ) is None:
                 return name
             return self.local(call, arg.param, "cb")
+        if arg.kind == "context" and self.raw_callback(call, arg):
+            return self.pname(arg.param)
         if arg.kind == "context":
             return self.local(call, arg.of, "ctx")
         handle = is_opaque_ptr(typ, self.idioms.handles)
@@ -300,6 +345,48 @@ class Renderer(object):
             return "u8"
         return self.raw(typ)
 
+    def boxed(self, call: Call, arg: Arg, cb: str) -> List[str]:
+        """Statements boxing the closure of a callback the library keeps: given
+        once, its box is the trampoline's to free; else the handle keeps it"""
+
+        name = self.pname(arg.param)
+        made = self.local(call, arg.param, "cb")
+        ctx = self.local(call, arg.param, "ctx")
+        if arg.lifetime == "once":
+            tramp = f"Some({cb}_once_trampoline as _)"
+            into = "Box::into_raw(Box::new(f)) as *mut c_void"
+            lines = []
+        else:
+            tramp = f"Some({cb}_handle_trampoline as _)"
+            into = (
+                "{ self.keep.push(Box::new(f));"
+                " &mut **self.keep.last_mut().unwrap() as *mut dyn std::any::Any"
+                " as *mut c_void }"
+            )
+            kept = self.local(call, arg.param, "kept")
+            lines = [f"let {kept} = self.keep.len();"] if call.errno else []
+        if arg.nullable:
+            return lines + [
+                f"let ({made}, {ctx}) = match {name} {{",
+                f"    Some(f) => ({tramp}, {into}),",
+                "    None => (None, std::ptr::null_mut()),",
+                "};",
+            ]
+        return lines + [
+            f"let {made} = {tramp};",
+            f"let {ctx} = {{ let f = {name}; {into} }};",
+        ]
+
+    def keeps(self, record: str) -> bool:
+        """Whether the handle keeps closures, for its methods to give"""
+
+        return any(
+            a.lifetime == "handle" and a.kind == "callback"
+            for call in self.idioms.of(record)["method"]
+            for a in call.args
+            if self.usable(call)
+        )
+
     def has_pointers(self, typ, seen=None) -> bool:
         """Whether a value of 'typ' holds a pointer, which safe Rust can make
         point anywhere"""
@@ -368,7 +455,10 @@ class Renderer(object):
             if call.kind == "destructor":
                 params.append("self")
             else:
-                params.append("&self" if this.typ.to.const else "&mut self")
+                keeps = any(a.lifetime == "handle" for a in call.args)
+                params.append(
+                    "&self" if this.typ.to.const and not keeps else "&mut self"
+                )
         for arg in call.args:
             typ = self.param_type(call, arg)
             if typ is not None and arg.kind != "self":
@@ -424,6 +514,9 @@ class Renderer(object):
                     body.append(f"let mut {name} = {self.raw(out.typ)}::default();")
             elif arg.kind == "callback" and self.callback_typedef(arg.typ):
                 cb = self.callback_typedef(arg.typ)
+                if arg.lifetime in ("once", "handle"):
+                    body += self.boxed(call, arg, cb)
+                    continue
                 tramp = f"Some({cb}_trampoline as _)"
                 made = self.local(call, arg.param, "cb")
                 ctx = self.local(call, arg.param, "ctx")
@@ -446,8 +539,23 @@ class Renderer(object):
         raw_call = f"unsafe {{ super::{rgen.ident(call.function)}({args}) }};"
         body.append(f"let ret = {raw_call}" if uses_ret else raw_call)
         if call.errno:
+            body += ["if ret < 0 {"]
+            for arg in call.args:
+                if arg.kind == "callback" and self.callback_typedef(arg.typ) is None:
+                    continue
+                if arg.kind == "callback" and arg.lifetime == "once":
+                    ctx = self.local(call, arg.param, "ctx")
+                    once = self.alias(self.callback_typedef(arg.typ), "Once")
+                    body += [
+                        f"    if !{ctx}.is_null() {{",
+                        f"        let f = {ctx} as *mut Box<{once}>;",
+                        "        std::mem::drop(unsafe { Box::from_raw(f) });",
+                        "    }",
+                    ]
+                elif arg.kind == "callback" and arg.lifetime == "handle":
+                    kept = self.local(call, arg.param, "kept")
+                    body.append(f"    self.keep.truncate({kept});")
             body += [
-                "if ret < 0 {",
                 "    return Err(io::Error::from_raw_os_error(-(ret as i32)));",
                 "}",
             ]
@@ -462,9 +570,9 @@ class Renderer(object):
                 body.append(f"{name}.truncate({count});")
             elif out.kind == "handle" and not call.errno:
                 struct = self.struct_name(out.typ.to.name)
-                body.append(
-                    f"let {name} = NonNull::new({name}).map(|ptr| {struct} {{ ptr }});"
-                )
+                keep = ", keep: Vec::new()" if self.keeps(out.typ.to.name) else ""
+                made = f"{struct} {{ ptr{keep} }}"
+                body.append(f"let {name} = NonNull::new({name}).map(|ptr| {made});")
             elif out.kind == "handle":
                 struct = self.struct_name(out.typ.to.name)
                 body += [
@@ -472,11 +580,15 @@ class Renderer(object):
                     f"    ptr: NonNull::new({name}).ok_or_else(|| {{",
                     f'        io::Error::other("{call.function}() gave no handle")',
                     "    })?,",
-                    "};",
                 ]
+                if self.keeps(out.typ.to.name):
+                    body.append("    keep: Vec::new(),")
+                body.append("};")
+        if call.kind == "destructor" and self.keeps(call.handle):
+            body.append("std::mem::drop(unsafe { std::ptr::read(&self.keep) });")
         if call.kind == "destructor":
-            body.insert(0, "let this = std::mem::ManuallyDrop::new(self);")
-            body = [line.replace("self.ptr", "this.ptr") for line in body]
+            body.insert(0, "let mut this = std::mem::ManuallyDrop::new(self);")
+            body = [line.replace("self.", "this.") for line in body]
         if rexpr != "()":
             body.append(rexpr)
 
@@ -507,9 +619,6 @@ class Renderer(object):
         return [f"{indent}{line}".rstrip() for line in lines]
 
     def usable(self, call: Call) -> bool:
-        for arg in call.args:
-            if arg.kind == "callback" and self.callback_typedef(arg.typ) is None:
-                return False  # no trampoline for it, so no closure to give
         for out in call.outs:
             if out.kind == "record":
                 record = self.model.find(out.typ.name, decls.RECORDS)
@@ -534,6 +643,10 @@ class Renderer(object):
             ),
             f"pub struct {struct} {{",
             f"    ptr: NonNull<super::{raw}>,",
+        ]
+        if self.keeps(record):
+            lines.append("    keep: Vec<Box<dyn std::any::Any>>,")
+        lines += [
             "}",
             "",
             f"impl {struct} {{",
@@ -549,12 +662,26 @@ class Renderer(object):
             lines += [""] + self.function(destructor, "    ")
         lines.append("}")
         if destructor:
+            destroy = (
+                f"unsafe {{ super::{rgen.ident(destructor.function)}"
+                "(self.ptr.as_ptr()) }"
+            )
+            lines += ["", f"impl Drop for {struct} {{", "    fn drop(&mut self) {"]
+            if destructor.errno and self.keeps(record):
+                lines += [
+                    f"        if {destroy} < 0 {{",
+                    "            std::mem::forget(std::mem::take(&mut self.keep));",
+                    "        }",
+                ]
+            else:
+                lines.append(f"        {destroy};")
+            lines += ["    }", "}"]
+        elif self.keeps(record):
             lines += [
                 "",
                 f"impl Drop for {struct} {{",
                 "    fn drop(&mut self) {",
-                f"        unsafe {{ super::{rgen.ident(destructor.function)}"
-                "(self.ptr.as_ptr()) };",
+                "        std::mem::forget(std::mem::take(&mut self.keep));",
                 "    }",
                 "}",
             ]
@@ -570,18 +697,15 @@ class Renderer(object):
             "    use std::ptr::NonNull;",
             "",
         ]
-        callbacks = sorted(
-            {
-                self.callback_typedef(a.typ)
-                for c in self.idioms.calls
-                for a in c.args
-                if a.kind == "callback" and self.callback_typedef(a.typ)
-            }
-        )
-        for name in callbacks:
-            lines += [""] + [
-                f"    {ln}".rstrip() for ln in self.trampoline(name).splitlines()
-            ]
+        callbacks: dict = {}
+        for call in self.idioms.calls:
+            for arg in call.args:
+                name = self.callback_typedef(arg.typ)
+                if arg.kind == "callback" and name and self.usable(call):
+                    callbacks.setdefault(name, set()).add(arg.lifetime)
+        for name in sorted(callbacks):
+            text = self.trampolines(name, callbacks[name])
+            lines += [""] + [f"    {ln}".rstrip() for ln in text.splitlines()]
         for record in self.idioms.handles:
             if any(self.idioms.of(record).values()):
                 lines += [""] + [f"    {ln}".rstrip() for ln in self.handle(record)]

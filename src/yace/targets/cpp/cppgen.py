@@ -323,8 +323,12 @@ class Renderer(object):
             typ = self.param_type(arg)
             if arg.kind == "callback":
                 typ = f"{self.tparam(call, arg)} &&"
-            if typ is not None and arg.kind != "self":
-                name = self.pname(arg.param)
+            if typ is None or arg.kind == "self":
+                continue
+            name = self.pname(arg.param)
+            if typ == self.c(arg.typ):
+                params.append(self.c(arg.typ, name))
+            else:
                 params.append(f"{typ}{'' if typ.endswith(('&', '*')) else ' '}{name}")
         if callbacks:
             names = ", ".join(f"class {self.tparam(call, a)}" for a in callbacks)
@@ -396,11 +400,14 @@ class Renderer(object):
                     else:
                         passed.append(pname)
                 ret = self.c(func.ret)
+                given = self.tparam(call, arg)
+                if arg.lifetime in ("once", "handle"):
+                    lines += self.held(call, arg, given, params, passed, ctx, ret)
+                    continue
                 fn_t, ref, tramp, cb, made = (
                     self.local(call, arg.param, s)
                     for s in ("fn", "ref", "tramp", "cb", "ctx")
                 )
-                given = self.tparam(call, arg)
                 call_expr = f"(*static_cast<{fn_t} *>({ctx}))({', '.join(passed)})"
                 bare = f"std::remove_reference_t<{given}>"
                 lines += [
@@ -420,8 +427,17 @@ class Renderer(object):
         raw = f"::{call.function}({args});"
         lines.append(f"auto ret = {raw}" if uses_ret else raw)
         if call.errno:
+            lines.append("if (ret < 0) {")
+            for arg in call.args:
+                if arg.kind != "callback" or (null and self.nulled(call, arg)):
+                    continue
+                if arg.lifetime == "once":
+                    held_t = self.local(call, arg.param, "t")
+                    ctx = self.local(call, arg.param, "ctx")
+                    lines.append(f"\tdelete static_cast<{held_t} *>({ctx});")
+                elif arg.lifetime == "handle":
+                    lines.append("\tkeep_.pop_back();")
             lines += [
-                "if (ret < 0) {",
                 "\tthrow std::system_error(static_cast<int>(-ret),"
                 " std::generic_category(),",
                 f'\t\t\t\t"{call.function}");',
@@ -469,6 +485,54 @@ class Renderer(object):
         if name in {"native_handle", "deleter"} | classes:
             return f"{name}_"
         return name
+
+    def held(
+        self, call: Call, arg: Arg, given: str, params, passed, ctx, ret
+    ) -> List[str]:
+        """Statements moving the callable of a callback the library keeps to the
+        heap: given once, the trampoline deletes it; else the handle keeps it"""
+
+        name = self.pname(arg.param)
+        held_t, tramp, cb, made, kept = (
+            self.local(call, arg.param, s) for s in ("t", "tramp", "cb", "ctx", "held")
+        )
+        held = f"static_cast<{held_t} *>({ctx})"
+        if arg.lifetime == "once":
+            invoke = [f"\tstd::unique_ptr<{held_t}> f({held});"]
+            call_expr = f"(*f)({', '.join(passed)})"
+            store = [f"void *{made} = new {held_t}(std::forward<{given}>({name}));"]
+        else:
+            invoke = []
+            call_expr = f"(*{held})({', '.join(passed)})"
+            store = [
+                f"auto {kept} =",
+                f"\tstd::make_shared<{held_t}>(std::forward<{given}>({name}));",
+                f"void *{made} = {kept}.get();",
+                f"keep_.push_back({kept});",
+            ]
+        return (
+            [
+                f"using {held_t} = std::decay_t<{given}>;",
+                f"auto {tramp} = []({', '.join(params)}) noexcept -> {ret} {{",
+            ]
+            + invoke
+            + [
+                f"\treturn {call_expr};" if ret != "void" else f"\t{call_expr};",
+                "};",
+                f"{self.c(arg.typ, cb)} = {tramp};",
+            ]
+            + store
+        )
+
+    def keeps(self, record: str) -> bool:
+        """Whether the handle keeps callables, for its methods to give"""
+
+        return any(
+            a.kind == "callback" and a.lifetime == "handle"
+            for call in self.idioms.of(record)["method"]
+            for a in call.args
+            if self.usable(call)
+        )
 
     def usable(self, call: Call) -> bool:
         if (
@@ -554,6 +618,36 @@ class Renderer(object):
             "\t/// The raw pointer, still owned by this",
             f"\t{raw} *native_handle() const noexcept {{ return ptr_.get(); }}",
         ]
+        if self.keeps(record):
+            # The handle is destroyed before its closures, which C may call
+            # until then; they stay for good where it is not destroyed, or
+            # destroying it fails
+            leak: List[str] = []
+            if not destructor or destructor.errno:
+                test = (
+                    f"ptr_ && ::{destructor.function}(ptr_.release()) < 0"
+                    if destructor
+                    else "ptr_"
+                )
+                leak = [
+                    f"\t\tif ({test}) {{",
+                    "\t\t\t(void)new decltype(keep_)(std::move(keep_));",
+                    "\t\t}",
+                ]
+                lines += ["", f"\t~{cls}()", "\t{", *leak, "\t}"]
+            lines += [
+                "",
+                f"\t{cls}({cls} &&) noexcept = default;",
+                f"\t{cls} &operator=({cls} &&other) noexcept",
+                "\t{",
+                "\t\tif (this != &other) {",
+                *("\t" + line for line in leak),
+                "\t\t\tptr_ = std::move(other.ptr_);",
+                "\t\t\tkeep_ = std::move(other.keep_);",
+                "\t\t}",
+                "\t\treturn *this;",
+                "\t}",
+            ]
         for call in calls["method"]:
             if self.usable(call):
                 lines += [""] + self.declaration(call, record)
@@ -571,6 +665,10 @@ class Renderer(object):
             + (f"(void)::{destructor.function}(ptr);" if destructor else "(void)ptr;"),
             "\t\t}",
             "\t};",
+        ]
+        if self.keeps(record):
+            lines.append("\tmutable std::vector<std::shared_ptr<void>> keep_;")
+        lines += [
             f"\tstd::unique_ptr<{raw}, deleter> ptr_;",
             "};",
         ]
@@ -590,13 +688,21 @@ class Renderer(object):
                 "\t}",
                 "\tauto ret = ::" + call.function + "(ptr_.release());",
                 "\tif (ret < 0) {",
+            ]
+            if self.keeps(record):
+                lines.append("\t\t(void)new decltype(keep_)(std::move(keep_));")
+            lines += [
                 "\t\tthrow std::system_error(static_cast<int>(-ret),"
                 " std::generic_category(),",
                 f'\t\t\t\t\t"{call.function}");',
                 "\t}",
             ]
+            if self.keeps(record):
+                lines.append("\tkeep_.clear();")
         else:
             lines.append("\tptr_.reset();")
+            if self.keeps(record):
+                lines.append("\tkeep_.clear();")
         lines.append("}")
         return lines
 

@@ -127,6 +127,33 @@ VIOLATIONS = [
         "annotation",
         "/**\n * F\n * @len p n p m\n */\nint f(const int *p, int n, int m);",
     ),
+    ("annotation", "/**\n * @lifetime x call\n */\nint f(int x);"),
+    (
+        "annotation",
+        "typedef int (*v_cb)(void *a);\n/**\n * @lifetime cb\n */\n"
+        "int f(v_cb cb, void *a);",
+    ),
+    (
+        "annotation",
+        "typedef int (*v_cb)(void *a);\n/**\n * @lifetime cb ever\n */\n"
+        "int f(v_cb cb, void *a);",
+    ),
+    (
+        "annotation",
+        "typedef int (*v_cb)(void *a);\n/**\n * @lifetime cb handle\n */\n"
+        "int f(v_cb cb, void *a);",
+    ),
+    ("callback-lifetime", "typedef int (*v_cb)(void *a);\nint f(v_cb cb, void *a);"),
+    (
+        "annotation",
+        "typedef int (*v_cb)(void *a);\n/**\n * @lifetime cb call cb once\n */\n"
+        "int f(v_cb cb, void *a);",
+    ),
+    (
+        "annotation",
+        "#include <stdio.h>\ntypedef int (*v_cb)(void *a);\n"
+        "/**\n * @lifetime cb handle\n */\nint f(FILE *s, v_cb cb, void *a);",
+    ),
     ("annotation", "/**\n * @param[inout] x X\n */\nint f(int *x);"),
     ("annotation", "struct h;\n/**\n * @param[out] h H\n */\nint f(struct h *h);"),
     ("annotation", "struct h;\n/**\n * @destroys h\n */\nvoid f(struct h *h, int x);"),
@@ -268,6 +295,14 @@ def test_names_of_cxx_and_attributes_are_reported_where_they_are(parse):
         6,
         "'api_f' has the attribute 'deprecated'; it is ignored",
     )
+
+
+def test_a_rejected_lifetime_is_reported_once(parse):
+    _, diagnostics = parse(
+        "/** C */\ntypedef int (*api_cb)(void *a);\n"
+        "/**\n * F\n * @lifetime cb handle\n */\nint api_f(api_cb cb, void *a);\n"
+    )
+    assert [d.rule for d in diagnostics] == ["annotation"]
 
 
 def test_defines_documented_with_exclamation_marks(parse):

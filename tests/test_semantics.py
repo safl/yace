@@ -40,6 +40,7 @@ void h_close(struct h *handle);
  *
  * @len buf len
  * @nullable return visit
+ * @lifetime visit call
  * @errno
  */
 const int *h_read(struct h *handle, int *buf, size_t len, size_t *pos,
@@ -65,6 +66,7 @@ def test_tags_are_in_the_ir(parse):
     assert params["pos"].direction == "inout"
     assert params["visit"].nullable and read.nullable
     assert params["arg"].context == "visit"
+    assert params["visit"].lifetime == "call"
 
 
 def test_a_returned_pointer_is_not_an_errno(parse):
@@ -122,8 +124,12 @@ def test_the_c_api_says_what_the_header_says(parse, tmp_path):
     for name, func in functions(model).items():
         other = functions(again)[name]
         assert [
-            (p.direction, p.nullable, p.length, p.context) for p in func.params
-        ] == [(p.direction, p.nullable, p.length, p.context) for p in other.params]
+            (p.direction, p.nullable, p.length, p.context, p.lifetime)
+            for p in func.params
+        ] == [
+            (p.direction, p.nullable, p.length, p.context, p.lifetime)
+            for p in other.params
+        ]
         assert (func.errno, func.destroys, func.nullable) == (
             other.errno,
             other.destroys,

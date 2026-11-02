@@ -92,6 +92,12 @@ summarize(void *arg, const struct foo_point *point)
 	return sum->visited == sum->stop_after;
 }
 
+static void
+count_done(void *arg, size_t count)
+{
+	*(size_t *)arg = count;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -102,6 +108,7 @@ main(int argc, char **argv)
 	struct foo_handle *handle = NULL;
 	struct foo_point copied[4];
 	int64_t sum_x = 0;
+	size_t done_count = 0;
 	struct foo_point points[] = {{1, 2}, {3, 4}, {5, 6}};
 	struct sum all = {0}, first_two = {0, 0, 2, 0}, with = {0};
 	struct foo_visitor visitor = {summarize, &with};
@@ -158,6 +165,11 @@ main(int argc, char **argv)
 		sum_x += copied[idx].x;
 	}
 	int_value("points_sum_x", sum_x);
+	int_value("submit", foo_submit(handle, count_done, &done_count));
+	int_value("submit_busy", foo_submit(handle, count_done, &done_count));
+	int_value("poke", (intmax_t)foo_poke(handle));
+	int_value("done_count", (intmax_t)done_count);
+	int_value("poke_again", (intmax_t)foo_poke(handle));
 	doc_end();
 
 	record_begin("foo_point");

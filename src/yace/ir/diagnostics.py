@@ -62,6 +62,11 @@ RULES = {
         "A function pointer must be named by a typedef, as a callback; one"
         " written inline is bound only as a raw function pointer"
     ),
+    "callback-lifetime": (
+        "A callback parameter must say with @lifetime how long the library may"
+        " invoke it, which nothing else can tell; without, it is bound only as"
+        " a raw pointer"
+    ),
     "callback-param-name": ("The parameters of a function pointer must be named"),
     "param-name": (
         "The parameters of a function must be named, for its documentation and"
@@ -98,8 +103,8 @@ RULES = {
     ),
     "annotation": (
         "The documentation says what C cannot: @param[in], [out] or [in,out],"
-        " @nullable, @len, @errno and @destroys; each must name what exists and"
-        " fits"
+        " @nullable, @len, @errno, @destroys and @lifetime; each must name what"
+        " exists and fits"
     ),
     "handle-lifecycle": (
         "An opaque record a function creates through an [out] pointer must have"

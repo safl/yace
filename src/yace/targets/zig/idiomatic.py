@@ -363,6 +363,16 @@ class Renderer(object):
 
         lines = [f"/// {line}".rstrip() for line in zgen.doc_lines(func.doc)]
         lines += ["///", f"/// Calls `{call.function}`."]
+        for arg in call.args:
+            if arg.kind != "callback" or arg.lifetime == "call":
+                continue
+            until = (
+                "it has been called, once"
+                if arg.lifetime == "once"
+                else "the handle is destroyed"
+            )
+            context = self.local(call, arg.param, "context")
+            lines += ["///", f"/// `{context}` must live until {until}."]
         name = self.fn_name(call)
         lines.append(f"pub fn {name}({', '.join(self.params(call))}) {rtype} {{")
         lines += [f"    {line}" for line in body]

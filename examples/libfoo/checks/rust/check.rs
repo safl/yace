@@ -29,6 +29,10 @@ unsafe extern "C" fn summarize(arg: *mut c_void, point: *const FooPoint) -> c_in
     (sum.visited == sum.stop_after) as c_int
 }
 
+unsafe extern "C" fn count_done(arg: *mut c_void, count: usize) {
+    *(arg as *mut usize) = count;
+}
+
 fn string(ptr: *const std::ffi::c_char) -> String {
     unsafe { CStr::from_ptr(ptr) }.to_string_lossy().into_owned()
 }
@@ -91,6 +95,12 @@ fn main() -> io::Result<()> {
         let mut copied = [FooPoint::default(); 4];
         let points_copied = foo_points(handle, copied.as_mut_ptr(), copied.len());
         let points_sum_x: i64 = copied.iter().map(|p| p.x as i64).sum();
+        let mut done_count: usize = 0;
+        let done = &mut done_count as *mut usize as *mut c_void;
+        let submit = foo_submit(handle, Some(count_done), done);
+        let submit_busy = foo_submit(handle, Some(count_done), done);
+        let poke = foo_poke(handle);
+        let poke_again = foo_poke(handle);
         document(
             "calls",
             &[
@@ -112,6 +122,11 @@ fn main() -> io::Result<()> {
                 ("count_after_add_many", Value::Int(count_after_add_many as i64)),
                 ("points_copied", Value::Int(points_copied as i64)),
                 ("points_sum_x", Value::Int(points_sum_x)),
+                ("submit", Value::Int(submit.into())),
+                ("submit_busy", Value::Int(submit_busy.into())),
+                ("poke", Value::Int(poke as i64)),
+                ("done_count", Value::Int(done_count as i64)),
+                ("poke_again", Value::Int(poke_again as i64)),
             ],
             as_json,
         );
