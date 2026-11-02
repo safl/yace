@@ -64,8 +64,13 @@ class Model(Node):
 
         return {e.name: e for e in self.entities if isinstance(e, decls.Enum)}
 
-    def find(self, name: str) -> Optional[object]:
+    def find(self, name: str, kind=None) -> Optional[object]:
+        """The entity named 'name', of 'kind' where given, as C has records and
+        functions of the same name"""
+
         for entity in self.entities:
+            if kind is not None and not isinstance(entity, kind):
+                continue
             if getattr(entity, "name", None) == name:
                 return entity
         return None

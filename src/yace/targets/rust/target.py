@@ -26,9 +26,10 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from yace.ir import decls
 from yace.ir.model import Model, host_abi
 from yace.targets.capi import cgen
+from yace.targets.idiom import Idioms
 from yace.targets.target import Target
 
-from . import rgen
+from . import idiomatic, rgen
 
 
 def rustdoc(doc) -> str:
@@ -127,6 +128,7 @@ class Rust(Target):
                 for i, p in enumerate(f.params)
             ],
             "layout": model.meta.abi == host_abi(),
+            "idiomatic": idiomatic.Renderer(Idioms(model), namer).render(),
         }
 
     def emit(self, model: Model) -> list:

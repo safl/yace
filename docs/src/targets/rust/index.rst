@@ -24,7 +24,7 @@ The check is built with ``$CARGO``, by default ``cargo``, offline, and run;
 **yace** then parses what it printed, as YAML and as JSON. It calls no function
 of the library, so needs it neither built nor linked. As for the C API, the
 layout is asserted only on the platform it was recorded on. The crate needs
-Rust 1.77 or later, for C string literals and ``offset_of!``.
+Rust 1.81 or later, where a panic unwinding out of a callback aborts.
 
 The bindings
 ------------
@@ -34,7 +34,10 @@ renamed, to CamelCase, as Rust names types: ``struct foo_point`` is
 ``FooPoint``, and ``typedef struct foo_point foo_point;`` is that type. Where
 two C names would get the same Rust name, both keep their C names. A name that
 is a Rust keyword is a raw identifier, ``r#type``, or, for those that cannot
-be, gets a trailing underscore, ``self_``.
+be, gets a trailing underscore, ``self_``. So does a parameter named ``ret``,
+the local of the result, ``Some``, ``None``, ``Ok`` or ``Err``, as a type of
+the crate, or ending in ``_`` or ``_trampoline``, so no two parameters share a
+name.
 
 Constants
   ``#define`` constants, as ``pub const``: strings as ``&CStr``, integers as
@@ -64,6 +67,53 @@ Functions
   unsafe to call, as calling C is. A pointer to const is ``*const``, any other
   ``*mut``.
 
+The idiomatic layer
+-------------------
+
+Over the raw functions, the module ``safe`` is the idiomatic layer, from what
+the header says beyond C, see :ref:`sec-ir-csubset`. Its names lose the prefix
+of the API:
+
+Handles
+  An opaque record is a type owning a pointer to it, named without the prefix:
+  ``struct foo_handle`` is ``safe::Handle``, with ``Handle`` appended where the
+  name is a raw type's or one the module uses from std, as ``Option``. Its
+  constructor is an associated function, ``Handle::open()``, returning an
+  ``Option`` where it has no ``@errno``; its destructor is called when it is
+  dropped, or by ``close()``; the functions taking it first are its methods,
+  taking ``&self`` where the pointer is to const, ``&mut self`` otherwise.
+  ``as_ptr()`` is the raw pointer, for the raw functions; a method named
+  ``as_ptr`` is ``as_ptr_()``. It is neither ``Send`` nor ``Sync``: the header
+  does not say it may be.
+
+Errors
+  A function documented ``@errno`` returns ``io::Result``, its error made by
+  ``io::Error::from_raw_os_error()``. One returning ``int`` returns ``()``
+  otherwise; one returning another integer, such as a count, a ``usize``.
+
+Results
+  What a function writes through an ``[out]`` pointer is returned rather than
+  passed; an ``[out]`` array as a ``Vec`` of as many elements as the function
+  says it wrote. A returned string is a ``&CStr`` borrowed from the handle, from
+  the one reference given, or ``'static`` when none is; with more than one, the
+  function is ``unsafe``. A returned pointer to a record is a copy of it, an
+  ``Option`` where ``@nullable``.
+
+Arguments
+  An array read through a pointer is a slice; slices sharing one ``@len`` count
+  must be as long, or the call panics; a ``@nullable`` one is an ``Option``,
+  ``None`` passing NULL. A ``void *`` with a ``@len`` is a slice
+  of ``u8``. A handle given is a reference to its
+  type. A callback is a ``&mut dyn
+  FnMut`` closure, called through a generated trampoline with the ``void *``
+  context; the pointers to records it receives are references. A ``@nullable``
+  pointer is an ``Option``.
+
+A function is safe where everything a caller gives is checked by the types: a
+function taking a raw pointer, or a record holding one, is ``unsafe``, as safe
+Rust can make those point anywhere. A panic in a closure aborts, as unwinding
+cannot cross C.
+
 A record with bit-fields, which Rust has none of, keeps only its size and
 alignment, as an array of bytes, and is not printed. Types declared outside the
 header, such as ``FILE``, are opaque types, usable through pointers. These are
@@ -80,10 +130,10 @@ Example
    :language: text
    :lines: 1-
 
-The fixture library is called through these bindings by
-``examples/libfoo/checks/rust/check.rs``:
+The fixture library is called through the raw layer by
+``examples/libfoo/checks/rust/check.rs``, and through the idiomatic layer by:
 
-.. literalinclude:: ../../../../examples/libfoo/checks/rust/check.rs
+.. literalinclude:: ../../../../examples/libfoo/checks/rust/idiomatic.rs
    :language: rust
    :caption:
    :lines: 1-
@@ -103,4 +153,7 @@ Implementation
    :members:
 
 .. automodule:: yace.targets.rust.rgen
+   :members:
+
+.. automodule:: yace.targets.rust.idiomatic
    :members:
