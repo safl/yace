@@ -58,6 +58,7 @@ yace = "yace.cli.yace:main"
 
 [project.entry-points."yace.targets"]
 capi = "yace.targets.capi.target:CAPI"
+python = "yace.targets.python.target:Python"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -108,7 +108,7 @@ define example-help
 endef
 .PHONY: example
 example:
-	yace examples/libfoo/include/foo.h --meta examples/libfoo/meta.yaml --output output --emit capi --strict
+	yace examples/libfoo/include/foo.h --meta examples/libfoo/meta.yaml --output output --emit capi python --strict
 
 define docs-build-prep-help
 # Install docs tooling and dependencies
@@ -127,6 +127,7 @@ docs-kmdo: example
 	kmdo docs/src/ir
 	kmdo docs/src/install
 	kmdo docs/src/targets/capi
+	kmdo docs/src/targets/python
 	kmdo docs/src/usage
 
 define docs-gen-entities-help
