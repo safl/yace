@@ -1,0 +1,185 @@
+//! The check of the Rust bindings of libfoo: calls the library through the
+//! generated crate and prints what it got back, as YAML documents, or with
+//! argument "json" as JSON objects, each holding what 'expected.yaml' says
+
+use std::ffi::{c_int, c_void, CStr};
+use std::io::{self, Write};
+use std::ptr;
+
+use foo::*;
+
+/// A value as JSON, which is also YAML
+enum Value {
+    Int(i64),
+    Str(String),
+    Names(Vec<&'static str>),
+}
+
+fn json(value: &Value) -> String {
+    match value {
+        Value::Int(v) => v.to_string(),
+        Value::Str(s) => format!("\"{s}\""),
+        Value::Names(names) => {
+            let quoted: Vec<String> = names.iter().map(|n| format!("\"{n}\"")).collect();
+            format!("[{}]", quoted.join(", "))
+        }
+    }
+}
+
+fn document(name: &str, data: &[(&str, Value)], as_json: bool) {
+    if as_json {
+        let fields: Vec<String> = data
+            .iter()
+            .map(|(key, value)| format!("\"{key}\": {}", json(value)))
+            .collect();
+        println!("{{\"{name}\": {{{}}}}}", fields.join(", "));
+        return;
+    }
+    println!("---\n{name}:");
+    for (key, value) in data {
+        println!("  {key}: {}", json(value));
+    }
+}
+
+/// Print a record with the pretty-printer generated for it
+fn record<T>(
+    name: &str,
+    fpr: fn(&mut dyn Write, Option<&T>, c_int) -> io::Result<()>,
+    obj: Option<&T>,
+    flags: c_int,
+) -> io::Result<()> {
+    let mut out = io::stdout().lock();
+    if flags == FOO_PR_YAML {
+        writeln!(out, "---")?;
+        return fpr(&mut out, obj, flags);
+    }
+    write!(out, "{{\"{name}\": ")?;
+    fpr(&mut out, obj, flags)?;
+    writeln!(out, "}}")
+}
+
+/// Sums the points visited, stopping after 'stop_after' of them
+#[derive(Default)]
+struct Sum {
+    x: i64,
+    y: i64,
+    visited: usize,
+    stop_after: usize,
+}
+
+unsafe extern "C" fn summarize(arg: *mut c_void, point: *const FooPoint) -> c_int {
+    let sum = &mut *(arg as *mut Sum);
+    sum.x += (*point).x as i64;
+    sum.y += (*point).y as i64;
+    sum.visited += 1;
+    (sum.visited == sum.stop_after) as c_int
+}
+
+fn string(ptr: *const std::ffi::c_char) -> String {
+    unsafe { CStr::from_ptr(ptr) }.to_string_lossy().into_owned()
+}
+
+fn main() -> io::Result<()> {
+    let as_json = std::env::args().nth(1).as_deref() == Some("json");
+    let flags = if as_json { FOO_PR_JSON } else { FOO_PR_YAML };
+
+    document(
+        "defines",
+        &[
+            ("FOO_NAME", Value::Str(FOO_NAME.to_string_lossy().into_owned())),
+            ("FOO_MAGIC", Value::Int(FOO_MAGIC.into())),
+            ("FOO_VERSION_MAJOR", Value::Int(FOO_VERSION_MAJOR.into())),
+            ("FOO_VERSION_MINOR", Value::Int(FOO_VERSION_MINOR.into())),
+            ("FOO_VERSION_PATCH", Value::Int(FOO_VERSION_PATCH.into())),
+            ("FOO_POINTS_MAX", Value::Int(FOO_POINTS_MAX.into())),
+            ("FOO_DEFAULT_SHAPE_SIDES", Value::Int(FOO_DEFAULT_SHAPE_SIDES.into())),
+        ],
+        as_json,
+    );
+    let names = |values: &[c_int], name: fn(c_int) -> Option<&'static str>| {
+        Value::Names(values.iter().map(|&v| name(v).unwrap_or("UNKNOWN")).collect())
+    };
+    document(
+        "enums",
+        &[
+            ("foo_shape", names(&[-1, 0, 1, 2, 3], |v| FooShape(v as _).name())),
+            ("foo_option", names(&[1, 2, 3], |v| FooOption(v as _).name())),
+        ],
+        as_json,
+    );
+
+    let points = [FooPoint { x: 1, y: 2 }, FooPoint { x: 3, y: 4 }, FooPoint { x: 5, y: 6 }];
+    let mut handle: *mut FooHandle = ptr::null_mut();
+    let mut every = Sum::default();
+    let mut first_two = Sum { stop_after: 2, ..Sum::default() };
+    let mut with = Sum::default();
+    let mut figure = FooFigure::default();
+
+    unsafe {
+        let version = string(foo_version());
+        let opened = foo_open(c"points".as_ptr(), &mut handle);
+        let open_without_name = foo_open(ptr::null(), &mut handle);
+        let name = string(foo_name(handle));
+        let added = points.iter().filter(|p| foo_add(handle, *p) == 0).count();
+        let count = foo_count(handle);
+        let visit = foo_visit(handle, Some(summarize), &mut every as *mut Sum as *mut c_void);
+        let stopped =
+            foo_visit(handle, Some(summarize), &mut first_two as *mut Sum as *mut c_void);
+        let without = foo_visit(handle, None, ptr::null_mut());
+        let visitor = FooVisitor {
+            visit: Some(summarize),
+            arg: &mut with as *mut Sum as *mut c_void,
+        };
+        let visit_with = foo_visit_with(handle, &visitor);
+        let unknown = foo_figure_fill(&mut figure, 3);
+        document(
+            "calls",
+            &[
+                ("version", Value::Str(version)),
+                ("open", Value::Int(opened.into())),
+                ("open_without_name", Value::Int(open_without_name.into())),
+                ("name", Value::Str(name)),
+                ("added", Value::Int(added as i64)),
+                ("count", Value::Int(count as i64)),
+                ("visit", Value::Int(visit as i64)),
+                ("visit_sum_x", Value::Int(every.x)),
+                ("visit_sum_y", Value::Int(every.y)),
+                ("visit_stopped", Value::Int(stopped as i64)),
+                ("visit_without_callback", Value::Int(without as i64)),
+                ("visit_with", Value::Int(visit_with as i64)),
+                ("visit_with_sum_x", Value::Int(with.x)),
+                ("figure_of_unknown_shape", Value::Int(unknown.into())),
+            ],
+            as_json,
+        );
+
+        record("foo_point", FooPoint::fpr, foo_at(handle, 1).as_ref(), flags)?;
+        record("foo_point", FooPoint::fpr, foo_at(handle, 3).as_ref(), flags)?;
+
+        while foo_add(handle, &points[0]) == 0 {}
+        let full = [
+            ("count", Value::Int(foo_count(handle) as i64)),
+            ("add", Value::Int(foo_add(handle, &points[0]).into())),
+        ];
+        document("full", &full, as_json);
+        foo_close(handle);
+        foo_close(ptr::null_mut());
+
+        let mut scalars = FooScalars::default();
+        foo_scalars_fill(&mut scalars);
+        record("foo_scalars", FooScalars::fpr, Some(&scalars), flags)?;
+
+        for shape in [FOO_SHAPE_POINT, FOO_SHAPE_LINE, FOO_SHAPE_POLYGON] {
+            if foo_figure_fill(&mut figure, shape.0 as u32) != 0 {
+                std::process::exit(1);
+            }
+            record("foo_figure", FooFigure::fpr, Some(&figure), flags)?;
+        }
+
+        let mut value = FooValue::default();
+        foo_value_set(&mut value, -1);
+        record("foo_value", FooValue::fpr, Some(&value), flags)?;
+    }
+
+    Ok(())
+}

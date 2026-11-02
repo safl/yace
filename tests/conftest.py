@@ -66,3 +66,4 @@ def parse(parser, tmp_path):
 
 
 needs_cc = pytest.mark.skipif(not shutil.which("cc"), reason="no C compiler")
+needs_cargo = pytest.mark.skipif(not shutil.which("cargo"), reason="no Rust toolchain")
