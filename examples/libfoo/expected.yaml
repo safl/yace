@@ -1,0 +1,117 @@
+---
+defines:
+  FOO_NAME: "foo"
+  FOO_MAGIC: 44252
+  FOO_VERSION_MAJOR: 1
+  FOO_VERSION_MINOR: 2
+  FOO_VERSION_PATCH: 3
+  FOO_POINTS_MAX: 8
+  FOO_DEFAULT_SHAPE_SIDES: 8
+---
+enums:
+  foo_shape: ["FOO_SHAPE_NONE", "FOO_SHAPE_POINT", "FOO_SHAPE_LINE", "FOO_SHAPE_POLYGON", "UNKNOWN"]
+  foo_option: ["FOO_OPTION_CLOSED", "FOO_OPTION_FILLED", "UNKNOWN"]
+---
+calls:
+  version: "1.2.3"
+  open: 0
+  open_without_name: -1
+  name: "points"
+  added: 3
+  count: 3
+  visit: 3
+  visit_sum_x: 9
+  visit_sum_y: 12
+  visit_stopped: 2
+  visit_without_callback: -1
+  visit_with: 3
+  visit_with_sum_x: 9
+  figure_of_unknown_shape: -1
+---
+foo_point:
+  x: 3
+  y: 4
+---
+foo_point:
+---
+full:
+  count: 8
+  add: -1
+---
+foo_scalars:
+  flag: true
+  letter: 121
+  schar: -2
+  uchar: 250
+  s: -300
+  us: 60000
+  i: -70000
+  ui: 4000000000
+  l: -5
+  ul: 6
+  ll: -7
+  ull: 8
+  f: 0.5
+  d: -2.25
+  i8: -128
+  i16: -32768
+  i32: -2147483648
+  i64: -9223372036854775808
+  u8: 255
+  u16: 65535
+  u32: 4294967295
+  u64: 18446744073709551615
+  iptr: -9
+  uptr: 10
+  size: 11
+  ssize: -12
+  diff: -13
+---
+foo_figure:
+  shape: 0
+  options: 0
+  origin:
+    x: -1
+    y: 2
+  corners: [{"x": 0, "y": 0}, {"x": 0, "y": 0}, {"x": 0, "y": 0}, {"x": 0, "y": 0}]
+  ncorners: 1
+  name: "point"
+  grid: [[-2, -1, 0], [1, 2, 3]]
+  label: "say \"hi\"\tthen go"
+  scale: 1.5
+  area: 0
+---
+foo_figure:
+  shape: 1
+  options: 0
+  origin:
+    x: -1
+    y: 2
+  corners: [{"x": 0, "y": 0}, {"x": 4, "y": 0}, {"x": 0, "y": 0}, {"x": 0, "y": 0}]
+  ncorners: 2
+  name: "line"
+  grid: [[-2, -1, 0], [1, 2, 3]]
+  label: "say \"hi\"\tthen go"
+  scale: 1.5
+  area: 0
+---
+foo_figure:
+  shape: 2
+  options: 3
+  origin:
+    x: -1
+    y: 2
+  corners: [{"x": 0, "y": 0}, {"x": 4, "y": 0}, {"x": 4, "y": 3}, {"x": 0, "y": 3}]
+  ncorners: 4
+  name: "rectangle"
+  grid: [[-2, -1, 0], [1, 2, 3]]
+  label: "say \"hi\"\tthen go"
+  scale: 1.5
+  area: 12
+---
+foo_value:
+  i: -1
+  u: 4294967295
+  point:
+    x: -1
+    y: 0
