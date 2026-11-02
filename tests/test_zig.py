@@ -3,7 +3,14 @@ import subprocess
 
 import yaml
 
-from tests.conftest import ESCAPED, ESCAPED_VALUE, HEADERS, SKIPPED, needs_cc, needs_zig
+from tests.conftest import (
+    ESCAPED,
+    ESCAPED_VALUE,
+    HEADERS,
+    SKIPPED,
+    needs_cc,
+    needs_zig,
+)
 from tests.test_rust import EDGES, HANDLE_NAMED_AS_PREFIX, doc, misindented_docs
 from yace.compiler import process
 
@@ -77,6 +84,8 @@ def test_the_idiomatic_layer_compiles_for_every_kind_of_parameter(parse, tmp_pat
     assert "pub fn open(name: ?[*:0]const u8) anyerror!H {" in module
     assert "pub fn step(self: H, pos: *usize) anyerror!c_int {" in module
     assert "pub const deinit = close;" in module
+    assert "/// `cb_context` must live until it has been called, once." in module
+    assert "/// `cb_context` must live until the handle is destroyed." in module
     assert misindented_docs(module) == []
 
 
@@ -223,7 +232,7 @@ def test_internal_names_nullable_slices_and_callback_strings(parse, tmp_path):
         + "int api_err(void);\n"
         + doc("Sum", "@nullable v", "@len v n")
         + "int api_sum(const int *v, size_t n);\n"
-        + doc("Seen")
+        + doc("Seen", "@lifetime cb call")
         + "void api_seen(api_seen_cb cb, void *arg);\n"
     )
     model, _ = parse(header)
@@ -326,6 +335,43 @@ def test_a_function_named_as_a_record_has_its_own_doc(parse, tmp_path):
         "/// F\n///\n/// Calls `api_tag`.\npub fn tag_("
         in (tmp_path / "zig" / "api.zig").read_text()
     )
+
+
+def test_kept_contexts_are_called(parse, tmp_path):
+    from tests.test_rust import KEPT, KEPT_C
+
+    model, _ = parse(KEPT)
+    assert process(model, ["zig"], tmp_path) == []
+    (tmp_path / "impl.c").write_text(KEPT + KEPT_C)
+    (tmp_path / "api.zig").write_text((tmp_path / "zig" / "api.zig").read_text())
+    main = tmp_path / "main.zig"
+    main.write_text(
+        'const std = @import("std");\nconst api = @import("api.zig");\n'
+        "const Sum = struct { v: c_int = 0 };\n"
+        "fn add(s: *Sum, v: c_int) c_int {\n    s.v += v;\n    return 0;\n}\n"
+        "fn add100(s: *Sum, v: c_int) c_int {\n    s.v += 100 * v;\n    return 0;\n}\n"
+        "pub fn main() !void {\n"
+        "    var sum = Sum{};\n"
+        "    var h = try api.H.open();\n"
+        "    defer h.deinit();\n"
+        "    try h.on(&sum, add);\n"
+        "    const taken = if (h.on(&sum, add)) |_| false else |_| true;\n"
+        "    try h.submit(&sum, add100);\n"
+        "    const busy = if (h.submit(&sum, add100)) |_| false else |_| true;\n"
+        "    const n = try h.poke();\n"
+        "    try h.fire(5);\n"
+        '    std.debug.print("{} {} {} {}\\n", .{ taken, busy, n, sum.v });\n'
+        "}\n"
+    )
+    cache = str(tmp_path / ".cache")
+    run = subprocess.run(
+        ["zig", "run", str(main), str(tmp_path / "impl.c"), "-lc"]
+        + ["--cache-dir", cache, "--global-cache-dir", cache],
+        capture_output=True,
+        text=True,
+    )
+    assert run.returncode == 0, run.stderr
+    assert run.stderr == "true true 1 705\n"
 
 
 def test_skipped_records_and_padding_bits_build(parse, tmp_path):

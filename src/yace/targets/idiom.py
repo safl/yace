@@ -13,8 +13,9 @@ From the semantics of the C subset, see :py:mod:`yace.ir.semantics`:
   function says it wrote.
 * An array read through a pointer is given as a sequence, its ``@len`` count
   then known from the sequence, and not given.
-* A callback is given as a closure; its ``void *`` context is the binding's to
-  pass, not given.
+* A callback is given as a closure, kept for as long as its ``@lifetime`` says;
+  its ``void *`` context is the binding's to pass, not given. A callback without
+  a ``@lifetime`` is given as the raw function pointer, with its context.
 * With ``@errno``, a negative return is an error. A function returning ``int``
   returns only that status, so nothing when it succeeds; any other integer is
   a value, such as a count, and returned.
@@ -54,6 +55,7 @@ class Arg(BaseModel):
     nullable: bool = False
     of: Optional[str] = None  # the param a length, context or capacity belongs to
     shared: List[str] = []  # the other sequences a length or capacity is of
+    lifetime: Optional[str] = None  # of a callback
 
 
 class Out(BaseModel):
@@ -173,6 +175,17 @@ class Idioms(object):
 
         return self.decls[function]
 
+    def closure(self, param: decls.Param, params: List[decls.Param]) -> bool:
+        """Whether a callback is given as a closure: one typedef'd, with a
+        @lifetime and its context; any other is given raw"""
+
+        return (
+            self.is_callback(param.typ)
+            and isinstance(param.typ, types.TypedefRef)
+            and param.lifetime is not None
+            and any(p.context == param.name for p in params)
+        )
+
     def handle_name(self, record: str) -> str:
         """The idiomatic name of a handle, without the prefix: 'handle'"""
 
@@ -193,7 +206,8 @@ class Idioms(object):
         for p in params:
             if p.length:
                 lengths.setdefault(p.length, []).append(p)
-        contexts = {p.name for p in params if p.context}
+        bound = {p.name for p in params if self.closure(p, params)}
+        contexts = {p.name for p in params if p.context in bound}
 
         args: List[Arg] = []
         outs: List[Out] = []
@@ -251,8 +265,8 @@ class Idioms(object):
                 args.append(Arg(kind="string", **arg))
             elif param.length:
                 args.append(Arg(kind="sequence", **arg))
-            elif self.is_callback(typ):
-                args.append(Arg(kind="callback", **arg))
+            elif param.name in bound:
+                args.append(Arg(kind="callback", lifetime=param.lifetime, **arg))
             else:
                 args.append(Arg(kind="value", **arg))
 

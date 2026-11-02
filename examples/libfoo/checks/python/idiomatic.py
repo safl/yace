@@ -77,6 +77,12 @@ def main():
         copied = handle.points(4)
         calls["points_copied"] = len(copied)
         calls["points_sum_x"] = sum(point.x for point in copied)
+        counted = []
+        calls["submit"] = errno_of(handle.submit, counted.append)
+        calls["submit_busy"] = errno_of(handle.submit, counted.append)
+        calls["poke"] = handle.poke()
+        calls["done_count"] = counted[0]
+        calls["poke_again"] = handle.poke()
         document("calls", calls, as_json)
 
         record(foo.FooPoint, handle.at(1), flags)

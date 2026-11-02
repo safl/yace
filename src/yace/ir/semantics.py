@@ -32,6 +32,14 @@ comment of the function:
   it, the handle is not used again. An opaque record created through an [out]
   pointer must have one.
 
+``@lifetime callback call|once|handle ...``
+  How long the library may invoke the callback, a promise only the author of
+  the header can make: ``call``, only during the call; ``once``, at most once,
+  after the call, and not at all when it fails; ``handle``, any number of times,
+  until the handle the function is a method of is destroyed, and not at all
+  when the call fails. Pairs, one for every callback, invoked on the thread
+  that called into the library.
+
 A ``void *`` parameter right after a callback is the callback's context, as the
 callback-context rule requires; a returned ``const char *`` is borrowed, as the
 string-return rule requires.
@@ -124,6 +132,20 @@ class Semantics(object):
             and e.fields
             for e in self.entities
         )
+
+    def is_method(self, func: decls.Function) -> bool:
+        """Whether the first parameter of 'func' is a handle, an opaque record"""
+
+        if not func.params:
+            return False
+        typ = func.params[0].typ
+        if not (isinstance(typ, types.Pointer) and isinstance(typ.to, types.Record)):
+            return False
+        declared = any(
+            isinstance(e, (decls.Struct, decls.Union)) and e.name == typ.to.name
+            for e in self.entities
+        )
+        return declared and self.opaque(typ.to)
 
     def is_pointer(self, typ) -> bool:
         """Whether 'typ' is a pointer, also one by a typedef of a callback"""
@@ -256,6 +278,24 @@ class Semantics(object):
             else:
                 func.destroys = name
 
+        pairs = names("lifetime")
+        promised = set(pairs[::2])
+        if len(pairs) % 2:
+            annotation("@lifetime takes pairs of a callback and its lifetime")
+        for name, value in zip(pairs[::2], pairs[1::2]):
+            if name in params and params[name].lifetime is not None:
+                annotation(f"@lifetime names '{name}' twice")
+            elif name not in params or self.callback(params[name].typ) is None:
+                annotation(f"@lifetime names '{name}', which is not a callback")
+            elif value not in ("call", "once", "handle"):
+                annotation(
+                    f"@lifetime of '{name}' is '{value}', not call, once or handle"
+                )
+            elif value == "handle" and not self.is_method(func):
+                annotation(f"@lifetime of '{name}' is handle, but there is no handle")
+            else:
+                params[name].lifetime = value
+
         for idx, param in enumerate(func.params):
             fntype = self.callback(param.typ)
             if fntype is None:
@@ -268,6 +308,15 @@ class Semantics(object):
                     f" {len(contexts)} void * parameters, not one",
                     cursor,
                 )
+            if param.lifetime is None and param.name not in promised:
+                self.report(
+                    "callback-lifetime",
+                    f"'{func.name}' takes the callback '{param.name}' without a"
+                    " @lifetime",
+                    cursor,
+                )
+            if len(contexts) != 1:
+                continue
             after = func.params[idx + 1] if idx + 1 < len(func.params) else None
             if after is None or not is_void_ptr(after.typ) or not after.name:
                 self.report(

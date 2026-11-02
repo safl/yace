@@ -56,3 +56,45 @@ def test_returns_follow_errno_and_nullability():
     assert found["foo_add_many"].returns == "count"
     assert found["foo_at"].returns == "pointer" and found["foo_at"].nullable
     assert found["foo_name"].returns == "string"
+
+
+def test_a_callback_without_a_lifetime_is_given_raw(parse):
+    model, diagnostics = parse(
+        "typedef int (*api_cb)(void *arg, int v);\n"
+        "/**\n * Kept\n * @lifetime cb once\n */\nint api_kept(api_cb cb, void *arg);\n"
+        "/**\n * Raw\n */\nint api_raw(api_cb cb, void *arg);\n"
+    )
+    assert "callback-lifetime" in [d.rule for d in diagnostics]
+    found = {c.function: c for c in Idioms(model).calls}
+    assert kinds(found["api_kept"]) == [("cb", "callback"), ("arg", "context")]
+    assert found["api_kept"].args[0].lifetime == "once"
+    assert kinds(found["api_raw"]) == [("cb", "value"), ("arg", "value")]
+
+
+def test_a_callback_without_a_context_is_given_raw(parse):
+    model, diagnostics = parse(
+        "typedef int (*api_cb)(int v);\n"
+        "/**\n * Each\n * @lifetime cb call\n */\nint api_each(api_cb cb);\n"
+    )
+    assert "callback-context" in [d.rule for d in diagnostics]
+    found = {c.function: c for c in Idioms(model).calls}
+    assert kinds(found["api_each"]) == [("cb", "value")]
+
+
+def test_a_callback_type_without_one_context_is_given_raw(parse):
+    model, _ = parse(
+        "typedef int (*api_cb)(int v);\n"
+        "/**\n * Run\n * @lifetime cb once\n */\nint api_run(api_cb cb, void *arg);\n"
+    )
+    found = {c.function: c for c in Idioms(model).calls}
+    assert kinds(found["api_run"]) == [("cb", "value"), ("arg", "value")]
+
+
+def test_an_inline_callback_is_given_raw(parse):
+    model, diagnostics = parse(
+        "/**\n * Each\n * @lifetime cb call\n */\n"
+        "int api_each(int (*cb)(void *arg, int v), void *arg);\n"
+    )
+    assert "callback-typedef" in [d.rule for d in diagnostics]
+    found = {c.function: c for c in Idioms(model).calls}
+    assert kinds(found["api_each"]) == [("cb", "value"), ("arg", "value")]

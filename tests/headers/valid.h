@@ -119,6 +119,8 @@ valid_close(struct valid_handle *handle);
  * @param arg Given to 'visit'
  *
  * @return The number of values visited, negative errno on error
+ *
+ * @lifetime visit call
  */
 int64_t
 valid_visit(struct valid_handle *handle, valid_visit_cb visit, void *arg);

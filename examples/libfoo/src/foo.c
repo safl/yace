@@ -7,6 +7,8 @@ struct foo_handle {
 	char *name;
 	struct foo_point points[FOO_POINTS_MAX];
 	size_t npoints;
+	foo_done_cb done;
+	void *done_arg;
 };
 
 const char *
@@ -124,6 +126,32 @@ ssize_t
 foo_visit_with(struct foo_handle *handle, const struct foo_visitor *visitor)
 {
 	return foo_visit(handle, visitor->visit, visitor->arg);
+}
+
+int
+foo_submit(struct foo_handle *handle, foo_done_cb done, void *arg)
+{
+	if (handle->done) {
+		return -EBUSY;
+	}
+	handle->done = done;
+	handle->done_arg = arg;
+
+	return 0;
+}
+
+size_t
+foo_poke(struct foo_handle *handle)
+{
+	foo_done_cb done = handle->done;
+
+	if (!done) {
+		return 0;
+	}
+	handle->done = NULL;
+	done(handle->done_arg, handle->npoints);
+
+	return 1;
 }
 
 void

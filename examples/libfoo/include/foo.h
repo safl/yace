@@ -63,6 +63,14 @@ struct foo_point {
 typedef int (*foo_visit_cb)(void *arg, const struct foo_point *point);
 
 /**
+ * Called back when a count submitted completes
+ *
+ * @param arg The argument given along with the callback
+ * @param count The number of points when it completed
+ */
+typedef void (*foo_done_cb)(void *arg, size_t count);
+
+/**
  * A callback and its argument
  */
 struct foo_visitor {
@@ -247,6 +255,7 @@ foo_points(const struct foo_handle *handle, struct foo_point *points, size_t npo
  * @return The number of points visited, -EINVAL when 'visit' is NULL
  *
  * @nullable arg
+ * @lifetime visit call
  * @errno
  */
 ssize_t
@@ -264,6 +273,32 @@ foo_visit(struct foo_handle *handle, foo_visit_cb visit, void *arg);
  */
 ssize_t
 foo_visit_with(struct foo_handle *handle, const struct foo_visitor *visitor);
+
+/**
+ * Submit a count of the points, completed by foo_poke()
+ *
+ * @param handle The handle
+ * @param done Called once, by foo_poke(), with the number of points
+ * @param arg Given to 'done'
+ *
+ * @return 0, -EBUSY when a count is submitted and not yet completed
+ *
+ * @nullable arg
+ * @lifetime done once
+ * @errno
+ */
+int
+foo_submit(struct foo_handle *handle, foo_done_cb done, void *arg);
+
+/**
+ * Complete the count submitted, if any, calling its callback
+ *
+ * @param handle The handle
+ *
+ * @return The number of counts completed, 0 or 1
+ */
+size_t
+foo_poke(struct foo_handle *handle);
 
 /**
  * Fill in a value of every kind of scalar, the limits of the fixed-width ones

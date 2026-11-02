@@ -107,6 +107,13 @@ def main():
     copied = (foo.FooPoint * 4)()
     calls["points_copied"] = foo.foo_points(handle, copied, 4)
     calls["points_sum_x"] = sum(point.x for point in copied)
+    counted = []
+    done = foo.FooDoneCb(lambda arg, count: counted.append(count))
+    calls["submit"] = foo.foo_submit(handle, done, None)
+    calls["submit_busy"] = foo.foo_submit(handle, done, None)
+    calls["poke"] = foo.foo_poke(handle)
+    calls["done_count"] = counted[0]
+    calls["poke_again"] = foo.foo_poke(handle)
     document("calls", calls, as_json)
 
     record(foo.FooPoint, foo.foo_at(handle, 1), flags)

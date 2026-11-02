@@ -31,6 +31,11 @@ calls:
   count_after_add_many: 6
   points_copied: 4
   points_sum_x: 10
+  submit: 0
+  submit_busy: -16
+  poke: 1
+  done_count: 6
+  poke_again: 0
 ---
 foo_point:
   x: 3

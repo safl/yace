@@ -81,10 +81,10 @@ Handles
   constructor is an associated function, ``Handle::open()``, returning an
   ``Option`` where it has no ``@errno``; its destructor is called when it is
   dropped, or by ``close()``; the functions taking it first are its methods,
-  taking ``&self`` where the pointer is to const, ``&mut self`` otherwise.
-  ``as_ptr()`` is the raw pointer, for the raw functions; a method named
-  ``as_ptr`` is ``as_ptr_()``. It is neither ``Send`` nor ``Sync``: the header
-  does not say it may be.
+  taking ``&self`` where the pointer is to const and it keeps no closure,
+  ``&mut self`` otherwise. ``as_ptr()`` is the raw pointer, for the raw
+  functions; a method named ``as_ptr`` is ``as_ptr_()``. It is neither ``Send``
+  nor ``Sync``: the header does not say it may be.
 
 Errors
   A function documented ``@errno`` returns ``io::Result``, its error made by
@@ -102,12 +102,15 @@ Results
 Arguments
   An array read through a pointer is a slice; slices sharing one ``@len`` count
   must be as long, or the call panics; a ``@nullable`` one is an ``Option``,
-  ``None`` passing NULL. A ``void *`` with a ``@len`` is a slice
-  of ``u8``. A handle given is a reference to its
-  type. A callback is a ``&mut dyn
-  FnMut`` closure, called through a generated trampoline with the ``void *``
-  context; the pointers to records it receives are references. A ``@nullable``
-  pointer is an ``Option``.
+  ``None`` passing NULL. A ``void *`` with a ``@len`` is a slice of ``u8``. A
+  handle given is a reference to its type. A callback is a ``&mut dyn FnMut``
+  closure, called through a generated trampoline with the ``void *`` context;
+  the pointers to records it receives are references. One of ``@lifetime once``
+  is a ``Box<dyn FnOnce>``, freed once called, or when the call fails; one of
+  ``@lifetime handle`` a ``Box<dyn FnMut>``, which the handle keeps, unless
+  the call fails, until it is dropped, and for good where destroying it fails
+  or nothing destroys it, as C may still hold it. A ``@nullable`` pointer is an
+  ``Option``.
 
 A function is safe where everything a caller gives is checked by the types: a
 function taking a raw pointer, or a record holding one, is ``unsafe``, as safe

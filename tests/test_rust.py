@@ -179,7 +179,7 @@ def test_no_toolchain_is_a_failure_not_a_crash(parser, tmp_path, monkeypatch):
     model, _ = parser.parse(HEADERS / "valid.h")
 
     assert process(model, ["rust"], tmp_path) == [
-        "rust: no Rust toolchain" " ('no-such-cargo'); set CARGO"
+        "rust: no Rust toolchain ('no-such-cargo'); set CARGO"
     ]
 
 
@@ -233,8 +233,12 @@ EDGES = (
     + "int api_open(const char *name, struct api_h **h);\n"
     + doc("Close", "@destroys h", "@errno")
     + "int api_close(struct api_h *h);\n"
-    + doc("Each", "@nullable cb", "@errno")
+    + doc("Each", "@nullable cb", "@lifetime cb call", "@errno")
     + "int64_t api_each(struct api_h *h, api_cb cb, void *arg);\n"
+    + doc("Submit", "@nullable cb", "@lifetime cb once", "@errno")
+    + "int api_submit(struct api_h *h, api_cb cb, void *arg);\n"
+    + doc("On", "@lifetime cb handle", "@errno")
+    + "int api_on(const struct api_h *h, api_cb cb, void *arg);\n"
     + doc("Inline", "@errno")
     + "int api_inline(struct api_h *h, int (*fn)(void *ctx), void *ctx);\n"
     + doc("Step", "@param[in,out] pos P", "@param[out] got G", "@errno")
@@ -409,7 +413,15 @@ def test_the_idiomatic_layer_builds_for_every_kind_of_parameter(parse, tmp_path)
     assert "pub fn step(&mut self, pos: &mut usize) -> io::Result<c_int>" in lib
     assert "pub unsafe fn raw(&mut self, p: &mut ApiP, opaque: *mut c_void)" in lib
     assert "pub fn close(self) -> io::Result<()>" in lib
-    assert "fn inline(" not in lib  # no trampoline for an inline callback type
+    assert (
+        "pub fn submit(&mut self, cb: Option<Box<ApiCbOnce>>) -> io::Result<()>" in lib
+    )
+    assert "pub fn on(&mut self, cb: Box<ApiCbFn<'static>>) -> io::Result<()>" in lib
+    assert "keep: Vec<Box<dyn std::any::Any>>," in lib
+    assert (
+        'pub unsafe fn inline(&mut self, r#fn: Option<unsafe extern "C" fn(*mut c_void)'
+        " -> c_int>, ctx: *mut c_void)" in lib
+    )
     assert "pub fn other(&mut self) -> *mut ApiH" in lib
     assert "pub fn base(path: &CStr) -> &CStr" in lib
     assert "pub unsafe fn pick(a: &CStr, b: &CStr) -> &'static CStr" in lib
@@ -421,7 +433,7 @@ def test_the_idiomatic_layer_builds_for_every_kind_of_parameter(parse, tmp_path)
 def test_a_panic_in_a_closure_aborts(parse, tmp_path):
     header = (
         "typedef int (*api_cb)(void *arg, int v);\n"
-        + doc("Each", "@param cb C", "@param arg A")
+        + doc("Each", "@param cb C", "@param arg A", "@lifetime cb call")
         + "int api_each(api_cb cb, void *arg);\n"
     )
     model, _ = parse(header)
@@ -529,6 +541,10 @@ NAMES = (
     + "int api_names(int a0, api_cb a1, void *arg);\n"
     + doc("Call", "@nullable cb", "@lifetime cb call", "@errno")
     + f"int api_call(api_cb cb, void *arg, {LOCALS});\n"
+    + doc("Once", "@lifetime cb once", "@errno")
+    + f"int api_once(api_cb cb, void *arg, {LOCALS});\n"
+    + doc("Keep", "@nullable cb", "@lifetime cb handle", "@errno")
+    + f"int api_h_keep(struct api_h *h, api_cb cb, void *arg, {LOCALS});\n"
     + doc("Sum", "@len xs n")
     + "int api_sum(const int *xs, size_t n, int xs_c, int xs_cb);\n"
     + doc("Outs", "@param[out] x X", "@param[out] ys Y", "@len ys n")
@@ -554,6 +570,9 @@ int api_names(int a0, api_cb a1, void *arg) { return a1(arg, a0); }
 #define SUM (cb_cb + cb_ctx + cb_c + cb_key + cb_kept + cb_ref + cb_tramp + cb_t \\
              + cb_fn_t + cb_held + cb_trampoline + cb_context + cb_fn)
 int api_call(api_cb cb, void *arg, LOCALS) { return cb ? cb(arg, SUM) : 0; }
+int api_once(api_cb cb, void *arg, LOCALS) { return cb(arg, SUM); }
+int api_h_keep(struct api_h *p, api_cb cb, void *arg, LOCALS)
+{ (void)p; return cb ? cb(arg, SUM) : 0; }
 int api_sum(const int *xs, size_t n, int xs_c, int xs_cb)
 { int s = xs_c + xs_cb; for (size_t i = 0; i < n; i++) s += xs[i]; return s; }
 void api_outs(int *x, int *ys, size_t n, int x_out, int ys_out)
@@ -563,7 +582,6 @@ int api_two(api_x_cb x, void *arg, api_x_cb other, void *oarg)
 size_t api_c(const int *api, size_t n) { (void)api; return n; }
 """
 )
-
 
 # Parameters named as what a body uses unqualified, or as each other renamed
 HIDDEN = (
@@ -661,6 +679,8 @@ HIDDEN = (
     + "int api_dev_make(int dev, struct api_dev **out);\n"
     + doc("Me")
     + "int api_dev_me(struct api_dev *d, int v);\n"
+    + doc("Keep", "@lifetime cb handle", "@errno")
+    + "int api_dev_keep(struct api_dev *d, api_cb cb, void *arg, int keep_);\n"
     + doc("Ptr")
     + "int api_dev_ptr(struct api_dev *d, int ptr_, int ptr);\n"
     + doc("Open", "@param[out] cb O", "@errno")
@@ -693,7 +713,6 @@ int api_foos(int a, int b, int c) { return a - b + c; }
 void api_file(FILE **f, int u) { *f = u ? stdout : NULL; }
 size_t api_buf_len(const api_buf *b, api_kind k) { return b->len + (size_t)k; }
 int api_put(struct writer *w, int c) { return w->count + c; }
-int api_node_value(api_node n, const struct api_node *m) { return n->v - m->v; }
 static struct { unsigned len; unsigned char data[3]; } msg = { 3, { 1, 2, 3 } };
 struct api_msg *api_dev_msg(struct api_dev *d)
 { (void)d; return (struct api_msg *)&msg; }
@@ -701,6 +720,7 @@ int api_dev_get(struct api_dev *d) { (void)d; return 1; }
 int api_dev_get_(struct api_dev *d) { (void)d; return 2; }
 int api_take(int x) { return x; }
 int api_take_(int x) { return x + 1; }
+int api_node_value(api_node n, const struct api_node *m) { return n->v - m->v; }
 int api_frame_size(const struct api_frame *f) { return f->n + (int)f->media.format; }
 static int th = 7;
 int api_th_open(api_th **t) { *t = (api_th *)&th; return 0; }
@@ -716,6 +736,8 @@ int api_dev_open(int d, int D, struct api_dev **out)
 int api_dev_make(int d, struct api_dev **out)
 { *out = (struct api_dev *)&dev; return d; }
 int api_dev_me(struct api_dev *d, int v) { (void)d; return v; }
+int api_dev_keep(struct api_dev *d, api_cb cb, void *arg, int keep_)
+{ (void)d; return cb(arg, keep_) < 0 ? -1 : 0; }
 int api_dev_ptr(struct api_dev *d, int ptr_, int ptr) { (void)d; return ptr_ - ptr; }
 int api_cb_out_open(struct api_cb_out **cb)
 { *cb = (struct api_cb_out *)&cb_out; return 0; }
@@ -785,9 +807,9 @@ def test_closure_types_named_as_raw_types(parse, tmp_path):
         "typedef int (*api_cb)(void *arg, int v);\n"
         "typedef int (*api_cb_fn)(void *arg, int v);\n"
         "typedef int (*api_outer_cb)(void *arg, api_cb_fn inner);\n"
-        + doc("Run")
+        + doc("Run", "@lifetime cb call")
         + "int api_run(api_cb cb, void *arg);\n"
-        + doc("Outer")
+        + doc("Outer", "@lifetime cb call")
         + "int api_outer(api_outer_cb cb, void *arg);\n"
     )
     assert process(model, ["rust"], tmp_path) == []
@@ -820,6 +842,215 @@ def test_handles_named_as_std_types(parse, tmp_path):
 
     lib = (tmp_path / "rust" / "lib.rs").read_text()
     assert "pub struct OptionHandle" in lib and "pub struct VecHandle" in lib
+
+
+KEPT = (
+    "#include <stdint.h>\nstruct api_h;\n"
+    "typedef int (*api_cb)(void *arg, int v);\n"
+    + doc("Open", "@param[out] h H", "@errno")
+    + "int api_open(struct api_h **h);\n"
+    + doc("Close", "@destroys h")
+    + "void api_close(struct api_h *h);\n"
+    + doc("On", "@lifetime cb handle", "@errno")
+    + "int api_on(struct api_h *h, api_cb cb, void *arg);\n"
+    + doc("Fire", "@errno")
+    + "int api_fire(struct api_h *h, int v);\n"
+    + doc("Submit", "@nullable cb", "@lifetime cb once", "@errno")
+    + "int api_submit(struct api_h *h, api_cb cb, void *arg);\n"
+    + doc("Poke", "@errno")
+    + "int64_t api_poke(struct api_h *h);\n"
+)
+
+KEPT_C = """
+#include <stdlib.h>
+struct api_h { api_cb on, once; void *on_arg, *once_arg; };
+int api_open(struct api_h **h) { *h = calloc(1, sizeof(**h)); return 0; }
+void api_close(struct api_h *h) { free(h); }
+int api_on(struct api_h *h, api_cb cb, void *arg)
+{
+	if (h->on) return -16;
+	h->on = cb; h->on_arg = arg; return 0;
+}
+int api_fire(struct api_h *h, int v) { return h->on ? h->on(h->on_arg, v) : -22; }
+int api_submit(struct api_h *h, api_cb cb, void *arg)
+{
+	if (!cb) return 0;
+	if (h->once) return -16;
+	h->once = cb; h->once_arg = arg; return 0;
+}
+int64_t api_poke(struct api_h *h)
+{
+	api_cb cb = h->once;
+	if (!cb) return 0;
+	h->once = NULL;
+	cb(h->once_arg, 7);
+	return 1;
+}
+"""
+
+
+@needs_cc
+def test_kept_closures_are_called_and_released(parse, tmp_path):
+    model, _ = parse(KEPT)
+    assert process(model, ["rust"], tmp_path) == []
+    (tmp_path / "api.c").write_text(KEPT + KEPT_C)
+    subprocess.run(
+        ["cc", "-shared", "-fPIC", str(tmp_path / "api.c")]
+        + ["-o", str(tmp_path / "libapi.so")],
+        check=True,
+    )
+    main = """
+use std::cell::Cell;
+use std::rc::Rc;
+fn main() {
+    let seen = Rc::new(Cell::new(0));
+    let mut h = api::safe::H::open().unwrap();
+    let s = seen.clone();
+    h.on(Box::new(move |v| { s.set(s.get() + v); 0 })).unwrap();
+    let s = seen.clone();
+    let taken = h.on(Box::new(move |v| { s.set(s.get() + 10 * v); 0 }));
+    h.submit(None).unwrap();
+    let s = seen.clone();
+    h.submit(Some(Box::new(move |v| { s.set(s.get() + 100 * v); 0 }))).unwrap();
+    let s = seen.clone();
+    let busy = h.submit(Some(Box::new(move |v| { s.set(s.get() + 1000 * v); 0 })));
+    println!("{} {} {}", taken.is_err(), busy.is_err(), Rc::strong_count(&seen));
+    println!("{}", h.poke().unwrap());
+    h.fire(5).unwrap();
+    println!("{} {}", seen.get(), Rc::strong_count(&seen));
+    drop(h);
+    println!("{}", Rc::strong_count(&seen));
+}
+"""
+    out = run_with_crate(
+        tmp_path,
+        main,
+        {
+            "API_LIB_DIR": str(tmp_path),
+            "RUSTFLAGS": f"-C link-arg=-Wl,-rpath,{tmp_path}",
+        },
+    )
+    assert out == "true true 3\n1\n705 2\n1\n"
+
+
+def test_kept_closures_with_constructors_without_errno_and_inline_callbacks(
+    parse, tmp_path
+):
+    model, _ = parse(
+        "struct api_h;\ntypedef int (*api_cb)(void *arg, int v);\n"
+        + doc("Open", "@param[out] h H")
+        + "void api_open(struct api_h **h);\n"
+        + doc("Watch", "@lifetime cb handle", "@errno")
+        + "int api_watch(struct api_h *h, api_cb cb, void *arg);\n"
+        + doc("Each", "@lifetime fn call")
+        + "int api_each(int (*fn)(void *ctx, int v), void *ctx);\n"
+    )
+    assert process(model, ["rust"], tmp_path) == []
+
+    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    assert "map(|ptr| H { ptr, keep: Vec::new() })" in lib
+    assert "pub unsafe fn each(r#fn: Option<unsafe extern" in lib
+
+
+def test_inline_callbacks_kept_by_errno_functions_build(parse, tmp_path):
+    model, _ = parse(
+        "struct api_h;\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_h **h);\n"
+        + doc("Once", "@lifetime fn once", "@errno")
+        + "int api_once(struct api_h *h, int (*fn)(void *ctx, int v), void *ctx);\n"
+        + doc("Kept", "@lifetime fn handle", "@errno")
+        + "int api_kept(struct api_h *h, int (*fn)(void *ctx, int v), void *ctx);\n"
+    )
+    assert process(model, ["rust"], tmp_path) == []
+
+
+@needs_cc
+def test_closures_kept_by_a_handle_whose_destructor_fails_are_kept(parse, tmp_path):
+    header = (
+        "struct api_h;\ntypedef int (*api_cb)(void *arg, int v);\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_h **h);\n"
+        + doc("Close", "@destroys h", "@errno")
+        + "int api_close(struct api_h *h);\n"
+        + doc("On", "@lifetime cb handle")
+        + "void api_on(struct api_h *h, api_cb cb, void *arg);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["rust"], tmp_path) == []
+    assert "warning" not in (tmp_path / "rust" / "cargo.log").read_text()
+    (tmp_path / "api.c").write_text(
+        header + "static int h;\n"
+        "int api_open(struct api_h **p) { *p = (struct api_h *)&h; return 0; }\n"
+        "int api_close(struct api_h *p) { (void)p; return -5; }\n"
+        "void api_on(struct api_h *p, api_cb cb, void *arg)\n"
+        "{ (void)p; (void)cb; (void)arg; }\n"
+    )
+    subprocess.run(
+        ["cc", "-shared", "-fPIC", str(tmp_path / "api.c")]
+        + ["-o", str(tmp_path / "libapi.so")],
+        check=True,
+    )
+    main = (
+        "use std::rc::Rc;\nfn main() {\n"
+        "    let seen = Rc::new(0);\n"
+        "    let mut h = api::safe::H::open().unwrap();\n"
+        "    let s = seen.clone();\n"
+        "    h.on(Box::new(move |v| v + *s));\n"
+        "    let failed = h.close().is_err();\n"
+        "    {\n"
+        "        let mut g = api::safe::H::open().unwrap();\n"
+        "        let s = seen.clone();\n"
+        "        g.on(Box::new(move |v| v + *s));\n"
+        "        let s = seen.clone();\n"
+        "        let mut a = api::safe::H::open().unwrap();\n"
+        "        a.on(Box::new(move |v| v + *s));\n"
+        "        a = api::safe::H::open().unwrap();\n"
+        "        let _ = &a;\n"
+        "    }\n"
+        '    println!("{} {}", failed, Rc::strong_count(&seen));\n'
+        "}\n"
+    )
+    out = run_with_crate(
+        tmp_path,
+        main,
+        {
+            "API_LIB_DIR": str(tmp_path),
+            "RUSTFLAGS": f"-C link-arg=-Wl,-rpath,{tmp_path}",
+        },
+    )
+    assert out == "true 4\n"
+
+
+def test_a_function_named_drop(parse, tmp_path):
+    model, _ = parse(
+        "struct api_h;\ntypedef int (*api_cb)(void *arg, int v);\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_h **h);\n"
+        + doc("Close", "@destroys h", "@errno")
+        + "int api_close(struct api_h *h);\n"
+        + doc("On", "@lifetime cb handle")
+        + "void api_on(struct api_h *h, api_cb cb, void *arg);\n"
+        + doc("Later", "@lifetime cb once")
+        + "void api_later(struct api_h *h, api_cb cb, void *arg);\n"
+        + doc("Drop")
+        + "int api_drop(int x);\n"
+    )
+    assert process(model, ["rust"], tmp_path) == []
+
+
+def test_closures_kept_by_a_handle_nothing_destroys_are_kept(parse, tmp_path):
+    model, _ = parse(
+        "struct api_h;\ntypedef int (*api_cb)(void *arg, int v);\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_h **h);\n"
+        + doc("On", "@lifetime cb handle")
+        + "void api_on(struct api_h *h, api_cb cb, void *arg);\n"
+    )
+    assert process(model, ["rust"], tmp_path) == []
+
+    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    assert "std::mem::forget(std::mem::take(&mut self.keep));" in lib
 
 
 def test_skipped_records_and_padding_bits_build(parse, tmp_path):

@@ -30,7 +30,7 @@ def test_the_layer_builds_for_every_kind_of_parameter(parse, tmp_path):
     assert "std::size_t each(F &&cb);" in hpp
     assert "std::size_t each(std::nullptr_t);" in hpp
     assert "int step(size_t &pos);" in hpp
-    assert "void inline_(F &&fn);" in hpp  # an inline callback type, a keyword
+    assert "void inline_(int (*fn)(void *ctx), void *ctx);" in hpp
     assert "void close();" in hpp
 
 
@@ -150,7 +150,7 @@ def test_bytes_two_callbacks_and_outs_named_like_ret(parse, tmp_path):
     header = (
         IO
         + "typedef int (*api_cb)(void *arg, int v);\n"
-        + doc("Run", "@nullable done")
+        + doc("Run", "@nullable done", "@lifetime progress call done call")
         + "int api_run(api_cb progress, void *parg, api_cb done, void *darg);\n"
         + doc("Get", "@param[out] retval R")
         + "void api_get(int *retval);\n"
@@ -404,6 +404,238 @@ def test_a_template_parameter_named_as_a_record(parse, tmp_path):
         + "int api_use(const struct F *p, api_done_cb cb, void *arg);\n"
     )
     assert process(model, ["cpp"], tmp_path) == []
+
+
+def test_kept_callables_are_called_and_released(parse, tmp_path):
+    from tests.test_rust import KEPT, KEPT_C
+
+    model, _ = parse(KEPT)
+    assert process(model, ["cpp"], tmp_path) == []
+    (tmp_path / "api.c").write_text(KEPT + KEPT_C)
+    (tmp_path / "main.cpp").write_text(
+        "#include <cstdio>\n#include <memory>\n#include <system_error>\n"
+        "#include <api.hpp>\nint main() {\n"
+        "\tauto seen = std::make_shared<int>(0);\n"
+        "\tauto h = api::open();\n"
+        "\th.on([seen](int v) { *seen += v; return 0; });\n"
+        "\th.submit(nullptr);\n"
+        "\th.submit([seen](int v) { *seen += 100 * v; return 0; });\n"
+        "\tint failed = 0;\n"
+        "\ttry {\n\t\th.submit([seen](int v) { *seen += 1000 * v; return 0; });\n"
+        "\t} catch (const std::system_error &) {\n\t\tfailed += 1;\n\t}\n"
+        "\ttry {\n\t\th.on([seen](int v) { *seen += 10 * v; return 0; });\n"
+        "\t} catch (const std::system_error &) {\n\t\tfailed += 1;\n\t}\n"
+        '\tstd::printf("%d %ld\\n", failed, seen.use_count());\n'
+        '\tstd::printf("%ld\\n", (long)h.poke());\n'
+        "\th.fire(5);\n"
+        '\tstd::printf("%d %ld\\n", *seen, seen.use_count());\n'
+        "\th.close();\n"
+        '\tstd::printf("%ld\\n", seen.use_count());\n'
+        "\treturn 0;\n}\n"
+    )
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    objects = []
+    for source in (tmp_path / "api.c", tmp_path / "capi" / "api_pp.c"):
+        objects.append(str(source.with_suffix(".o")))
+        subprocess.run(
+            ["cc", *include, "-c", str(source), "-o", objects[-1]], check=True
+        )
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), *objects]
+        + ["-o", str(program)],
+        check=True,
+    )
+    run = subprocess.run([str(program)], capture_output=True, text=True)
+    assert run.stdout == "2 3\n1\n705 2\n1\n"
+
+
+def test_a_failed_call_without_a_nullable_callback_frees_the_others(parse, tmp_path):
+    from tests.test_rust import doc
+
+    header = (
+        "struct api_h;\ntypedef int (*api_cb)(void *arg, int v);\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_h **h);\n"
+        + doc("Two", "@nullable second", "@lifetime first once second once", "@errno")
+        + "int api_two(struct api_h *h, api_cb first, void *farg, api_cb second,"
+        " void *sarg);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["cpp"], tmp_path) == []
+    (tmp_path / "api.c").write_text(
+        header + "static int h;\n"
+        "int api_open(struct api_h **p) { *p = (struct api_h *)&h; return 0; }\n"
+        "int api_two(struct api_h *p, api_cb f, void *fa, api_cb s, void *sa)\n"
+        "{\n\t(void)p; (void)f; (void)fa; (void)s; (void)sa;\n\treturn -22;\n}\n"
+    )
+    (tmp_path / "main.cpp").write_text(
+        "#include <cstdio>\n#include <memory>\n#include <system_error>\n"
+        "#include <api.hpp>\nint main() {\n"
+        "\tauto seen = std::make_shared<int>(0);\n"
+        "\tauto h = api::open();\n"
+        "\ttry {\n\t\th.two([seen](int v) { return v + *seen; }, nullptr);\n"
+        "\t} catch (const std::system_error &) {\n\t}\n"
+        '\tstd::printf("%ld\\n", seen.use_count());\n'
+        "\treturn 0;\n}\n"
+    )
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    objects = []
+    for source in (tmp_path / "api.c", tmp_path / "capi" / "api_pp.c"):
+        objects.append(str(source.with_suffix(".o")))
+        subprocess.run(
+            ["cc", *include, "-c", str(source), "-o", objects[-1]], check=True
+        )
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), *objects]
+        + ["-o", str(program)],
+        check=True,
+    )
+    run = subprocess.run([str(program)], capture_output=True, text=True)
+    assert run.stdout == "1\n"
+
+
+def test_callables_kept_by_a_handle_whose_destructor_fails_are_kept(parse, tmp_path):
+    from tests.test_rust import doc
+
+    header = (
+        "struct api_h;\ntypedef int (*api_cb)(void *arg, int v);\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_h **h);\n"
+        + doc("Close", "@destroys h", "@errno")
+        + "int api_close(struct api_h *h);\n"
+        + doc("On", "@lifetime cb handle")
+        + "void api_on(struct api_h *h, api_cb cb, void *arg);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["cpp"], tmp_path) == []
+    (tmp_path / "api.c").write_text(
+        header + "static int h;\n"
+        "int api_open(struct api_h **p) { *p = (struct api_h *)&h; return 0; }\n"
+        "int api_close(struct api_h *p) { (void)p; return -5; }\n"
+        "void api_on(struct api_h *p, api_cb cb, void *arg)\n"
+        "{ (void)p; (void)cb; (void)arg; }\n"
+    )
+    (tmp_path / "main.cpp").write_text(
+        "#include <cstdio>\n#include <memory>\n#include <system_error>\n"
+        "#include <api.hpp>\nint main() {\n"
+        "\tauto seen = std::make_shared<int>(0);\n"
+        "\tauto h = api::open();\n"
+        "\th.on([seen](int v) { return v + *seen; });\n"
+        "\ttry {\n\t\th.close();\n\t} catch (const std::system_error &) {\n\t}\n"
+        "\t{\n\t\tauto g = api::open();\n"
+        "\t\tg.on([seen](int v) { return v + *seen; });\n"
+        "\t\tauto a = api::open();\n"
+        "\t\ta.on([seen](int v) { return v + *seen; });\n"
+        "\t\ta = api::open();\n\t}\n"
+        '\tstd::printf("%ld\\n", seen.use_count());\n'
+        "\treturn 0;\n}\n"
+    )
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    objects = []
+    for source in (tmp_path / "api.c", tmp_path / "capi" / "api_pp.c"):
+        objects.append(str(source.with_suffix(".o")))
+        subprocess.run(
+            ["cc", *include, "-c", str(source), "-o", objects[-1]], check=True
+        )
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), *objects]
+        + ["-o", str(program)],
+        check=True,
+    )
+    run = subprocess.run([str(program)], capture_output=True, text=True)
+    assert run.stdout == "4\n"
+
+
+def test_callables_kept_by_a_handle_nothing_destroys_are_kept(parse, tmp_path):
+    from tests.test_rust import doc
+
+    header = (
+        "/** H */\nstruct api_h;\ntypedef int (*api_cb)(void *arg, int v);\n"
+        + doc("On", "@lifetime cb handle")
+        + "void api_on(struct api_h *h, api_cb cb, void *arg);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["cpp"], tmp_path) == []
+    (tmp_path / "api.c").write_text(
+        header + "void api_on(struct api_h *p, api_cb cb, void *arg)\n"
+        "{ (void)p; (void)cb; (void)arg; }\n"
+    )
+    (tmp_path / "main.cpp").write_text(
+        "#include <cstdio>\n#include <memory>\n#include <api.hpp>\n"
+        "static int raw;\nint main() {\n"
+        "\tauto seen = std::make_shared<int>(0);\n"
+        "\t{\n\t\tapi::h h(reinterpret_cast<struct ::api_h *>(&raw));\n"
+        "\t\th.on([seen](int v) { return v + *seen; });\n\t}\n"
+        '\tstd::printf("%ld\\n", seen.use_count());\n'
+        "\treturn 0;\n}\n"
+    )
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    objects = []
+    for source in (tmp_path / "api.c", tmp_path / "capi" / "api_pp.c"):
+        objects.append(str(source.with_suffix(".o")))
+        subprocess.run(
+            ["cc", *include, "-c", str(source), "-o", objects[-1]], check=True
+        )
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), *objects]
+        + ["-o", str(program)],
+        check=True,
+    )
+    run = subprocess.run([str(program)], capture_output=True, text=True)
+    assert run.stdout == "2\n"
+
+
+def test_a_handle_moved_over_is_destroyed_before_its_callables(parse, tmp_path):
+    from tests.test_rust import doc
+
+    header = (
+        "struct api_h;\ntypedef int (*api_cb)(void *arg, int v);\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_h **h);\n"
+        + doc("Close", "@destroys h")
+        + "void api_close(struct api_h *h);\n"
+        + doc("On", "@lifetime cb handle")
+        + "void api_on(struct api_h *h, api_cb cb, void *arg);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["cpp"], tmp_path) == []
+    (tmp_path / "api.c").write_text(
+        header + "#include <stdlib.h>\n"
+        "struct api_h { api_cb cb; void *arg; };\n"
+        "int api_open(struct api_h **p) { *p = calloc(1, sizeof **p); return 0; }\n"
+        "void api_close(struct api_h *p) { if (p->cb) p->cb(p->arg, 1); free(p); }\n"
+        "void api_on(struct api_h *p, api_cb cb, void *arg)\n"
+        "{ p->cb = cb; p->arg = arg; }\n"
+    )
+    (tmp_path / "main.cpp").write_text(
+        "#include <cstdio>\n#include <memory>\n#include <api.hpp>\nint main() {\n"
+        "\tauto seen = std::make_shared<int>(0);\n"
+        "\tauto a = api::open();\n"
+        "\ta.on([seen](int v) { *seen += v; return 0; });\n"
+        "\ta = api::open();\n"
+        '\tstd::printf("%d %ld\\n", *seen, seen.use_count());\n'
+        "\treturn 0;\n}\n"
+    )
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    objects = []
+    for source in (tmp_path / "api.c", tmp_path / "capi" / "api_pp.c"):
+        objects.append(str(source.with_suffix(".o")))
+        subprocess.run(
+            ["cc", *include, "-c", str(source), "-o", objects[-1]], check=True
+        )
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, "-fsanitize=address", *include]
+        + [str(tmp_path / "main.cpp"), *objects, "-o", str(program)],
+        check=True,
+    )
+    run = subprocess.run([str(program)], capture_output=True, text=True)
+    assert run.returncode == 0, run.stderr
+    assert run.stdout == "1 1\n"
 
 
 def test_a_pointer_to_a_record_of_another_header_is_returned(parser, tmp_path):
