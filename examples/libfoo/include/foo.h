@@ -139,10 +139,13 @@ foo_version(void);
 /**
  * Open a handle holding no points
  *
- * @param name Name of the handle, copied
- * @param handle Set to the handle opened
+ * @param[in] name Name of the handle, copied
+ * @param[out] handle Set to the handle opened
  *
- * @return 0 on success, -1 when 'name' or 'handle' is NULL or memory ran out
+ * @return 0 on success, -EINVAL when 'name' or 'handle' is NULL, -ENOMEM when
+ *   memory ran out
+ *
+ * @errno
  */
 int
 foo_open(const char *name, struct foo_handle **handle);
@@ -151,6 +154,9 @@ foo_open(const char *name, struct foo_handle **handle);
  * Close a handle
  *
  * @param handle The handle to close, NULL is ignored
+ *
+ * @nullable handle
+ * @destroys handle
  */
 void
 foo_close(struct foo_handle *handle);
@@ -169,12 +175,29 @@ foo_name(const struct foo_handle *handle);
  * Add a point to the handle
  *
  * @param handle The handle
- * @param point The point to add, copied
+ * @param[in] point The point to add, copied
  *
- * @return 0 on success, -1 when the handle holds FOO_POINTS_MAX points
+ * @return 0 on success, -ENOSPC when the handle holds FOO_POINTS_MAX points
+ *
+ * @errno
  */
 int
 foo_add(struct foo_handle *handle, const struct foo_point *point);
+
+/**
+ * Add points to the handle, as many as it has room for
+ *
+ * @param handle The handle
+ * @param[in] points The points to add, copied
+ * @param npoints The number of points
+ *
+ * @return The number of points added, -ENOSPC when there was room for none
+ *
+ * @len points npoints
+ * @errno
+ */
+ssize_t
+foo_add_many(struct foo_handle *handle, const struct foo_point *points, size_t npoints);
 
 /**
  * The number of points held
@@ -193,9 +216,26 @@ foo_count(const struct foo_handle *handle);
  * @param idx Index of the point
  *
  * @return The point, NULL when 'idx' is past the last one
+ *
+ * @nullable return
  */
 const struct foo_point *
 foo_at(const struct foo_handle *handle, size_t idx);
+
+/**
+ * Copy the points held, as many as fit
+ *
+ * @param handle The handle
+ * @param[out] points Where to copy the points to
+ * @param npoints The number of points that fit
+ *
+ * @return The number of points copied
+ *
+ * @len points npoints
+ * @errno
+ */
+ssize_t
+foo_points(const struct foo_handle *handle, struct foo_point *points, size_t npoints);
 
 /**
  * Visit the points in the order they were added
@@ -204,7 +244,10 @@ foo_at(const struct foo_handle *handle, size_t idx);
  * @param visit Called for each point, until it returns non-zero
  * @param arg Given to 'visit'
  *
- * @return The number of points visited, -1 when 'visit' is NULL
+ * @return The number of points visited, -EINVAL when 'visit' is NULL
+ *
+ * @nullable arg
+ * @errno
  */
 ssize_t
 foo_visit(struct foo_handle *handle, foo_visit_cb visit, void *arg);
@@ -213,9 +256,11 @@ foo_visit(struct foo_handle *handle, foo_visit_cb visit, void *arg);
  * Visit the points with a visitor; as foo_visit()
  *
  * @param handle The handle
- * @param visitor The callback and its argument
+ * @param[in] visitor The callback and its argument
  *
- * @return The number of points visited, -1 when the callback is NULL
+ * @return The number of points visited, -EINVAL when the callback is NULL
+ *
+ * @errno
  */
 ssize_t
 foo_visit_with(struct foo_handle *handle, const struct foo_visitor *visitor);
@@ -223,7 +268,7 @@ foo_visit_with(struct foo_handle *handle, const struct foo_visitor *visitor);
 /**
  * Fill in a value of every kind of scalar, the limits of the fixed-width ones
  *
- * @param scalars The values to fill in
+ * @param[out] scalars The values to fill in
  */
 void
 foo_scalars_fill(struct foo_scalars *scalars);
@@ -231,10 +276,12 @@ foo_scalars_fill(struct foo_scalars *scalars);
 /**
  * Fill in a figure of the given shape
  *
- * @param figure The figure to fill in
+ * @param[out] figure The figure to fill in
  * @param shape One of enum foo_shape
  *
- * @return 0 on success, -1 when 'shape' is none of enum foo_shape
+ * @return 0 on success, -EINVAL when 'shape' is none of enum foo_shape
+ *
+ * @errno
  */
 int
 foo_figure_fill(struct foo_figure *figure, uint32_t shape);
@@ -242,7 +289,7 @@ foo_figure_fill(struct foo_figure *figure, uint32_t shape);
 /**
  * Set a value, clearing the bits it does not use
  *
- * @param value The value to set
+ * @param[out] value The value to set
  * @param i What to set it to
  */
 void

@@ -98,16 +98,35 @@ class Typedef(Node):
 
 
 class Param(Node):
+    """
+    A parameter, with what C cannot say about it, from its documentation: whether
+    the function reads it, writes it, or both, whether it may be NULL, which
+    parameter holds its length, and which callback a ``void *`` is the context of
+    """
+
     name: str = ""
     typ: Type
+    direction: Literal["in", "out", "inout"] = "in"
+    nullable: bool = False
+    length: Optional[str] = None  # the parameter holding its number of elements
+    context: Optional[str] = None  # the callback parameter it is given back to
 
 
 class Function(Node):
+    """
+    A function, with what C cannot say about it, from its documentation: whether
+    it returns a negative errno on failure, which parameter's handle it destroys,
+    and whether the pointer it returns may be NULL
+    """
+
     key: Literal["function_decl"] = "function_decl"
     name: str
     ret: Type
     params: List[Param] = []
     variadic: bool = False
+    errno: bool = False
+    destroys: Optional[str] = None
+    nullable: bool = False
     doc: Doc = Doc()
 
 

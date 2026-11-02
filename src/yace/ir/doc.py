@@ -8,9 +8,11 @@ from typing import Dict
 
 from pydantic import BaseModel, ConfigDict
 
-TAG = re.compile(r"^[@\\](\w+)(?:\[[^\]]*\])?\s*(.*)$")
+TAG = re.compile(r"^[@\\](\w+)(?:\[([^\]]*)\])?\s*(.*)$")
 
 NAMED_TAGS = ("param", "tparam", "retval")  # tags whose first word is a name
+
+DIRECTIONS = {"in": "in", "out": "out", "in,out": "inout", "out,in": "inout"}
 
 # Doxygen's commands naming what is documented; the declaration says that itself
 STRUCTURAL_TAGS = ("enum", "struct", "union", "typedef", "fn", "def", "var", "file")
@@ -18,8 +20,9 @@ STRUCTURAL_TAGS = ("enum", "struct", "union", "typedef", "fn", "def", "var", "fi
 
 class Doc(BaseModel):
     """
-    The brief, the description after it, the parameters by name, what is
-    returned, and any other tag, by tag name, with its text
+    The brief, the description after it, the parameters by name, the direction
+    of those documented with one, as ``@param[out]``, what is returned, and any
+    other tag, by tag name, with its text
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -27,6 +30,7 @@ class Doc(BaseModel):
     brief: str = ""
     description: str = ""
     params: Dict[str, str] = {}
+    directions: Dict[str, str] = {}
     returns: str = ""
     tags: Dict[str, str] = {}
 
@@ -59,16 +63,19 @@ def parse(raw) -> Doc:
     paragraphs = []  # untagged text, as paragraphs
     tagged = []  # [tag, name, text]
     in_tag = False
+    directions = {}
     for line in strip_markers(raw).splitlines():
         match = TAG.match(line.strip())
         if match:
             in_tag = True
-            tag, rest = match.group(1), match.group(2)
+            tag, attr, rest = match.group(1), match.group(2), match.group(3)
             if tag == "brief":
                 tagged.append(["brief", "", rest])
             elif tag in NAMED_TAGS:
                 name, _, text = rest.partition(" ")
                 tagged.append([tag, name, text.strip()])
+                if tag == "param" and attr is not None:
+                    directions[name] = re.sub(r"\s", "", attr)
             else:
                 tagged.append([tag, "", rest])
         elif in_tag and line.strip():
@@ -102,6 +109,7 @@ def parse(raw) -> Doc:
         else:
             doc.tags[tag] = text if not name else f"{name} {text}".strip()
 
+    doc.directions = directions
     if not doc.brief and paragraphs:
         doc.brief = paragraphs.pop(0)
     doc.description = "\n\n".join(paragraphs)

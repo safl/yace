@@ -128,12 +128,12 @@ typedef
 
 Only function pointers may be ``typedef``'d::
 
-  typedef int (*binop_func)(int x, int y);
+  typedef int (*binop_func)(void *ctx, int x, int y);
 
 so that functions taking callbacks are readable::
 
   int
-  apply_func(binop_func op, int a, int b);
+  apply_func(binop_func op, void *ctx, int a, int b);
 
 A function pointer typedef must end in ``_cb``, ``_callback``, ``_fn``,
 ``_fun``, ``_func`` or ``_function``, as nothing else tells a reader that the
@@ -144,6 +144,77 @@ Other typedefs only give a type another name. That name hides the type it
 stands for, and is not a new type: it gives no more type safety than the type
 itself. Refer to types by their own names. Do not name types with the ``_t``
 suffix either; it is reserved by POSIX.
+
+What C cannot say
+-----------------
+
+C declares types, not intent. ``int foo_open(const char *name, struct foo_handle
+**handle)`` does not say that ``handle`` is written rather than read, that the
+handle must later be given to ``foo_close()``, or that a negative return is an
+errno. A binding that only calls C needs none of this; one that is idiomatic in
+its language needs all of it: to return what is written, to raise or return an
+error, and to release the handle when it goes out of scope.
+
+Two rules settle what a convention can:
+
+* A returned string is ``const char *``, and borrowed: it belongs to the
+  library, or to the handle it came from, and is never the caller's to free.
+* A callback takes exactly one ``void *``, its context, and a function taking a
+  callback takes its context as the next parameter, so that other languages can
+  pass a closure.
+
+The rest is said in the Doxygen comment of the function:
+
+``@param[in]``, ``@param[out]``, ``@param[in,out]``
+  Doxygen's own: whether the function reads what a pointer points to, writes
+  it, or both. Without one, it is read.
+
+``@nullable name ...``
+  The named pointers may be NULL; ``return`` names what the function returns.
+  Every other pointer must not be.
+
+``@len pointer count ...``
+  ``count`` is the number of elements ``pointer`` points to; in pairs.
+
+``@errno``
+  The function returns a negative errno on failure, and zero or more on
+  success.
+
+``@destroys name``
+  The function releases the handle given as ``name``, its only parameter. An
+  opaque record that a function creates through an ``[out]`` pointer must have a
+  function that destroys it.
+
+For example::
+
+  /**
+   * Open a handle holding no points
+   *
+   * @param[in] name Name of the handle, copied
+   * @param[out] handle Set to the handle opened
+   *
+   * @return 0 on success, -EINVAL when 'name' or 'handle' is NULL
+   *
+   * @errno
+   */
+  int
+  foo_open(const char *name, struct foo_handle **handle);
+
+  /**
+   * Close a handle
+   *
+   * @param handle The handle to close, NULL is ignored
+   *
+   * @nullable handle
+   * @destroys handle
+   */
+  void
+  foo_close(struct foo_handle *handle);
+
+Every tag is checked: one naming a parameter that does not exist, or one that
+does not fit it, such as ``@errno`` on a function returning a pointer, is
+reported by the annotation rule. What the tags say is recorded in the IR, on
+the function and its parameters; see :py:mod:`yace.ir.semantics`.
 
 Documentation
 -------------

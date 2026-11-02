@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <foo.h>
@@ -20,17 +21,17 @@ foo_open(const char *name, struct foo_handle **handle)
 	struct foo_handle *opened;
 
 	if (!name || !handle) {
-		return -1;
+		return -EINVAL;
 	}
 
 	opened = calloc(1, sizeof(*opened));
 	if (!opened) {
-		return -1;
+		return -ENOMEM;
 	}
 	opened->name = malloc(strlen(name) + 1);
 	if (!opened->name) {
 		free(opened);
-		return -1;
+		return -ENOMEM;
 	}
 	strcpy(opened->name, name);
 
@@ -59,11 +60,23 @@ int
 foo_add(struct foo_handle *handle, const struct foo_point *point)
 {
 	if (handle->npoints == FOO_POINTS_MAX) {
-		return -1;
+		return -ENOSPC;
 	}
 	handle->points[handle->npoints++] = *point;
 
 	return 0;
+}
+
+ssize_t
+foo_add_many(struct foo_handle *handle, const struct foo_point *points, size_t npoints)
+{
+	size_t added = 0;
+
+	while (added < npoints && !foo_add(handle, &points[added])) {
+		added += 1;
+	}
+
+	return added || !npoints ? (ssize_t)added : -ENOSPC;
 }
 
 size_t
@@ -79,12 +92,22 @@ foo_at(const struct foo_handle *handle, size_t idx)
 }
 
 ssize_t
+foo_points(const struct foo_handle *handle, struct foo_point *points, size_t npoints)
+{
+	size_t copied = npoints < handle->npoints ? npoints : handle->npoints;
+
+	memcpy(points, handle->points, copied * sizeof(*points));
+
+	return (ssize_t)copied;
+}
+
+ssize_t
 foo_visit(struct foo_handle *handle, foo_visit_cb visit, void *arg)
 {
 	ssize_t visited = 0;
 
 	if (!visit) {
-		return -1;
+		return -EINVAL;
 	}
 
 	for (size_t idx = 0; idx < handle->npoints; ++idx) {
@@ -160,7 +183,7 @@ foo_figure_fill(struct foo_figure *figure, uint32_t shape)
 		strcpy(figure->name, "rectangle");
 		break;
 	default:
-		return -1;
+		return -EINVAL;
 	}
 
 	figure->shape = shape;
