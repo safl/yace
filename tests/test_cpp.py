@@ -1,0 +1,422 @@
+import subprocess
+
+from tests.conftest import HEADERS, SKIPPED, needs_cc
+from tests.test_rust import EDGES, HANDLE_NAMED_AS_PREFIX
+from yace.compiler import process
+from yace.targets.cpp.target import CXXFLAGS
+
+pytestmark = needs_cc
+
+
+def test_the_subset_prints_as_the_c_api_does(parser, tmp_path):
+    import yaml
+
+    model, _ = parser.parse(HEADERS / "valid.h")
+    assert process(model, ["capi"], tmp_path / "c") == []
+    assert process(model, ["cpp"], tmp_path / "cpp") == []
+
+    c_out = (tmp_path / "c" / "capi" / "check.yaml").read_text()
+    cpp_out = (tmp_path / "cpp" / "cpp" / "check.yaml").read_text()
+    assert list(yaml.safe_load_all(cpp_out)) == list(yaml.safe_load_all(c_out))
+
+
+def test_the_layer_builds_for_every_kind_of_parameter(parse, tmp_path):
+    model, _ = parse(EDGES)
+    assert process(model, ["cpp"], tmp_path) == []
+
+    hpp = (tmp_path / "cpp" / "api.hpp").read_text()
+    assert "\th open(" not in hpp  # constructors are functions of the namespace
+    assert "inline h\nopen(const char *name)" in hpp
+    assert "std::size_t each(F &&cb);" in hpp
+    assert "std::size_t each(std::nullptr_t);" in hpp
+    assert "int step(size_t &pos);" in hpp
+    assert "void inline_(F &&fn);" in hpp  # an inline callback type, a keyword
+    assert "void close();" in hpp
+
+
+def test_a_handle_named_as_the_prefix_builds(parse, tmp_path):
+    model, _ = parse(HANDLE_NAMED_AS_PREFIX)
+    assert process(model, ["cpp"], tmp_path) == []
+
+    hpp = (tmp_path / "cpp" / "api.hpp").read_text()
+    assert "namespace api_cpp {" in hpp and "class api_handle {" in hpp
+
+
+def test_names_that_are_keywords_are_usable(parse, tmp_path):
+    model, _ = parse(
+        "/** Kinds */\nenum api_kind { API_KIND_DEFAULT = 1, API_KIND_NEW = 2 };\n"
+        "/** A record */\nstruct api_class { int x; };\n"
+    )
+    assert process(model, ["cpp"], tmp_path) == []
+
+    hpp = (tmp_path / "cpp" / "api.hpp").read_text()
+    assert "default_ = ::API_KIND_DEFAULT," in hpp
+    assert "using class_ = struct ::api_class;" in hpp
+
+
+def test_closing_twice_calls_c_once(parse, tmp_path):
+    header = (
+        "struct api_h;\n"
+        "/**\n * Open\n * @param[out] h H\n * @errno\n */\n"
+        "int api_open(struct api_h **h);\n"
+        "/// Close, which a comment's end, */, does not end\n/// @errno\n"
+        "/// @destroys h\nint api_close(struct api_h *h);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["cpp"], tmp_path) == []
+
+    (tmp_path / "api.c").write_text(
+        header + "#include <stdlib.h>\nstatic int opened;\n"
+        "int api_open(struct api_h **h) { *h = (struct api_h *)&opened; return 0; }\n"
+        "int api_close(struct api_h *h) { if (!h) abort(); return 0; }\n"
+    )
+    (tmp_path / "main.cpp").write_text(
+        "#include <utility>\n#include <api.hpp>\nint main() {\n"
+        "\tauto a = api::open();\n\ta.close();\n\ta.close();\n"
+        "\tauto b = api::open();\n\tauto c = std::move(b);\n\tb.close();\n"
+        "\treturn 0;\n}\n"
+    )
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    objects = []
+    for source in (tmp_path / "api.c", tmp_path / "capi" / "api_pp.c"):
+        objects.append(str(source.with_suffix(".o")))
+        subprocess.run(
+            ["cc", *include, "-c", str(source), "-o", objects[-1]], check=True
+        )
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), *objects]
+        + ["-o", str(program)],
+        check=True,
+    )
+    assert subprocess.run([str(program)]).returncode == 0
+
+
+def test_shared_counts_handles_given_and_constructors_without_errno(parse, tmp_path):
+    from tests.test_rust import MORE, MORE_C
+
+    model, _ = parse(MORE)
+    assert process(model, ["cpp"], tmp_path) == []
+    (tmp_path / "api.c").write_text(MORE + MORE_C)
+    (tmp_path / "main.cpp").write_text(
+        "#include <cstdio>\n#include <stdexcept>\n#include <vector>\n"
+        "#include <api.hpp>\nint main() {\n"
+        "\tauto h = api::open();\n\tauto m = api::make();\n\th.copy(*m);\n"
+        "\tstd::vector<int> a = {1, 2}, b = {3, 4}, c = {1};\n"
+        "\tint thrown = 0;\n"
+        "\ttry {\n\t\tapi::dot(a, c);\n\t} catch (const std::invalid_argument &) {\n"
+        "\t\tthrown += 1;\n\t}\n"
+        "\ttry {\n\t\tapi::map(c, 2);\n\t} catch (const std::invalid_argument &) {\n"
+        "\t\tthrown += 1;\n\t}\n"
+        '\tstd::printf("%ld %d %d %s\\n", api::dot(a, b), api::map(a, 2)[1], thrown,'
+        " h.label());\n"
+        "\treturn 0;\n}\n"
+    )
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    objects = []
+    for source in (tmp_path / "api.c", tmp_path / "capi" / "api_pp.c"):
+        objects.append(str(source.with_suffix(".o")))
+        subprocess.run(
+            ["cc", *include, "-c", str(source), "-o", objects[-1]], check=True
+        )
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), *objects]
+        + ["-o", str(program)],
+        check=True,
+    )
+    run = subprocess.run([str(program)], capture_output=True, text=True)
+    assert run.stdout == "11 4 2 lbl\n"
+
+
+def test_names_shared_by_records_functions_and_get_build(parse, tmp_path):
+    model, _ = parse(
+        "struct api_h;\n"
+        "/**\n * Open\n * @param[out] h H\n * @errno\n */\n"
+        "int api_open(struct api_h **h);\n"
+        "/**\n * Get\n */\nint api_h_get(const struct api_h *h);\n"
+        "/** V */\nstruct api_version {\n\tint major; ///< M\n};\n"
+        "/** Version */\nconst char *api_version(void);\n"
+    )
+    assert process(model, ["cpp"], tmp_path) == []
+
+    hpp = (tmp_path / "cpp" / "api.hpp").read_text()
+    assert "int get() const;" in hpp and "using version =" not in hpp
+
+
+def test_bytes_two_callbacks_and_outs_named_like_ret(parse, tmp_path):
+    from tests.test_rust import IO, IO_C, doc
+
+    header = (
+        IO
+        + "typedef int (*api_cb)(void *arg, int v);\n"
+        + doc("Run", "@nullable done")
+        + "int api_run(api_cb progress, void *parg, api_cb done, void *darg);\n"
+        + doc("Get", "@param[out] retval R")
+        + "void api_get(int *retval);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["cpp"], tmp_path) == []
+    (tmp_path / "api.c").write_text(
+        header + IO_C + "int api_run(api_cb p, void *pa, api_cb d, void *da)\n"
+        "{\n\tint r = p(pa, 1);\n\treturn d ? r + d(da, 2) : r;\n}\n"
+        "void api_get(int *retval) { *retval = 42; }\n"
+    )
+    (tmp_path / "main.cpp").write_text(
+        "#include <cstddef>\n#include <cstdio>\n#include <vector>\n"
+        "#include <api.hpp>\nint main() {\n"
+        "\tstd::vector<std::byte> out(4);\n"
+        "\tauto read = api::read(8);\n"
+        "\tauto [a, b] = api::pair(3);\n"
+        "\tint both = api::run([](int v) { return v; },\n"
+        "\t\t\t    [](int v) { return 10 * v; });\n"
+        "\tint one = api::run([](int v) { return v; }, nullptr);\n"
+        "\tauto h = api::open();\n\tauto copy = h.clone();\n"
+        '\tstd::printf("%zu %zu %d %d %d %d %d\\n", api::write(out), read.size(),'
+        " b[2], both, one, api::get(), copy.native_handle() != nullptr);\n"
+        "\treturn 0;\n}\n"
+    )
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    objects = []
+    for source in (tmp_path / "api.c", tmp_path / "capi" / "api_pp.c"):
+        objects.append(str(source.with_suffix(".o")))
+        subprocess.run(
+            ["cc", *include, "-c", str(source), "-o", objects[-1]], check=True
+        )
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), *objects]
+        + ["-o", str(program)],
+        check=True,
+    )
+    run = subprocess.run([str(program)], capture_output=True, text=True)
+    assert run.stdout == "4 3 20 21 1 42 1\n"
+
+
+def test_a_class_returned_before_it_is_defined(parse, tmp_path):
+    from tests.test_rust import doc
+
+    model, _ = parse(
+        "struct api_h;\nstruct api_x;\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_h **h);\n"
+        + doc("Spawn", "@param[out] out O", "@errno")
+        + "int api_spawn(struct api_h *h, struct api_x **out);\n"
+        + doc("Id")
+        + "int api_x_id(const struct api_x *x);\n"
+    )
+    assert process(model, ["cpp"], tmp_path) == []
+
+
+def test_parameters_named_ret_and_functions_sharing_a_name(parse, tmp_path):
+    from tests.test_rust import SHARED, doc
+
+    model, _ = parse(SHARED + doc("Echo", "@errno") + "int api_echo(int ret);\n")
+    assert process(model, ["cpp"], tmp_path) == []
+
+
+def test_parameters_named_as_what_the_body_uses_build(parse, tmp_path):
+    from tests.test_rust import HIDDEN
+
+    model, _ = parse(HIDDEN)
+    assert process(model, ["cpp"], tmp_path) == []
+
+
+def test_parameters_named_as_locals_of_the_layer_build(parse, tmp_path):
+    from tests.test_rust import NAMES
+
+    model, _ = parse(NAMES)
+    assert process(model, ["cpp"], tmp_path) == []
+
+
+def test_a_function_given_by_name_as_a_callback(parse, tmp_path):
+    from tests.test_rust import doc
+
+    header = (
+        "typedef int (*api_cb)(void *arg, int v);\n"
+        + doc("Run", "@lifetime cb call")
+        + "int api_run(api_cb cb, void *arg);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["cpp"], tmp_path) == []
+    (tmp_path / "api.c").write_text(
+        header + "int api_run(api_cb cb, void *arg) { return cb(arg, 21); }\n"
+    )
+    (tmp_path / "main.cpp").write_text(
+        "#include <cstdio>\n#include <api.hpp>\n"
+        "static int twice(int v) { return 2 * v; }\n"
+        'int main() {\n\tstd::printf("%d %d\\n", api::run(twice),'
+        " api::run([](int v) { return v; }));\n\treturn 0;\n}\n"
+    )
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    objects = []
+    for source in (tmp_path / "api.c", tmp_path / "capi" / "api_pp.c"):
+        objects.append(str(source.with_suffix(".o")))
+        subprocess.run(
+            ["cc", *include, "-c", str(source), "-o", objects[-1]], check=True
+        )
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), *objects]
+        + ["-o", str(program)],
+        check=True,
+    )
+    run = subprocess.run([str(program)], capture_output=True, text=True)
+    assert run.stdout == "42 21\n"
+
+
+def test_a_function_named_as_a_record_builds(parse, tmp_path):
+    model, _ = parse("/** R */\nstruct api_tag;\n/** F */\nint api_tag(int v);\n")
+    assert process(model, ["cpp"], tmp_path) == []
+    assert (
+        "/**\n * F\n */\ninline int\ntag(int v)"
+        in (tmp_path / "cpp" / "api.hpp").read_text()
+    )
+
+
+def test_methods_named_as_their_class_or_its_deleter(parse, tmp_path):
+    from tests.test_rust import doc
+
+    model, _ = parse(
+        "struct api_h;\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_h **h);\n"
+        + doc("Close", "@destroys h")
+        + "void api_close(struct api_h *h);\n"
+        + doc("H")
+        + "int api_h_h(struct api_h *h, int v);\n"
+        + doc("Deleter")
+        + "int api_h_deleter(struct api_h *h, int v);\n"
+    )
+    assert process(model, ["cpp"], tmp_path) == []
+
+
+def test_a_class_named_as_a_c_typedef_it_uses(parse, tmp_path):
+    from tests.test_rust import doc
+
+    model, _ = parse(
+        "struct api_api_cb_fn;\ntypedef int (*api_cb_fn)(void *arg, int v);\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_api_cb_fn **h);\n"
+        + doc("Visit")
+        + "int api_visit(struct api_api_cb_fn *h, api_cb_fn cb, void *arg);\n"
+    )
+    assert process(model, ["cpp"], tmp_path) == []
+
+
+def test_names_hiding_c_names_and_types_of_the_namespace(parse, tmp_path):
+    from tests.test_rust import doc
+
+    model, _ = parse(
+        "struct api_h;\ntypedef int (*api_cb)(void *arg, int v);\n"
+        "/** P */\nstruct pt {\n\tint x; ///< X\n};\n"
+        "/** K */\nenum api_kind { API_KIND_A = 1 };\n"
+        "/** E */\nenum api_api_cb { API_API_CB_A = 1 };\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_h **h);\n"
+        + doc("Use")
+        + "int api_use(const struct pt *p);\n"
+        + doc("Cb")
+        + "int api_api_cb(int x);\n"
+        + doc("Kind")
+        + "int api_kind(int x);\n"
+        + doc("H")
+        + "int api_h(int x);\n"
+        + doc("Run", "@lifetime cb call")
+        + "int api_run(api_cb cb, void *arg);\n"
+    )
+    assert process(model, ["cpp"], tmp_path) == []
+
+    hpp = (tmp_path / "cpp" / "api.hpp").read_text()
+    assert "using pt =" not in hpp and "enum class api_cb_" in hpp
+    assert "\nkind_(int x)" in hpp and "\nh_(int x)" in hpp
+
+
+def test_names_the_namespace_declares_or_uses(parse, tmp_path):
+    from tests.test_rust import doc
+
+    model, _ = parse(
+        "struct api_name;\n"
+        "/** Y */\nstruct api_yaml {\n\tint x; ///< X\n};\n"
+        "/** D */\nstruct api_detail {\n\tint x; ///< X\n};\n"
+        "/** S */\nstruct api_std {\n\tint x; ///< X\n};\n"
+        "/** E */\nenum api_json { API_JSON_A = 1 };\n"
+        "/** J */\nint api_json(const struct api_yaml *y);\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_name **h);\n"
+        + doc("Get")
+        + "const char *api_get(void);\n"
+    )
+    assert process(model, ["cpp"], tmp_path) == []
+
+    hpp = (tmp_path / "cpp" / "api.hpp").read_text()
+    assert "using yaml_ = struct ::api_yaml;" in hpp and "\njson__(" in hpp
+    assert "class name_handle" in hpp and "enum class json_" in hpp
+
+
+def test_methods_named_as_classes_and_callbacks_as_template_parameters(parse, tmp_path):
+    from tests.test_rust import doc
+
+    model, _ = parse(
+        "struct api_h;\nstruct api_q;\n"
+        "typedef int (*api_done_cb)(void *arg, int v);\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_h **h);\n"
+        + doc("Make", "@param[out] q Q", "@errno")
+        + "int api_make(struct api_q **q);\n"
+        + doc("Q")
+        + "void api_h_q(struct api_h *h, struct api_q *q);\n"
+        + doc("Go", "@lifetime cb call")
+        + "int api_h_go(struct api_h *h, api_done_cb cb, void *arg);\n"
+        + doc("Run", "@lifetime F call")
+        + "int api_run(api_done_cb F, void *arg);\n"
+        + doc("Walk", "@nullable cb", "@lifetime cb call")
+        + "void api_walk(int F, api_done_cb cb, void *arg);\n"
+        + "struct api_F;\n"
+        + doc("Each", "@lifetime cb call")
+        + "int api_h_F(struct api_h *h, api_done_cb cb, void *arg);\n"
+        + doc("Start", "@param[out] f F", "@lifetime cb call", "@errno")
+        + "int api_start(api_done_cb cb, void *arg, struct api_F **f);\n"
+    )
+    assert process(model, ["cpp"], tmp_path) == []
+
+    hpp = (tmp_path / "cpp" / "api.hpp").read_text()
+    assert "q_(" in hpp and "class F_" in hpp
+    assert "walk(int F_, std::nullptr_t)" in hpp
+    (tmp_path / "main.cpp").write_text(
+        "#include <api.hpp>\n"
+        "void use() { api::F f = api::start([](int v) { return v; }); }\n"
+    )
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    subprocess.run(
+        ["c++", *CXXFLAGS, *include, "-fsyntax-only", str(tmp_path / "main.cpp")],
+        check=True,
+    )
+
+
+def test_a_template_parameter_named_as_a_record(parse, tmp_path):
+    from tests.test_rust import doc
+
+    model, _ = parse(
+        "typedef int (*api_done_cb)(void *arg, int v);\n"
+        "/** R */\nstruct F {\n\tint x; ///< X\n};\n"
+        + doc("Use", "@lifetime cb call")
+        + "int api_use(const struct F *p, api_done_cb cb, void *arg);\n"
+    )
+    assert process(model, ["cpp"], tmp_path) == []
+
+
+def test_a_pointer_to_a_record_of_another_header_is_returned(parser, tmp_path):
+    (tmp_path / "other.h").write_text("struct other_doc;\n")
+    (tmp_path / "api.h").write_text(
+        '#include "other.h"\n/** Open */\nstruct other_doc *api_open(void);\n'
+    )
+    model, _ = parser.parse(tmp_path / "api.h")
+    assert process(model, ["cpp"], tmp_path / "out", include=[tmp_path]) == []
+    hpp = (tmp_path / "out" / "cpp" / "api.hpp").read_text()
+    assert "return ret;" in hpp
+
+
+def test_skipped_records_and_padding_bits_build(parse, tmp_path):
+    model, _ = parse(SKIPPED)
+    assert process(model, ["cpp"], tmp_path) == []

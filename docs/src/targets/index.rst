@@ -19,8 +19,8 @@ beyond C, see :ref:`sec-ir-csubset`, as derived in :py:mod:`yace.targets.idiom`,
 the same for every language.
 
 The targets available are C, :ref:`sec-targets-capi`, Python,
-:ref:`sec-targets-python`, and Rust, :ref:`sec-targets-rust`. Zig and C++ are
-planned, each generating bindings idiomatic for its language from the same IR.
+:ref:`sec-targets-python`, Rust, :ref:`sec-targets-rust`, and C++,
+:ref:`sec-targets-cpp`. Zig is planned.
 
 The fixture
 ===========
@@ -50,6 +50,7 @@ values, which differ between runs.
    capi/index.rst
    python/index.rst
    rust/index.rst
+   cpp/index.rst
 
 .. automodule:: yace.targets.target
    :members:
