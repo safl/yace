@@ -2,6 +2,7 @@
 # Install what building, testing and documenting yace needs
 dnf install -y \
   gcc \
+  gcc-c++ \
   make \
   pipx \
   python3 \

@@ -17,6 +17,7 @@ from tests.conftest import needs_cargo, needs_cc
 from yace.compiler import process
 from yace.ir.cparser import CParser
 from yace.targets.capi.target import CFLAGS
+from yace.targets.cpp.target import CXXFLAGS
 
 FIXTURE = Path(__file__).parent.parent / "examples" / "libfoo"
 
@@ -140,3 +141,25 @@ def test_rust(model, library, tmp_path, fmt, program):
     expected = list(yaml.safe_load_all((FIXTURE / "expected.yaml").read_text()))
 
     assert documents(proc.stdout, fmt) == expected
+
+
+@needs_cc
+@pytest.mark.parametrize("fmt", ["yaml", "json"])
+def test_cpp(model, library, tmp_path, fmt):
+    assert process(model, ["cpp"], tmp_path) == []
+
+    cxx = os.environ.get("CXX", "c++")
+    includes = ["-I", tmp_path / "capi", "-I", tmp_path / "cpp"]
+    run(
+        [cc(), *CFLAGS, *includes, "-c", tmp_path / "capi" / "foo_pp.c"]
+        + ["-o", tmp_path / "pp.o"]
+    )
+    binary = tmp_path / "check"
+    run(
+        [cxx, *CXXFLAGS, *includes, FIXTURE / "checks" / "cpp" / "check.cpp"]
+        + [tmp_path / "pp.o", "-L", library, "-lfoo", f"-Wl,-rpath,{library}"]
+        + ["-o", binary]
+    )
+    expected = list(yaml.safe_load_all((FIXTURE / "expected.yaml").read_text()))
+
+    assert documents(run([binary, fmt]), fmt) == expected
