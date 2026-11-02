@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from tests.conftest import needs_cc
+from tests.conftest import needs_cargo, needs_cc
 from yace.compiler import process
 from yace.ir.cparser import CParser
 from yace.targets.capi.target import CFLAGS
@@ -101,6 +101,35 @@ def test_python(model, library, tmp_path, fmt):
     env["FOO_LIBRARY"] = str(lib)
     proc = subprocess.run(
         [sys.executable, FIXTURE / "checks" / "python" / "check.py", fmt],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert proc.returncode == 0, proc.stderr
+    expected = list(yaml.safe_load_all((FIXTURE / "expected.yaml").read_text()))
+
+    assert documents(proc.stdout, fmt) == expected
+
+
+@needs_cc
+@needs_cargo
+@pytest.mark.parametrize("fmt", ["yaml", "json"])
+def test_rust(model, library, tmp_path, fmt):
+    assert process(model, ["rust"], tmp_path) == []
+
+    project = tmp_path / "check"
+    project.mkdir()
+    (project / "Cargo.toml").write_text(
+        '[package]\nname = "check"\nversion = "0.0.0"\nedition = "2021"\n\n'
+        f"[dependencies]\nfoo = {{ path = {json.dumps(str(tmp_path / 'rust'))} }}\n\n"
+        '[[bin]]\nname = "check"\n'
+        f"path = {json.dumps(str(FIXTURE / 'checks' / 'rust' / 'check.rs'))}\n"
+    )
+    env = {**os.environ, "FOO_LIB_DIR": str(library)}
+    env["RUSTFLAGS"] = f"-C link-arg=-Wl,-rpath,{library}"
+    proc = subprocess.run(
+        ["cargo", "run", "--quiet", "--offline", "--", fmt],
+        cwd=project,
         capture_output=True,
         text=True,
         env=env,
