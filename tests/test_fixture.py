@@ -6,6 +6,7 @@ target: its check must print what examples/libfoo/expected.yaml says
 import json
 import os
 import platform
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -18,8 +19,10 @@ from yace.compiler import process
 from yace.ir.cparser import CParser
 from yace.targets.capi.target import CFLAGS
 from yace.targets.cpp.target import CXXFLAGS
+from yace.targets.rust import target as rust_target
 
 FIXTURE = Path(__file__).parent.parent / "examples" / "libfoo"
+RUST = Path(rust_target.__file__).parent
 
 
 def cc() -> str:
@@ -113,11 +116,7 @@ def test_python(model, library, tmp_path, fmt, program):
     assert documents(proc.stdout, fmt) == expected
 
 
-@needs_cc
-@needs_cargo
-@pytest.mark.parametrize("fmt", ["yaml", "json"])
-@pytest.mark.parametrize("program", ["check", "idiomatic"])
-def test_rust(model, library, tmp_path, fmt, program):
+def check_rust(model, library, tmp_path, fmt, program):
     assert process(model, ["rust"], tmp_path) == []
 
     project = tmp_path / "check"
@@ -141,6 +140,32 @@ def test_rust(model, library, tmp_path, fmt, program):
     expected = list(yaml.safe_load_all((FIXTURE / "expected.yaml").read_text()))
 
     assert documents(proc.stdout, fmt) == expected
+
+
+@needs_cc
+@needs_cargo
+@pytest.mark.parametrize("fmt", ["yaml", "json"])
+@pytest.mark.parametrize("program", ["check", "idiomatic"])
+def test_rust(model, library, tmp_path, fmt, program):
+    check_rust(model, library, tmp_path, fmt, program)
+
+
+@needs_cc
+@needs_cargo
+@pytest.mark.skipif(
+    "YACE_RUST_MSRV" not in os.environ,
+    reason="no Rust toolchain of the declared rust-version; the devenv has it",
+)
+@pytest.mark.parametrize("program", ["check", "idiomatic"])
+def test_rust_at_the_declared_rust_version(
+    model, library, tmp_path, program, monkeypatch
+):
+    template = (RUST / "Cargo.toml.template").read_text()
+    declared = re.search(r'^rust-version = "(.+)"$', template, re.M).group(1)
+    assert os.environ["YACE_RUST_MSRV"] == declared
+
+    monkeypatch.setenv("RUSTUP_TOOLCHAIN", declared)
+    check_rust(model, library, tmp_path, "yaml", program)
 
 
 @needs_cc
