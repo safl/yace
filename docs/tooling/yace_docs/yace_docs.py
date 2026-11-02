@@ -142,7 +142,8 @@ def gen_entities():
         "",
     ]
     for rule, text in RULES.items():
-        lines += [f"``{rule}``", f"  {text}.", ""]
+        # The texts are plain, for diagnostics; '*' would start emphasis
+        lines += [f"``{rule}``", f"  {text.replace('*', chr(92) + '*')}.", ""]
     (docs_root / "src" / "ir" / "rules.rst").write_text("\n".join(lines))
 
 

@@ -100,6 +100,8 @@ main(int argc, char **argv)
 				     FOO_SHAPE_POLYGON, 3};
 	static const int options[] = {FOO_OPTION_CLOSED, FOO_OPTION_FILLED, 3};
 	struct foo_handle *handle = NULL;
+	struct foo_point copied[4];
+	int64_t sum_x = 0;
 	struct foo_point points[] = {{1, 2}, {3, 4}, {5, 6}};
 	struct sum all = {0}, first_two = {0, 0, 2, 0}, with = {0};
 	struct foo_visitor visitor = {summarize, &with};
@@ -149,6 +151,13 @@ main(int argc, char **argv)
 	int_value("visit_with", foo_visit_with(handle, &visitor));
 	int_value("visit_with_sum_x", with.x);
 	int_value("figure_of_unknown_shape", foo_figure_fill(&figure, 3));
+	int_value("add_many", foo_add_many(handle, points, sizeof(points) / sizeof(*points)));
+	int_value("count_after_add_many", (intmax_t)foo_count(handle));
+	int_value("points_copied", foo_points(handle, copied, 4));
+	for (size_t idx = 0; idx < 4; ++idx) {
+		sum_x += copied[idx].x;
+	}
+	int_value("points_sum_x", sum_x);
 	doc_end();
 
 	record_begin("foo_point");
@@ -156,7 +165,7 @@ main(int argc, char **argv)
 	record_end();
 
 	record_begin("foo_point");
-	foo_point_fpr(stdout, foo_at(handle, 3), flags);
+	foo_point_fpr(stdout, foo_at(handle, 6), flags);
 	record_end();
 
 	while (!foo_add(handle, &points[0])) {
@@ -165,6 +174,7 @@ main(int argc, char **argv)
 	doc_begin("full");
 	int_value("count", (intmax_t)foo_count(handle));
 	int_value("add", foo_add(handle, &points[0]));
+	int_value("add_many", foo_add_many(handle, points, 1));
 	doc_end();
 	foo_close(handle);
 	foo_close(NULL);

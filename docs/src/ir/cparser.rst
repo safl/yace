@@ -34,3 +34,9 @@ Implementation
 
 .. automodule:: yace.ir.cparser
    :members:
+
+Semantics
+---------
+
+.. automodule:: yace.ir.semantics
+   :members:

@@ -37,6 +37,7 @@ from pydantic import BaseModel
 from . import decls, doc, types
 from .diagnostics import Diagnostic
 from .model import Meta, Model, host_abi
+from .semantics import Semantics
 
 BUILTIN_KINDS = {
     TypeKind.VOID: "void",
@@ -272,6 +273,7 @@ class _HeaderParser(object):
         self.external: set = set()  # records declared outside the header
         self.typedefs: set = set()  # typedef names declared in the header
         self.defined: set = set()  # records defined in the header, by name
+        self.cursors: dict = {}  # functions and typedefs, by name
 
     def report(self, rule: str, message: str, cursor=None):
         file, line, column = location(cursor) if cursor is not None else ("", 0, 0)
@@ -801,6 +803,7 @@ class _HeaderParser(object):
             doc=self.doc_of(cursor),
         )
         self.check_doc(function, "function", cursor)
+        self.cursors[name] = cursor
         return function
 
     def typedef(self, cursor) -> Optional[decls.Typedef]:
@@ -865,6 +868,7 @@ class _HeaderParser(object):
 
         typedef = decls.Typedef(name=name, typ=typ, doc=self.doc_of(cursor))
         self.check_doc(typedef, "typedef", cursor)
+        self.cursors[name] = cursor
         return typedef
 
     def macro(self, cursor):
@@ -1048,6 +1052,7 @@ class _HeaderParser(object):
         ]
         resolved = self.drop_uses(resolved)
         self.share_docs(resolved)
+        Semantics(resolved, self.report).run(self.cursors)
 
         meta = {
             "name": self.path.stem,

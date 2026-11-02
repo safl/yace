@@ -132,6 +132,11 @@ fn main() -> io::Result<()> {
         };
         let visit_with = foo_visit_with(handle, &visitor);
         let unknown = foo_figure_fill(&mut figure, 3);
+        let add_many = foo_add_many(handle, points.as_ptr(), points.len());
+        let count_after_add_many = foo_count(handle);
+        let mut copied = [FooPoint::default(); 4];
+        let points_copied = foo_points(handle, copied.as_mut_ptr(), copied.len());
+        let points_sum_x: i64 = copied.iter().map(|p| p.x as i64).sum();
         document(
             "calls",
             &[
@@ -149,17 +154,22 @@ fn main() -> io::Result<()> {
                 ("visit_with", Value::Int(visit_with as i64)),
                 ("visit_with_sum_x", Value::Int(with.x)),
                 ("figure_of_unknown_shape", Value::Int(unknown.into())),
+                ("add_many", Value::Int(add_many as i64)),
+                ("count_after_add_many", Value::Int(count_after_add_many as i64)),
+                ("points_copied", Value::Int(points_copied as i64)),
+                ("points_sum_x", Value::Int(points_sum_x)),
             ],
             as_json,
         );
 
         record("foo_point", FooPoint::fpr, foo_at(handle, 1).as_ref(), flags)?;
-        record("foo_point", FooPoint::fpr, foo_at(handle, 3).as_ref(), flags)?;
+        record("foo_point", FooPoint::fpr, foo_at(handle, 6).as_ref(), flags)?;
 
         while foo_add(handle, &points[0]) == 0 {}
         let full = [
             ("count", Value::Int(foo_count(handle) as i64)),
             ("add", Value::Int(foo_add(handle, &points[0]).into())),
+            ("add_many", Value::Int(foo_add_many(handle, points.as_ptr(), 1) as i64)),
         ];
         document("full", &full, as_json);
         foo_close(handle);

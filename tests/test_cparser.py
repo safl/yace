@@ -112,6 +112,39 @@ VIOLATIONS = [
     ("attribute", "/** F */\n__attribute__((warn_unused_result)) int f(void);"),
     ("attribute", "struct __attribute__((packed)) s { char c; int i; };"),
     ("parse-error", "int f(unknown_t x);"),
+    ("string-return", "char *f(void);"),
+    ("callback-context", "typedef int (*visit_cb)(int value);"),
+    ("callback-context", "typedef int (*v_cb)(void *a, void *b);"),
+    ("callback-context", "typedef int (*v_cb)(void *arg);\nint f(v_cb visit);"),
+    ("callback-context", "int f(int (*cb)(void *a, void *b), void *arg);"),
+    (
+        "annotation",
+        "#include <stddef.h>\ntypedef int (*v_cb)(void *a);\n"
+        "/**\n * @len ctx n\n */\nint f(v_cb cb, void *ctx, size_t n);",
+    ),
+    ("annotation", "/**\n * @param[out] x X\n */\nint f(int x);"),
+    (
+        "annotation",
+        "/**\n * F\n * @len p n p m\n */\nint f(const int *p, int n, int m);",
+    ),
+    ("annotation", "/**\n * @param[inout] x X\n */\nint f(int *x);"),
+    ("annotation", "struct h;\n/**\n * @param[out] h H\n */\nint f(struct h *h);"),
+    ("annotation", "struct h;\n/**\n * @destroys h\n */\nvoid f(struct h *h, int x);"),
+    ("annotation", "/**\n * @param y Y\n */\nint f(int x);"),
+    ("annotation", "/**\n * @nullable x\n */\nint f(int x);"),
+    ("annotation", "/**\n * @nullable return\n */\nint f(void);"),
+    ("annotation", "/**\n * @len p\n */\nint f(int *p);"),
+    ("annotation", "/**\n * @len p n\n */\nint f(int *p, float n);"),
+    (
+        "annotation",
+        "/**\n * @len cb n\n */\nint f(int (*cb)(void *a, int v), void *a, int n);",
+    ),
+    ("annotation", "/**\n * @errno\n */\nunsigned int f(void);"),
+    ("annotation", "/**\n * @destroys x\n */\nvoid f(int *x);"),
+    (
+        "handle-lifecycle",
+        "struct h;\n/**\n * @param[out] h H\n */\nint f(struct h **h);",
+    ),
 ]
 
 

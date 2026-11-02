@@ -101,16 +101,26 @@ def main():
     calls["visit_with"] = foo.foo_visit_with(handle, visitor)
     calls["visit_with_sum_x"] = with_visitor.x
     calls["figure_of_unknown_shape"] = foo.foo_figure_fill(foo.FooFigure(), 3)
+    many = (foo.FooPoint * len(points))(*points)
+    calls["add_many"] = foo.foo_add_many(handle, many, len(points))
+    calls["count_after_add_many"] = foo.foo_count(handle)
+    copied = (foo.FooPoint * 4)()
+    calls["points_copied"] = foo.foo_points(handle, copied, 4)
+    calls["points_sum_x"] = sum(point.x for point in copied)
     document("calls", calls, as_json)
 
     record(foo.FooPoint, foo.foo_at(handle, 1), flags)
-    record(foo.FooPoint, foo.foo_at(handle, 3), flags)
+    record(foo.FooPoint, foo.foo_at(handle, 6), flags)
 
     while not foo.foo_add(handle, points[0]):
         pass
     document(
         "full",
-        {"count": foo.foo_count(handle), "add": foo.foo_add(handle, points[0])},
+        {
+            "count": foo.foo_count(handle),
+            "add": foo.foo_add(handle, points[0]),
+            "add_many": foo.foo_add_many(handle, many, 1),
+        },
         as_json,
     )
     foo.foo_close(handle)

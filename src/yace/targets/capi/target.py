@@ -58,7 +58,7 @@ def docblock(doc, indent: str = "") -> str:
             initial_indent=prefix,
             subsequent_indent="  " if prefix else "",
         )
-        return [f" * {line}" for line in lines] or [" *"]
+        return [f" * {line}" for line in lines] or [f" * {prefix}".rstrip()]
 
     body = []
     if doc.brief:
@@ -66,7 +66,10 @@ def docblock(doc, indent: str = "") -> str:
     for paragraph in [p for p in doc.description.split("\n\n") if p]:
         body += [" *"] + para(paragraph)
     tags = [
-        ("param", f"{cgen.param_name(name)} {text}")
+        (
+            f"param[{doc.directions[name]}]" if name in doc.directions else "param",
+            f"{cgen.param_name(name)} {text}",
+        )
         for name, text in doc.params.items()
     ]
     tags += [("return", doc.returns)] if doc.returns else []

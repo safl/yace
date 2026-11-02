@@ -69,6 +69,18 @@ breaking one is still parsed; ``--strict`` makes any diagnostic an error.
 ``external-type``
   The type is declared outside the header and outside the C subset, so other languages cannot bind it.
 
+``string-return``
+  A returned string is borrowed, never the caller's to free, so it is returned as const char \*.
+
+``callback-context``
+  A callback takes exactly one void \* context, and a function taking a callback takes its context as the next parameter, so other languages can pass a closure.
+
+``annotation``
+  The documentation says what C cannot: @param[in], [out] or [in,out], @nullable, @len, @errno and @destroys; each must name what exists and fits.
+
+``handle-lifecycle``
+  An opaque record a function creates through an [out] pointer must have a function that @destroys it, so other languages can release it.
+
 ``missing-doc``
   Declarations on the FFI boundary must be documented.
 
