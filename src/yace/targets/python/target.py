@@ -27,9 +27,10 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from yace.ir import decls
 from yace.ir.model import Model, host_abi
 from yace.targets.capi import cgen
+from yace.targets.idiom import Idioms
 from yace.targets.target import Target
 
-from . import pygen
+from . import idiomatic, pygen
 
 
 def define_value(value) -> str:
@@ -126,6 +127,7 @@ class Python(Target):
             "returns": pygen.returns,
             "record_kind": cgen.tag,
             "layout": model.meta.abi == host_abi(),
+            "idiomatic": idiomatic.Renderer(Idioms(model), namer).render(),
         }
 
     def emit(self, model: Model) -> list:

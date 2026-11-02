@@ -253,3 +253,5 @@ extern "C" {
 {%- endfor %}
 }
 {%- endif %}
+
+{{ idiomatic }}

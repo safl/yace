@@ -93,14 +93,15 @@ def test_capi(model, library, tmp_path, fmt):
 
 @needs_cc
 @pytest.mark.parametrize("fmt", ["yaml", "json"])
-def test_python(model, library, tmp_path, fmt):
+@pytest.mark.parametrize("program", ["check.py", "idiomatic.py"])
+def test_python(model, library, tmp_path, fmt, program):
     assert process(model, ["python"], tmp_path) == []
 
     lib = next(path for path in library.iterdir() if path.stem == "libfoo")
     env = {**os.environ, "PYTHONPATH": str(tmp_path / "python")}
     env["FOO_LIBRARY"] = str(lib)
     proc = subprocess.run(
-        [sys.executable, FIXTURE / "checks" / "python" / "check.py", fmt],
+        [sys.executable, FIXTURE / "checks" / "python" / program, fmt],
         capture_output=True,
         text=True,
         env=env,
@@ -114,7 +115,8 @@ def test_python(model, library, tmp_path, fmt):
 @needs_cc
 @needs_cargo
 @pytest.mark.parametrize("fmt", ["yaml", "json"])
-def test_rust(model, library, tmp_path, fmt):
+@pytest.mark.parametrize("program", ["check", "idiomatic"])
+def test_rust(model, library, tmp_path, fmt, program):
     assert process(model, ["rust"], tmp_path) == []
 
     project = tmp_path / "check"
@@ -122,8 +124,8 @@ def test_rust(model, library, tmp_path, fmt):
     (project / "Cargo.toml").write_text(
         '[package]\nname = "check"\nversion = "0.0.0"\nedition = "2021"\n\n'
         f"[dependencies]\nfoo = {{ path = {json.dumps(str(tmp_path / 'rust'))} }}\n\n"
-        '[[bin]]\nname = "check"\n'
-        f"path = {json.dumps(str(FIXTURE / 'checks' / 'rust' / 'check.rs'))}\n"
+        f'[[bin]]\nname = "{program}"\n'
+        f"path = {json.dumps(str(FIXTURE / 'checks' / 'rust' / f'{program}.rs'))}\n"
     )
     env = {**os.environ, "FOO_LIB_DIR": str(library)}
     env["RUSTFLAGS"] = f"-C link-arg=-Wl,-rpath,{library}"

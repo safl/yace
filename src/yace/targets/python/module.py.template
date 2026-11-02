@@ -15,6 +15,7 @@ SPDX-License-Identifier: {{ meta.license }}
 {%- endif %}
 """
 
+import builtins as _builtins
 import ctypes
 import ctypes.util
 import enum
@@ -40,7 +41,7 @@ def _api():
             )
         lib = ctypes.CDLL(path)
         for name, (restype, argtypes) in _SIGNATURES.items():
-            func = getattr(lib, name, None)
+            func = _builtins.getattr(lib, name, None)
             if func is not None:
                 func.restype = restype
                 func.argtypes = argtypes
@@ -52,7 +53,7 @@ def _api():
 def _str_in(value):
     """A str argument, encoded, for a 'const char *' parameter"""
 
-    return value.encode() if isinstance(value, str) else value
+    return value.encode() if _builtins.isinstance(value, _builtins.str) else value
 
 
 def _str_out(value):
@@ -75,20 +76,20 @@ def _plain(ctype, value):
     if ctype is ctypes.c_void_p:
         return None if not value else f"0x{value:x}"
     if ctype in (ctypes.c_float, ctypes.c_double):
-        return float(format(value, "g"))
-    if issubclass(ctype, ctypes.Array):
+        return _builtins.float(_builtins.format(value, "g"))
+    if _builtins.issubclass(ctype, ctypes.Array):
         if not ctype._length_:
             return None
         if ctype._type_ is ctypes.c_char:
-            raw = value if isinstance(value, bytes) else bytes(value)
+            raw = value if _builtins.isinstance(value, _builtins.bytes) else _builtins.bytes(value)
             return _str_out(raw.split(b"\0", 1)[0])
         return [_plain(ctype._type_, item) for item in value]
-    if issubclass(ctype, _Record):
+    if _builtins.issubclass(ctype, _Record):
         return _Record.to_dict(value)
-    if issubclass(ctype, (ctypes._Pointer, ctypes._CFuncPtr)):
+    if _builtins.issubclass(ctype, (ctypes._Pointer, ctypes._CFuncPtr)):
         addr = ctypes.cast(value, ctypes.c_void_p).value
         return None if not addr else f"0x{addr:x}"
-    if issubclass(ctype, (ctypes.Structure, ctypes.Union)):
+    if _builtins.issubclass(ctype, (ctypes.Structure, ctypes.Union)):
         return None
     return value
 
@@ -96,7 +97,7 @@ def _plain(ctype, value):
 def _yaml(data, indent):
     lines = []
     for key, value in data.items():
-        if isinstance(value, dict):
+        if _builtins.isinstance(value, _builtins.dict):
             lines.append(f"{'':{indent}}{key}:\n{_yaml(value, indent + 2)}")
         else:
             lines.append(f"{'':{indent}}{key}: {_json.dumps(value)}\n")
@@ -126,8 +127,8 @@ class _Record(object):
         """The fields, by name, as plain values: pointers as hex strings"""
 
         return {
-            name: _plain(ctype, getattr(self, name))
-            for name, ctype, *_ in type(self)._fields_
+            name: _plain(ctype, _builtins.getattr(self, name))
+            for name, ctype, *_ in _builtins.type(self)._fields_
             if name  # not a padding bit-field
         }
 
@@ -139,7 +140,7 @@ class _Record(object):
             The number of characters written
         """
 
-        if isinstance(obj, ctypes._Pointer):
+        if _builtins.isinstance(obj, ctypes._Pointer):
             obj = obj.contents if obj else None
         if flags & {{ PREFIX }}_PR_JSON:
             text = _json.dumps(None if obj is None else _Record.to_dict(obj)) + "\n"
@@ -148,7 +149,7 @@ class _Record(object):
         else:
             text = f"{cls._yace_name}:\n{_yaml(_Record.to_dict(obj), 2)}"
         stream.write(text)
-        return len(text)
+        return _builtins.len(text)
 
     @classmethod
     def pr(cls, obj, flags={{ PREFIX }}_PR_DEF):
@@ -244,10 +245,13 @@ def {{ function.name | ident }}({{ params(function) | join(", ") }}):
 {%- set _ = args.append(argument(param, params(function)[loop.index0])) %}
 {%- endfor %}
 {%- set conv = returns(function, namer) %}
-{%- set func = "_api()." ~ function.name if function.name | ident == function.name else "getattr(_api(), \"" ~ function.name ~ "\")" %}
+{%- set func = "_api()." ~ function.name if function.name | ident == function.name else "_builtins.getattr(_api(), \"" ~ function.name ~ "\")" %}
 
     return {{ conv ~ "(" if conv }}{{ func }}({{ args | join(", ") }}){{ ")" if conv }}
 {%- endfor %}
+
+
+{{ idiomatic }}
 {%- for function in variadic %}
 
 # {{ function.name }}() is variadic: not bound, as calling it through ctypes is

@@ -10,6 +10,14 @@ and that it works. Targets are found through the ``yace.targets`` entry point
 group, so a package can provide one without changes to **yace**; see
 :py:mod:`yace.targets.target`.
 
+Each target has two layers. The raw one calls the C functions as they are,
+and needs nothing beyond the declarations. The idiomatic one, over it, is what
+a programmer of the language expects: handles released when they go out of
+scope, errors raised or returned, results returned rather than written through
+pointers, closures for callbacks. It is generated from what the header says
+beyond C, see :ref:`sec-ir-csubset`, as derived in :py:mod:`yace.targets.idiom`,
+the same for every language.
+
 The targets available are C, :ref:`sec-targets-capi`, Python,
 :ref:`sec-targets-python`, and Rust, :ref:`sec-targets-rust`. Zig and C++ are
 planned, each generating bindings idiomatic for its language from the same IR.
@@ -44,4 +52,7 @@ values, which differ between runs.
    rust/index.rst
 
 .. automodule:: yace.targets.target
+   :members:
+
+.. automodule:: yace.targets.idiom
    :members:

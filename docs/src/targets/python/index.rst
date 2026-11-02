@@ -60,6 +60,50 @@ Functions
   in C; a record passed where a pointer to it is expected is passed by
   reference.
 
+The idiomatic layer
+-------------------
+
+Over the raw functions, the module has an idiomatic layer, from what the header
+says beyond C, see :ref:`sec-ir-csubset`. Its names lose the prefix of the
+API:
+
+Handles
+  An opaque record is a class, named without the prefix: ``struct foo_handle``
+  is ``Handle``. Its constructor is a function of the module, ``foo.open()``,
+  its destructor the method ``close()``, raising ``OSError`` where it has
+  ``@errno``, also called on leaving a ``with``-block, or when collected, and
+  the functions taking it first are its methods:
+  ``handle.add(point)`` calls ``foo_add(handle, point)``.
+
+Errors
+  A function documented ``@errno`` raises :py:class:`OSError`, with the errno,
+  when it returns a negative value. One returning ``int`` returns nothing
+  otherwise; one returning another integer, such as a count, returns it.
+
+Results
+  What a function writes through an ``[out]`` pointer is returned rather than
+  passed: ``foo.figure_fill(shape)`` returns the figure. An ``[out]`` array is
+  returned as a list of as many elements as the function says it wrote.
+
+Arguments
+  An array read through a pointer is given as a sequence, its ``@len`` count
+  not given; sequences sharing one count must be as long, or ``ValueError`` is
+  raised. One that is ``[in,out]`` is a list, written back. A ``void *`` with a
+  ``@len`` is bytes, a ``bytearray`` written in place where ``[in,out]``. A
+  handle given is its class. A callback is given as any callable, without the
+  ``void *`` context, which the layer gives C; pointers to records it receives
+  are the records, and strings ``str``. A ``@nullable`` parameter defaults to
+  ``None`` where those after it do too.
+
+The idiomatic layer uses the raw functions and records, so the two mix: a record
+returned by one is given to the other. A name the idiomatic layer would take
+from the raw one, where there is no prefix to strip, or that two functions would
+share, keeps the C name. A module-level function named ``ctypes`` or ``enum``,
+or beginning with ``_``, and a constructor that keeps its C name, get the suffix
+``_``; so does a parameter named as what the function names, such as ``self``,
+``ret``, a raw function or a class, or beginning or ending with ``_``, so no two
+parameters share a name.
+
 The library is loaded on the first call of a function. Its path is the
 environment variable ``<PREFIX>_LIBRARY``, or the library is found by
 :py:func:`ctypes.util.find_library` from the name in the IR's meta, without the
@@ -81,10 +125,10 @@ Example
    :language: text
    :lines: 1-
 
-The fixture library is called through these bindings by
-``examples/libfoo/checks/python/check.py``:
+The fixture library is called through the raw layer by
+``examples/libfoo/checks/python/check.py``, and through the idiomatic layer by:
 
-.. literalinclude:: ../../../../examples/libfoo/checks/python/check.py
+.. literalinclude:: ../../../../examples/libfoo/checks/python/idiomatic.py
    :language: python
    :caption:
    :lines: 1-
@@ -104,4 +148,7 @@ Implementation
    :members:
 
 .. automodule:: yace.targets.python.pygen
+   :members:
+
+.. automodule:: yace.targets.python.idiomatic
    :members:

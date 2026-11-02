@@ -154,6 +154,324 @@ def test_string_defines_keep_their_value(parse, tmp_path):
     assert module(tmp_path)["API_S"] == ESCAPED_VALUE
 
 
+def test_idiomatic_names_never_replace_the_raw_ones(parse, tmp_path):
+    model, _ = parse(
+        "struct handle;\n"
+        "/**\n * @param[out] h H\n * @errno\n */\nint open_it(struct handle **h);\n"
+        "/**\n * @destroys h\n */\nvoid close_it(struct handle *h);\n"
+        "/**\n * @nullable a\n */\nint mix(int *a, int b);\n"
+    )
+    assert process(model, ["python"], tmp_path) == []
+
+    ns = module(tmp_path)
+    # Without a prefix to strip, the names are those of the raw functions, and
+    # the handle's class that of the raw record: neither gets an idiomatic one
+    assert ns["open_it"].__doc__ is None or "Calls" not in ns["open_it"].__doc__
+    assert "Handle" in ns and issubclass(ns["Handle"], ns["ctypes"].Structure)
+
+
+def test_a_nullable_parameter_before_a_required_one_has_no_default(parse, tmp_path):
+    model, _ = parse(
+        "/**\n * Mix\n * @param a A\n * @param b B\n * @nullable a\n */\n"
+        "int api_mix(int *a, int b);\n"
+    )
+    assert process(model, ["python"], tmp_path) == []
+    assert "def mix(a, b):" in (tmp_path / "python" / "api.py").read_text()
+
+
+@needs_cc
+def test_handles_are_released_when_collected(parse, tmp_path, monkeypatch):
+    header = (
+        "struct api_h;\n/** P */\nstruct api_p {\n\tint x; ///< X\n};\n"
+        "typedef struct api_p api_p_t;\n"
+        "/**\n * Open\n * @param[out] h H\n * @errno\n */\n"
+        "int api_open(struct api_h **h);\n"
+        "/**\n * Close\n * @destroys h\n */\nvoid api_close(struct api_h *h);\n"
+        "/**\n * Open ones\n */\nint api_opened(void);\n"
+        "/**\n * Get\n * @param[out] p P\n */\nvoid api_get(api_p_t *p);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["python"], tmp_path) == []
+
+    (tmp_path / "api.c").write_text(
+        header + "static int opened;\nstatic int h;\n"
+        "int api_open(struct api_h **p)\n"
+        "{ *p = (struct api_h *)&h; opened++; return 0; }\n"
+        "void api_close(struct api_h *p) { (void)p; opened--; }\n"
+        "int api_opened(void) { return opened; }\n"
+        "void api_get(api_p_t *p) { p->x = 3; }\n"
+    )
+    library = tmp_path / "libapi.so"
+    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
+    subprocess.run(cmd, check=True)
+    monkeypatch.setenv("API_LIBRARY", str(library))
+
+    api = module(tmp_path)
+    handle = api["open"]()
+    assert api["opened"]() == 1
+    del handle
+    assert api["opened"]() == 0
+    assert api["get"]().x == 3
+
+
+@needs_cc
+def test_pointers_written_and_nullable_sequences(parse, tmp_path, monkeypatch):
+    header = (
+        "#include <stddef.h>\n/** P */\nstruct api_p {\n\tint x; ///< X\n};\n"
+        "/**\n * Get\n * @param[out] p P\n * @errno\n */\n"
+        "int api_get(const struct api_p **p);\n"
+        "/**\n * Sum\n * @param buf B\n * @param n N\n * @nullable buf\n"
+        " * @len buf n\n */\nlong api_sum(const int *buf, size_t n);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["python"], tmp_path) == []
+
+    source = tmp_path / "api.c"
+    source.write_text(
+        header + "static const struct api_p P = {7};\n"
+        "int api_get(const struct api_p **p) { *p = &P; return 0; }\n"
+        "long api_sum(const int *buf, size_t n)\n"
+        "{ long s = 0; for (size_t i = 0; i < n; i++) s += buf[i]; return s; }\n"
+    )
+    library = tmp_path / "libapi.so"
+    cmd = ["cc", "-shared", "-fPIC", str(source), "-o", str(library)]
+    subprocess.run(cmd, check=True)
+    monkeypatch.setenv("API_LIBRARY", str(library))
+
+    api = module(tmp_path)
+    assert api["get"]().x == 7
+    assert api["sum"]([1, 2, 3]) == 6
+    assert api["sum"]() == 0
+
+
+@needs_cc
+def test_shared_counts_handles_given_and_more_returns(parse, tmp_path, monkeypatch):
+    from tests.test_rust import HANDLE_NAMED_AS_PREFIX, MORE, MORE_C
+
+    model, _ = parse(MORE)
+    assert process(model, ["python"], tmp_path) == []
+    (tmp_path / "api.c").write_text(MORE + MORE_C)
+    library = tmp_path / "libapi.so"
+    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
+    subprocess.run(cmd, check=True)
+    monkeypatch.setenv("API_LIBRARY", str(library))
+
+    api = module(tmp_path)
+    handle = api["open"]()
+    handle.copy(api["make"]())
+    assert api["dot"]([1, 2], [3, 4]) == 11
+    assert api["map"]([1, 2, 3], 3) == [2, 4, 6]
+    for call, args in (("dot", ([1], [1, 2])), ("map", ([1, 2], 3))):
+        try:
+            api[call](*args)
+            raised = False
+        except ValueError:
+            raised = True
+        assert raised, call
+    assert handle.label() == "lbl"
+    assert api["raw"]() == 16
+
+    model, _ = parse(HANDLE_NAMED_AS_PREFIX, "prefixed.h")
+    model.meta.prefix = "api"
+    assert process(model, ["python"], tmp_path / "prefixed") == []
+    assert (
+        "class ApiHandle(object):"
+        in (tmp_path / "prefixed" / "python" / "api.py").read_text()
+    )
+
+
+@needs_cc
+def test_bytes_out_arrays_in_out_sequences_and_destructor_errors(
+    parse, tmp_path, monkeypatch
+):
+    from tests.test_rust import IO, IO_C
+
+    model, _ = parse(IO)
+    assert process(model, ["python"], tmp_path) == []
+    (tmp_path / "api.c").write_text(IO + IO_C)
+    library = tmp_path / "libapi.so"
+    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
+    subprocess.run(cmd, check=True)
+    monkeypatch.setenv("API_LIBRARY", str(library))
+
+    api = module(tmp_path)
+    assert api["write"](b"abcd") == 4
+    assert api["read"](8) == b"xyz"
+    assert api["pair"](3) == ([0, 1, 2], [0, 10, 20])
+    values = [1, 2, 3]
+    api["twice"](values)
+    assert values == [2, 4, 6]
+    assert api["use"](7, api["default"]()) == 7
+
+    handle = api["open"]()
+    copy = handle.clone()
+    try:
+        copy.close()
+        failed = None
+    except OSError as err:
+        failed = err.errno
+    assert failed == 5
+    handle.close()
+
+
+@needs_cc
+def test_functions_named_as_builtins_do_not_shadow_them(parse, tmp_path, monkeypatch):
+    header = (
+        "#include <stddef.h>\n/** P */\nstruct api_p {\n\tdouble x; ///< X\n};\n"
+        "/**\n * Len\n * @len vals n\n */\nint api_len(const int *vals, size_t n);\n"
+        "/**\n * Type\n */\nint api_type(int x);\n"
+        "/**\n * Format\n */\nint api_format(int x);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["python"], tmp_path) == []
+    (tmp_path / "api.c").write_text(
+        header + "int api_len(const int *vals, size_t n)\n"
+        "{ int s = 0; for (size_t i = 0; i < n; i++) s += vals[i]; return s; }\n"
+        "int api_type(int x) { return x; }\nint api_format(int x) { return x; }\n"
+    )
+    library = tmp_path / "libapi.so"
+    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
+    subprocess.run(cmd, check=True)
+    monkeypatch.setenv("API_LIBRARY", str(library))
+
+    api = module(tmp_path)
+    assert api["len"]([1, 2, 3]) == 6
+    assert str(api["ApiP"](x=1.5)) == "api_p:\n  x: 1.5\n"
+
+
+@needs_cc
+def test_shared_names_module_globals_and_callback_strings(parse, tmp_path, monkeypatch):
+    header = (
+        "typedef void (*api_seen_cb)(void *arg, const char *s);\n"
+        "/**\n * Bar\n */\nint bar(int x);\n"
+        "/**\n * Bar too\n */\nint api_bar(int x);\n"
+        "/**\n * Ctypes\n */\nint api_ctypes(int x);\n"
+        "/**\n * Seen\n */\nvoid api_seen(api_seen_cb cb, void *arg);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["python"], tmp_path) == []
+    (tmp_path / "api.c").write_text(
+        header + "int bar(int x) { return x; }\nint api_bar(int x) { return 2 * x; }\n"
+        "int api_ctypes(int x) { return x; }\n"
+        'void api_seen(api_seen_cb cb, void *arg) { cb(arg, "done"); }\n'
+    )
+    library = tmp_path / "libapi.so"
+    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
+    subprocess.run(cmd, check=True)
+    monkeypatch.setenv("API_LIBRARY", str(library))
+
+    api = module(tmp_path)
+    assert (api["bar"](3), api["api_bar"](3), api["ctypes_"](4)) == (3, 6, 4)
+    seen = []
+    api["seen"](seen.append)
+    assert seen == ["done"]
+
+
+@needs_cc
+def test_parameters_named_as_what_the_body_uses(parse, tmp_path, monkeypatch):
+    from tests.test_rust import HIDDEN, HIDDEN_C
+
+    model, _ = parse(HIDDEN)
+    assert process(model, ["python"], tmp_path) == []
+    (tmp_path / "api.c").write_text(HIDDEN + HIDDEN_C)
+    library = tmp_path / "libapi.so"
+    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
+    subprocess.run(cmd, check=True)
+    monkeypatch.setenv("API_LIBRARY", str(library))
+
+    api = module(tmp_path)
+    assert (api["add"](1), api["got"]()) == (2, 2)
+    assert (api["set"](5, 2), api["u8"](1)) == (3, 9)
+    assert (api["count"]([1, 2]), api["count"](None)) == (2, -1)
+    assert api["foos"](1, 2, 3) == 2 and api["flip"](1) == (1, 2)
+    with api["api_th_open_"]() as t:
+        assert t.get() == 7
+    assert "format: 0" in str(api["ApiFrame"]())
+    assert api["file"](0) is None and api["file"](1) is not None
+    dev = api["api_dev_open_"](1, 2)
+    assert dev.me(4) == 4 and api["make"](5)[1] == 5
+    assert (dev.peer(dev), dev.peer(None)) == (1, 0)
+    message = dev.msg()  # a pointer, as its payload follows it
+    assert message.contents.len == 3 and api["take_"](1) == 2
+    assert dev.ptr(9, 2) == 7
+    assert api["api_cb_out_open_"]().me(8) == 8
+    assert api["run"](lambda v: 10 * v) == 30
+    assert api["rerun"](lambda v: v, 5, 1) == 4
+    assert api["unsigned"](11) == 11
+    assert api["variants"](1, 2, 3, 4) == -2
+    assert api["primitives"](1, 2, 3) == 2
+    assert api["renamed"](1, 2, 3, 4, 5) == 3
+
+
+@needs_cc
+def test_parameters_named_as_locals_and_constructors_sharing_a_name(
+    parse, tmp_path, monkeypatch
+):
+    from tests.test_rust import NAMES, NAMES_C
+
+    model, _ = parse(NAMES)
+    assert process(model, ["python"], tmp_path) == []
+    (tmp_path / "api.c").write_text(NAMES + NAMES_C)
+    library = tmp_path / "libapi.so"
+    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
+    subprocess.run(cmd, check=True)
+    monkeypatch.setenv("API_LIBRARY", str(library))
+
+    api = module(tmp_path)
+    handle = api["api_h_open_"]()
+    assert api["api_g_open_"]() is not None
+    assert handle.me(3) == 3
+    assert (api["ctx"](1, 2), api["outret"]()) == (3, 7)
+    values = [1, 2]
+    api["ioret"](values)
+    assert values == [2, 3]
+    assert api["names"](5, lambda v: 10 * v) == 50
+
+    seen, locals_ = [], list(range(1, 14))
+    api["call"](lambda v: seen.append(v) or 0, *locals_)
+    api["call"](None, *locals_)
+    assert seen == [91]
+    assert api["sum"]([1, 2], 10, 20) == 33
+    assert api["outs"](2, 4, 5) == (4, [5, 5])
+    assert api["two"](lambda v: 10 * v, lambda v: v) == 12
+    assert api["c"]([1, 2, 3]) == 3
+
+
+@needs_cc
+def test_contexts_given_c_byte_buffers_written_and_records_named_as_functions(
+    parse, tmp_path, monkeypatch
+):
+    header = (
+        "#include <stddef.h>\ntypedef int (*api_cb)(void *arg, int v);\n"
+        "/** T */\nstruct api_tag;\n"
+        "/**\n * Tag\n */\nint api_tag(int v);\n"
+        "/**\n * Run\n * @errno\n */\nint api_run(api_cb cb, void *arg);\n"
+        "/**\n * Invert\n * @param[in,out] buf B\n * @len buf n\n */\n"
+        "void api_invert(void *buf, size_t n);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["python"], tmp_path) == []
+    (tmp_path / "api.c").write_text(
+        header + "#include <errno.h>\nint api_tag(int v) { return v; }\n"
+        "int api_run(api_cb cb, void *arg) { return arg ? cb(arg, 2) : -EINVAL; }\n"
+        "void api_invert(void *buf, size_t n)\n"
+        "{ unsigned char *b = buf; for (size_t i = 0; i < n; i++) b[i] ^= 0xff; }\n"
+    )
+    library = tmp_path / "libapi.so"
+    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
+    subprocess.run(cmd, check=True)
+    monkeypatch.setenv("API_LIBRARY", str(library))
+
+    api = module(tmp_path)
+    assert api["tag"](4) == 4
+    seen = []
+    api["run"](lambda v: seen.append(v) or 0)
+    assert seen == [2]
+    buf = bytearray(b"\x00\x0f")
+    api["invert"](buf)
+    assert buf == bytearray(b"\xff\xf0")
+
+
 def test_skipped_records_and_padding_bits_build(parse, tmp_path):
     model, _ = parse(SKIPPED)
     assert process(model, ["python"], tmp_path) == []
