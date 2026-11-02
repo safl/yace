@@ -10,8 +10,9 @@ and that it works. Targets are found through the ``yace.targets`` entry point
 group, so a package can provide one without changes to **yace**; see
 :py:mod:`yace.targets.target`.
 
-The C target is the one available. Python, Rust, Zig and C++ are planned, each
-generating bindings idiomatic for its language from the same IR.
+The targets available are C, :ref:`sec-targets-capi`, and Python,
+:ref:`sec-targets-python`. Rust, Zig and C++ are planned, each generating
+bindings idiomatic for its language from the same IR.
 
 The fixture
 ===========
@@ -39,6 +40,7 @@ values, which differ between runs.
    :hidden:
 
    capi/index.rst
+   python/index.rst
 
 .. automodule:: yace.targets.target
    :members:

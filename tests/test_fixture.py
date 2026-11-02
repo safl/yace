@@ -7,6 +7,7 @@ import json
 import os
 import platform
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -88,3 +89,23 @@ def test_capi(model, library, tmp_path, fmt):
     expected = list(yaml.safe_load_all((FIXTURE / "expected.yaml").read_text()))
 
     assert documents(run([binary, fmt]), fmt) == expected
+
+
+@needs_cc
+@pytest.mark.parametrize("fmt", ["yaml", "json"])
+def test_python(model, library, tmp_path, fmt):
+    assert process(model, ["python"], tmp_path) == []
+
+    lib = next(path for path in library.iterdir() if path.stem == "libfoo")
+    env = {**os.environ, "PYTHONPATH": str(tmp_path / "python")}
+    env["FOO_LIBRARY"] = str(lib)
+    proc = subprocess.run(
+        [sys.executable, FIXTURE / "checks" / "python" / "check.py", fmt],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert proc.returncode == 0, proc.stderr
+    expected = list(yaml.safe_load_all((FIXTURE / "expected.yaml").read_text()))
+
+    assert documents(proc.stdout, fmt) == expected
