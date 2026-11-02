@@ -1,0 +1,43 @@
+# Build from the root of the repository
+ARG UV_VERSION=0.11.17
+FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
+
+FROM docker.io/library/ubuntu:24.04
+
+ARG PYTHONS="3.12 3.13"
+ARG RUST=1.96.0
+# The rust-version the generated Cargo.toml declares, which a test builds with
+ARG RUST_MSRV=1.81
+ARG ZIG=0.16.0
+
+LABEL org.opencontainers.image.source=https://github.com/safl/yace
+LABEL org.opencontainers.image.description="The toolchains yace is tested with"
+
+COPY toolbox/pkgs/ubuntu.sh /tmp/ubuntu.sh
+RUN sh /tmp/ubuntu.sh \
+ && apt-get -qy install --no-install-recommends \
+      ca-certificates clang curl git minisign xz-utils \
+ && rm -rf /var/lib/apt/lists/* /tmp/ubuntu.sh
+
+COPY --from=uv /uv /usr/local/bin/uv
+ENV UV_PYTHON_INSTALL_DIR=/opt/python \
+    UV_PYTHON_BIN_DIR=/usr/local/bin
+RUN uv python install ${PYTHONS}
+
+ENV RUSTUP_HOME=/opt/rust/rustup \
+    CARGO_HOME=/opt/rust/cargo
+RUN curl -sSf https://sh.rustup.rs -o /tmp/rustup-init.sh \
+ && sh /tmp/rustup-init.sh -y -q --no-modify-path --profile minimal \
+      --default-toolchain ${RUST} \
+ && /opt/rust/cargo/bin/rustup toolchain install ${RUST_MSRV} --profile minimal \
+ && rm /tmp/rustup-init.sh \
+ && chmod -R a+rwX /opt/rust/cargo
+ENV YACE_RUST_MSRV=${RUST_MSRV}
+
+COPY toolbox/devenv/install-zig.sh /tmp/install-zig.sh
+RUN bash /tmp/install-zig.sh ${ZIG} /opt/zig && rm /tmp/install-zig.sh
+
+# A home any user can write, for running as the developer's own user
+RUN mkdir -m 1777 /home/yace
+ENV HOME=/home/yace \
+    PATH=/home/yace/.local/bin:/opt/zig:/opt/rust/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

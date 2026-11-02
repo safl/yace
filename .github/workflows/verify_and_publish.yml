@@ -18,7 +18,7 @@ defaults:
 
 jobs:
   format:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - name: Grab source
       uses: actions/checkout@v5.0.1
@@ -38,7 +38,7 @@ jobs:
         make format-all
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - name: Grab source
       uses: actions/checkout@v5.0.1
@@ -64,13 +64,46 @@ jobs:
         path: dist/
         if-no-files-found: error
 
-  unittest:
-    needs: [format, build]
-    runs-on: ${{ matrix.os }}
+  devenv:
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/devenv.yml
+
+  unittest-linux:
+    needs: [format, build, devenv]
+    runs-on: ubuntu-24.04
+    env:
+      CONTAINER: docker
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-15]
+        python-version: ['3.12', '3.13']
+
+    steps:
+    - name: Grab source
+      uses: actions/checkout@v5.0.1
+
+    - name: Download the build
+      uses: actions/download-artifact@v7.0.0
+      with:
+        name: dist
+        path: dist/
+
+    - name: Log in to the registry
+      run: |
+        echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+    - name: Install the build and test it, in the devenv
+      run: |
+        make devenv-run CMD="make install test PYTHON=python${{ matrix.python-version }}"
+
+  unittest-macos:
+    needs: [format, build]
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
         python-version: ['3.12', '3.13']
 
     steps:
@@ -101,16 +134,13 @@ jobs:
         make install test
 
   example:
-    needs: [format, build]
-    runs-on: ubuntu-latest
+    needs: [format, build, devenv]
+    runs-on: ubuntu-24.04
+    env:
+      CONTAINER: docker
     steps:
     - name: Grab source
       uses: actions/checkout@v5.0.1
-
-    - name: Set up Python
-      uses: actions/setup-python@v6.0.0
-      with:
-        python-version: '3.12'
 
     - name: Download the build
       uses: actions/download-artifact@v7.0.0
@@ -118,20 +148,13 @@ jobs:
         name: dist
         path: dist/
 
-    - name: Install the build
+    - name: Log in to the registry
       run: |
-        make install
-        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-    - name: Install Zig
-      uses: mlugg/setup-zig@v2.2.1
-      with:
-        version: 0.16.0
-        use-cache: false
-
-    - name: Parse libfoo strictly, emit its bindings, and build and run their checks
+    - name: Parse libfoo strictly, emit its bindings, and build and run their checks, in the devenv
       run: |
-        make example
+        make devenv-run CMD="make install example"
 
     - name: Upload the emitted code
       if: always()

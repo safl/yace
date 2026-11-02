@@ -13,34 +13,30 @@ defaults:
     shell: bash
 
 jobs:
+  devenv:
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/devenv.yml
+
   build:
-    runs-on: ubuntu-latest
+    needs: devenv
+    runs-on: ubuntu-24.04
+    env:
+      CONTAINER: docker
 
     steps:
     - name: Grab source
       uses: actions/checkout@v5.0.1
 
-    - name: Set up Python
-      uses: actions/setup-python@v6.0.0
-      with:
-        python-version: '3.12'
-
-    # The docs run yace on the example, so they need the toolchains as well
-    - name: System tools
+    - name: Log in to the registry
       run: |
-        sudo ./toolbox/pkgs/ubuntu.sh
-        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
-    - name: Install Zig
-      uses: mlugg/setup-zig@v2.2.1
-      with:
-        version: 0.16.0
-        use-cache: false
+        echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
     # yace from the checkout rather than PyPI, so the docs describe this tree
-    - name: Build HTML
+    - name: Build HTML, in the devenv
       run: |
-        make docs
+        make devenv-run CMD="make docs"
 
     - name: Upload HTML
       uses: actions/upload-artifact@v6.0.0
@@ -56,7 +52,7 @@ jobs:
       group: pages
       cancel-in-progress: false
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       pages: write
       id-token: write

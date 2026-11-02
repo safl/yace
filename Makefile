@@ -2,6 +2,9 @@ PROJECT=yace
 AUX_PATH=toolbox
 PIPX_LOCAL_VENVS=$(shell pipx environment --value PIPX_LOCAL_VENVS)
 PYTEST=$(PIPX_LOCAL_VENVS)/$(PROJECT)/bin/pytest
+PYTHON ?= python3
+CONTAINER ?= $(shell command -v podman >/dev/null && echo podman || echo docker)
+DEVENV ?= ghcr.io/safl/yace-devenv:$(shell toolbox/devenv/tag.sh)
 
 ifeq ($(PLATFORM_ID),Windows)
 else
@@ -43,14 +46,44 @@ build:
 	@pyproject-build
 	@echo "## ${PROJECT}: make build [DONE]"
 
-define docker-help
-# drop into a docker instance with the repository bind-mounted at /tmp/yace
+define devenv-help
+# build the development environment, the image CI runs in, from toolbox/devenv
 endef
-.PHONY: docker
-docker:
-	@echo "## ${PROJECT}: docker"
-	@docker run -it -w /tmp/${PROJECT} --mount type=bind,source="$(shell pwd)",target=/tmp/${PROJECT} debian:bookworm bash
-	@echo "## ${PROJECT}: docker [DONE]"
+.PHONY: devenv
+devenv:
+	@$(CONTAINER) build -f toolbox/devenv/Containerfile -t $(DEVENV) .
+
+define devenv-pull-help
+# pull the development environment of this tree from the registry
+endef
+.PHONY: devenv-pull
+devenv-pull:
+	@$(CONTAINER) pull $(DEVENV)
+
+define devenv-push-help
+# push the development environment to the registry
+endef
+.PHONY: devenv-push
+devenv-push:
+	@$(CONTAINER) push $(DEVENV)
+
+DEVENV_RUN = $(CONTAINER) run --rm -v "$(CURDIR)":/yace -w /yace \
+	$(if $(findstring podman,$(CONTAINER)),--userns=keep-id,--user $$(id -u):$$(id -g))
+
+define devenv-shell-help
+# a shell in the development environment, as your own user, the repository at /yace
+endef
+.PHONY: devenv-shell
+devenv-shell:
+	@$(DEVENV_RUN) -it $(DEVENV) bash
+
+define devenv-run-help
+# run CMD in the development environment, as devenv-shell would, e.g. CMD="make test"
+endef
+.PHONY: devenv-run
+export CMD
+devenv-run:
+	@$(DEVENV_RUN) $(DEVENV) bash -c "$$CMD"
 
 define install-help
 # install the wheel from 'make build' using pipx, with what 'make test' needs
@@ -58,7 +91,7 @@ endef
 .PHONY: install
 install:
 	@echo "## ${PROJECT}: make install"
-	@pipx install --python python3 --force dist/*.whl
+	@pipx install --python $(PYTHON) --force dist/*.whl
 	@pipx inject yace pytest pytest-cov coverage --force
 	@echo "## ${PROJECT}: make install [DONE]"
 
@@ -68,7 +101,7 @@ endef
 .PHONY: install-source
 install-source:
 	@echo "## ${PROJECT}: make install-source"
-	@pipx install --python python3 --include-deps --force --editable .[dev]
+	@pipx install --python $(PYTHON) --include-deps --force --editable .[dev]
 	@pipx inject yace black --include-deps
 	@pipx inject yace build --include-deps
 	@pipx inject yace ipdb --include-deps
