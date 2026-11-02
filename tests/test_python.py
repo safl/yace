@@ -386,7 +386,7 @@ def test_parameters_named_as_what_the_body_uses(parse, tmp_path, monkeypatch):
     assert api["foos"](1, 2, 3) == 2 and api["flip"](1) == (1, 2)
     with api["api_th_open_"]() as t:
         assert t.get() == 7
-    assert "format: 0" in str(api["ApiFrame"]())
+    assert "ApiBuf" in api and "format: 0" in str(api["ApiFrame"]())
     assert api["file"](0) is None and api["file"](1) is not None
     dev = api["api_dev_open_"](1, 2)
     assert dev.me(4) == 4 and api["make"](5)[1] == 5

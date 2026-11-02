@@ -61,6 +61,7 @@ capi = "yace.targets.capi.target:CAPI"
 python = "yace.targets.python.target:Python"
 rust = "yace.targets.rust.target:Rust"
 cpp = "yace.targets.cpp.target:CPP"
+zig = "yace.targets.zig.target:Zig"
 
 [tool.setuptools.packages.find]
 where = ["src"]

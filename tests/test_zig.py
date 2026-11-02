@@ -1,0 +1,333 @@
+import json
+import subprocess
+
+import yaml
+
+from tests.conftest import ESCAPED, ESCAPED_VALUE, HEADERS, SKIPPED, needs_cc, needs_zig
+from tests.test_rust import EDGES, HANDLE_NAMED_AS_PREFIX, doc, misindented_docs
+from yace.compiler import process
+
+pytestmark = needs_zig
+
+
+def json_lines(text):
+    return [json.loads(line) for line in text.splitlines()]
+
+
+@needs_cc
+def test_the_subset_prints_as_the_c_api_does(parser, tmp_path):
+    model, _ = parser.parse(HEADERS / "valid.h")
+    assert process(model, ["capi", "zig"], tmp_path) == []
+
+    for fmt, load in (("yaml", yaml.safe_load_all), ("json", json_lines)):
+        c_out = (tmp_path / "capi" / f"check.{fmt}").read_text()
+        zig_out = (tmp_path / "zig" / f"check.{fmt}").read_text()
+        assert list(load(zig_out)) == list(load(c_out))
+
+
+@needs_cc
+def test_floats_print_as_printf_g_does(parse, tmp_path):
+    values = [0.1, -2.5e-5, 1e-4, 123456.0, 1234567.0, 1e300, -0.0, 0.5, 99999.95]
+    model, _ = parse("/** Values */\nstruct api_f { double d; float f; };\n")
+    assert process(model, ["zig"], tmp_path) == []
+
+    main = tmp_path / "main.zig"
+    main.write_text(
+        'const std = @import("std");\nconst api = @import("api.zig");\n'
+        "pub fn main(init: std.process.Init) !void {\n"
+        "    var buf: [4096]u8 = undefined;\n"
+        "    var out = std.Io.File.stdout().writer(init.io, &buf);\n"
+        + "".join(
+            f'    try out.interface.print("{{f}}", .{{api.ApiF{{ .d = {v!r},'
+            f" .f = @floatCast(@as(f64, {v!r})) }}}});\n"
+            for v in values
+        )
+        + "    try out.interface.flush();\n}\n"
+    )
+    (tmp_path / "api.zig").write_text((tmp_path / "zig" / "api.zig").read_text())
+    cache = str(tmp_path / ".cache")
+    zig = subprocess.run(
+        ["zig", "run", "-lc", str(main), "--cache-dir", cache]
+        + ["--global-cache-dir", cache],
+        capture_output=True,
+        text=True,
+    )
+    assert zig.returncode == 0, zig.stderr
+
+    program = tmp_path / "g.c"
+    program.write_text(
+        "#include <stdio.h>\nint main(void) {\n"
+        + "".join(
+            f'\tprintf("api_f:\\n  d: %g\\n  f: %g\\n", {v!r}, (double)(float){v!r});\n'
+            for v in values
+        )
+        + "\treturn 0;\n}\n"
+    )
+    subprocess.run(["cc", str(program), "-o", str(tmp_path / "g")], check=True)
+    c = subprocess.run([str(tmp_path / "g")], capture_output=True, text=True).stdout
+
+    assert zig.stdout == c
+
+
+def test_the_idiomatic_layer_compiles_for_every_kind_of_parameter(parse, tmp_path):
+    model, _ = parse(EDGES)
+    assert process(model, ["zig"], tmp_path) == []
+
+    module = (tmp_path / "zig" / "api.zig").read_text()
+    assert "pub fn open(name: ?[*:0]const u8) anyerror!H {" in module
+    assert "pub fn step(self: H, pos: *usize) anyerror!c_int {" in module
+    assert "pub const deinit = close;" in module
+    assert misindented_docs(module) == []
+
+
+def test_names_that_clash_in_zig_are_made_distinct(parse, tmp_path):
+    model, _ = parse(
+        HANDLE_NAMED_AS_PREFIX
+        + doc("Self", "@errno")
+        + "int api_self(struct api *h);\n"
+        + doc("Ret", "@param[out] data D", "@errno")
+        + "int api_ret(struct api *h, int *data);\n"
+        + doc("Data", "@param[out] ret R", "@errno")
+        + "int api_data(struct api *h, int *ret);\n"
+    )
+    assert process(model, ["zig"], tmp_path) == []
+
+    module = (tmp_path / "zig" / "api.zig").read_text()
+    assert "pub const ApiHandle = struct {" in module
+    assert "pub fn self_(self: ApiHandle) anyerror!void {" in module
+
+
+def test_a_layout_other_than_recorded_fails_the_check(parser, tmp_path):
+    model, _ = parser.parse(HEADERS / "valid.h")
+    model.find("valid_point").size = 12
+
+    failures = process(model, ["zig"], tmp_path)
+    assert failures and "building the check failed" in failures[0]
+
+
+def test_string_defines_keep_their_value(parse, tmp_path):
+    model, _ = parse(ESCAPED)
+    assert process(model, ["zig"], tmp_path) == []
+
+    main = tmp_path / "main.zig"
+    main.write_text(
+        'const std = @import("std");\nconst api = @import("api.zig");\n'
+        "pub fn main(init: std.process.Init) !void {\n"
+        "    try std.Io.File.stdout().writeStreamingAll(init.io, api.API_S);\n}\n"
+    )
+    (tmp_path / "api.zig").write_text((tmp_path / "zig" / "api.zig").read_text())
+    cache = str(tmp_path / ".cache")
+    run = subprocess.run(
+        ["zig", "run", "-lc", str(main), "--cache-dir", cache]
+        + ["--global-cache-dir", cache],
+        capture_output=True,
+        text=True,
+    )
+    assert run.returncode == 0, run.stderr
+    assert run.stdout == ESCAPED_VALUE
+
+
+@needs_cc
+def test_shared_counts_handles_given_and_constructors_without_errno(parse, tmp_path):
+    from tests.test_rust import MORE, MORE_C
+
+    model, _ = parse(MORE)
+    assert process(model, ["zig"], tmp_path) == []
+    (tmp_path / "impl.c").write_text(MORE + MORE_C)
+    (tmp_path / "api.zig").write_text((tmp_path / "zig" / "api.zig").read_text())
+    main = tmp_path / "main.zig"
+    main.write_text(
+        'const std = @import("std");\nconst api = @import("api.zig");\n'
+        "pub fn main() !void {\n"
+        "    const h = try api.H.open();\n"
+        "    try h.copy(api.H.make().?);\n"
+        "    const a = [_]c_int{ 1, 2 };\n"
+        "    const b = [_]c_int{ 3, 4 };\n"
+        "    var buf: [2]c_int = undefined;\n"
+        "    const mapped = try api.map(&a, &buf);\n"
+        '    std.debug.print("{} {} {s}\\n", .{ api.dot(&a, &b), mapped[1],'
+        " std.mem.span(try h.label()) });\n"
+        "}\n"
+    )
+    cache = str(tmp_path / ".cache")
+    run = subprocess.run(
+        ["zig", "run", str(main), str(tmp_path / "impl.c"), "-lc"]
+        + ["--cache-dir", cache, "--global-cache-dir", cache],
+        capture_output=True,
+        text=True,
+    )
+    assert run.returncode == 0, run.stderr
+    assert run.stderr == "11 4 lbl\n"
+
+    module = (tmp_path / "zig" / "api.zig").read_text()
+    assert "if (b.len != a.len) @panic(" in module
+
+
+def test_typedefs_of_handles_and_methods_named_deinit_build(parse, tmp_path):
+    model, _ = parse(
+        "struct api_h;\ntypedef struct api_h api_h_t;\n"
+        "/**\n * Open\n * @param[out] h H\n * @errno\n */\n"
+        "int api_open(struct api_h **h);\n"
+        "/**\n * Close\n * @destroys h\n */\nvoid api_close(struct api_h *h);\n"
+        "/**\n * Deinit\n */\nint api_h_deinit(struct api_h *h);\n"
+        "/**\n * Use\n */\nint api_use(api_h_t *h);\n"
+    )
+    assert process(model, ["zig"], tmp_path) == []
+
+
+@needs_cc
+def test_bytes_clones_and_outs_named_like_ret(parse, tmp_path):
+    from tests.test_rust import IO, IO_C, doc
+
+    header = IO + doc("Get", "@param[out] retval R") + "void api_get(int *retval);\n"
+    model, _ = parse(header)
+    assert process(model, ["zig"], tmp_path) == []
+    (tmp_path / "impl.c").write_text(
+        header + IO_C + "void api_get(int *retval) { *retval = 42; }\n"
+    )
+    (tmp_path / "api.zig").write_text((tmp_path / "zig" / "api.zig").read_text())
+    main = tmp_path / "main.zig"
+    main.write_text(
+        'const std = @import("std");\nconst api = @import("api.zig");\n'
+        "pub fn main() !void {\n"
+        "    var buf: [8]u8 = undefined;\n"
+        "    const read = try api.read(&buf);\n"
+        "    const h = try api.H.open();\n"
+        "    const copy = try h.clone();\n"
+        '    std.debug.print("{} {s} {} {}\\n", .{ api.write("abcd"), read, api.get(),'
+        " copy.ptr == h.ptr });\n"
+        "}\n"
+    )
+    cache = str(tmp_path / ".cache")
+    run = subprocess.run(
+        ["zig", "run", str(main), str(tmp_path / "impl.c"), "-lc"]
+        + ["--cache-dir", cache, "--global-cache-dir", cache],
+        capture_output=True,
+        text=True,
+    )
+    assert run.returncode == 0, run.stderr
+    assert run.stderr == "4 xyz 42 false\n"
+
+
+@needs_cc
+def test_internal_names_nullable_slices_and_callback_strings(parse, tmp_path):
+    from tests.test_rust import doc
+
+    header = (
+        "#include <stddef.h>\ntypedef void (*api_seen_cb)(void *arg, const char *s);\n"
+        + doc("Flags")
+        + "int api_flags(void);\n"
+        + doc("W")
+        + "int api_w(int x);\n"
+        + doc("Err")
+        + "int api_err(void);\n"
+        + doc("Sum", "@nullable v", "@len v n")
+        + "int api_sum(const int *v, size_t n);\n"
+        + doc("Seen")
+        + "void api_seen(api_seen_cb cb, void *arg);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["zig"], tmp_path) == []
+    (tmp_path / "impl.c").write_text(
+        header + "int api_flags(void) { return 1; }\nint api_w(int x) { return x; }\n"
+        "int api_err(void) { return 2; }\n"
+        "int api_sum(const int *v, size_t n)\n"
+        "{\n\tint s = 0;\n\tif (!v) return -1;\n"
+        "\tfor (size_t i = 0; i < n; i++) s += v[i];\n\treturn s;\n}\n"
+        'void api_seen(api_seen_cb cb, void *arg) { cb(arg, "hi"); }\n'
+    )
+    (tmp_path / "api.zig").write_text((tmp_path / "zig" / "api.zig").read_text())
+    main = tmp_path / "main.zig"
+    main.write_text(
+        'const std = @import("std");\nconst api = @import("api.zig");\n'
+        "const Seen = struct { len: usize = 0 };\n"
+        "fn seen(s: *Seen, text: [*:0]const u8) void {\n"
+        "    s.len = std.mem.span(text).len;\n}\n"
+        "pub fn main() !void {\n"
+        "    var got = Seen{};\n"
+        "    api.seen(&got, seen);\n"
+        "    const v = [_]c_int{ 1, 2, 3 };\n"
+        '    std.debug.print("{} {} {} {} {} {}\\n", .{ api.flags_(), api.w_(5),'
+        " api.err_(), api.sum(&v), api.sum(null), got.len });\n"
+        "}\n"
+    )
+    cache = str(tmp_path / ".cache")
+    run = subprocess.run(
+        ["zig", "run", str(main), str(tmp_path / "impl.c"), "-lc"]
+        + ["--cache-dir", cache, "--global-cache-dir", cache],
+        capture_output=True,
+        text=True,
+    )
+    assert run.returncode == 0, run.stderr
+    assert run.stderr == "1 5 2 6 -1 2\n"
+
+
+def test_names_of_the_module_and_of_its_locals_are_made_distinct(parse, tmp_path):
+    from tests.test_rust import SHARED, doc
+
+    model, _ = parse(
+        SHARED
+        + "#include <stddef.h>\nstruct api_h;\n"
+        + "typedef int (*api_cb)(void *arg, int v);\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_h **h);\n"
+        + doc("Errno of")
+        + "int api_errno_of(int x);\n"
+        + doc("Sum", "@nullable s", "@len s n")
+        + "int api_sum(const int *s, size_t n);\n"
+        + doc("Use", "@nullable h")
+        + "int api_use(int context, struct api_h *h);\n"
+        + doc("Each", "@lifetime cb call")
+        + "int api_each(int a0, api_cb cb, void *arg);\n"
+        + doc("Make", "@param[out] out O", "@errno")
+        + "int api_make(int p, struct api_h **out);\n"
+    )
+    assert process(model, ["zig"], tmp_path) == []
+
+
+def test_a_module_of_more_declarations_than_a_comptime_quota_builds(parse, tmp_path):
+    """Compiling refers to every declaration, beyond 1000 comptime branches"""
+
+    model, _ = parse("".join(f"/** F */\nint api_f{i}(int x);\n" for i in range(1200)))
+    assert process(model, ["zig"], tmp_path) == []
+
+
+def test_parameters_named_as_what_the_body_uses_build(parse, tmp_path):
+    from tests.test_rust import HIDDEN
+
+    model, _ = parse(HIDDEN)
+    assert process(model, ["zig"], tmp_path) == []
+
+
+def test_parameters_named_as_locals_of_the_layer_build(parse, tmp_path):
+    from tests.test_rust import NAMES
+
+    model, _ = parse(NAMES)
+    assert process(model, ["zig"], tmp_path) == []
+
+
+def test_a_method_named_as_the_pointer_of_its_handle(parse, tmp_path):
+    from tests.test_rust import doc
+
+    model, _ = parse(
+        "struct api_h;\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_h **h);\n"
+        + doc("Ptr")
+        + "int api_h_ptr(struct api_h *h);\n"
+    )
+    assert process(model, ["zig"], tmp_path) == []
+
+
+def test_a_function_named_as_a_record_has_its_own_doc(parse, tmp_path):
+    model, _ = parse("/** R */\nstruct api_tag;\n/** F */\nint api_tag(int v);\n")
+    assert process(model, ["zig"], tmp_path) == []
+    assert (
+        "/// F\n///\n/// Calls `api_tag`.\npub fn tag_("
+        in (tmp_path / "zig" / "api.zig").read_text()
+    )
+
+
+def test_skipped_records_and_padding_bits_build(parse, tmp_path):
+    model, _ = parse(SKIPPED)
+    assert process(model, ["zig"], tmp_path) == []

@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from tests.conftest import needs_cargo, needs_cc
+from tests.conftest import needs_cargo, needs_cc, needs_zig
 from yace.compiler import process
 from yace.ir.cparser import CParser
 from yace.targets.capi.target import CFLAGS
@@ -159,6 +159,25 @@ def test_cpp(model, library, tmp_path, fmt):
         [cxx, *CXXFLAGS, *includes, FIXTURE / "checks" / "cpp" / "check.cpp"]
         + [tmp_path / "pp.o", "-L", library, "-lfoo", f"-Wl,-rpath,{library}"]
         + ["-o", binary]
+    )
+    expected = list(yaml.safe_load_all((FIXTURE / "expected.yaml").read_text()))
+
+    assert documents(run([binary, fmt]), fmt) == expected
+
+
+@needs_cc
+@needs_zig
+@pytest.mark.parametrize("fmt", ["yaml", "json"])
+def test_zig(model, library, tmp_path, fmt):
+    assert process(model, ["zig"], tmp_path) == []
+
+    binary = tmp_path / "check"
+    cache = tmp_path / "zig" / ".cache"
+    run(
+        ["zig", "build-exe", "--cache-dir", cache, "--global-cache-dir", cache]
+        + ["-lc", "-L", library, "-lfoo", "-rpath", library]
+        + ["--dep", "foo", f"-Mroot={FIXTURE / 'checks' / 'zig' / 'check.zig'}"]
+        + [f"-Mfoo={tmp_path / 'zig' / 'foo.zig'}", f"-femit-bin={binary}"]
     )
     expected = list(yaml.safe_load_all((FIXTURE / "expected.yaml").read_text()))
 

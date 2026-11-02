@@ -104,11 +104,11 @@ clean:
 	rm -r output || true
 
 define example-help
-# Parse the example library's header, strictly, then generate and check its C API
+# Parse the example library's header, strictly, then generate and check every target
 endef
 .PHONY: example
 example:
-	yace examples/libfoo/include/foo.h --meta examples/libfoo/meta.yaml --output output --emit capi python rust cpp --strict
+	yace examples/libfoo/include/foo.h --meta examples/libfoo/meta.yaml --output output --emit capi python rust cpp zig --strict
 
 define docs-build-prep-help
 # Install docs tooling and dependencies
@@ -130,6 +130,7 @@ docs-kmdo: example
 	kmdo docs/src/targets/python
 	kmdo docs/src/targets/rust
 	kmdo docs/src/targets/cpp
+	kmdo docs/src/targets/zig
 	kmdo docs/src/usage
 
 define docs-gen-entities-help

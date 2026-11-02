@@ -88,6 +88,12 @@ jobs:
         name: dist
         path: dist/
 
+    - name: Install Zig
+      uses: mlugg/setup-zig@v2.2.1
+      with:
+        version: 0.16.0
+        use-cache: false
+
     - name: Install the build and test it
       run: |
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
@@ -117,7 +123,13 @@ jobs:
         make install
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-    - name: Parse libfoo strictly, emit its C API, and build and run the check
+    - name: Install Zig
+      uses: mlugg/setup-zig@v2.2.1
+      with:
+        version: 0.16.0
+        use-cache: false
+
+    - name: Parse libfoo strictly, emit its bindings, and build and run their checks
       run: |
         make example
 
