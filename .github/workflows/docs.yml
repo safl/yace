@@ -25,11 +25,17 @@ jobs:
       with:
         python-version: '3.12'
 
-    # The docs run yace on the example, so they need the C toolchain as well
+    # The docs run yace on the example, so they need the toolchains as well
     - name: System tools
       run: |
         sudo ./toolbox/pkgs/ubuntu.sh
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: Install Zig
+      uses: mlugg/setup-zig@v2.2.1
+      with:
+        version: 0.16.0
+        use-cache: false
 
     # yace from the checkout rather than PyPI, so the docs describe this tree
     - name: Build HTML

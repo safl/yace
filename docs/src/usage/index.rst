@@ -50,7 +50,7 @@ Its meta, ``examples/libfoo/meta.yaml``:
    :caption:
    :lines: 1-
 
-Parse it, strictly, and generate and check its C API:
+Parse it, strictly, and generate and check its bindings for every target:
 
 .. literalinclude:: 200_example.cmd
    :language: bash

@@ -587,6 +587,16 @@ HIDDEN = (
     + "int api_foos(int api_foo, int api_foo_arg, int api_foo_arg_);\n"
     + doc("File", "@param[out] f F")
     + "void api_file(FILE **f, int FILE);\n"
+    + doc("Buffer")
+    + "struct api_buf { char *chars; size_t len; };\n"
+    + doc("Buffer")
+    + "typedef struct api_buf api_buf;\n"
+    + doc("Kind")
+    + "enum api_kind { API_KIND_A = 1 };\n"
+    + doc("Kind")
+    + "typedef enum api_kind api_kind;\n"
+    + doc("Length")
+    + "size_t api_buf_len(const api_buf *b, api_kind k);\n"
     + doc("Kind, which the C++ namespace declares by its C name")
     + "enum kind { KIND_A = 1, KIND_B = 2 };\n"
     + doc("Flip", "@param[out] out O")
@@ -623,6 +633,22 @@ HIDDEN = (
     + "int api_take(int x);\n"
     + doc("Take, a name told apart by a trailing underscore")
     + "int api_take_(int x);\n"
+    + doc("Writer")
+    + "struct writer { int fd; int count; };\n"
+    + doc("Put")
+    + "int api_put(struct writer *w, int c);\n"
+    + doc("Buf")
+    + "struct buf { int len; };\n"
+    + doc("Buf")
+    + "typedef struct buf buf;\n"
+    + doc("Buf, as another C name the same in CamelCase")
+    + "struct Buf { int len; };\n"
+    + doc("O, a name the printers bind, kept as two are O in CamelCase")
+    + "struct o { int len; };\n"
+    + doc("O")
+    + "struct O { int len; };\n"
+    + doc("Size")
+    + "int api_size(const buf *b, const struct Buf *c, const struct o *d);\n"
     + doc("U8")
     + "int api_u8(int _);\n"
     + doc("Add")
@@ -665,6 +691,8 @@ int api_foo(int x) { return x; }
 int api_foo_arg(int y) { return y; }
 int api_foos(int a, int b, int c) { return a - b + c; }
 void api_file(FILE **f, int u) { *f = u ? stdout : NULL; }
+size_t api_buf_len(const api_buf *b, api_kind k) { return b->len + (size_t)k; }
+int api_put(struct writer *w, int c) { return w->count + c; }
 int api_node_value(api_node n, const struct api_node *m) { return n->v - m->v; }
 static struct { unsigned len; unsigned char data[3]; } msg = { 3, { 1, 2, 3 } };
 struct api_msg *api_dev_msg(struct api_dev *d)
@@ -679,6 +707,8 @@ int api_th_open(api_th **t) { *t = (api_th *)&th; return 0; }
 int api_th_get(const api_th *t) { return *(const int *)t; }
 void api_th_close(api_th *t) { (void)t; }
 enum kind api_flip(enum kind k, enum kind *out) { *out = k; return 3 - k; }
+int api_size(const buf *b, const struct Buf *c, const struct o *d)
+{ return b->len + c->len + d->len; }
 int api_add(int api_add) { return api_add + 1; }
 void api_got(int *api_got) { *api_got = 2; }
 int api_dev_open(int d, int D, struct api_dev **out)
