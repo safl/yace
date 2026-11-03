@@ -89,7 +89,7 @@ RULES = {
         " and inline or static functions are skipped"
     ),
     "external-type": (
-        "The type is declared outside the header and outside the C subset, so"
+        "The type is declared outside the headers and outside the C subset, so"
         " other languages cannot bind it"
     ),
     "string-return": (
@@ -113,6 +113,10 @@ RULES = {
     "missing-doc": ("Declarations on the FFI boundary must be documented"),
     "doc-comment": (
         "A declaration has one doc comment; adjacent ones are joined into one"
+    ),
+    "self-contained": (
+        "Each header of the API includes what it uses, so that it compiles when"
+        " included alone"
     ),
     "parse-error": (
         "The compiler could not parse the header; the result is incomplete"

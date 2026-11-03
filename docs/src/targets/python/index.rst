@@ -114,7 +114,7 @@ environment variable ``<PREFIX>_LIBRARY``, or the library is found by
 ``lib`` prefix.
 
 A variadic function is not bound: calling one through ctypes is not portable.
-Types declared outside the header, such as ``FILE``, are empty structures,
+Types declared outside the headers, such as ``FILE``, are empty structures,
 usable through pointers. These are outside the C subset; the diagnostics of the
 header say so.
 

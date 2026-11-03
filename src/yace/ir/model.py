@@ -27,9 +27,19 @@ class Meta(Node):
     description: str = ""
     author: str = ""
     license: str = ""
-    header: str = ""  # the name of the header the IR was parsed from
+    headers: List[str] = []  # the names of the headers the IR was parsed from
     pkg: str = ""  # its pkg-config name, if any
     abi: str = ""  # the platform whose layout the 'size', 'align' and 'offset' are
+
+    def source(self) -> str:
+        """What the IR was parsed from, as generated code says it"""
+
+        if not self.headers:
+            return "the IR"
+        if len(self.headers) == 1:
+            return self.headers[0]
+        others = len(self.headers) - 1
+        return f"{self.headers[0]} and {others} other header{'s' * (others > 1)}"
 
 
 def host_abi() -> str:

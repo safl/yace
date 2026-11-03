@@ -469,3 +469,83 @@ def test_string_defines_hold_the_value_of_the_literal(parse):
 def test_a_doc_mentioning_a_doc_comment_is_one(parse):
     _, diagnostics = parse("/**\n * F, which a /** opens\n */\nint f(void);")
     assert "doc-comment" not in [d.rule for d in diagnostics]
+
+
+def headers(tmp_path, **sources):
+    """Write each source as '<name>.h' in 'tmp_path'; returns their paths"""
+
+    paths = []
+    for name, source in sources.items():
+        path = tmp_path / f"{name}.h"
+        path.write_text(source)
+        paths.append(path)
+    return paths
+
+
+# An API of two headers: 'api_b.h' includes 'api_a.h' and uses what it declares
+API_A = (
+    "#ifndef API_A_H\n#define API_A_H\n#include <stdint.h>\n"
+    "/** Length */\n#define API_LEN 4\n"
+    "/** A */\nstruct api_a {\n\tuint32_t n; ///< N\n};\n#endif\n"
+)
+API_B = (
+    '#ifndef API_B_H\n#define API_B_H\n#include "api_a.h"\n'
+    "/** Twice */\n#define API_TWICE (API_LEN * 2)\n"
+    "/**\n * B\n *\n * @param a A\n * @return N\n */\n"
+    "uint32_t api_b(struct api_a *a);\n"
+    "#endif\n"
+)
+
+
+def test_the_headers_given_are_one_api(parser, tmp_path):
+    model, diagnostics = parser.parse(headers(tmp_path, api_a=API_A, api_b=API_B))
+
+    assert [str(d) for d in diagnostics] == []
+    names = {"stdint.h", "API_LEN", "api_a", "API_TWICE", "api_b"}
+    assert {e.name for e in model.entities} == names
+    ordered = [e.name for e in model.entities if e.name in ("api_a", "api_b")]
+    assert ordered == ["api_a", "api_b"]
+    assert model.find("API_TWICE").value.value == 8
+    assert model.find("API_TWICE").doc.brief == "Twice"
+    assert model.meta.headers == ["api_a.h", "api_b.h"]
+    assert model.meta.source() == "api_a.h and 1 other header"
+
+
+def test_a_header_included_but_not_given_is_external(parser, tmp_path):
+    _, b = headers(tmp_path, api_a=API_A, api_b=API_B)
+    model, diagnostics = parser.parse([b])
+
+    assert {e.name for e in model.entities} == {"api_a.h", "API_TWICE", "api_b"}
+    assert "external-type" in rules(diagnostics)
+
+
+def test_a_header_relying_on_another_to_include_for_it_is_reported(parser, tmp_path):
+    paths = headers(
+        tmp_path,
+        api_c="#include <stdint.h>\n#include <stdint.h>\n",
+        api_d="/**\n * D\n *\n * @return N\n */\nuint32_t api_d(uint8_t v);\n",
+    )
+    model, diagnostics = parser.parse(paths)
+
+    assert [d.rule for d in diagnostics] == ["self-contained"]
+    assert [e.name for e in model.entities] == ["stdint.h", "api_d"]
+    assert diagnostics[0].file == "api_d.h"
+    assert diagnostics[0].message == (
+        "api_d.h does not compile when included alone: unknown type name"
+        " 'uint32_t', and 1 more error"
+    )
+    assert model.find("api_d") is not None
+
+
+def test_an_error_in_every_parse_is_reported_once(parser, tmp_path):
+    paths = headers(tmp_path, api_e="/** E */\nint api_e(void) int;\n", api_f="")
+    _, diagnostics = parser.parse(paths)
+
+    assert [d.rule for d in diagnostics] == ["parse-error"]
+
+
+def test_an_include_not_found_is_kept(parse):
+    model, diagnostics = parse('#include "api_missing.h"\n/** F */\nint f(void);\n')
+
+    assert [e.name for e in model.entities] == ["api_missing.h", "f"]
+    assert rules(diagnostics) == ["parse-error"]

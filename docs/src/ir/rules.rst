@@ -70,7 +70,7 @@ breaking one is still parsed; ``--strict`` makes any diagnostic an error.
   Only types, functions and constants form the FFI boundary; variables and inline or static functions are skipped.
 
 ``external-type``
-  The type is declared outside the header and outside the C subset, so other languages cannot bind it.
+  The type is declared outside the headers and outside the C subset, so other languages cannot bind it.
 
 ``string-return``
   A returned string is borrowed, never the caller's to free, so it is returned as const char \*.
@@ -89,6 +89,9 @@ breaking one is still parsed; ``--strict`` makes any diagnostic an error.
 
 ``doc-comment``
   A declaration has one doc comment; adjacent ones are joined into one.
+
+``self-contained``
+  Each header of the API includes what it uses, so that it compiles when included alone; the header is reported, and parsed with the others.
 
 ``parse-error``
   The compiler could not parse the header; the result is incomplete.
