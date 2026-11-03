@@ -42,6 +42,29 @@ Headers
   ``#include`` of the standard headers above. What another header declares is
   outside the boundary: a type from one is reported as external-type.
 
+An API of several headers
+-------------------------
+
+A library may describe its API in more than one header, such as an umbrella
+header and one header per part of the API. The headers given to **yace** are
+the API: it parses them together, as one model, and generates one binding of
+it per target. What they declare of each other is internal to the API, and
+what any other header declares, those of the system included, is external.
+
+Each header includes the headers that declare what it uses, those of the
+system and those of the API alike, and has an include guard, so that it
+compiles when it is included on its own. A header relying on another to
+include for it is reported as ``self-contained``. Of the system headers, only
+the types listed above may appear in the API.
+
+For example, of a library whose headers are in ``include/``::
+
+  yace --emit python rust -I include include/libfoo.h include/libfoo_*.h
+
+The IR and the status are named by the first header given, ``libfoo.yaml``
+and ``libfoo.status``. A header left out, such as one of internal helpers, is
+not part of the API; a type from it is external.
+
 Records
 -------
 

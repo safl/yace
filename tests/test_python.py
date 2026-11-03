@@ -74,7 +74,7 @@ def test_headers_outside_the_subset_still_bind(parse, tmp_path):
     assert process(model, ["python"], tmp_path) == []
 
     ns = module(tmp_path)
-    assert "FILE" in ns  # FILE, declared outside the header, is a stub
+    assert "FILE" in ns  # FILE, declared outside the headers, is a stub
     assert "log_it" not in ns  # variadic, so not bound
     assert ns["Outer"]._fields_[1] == ("bits", ns["ctypes"].c_uint, 3)
     assert ns["Flex"]().to_dict() == {"n": 0, "data": None}

@@ -2,10 +2,10 @@
 """
 The command-line interface of **yace**
 
-Given C headers, parses them into the IR, writing '<stem>.yaml' and the
-diagnostics to '<stem>.status', and reports every place the headers step outside
-the C subset. Given IR files, '.yaml', reads them. Either way, '--emit' then
-generates the code of the given targets and checks it.
+Given C headers, parses them as one API into the IR, writing '<stem>.yaml' and
+the diagnostics to '<stem>.status', named by the first header, and reports every
+place the headers step outside the C subset. Given IR files, '.yaml', reads them.
+Either way, '--emit' then generates the code of the given targets and checks it.
 """
 
 import argparse
@@ -31,7 +31,8 @@ def parse_args():
         "filepath",
         nargs="*",
         type=Path,
-        help="C headers (.h) to parse, or IR files (.yaml) to emit code from",
+        help="C headers (.h) to parse, as one API, or IR files (.yaml) to emit code"
+        " from",
     )
     parser.add_argument(
         "--emit",
@@ -118,27 +119,19 @@ def main():
     if ".h" in suffixes:
         meta = yaml.safe_load(args.meta.read_text()) if args.meta else None
         args_clang = [f"-I{path}" for path in args.include]
-        results = c_to_yace(args.filepath, args.output, meta, args_clang)
-        violations = 0
-        for path, model, diagnostics in results:
-            for diagnostic in diagnostics:
-                print(diagnostic, file=sys.stderr)
-            violations += len(diagnostics)
-            log.info(
-                "%s: %d entities, %d diagnostics",
-                path.name,
-                len(model.entities),
-                len(diagnostics),
-            )
-        if violations:
+        model, diagnostics = c_to_yace(args.filepath, args.output, meta, args_clang)
+        for diagnostic in diagnostics:
+            print(diagnostic, file=sys.stderr)
+        log.info("%d entities, %d diagnostics", len(model.entities), len(diagnostics))
+        if diagnostics:
             print(
-                f"yace: {violations} diagnostics; the headers step outside the C"
-                " subset, see the .status files",
+                f"yace: {len(diagnostics)} diagnostics; the headers step outside the"
+                f" C subset, see {args.filepath[0].stem}.status",
                 file=sys.stderr,
             )
             if args.strict:
                 return 1
-        models = [model for _, model, _ in results]
+        models = [model]
     else:
         models = [ir.load(path) for path in args.filepath]
 

@@ -105,7 +105,7 @@ def local(name: str, suffix: str, taken: Iterable[str]) -> str:
 
 def typedefs_used(node) -> Iterator[str]:
     """The names of the typedefs 'node' refers to, among them those declared
-    outside the header, such as FILE"""
+    outside the headers, such as FILE"""
 
     if isinstance(node, types.TypedefRef):
         yield node.name

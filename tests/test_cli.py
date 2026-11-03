@@ -48,3 +48,19 @@ def test_unknown_target(tmp_path):
     proc = yace(HEADERS / "valid.h", "--output", tmp_path, "--emit", "nope")
     assert proc.returncode == 1
     assert "no target" in proc.stderr
+
+
+def test_the_headers_given_are_parsed_as_one_ir(tmp_path):
+    a = tmp_path / "api_a.h"
+    a.write_text("#pragma once\n/** A */\nstruct api_a {\n\tint n; ///< N\n};\n")
+    b = tmp_path / "api_b.h"
+    b.write_text(
+        '#include "api_a.h"\n/**\n * B\n *\n * @param a A\n * @return N\n */\n'
+        "int api_b(struct api_a *a);\n"
+    )
+    out = tmp_path / "out"
+    proc = yace(a, b, "--output", out, "--strict")
+
+    assert proc.returncode == 0, proc.stderr
+    assert sorted(p.name for p in out.iterdir()) == ["api_a.status", "api_a.yaml"]
+    assert "api_b" in (out / "api_a.yaml").read_text()

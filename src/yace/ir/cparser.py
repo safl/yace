@@ -250,30 +250,39 @@ class CParser(object):
 
         return None
 
-    def parse(self, path: Path, meta: Optional[dict] = None):
-        """Parse the header at 'path'; returns the (Model, [Diagnostic])"""
+    def parse(self, paths, meta: Optional[dict] = None):
+        """
+        Parse the header, or the headers, at 'paths' as one API; returns the
+        (Model, [Diagnostic]). What the headers declare is in the model, and what
+        any other header declares is external.
+        """
 
-        return _HeaderParser(self, Path(path).resolve(), meta or {}).run()
+        if isinstance(paths, (str, Path)):
+            paths = [paths]
+        resolved = [Path(path).resolve() for path in paths]
+        return _HeaderParser(self, resolved, meta or {}).run()
 
 
 class _HeaderParser(object):
-    """The state of parsing one header"""
+    """The state of parsing the headers of one API"""
 
-    def __init__(self, parser: CParser, path: Path, meta: dict):
+    def __init__(self, parser: CParser, paths: List[Path], meta: dict):
         self.parser = parser
-        self.path = path
+        self.paths = list(dict.fromkeys(paths))
+        self.path = self.paths[0]
         self.meta = meta
-        self.lines = path.read_text(errors="replace").splitlines()
+        self.lines: Dict[Path, List[str]] = {}  # the lines of each header, read once
         self.diagnostics: List[Diagnostic] = []
         self.names: Dict[Tuple[str, int], str] = {}  # anonymous decl -> its name
         self.absorbed: set = set()  # typedefs naming an anonymous record or enum
         self.aliases: set = set()  # typedefs of the record or enum of their name
         self.skipped: set = set()  # typedefs skipped, which their uses are too
         self.skipped_records: set = set()  # records skipped, by name, as typedefs
-        self.external: set = set()  # records declared outside the header
+        self.external: set = set()  # records declared outside the headers
         self.typedefs: set = set()  # typedef names declared in the header
         self.defined: set = set()  # records defined in the header, by name
         self.cursors: dict = {}  # functions and typedefs, by name
+        self.included: set = set()  # the includes in the model, (name, system)
 
     def report(self, rule: str, message: str, cursor=None):
         file, line, column = location(cursor) if cursor is not None else ("", 0, 0)
@@ -289,7 +298,18 @@ class _HeaderParser(object):
 
     def in_header(self, cursor) -> bool:
         file = cursor.location.file
-        return bool(file) and Path(file.name).resolve() == self.path
+        return bool(file) and Path(file.name).resolve() in self.paths
+
+    def lines_of(self, cursor) -> List[str]:
+        path = Path(cursor.location.file.name).resolve()
+        if path not in self.lines:
+            self.lines[path] = path.read_text(errors="replace").splitlines()
+        return self.lines[path]
+
+    def includes(self) -> str:
+        """A translation unit of the headers, in the order given"""
+
+        return "".join(f'#include "{path}"\n' for path in self.paths)
 
     def typ(self, ctype, cursor) -> types.Type:
         """The IR type of the libclang 'ctype'; raises Unsupported"""
@@ -324,7 +344,7 @@ class _HeaderParser(object):
                 return types.TypedefRef(name=name, const=const)
             self.report(
                 "external-type",
-                f"'{name}' is declared outside the header, in"
+                f"'{name}' is declared outside the headers, in"
                 f" {Path(location(decl)[0]).name or 'the compiler'}",
                 cursor,
             )
@@ -347,7 +367,7 @@ class _HeaderParser(object):
             if not self.in_header(decl):
                 self.report(
                     "external-type",
-                    f"'{ctype.spelling}' is declared outside the header",
+                    f"'{ctype.spelling}' is declared outside the headers",
                     cursor,
                 )
                 self.external.add(name)
@@ -436,7 +456,7 @@ class _HeaderParser(object):
         self.diagnostics = kept
 
     def by_value(self, typ):
-        """'typ', unless it holds a record declared outside the header by
+        """'typ', unless it holds a record declared outside the headers by
         value, whose layout is unknown here; raises Unsupported then"""
 
         held = typ
@@ -446,7 +466,7 @@ class _HeaderParser(object):
             held.name in self.external
         ):
             spelled = f"{held.tag} {held.name}" if held.key == "record" else held.name
-            raise Unsupported(f"'{spelled}', declared outside the header, by value")
+            raise Unsupported(f"'{spelled}', declared outside the headers, by value")
         function = held.to if isinstance(held, types.Pointer) else held
         if isinstance(function, types.FunctionType):
             for param in function.params:
@@ -903,7 +923,7 @@ class _HeaderParser(object):
         return name
 
     def macro_doc(self, cursor) -> doc.Doc:
-        return doc.parse(comment_before(self.lines, cursor.location.line))
+        return doc.parse(comment_before(self.lines_of(cursor), cursor.location.line))
 
     def evaluate(self, names: List[str]) -> Dict[str, int]:
         """
@@ -915,7 +935,7 @@ class _HeaderParser(object):
         found: Dict[str, int] = {}
         for idx in range(0, len(names), EVAL_BATCH):
             batch = names[idx : idx + EVAL_BATCH]
-            source = [f'#include "{self.path}"']
+            source = [self.includes()]
             for enum, underlying in (("s", "long long"), ("u", "unsigned long long")):
                 source.append(f"enum yace_eval_{enum} : {underlying} {{")
                 source += [f"\tyace_eval_{enum}_{name} = ({name})," for name in batch]
@@ -925,8 +945,9 @@ class _HeaderParser(object):
             with tempfile.NamedTemporaryFile("w", suffix=".c") as tmp:
                 tmp.write("\n".join(source))
                 tmp.flush()
+                dirs = dict.fromkeys(f"-I{path.parent}" for path in self.paths)
                 tu = self.parser.index.parse(
-                    tmp.name, args=self.parser.args + [f"-I{self.path.parent}"]
+                    tmp.name, args=self.parser.args + list(dirs)
                 )
                 invalid = {
                     diag.location.line
@@ -947,27 +968,66 @@ class _HeaderParser(object):
                         found.setdefault(name, child.enum_value)
         return found
 
-    def run(self):
+    def errors(self, tu, rule: str) -> List[Diagnostic]:
+        """The errors of parsing 'tu', as diagnostics of 'rule'"""
+
+        return [
+            Diagnostic(
+                rule=rule,
+                message=diag.spelling,
+                file=Path(diag.location.file.name).name if diag.location.file else "",
+                line=diag.location.line,
+                column=diag.location.column,
+            )
+            for diag in tu.diagnostics
+            if diag.severity >= 3
+        ]
+
+    def translation_unit(self):
+        """The headers parsed as one translation unit, reporting its errors, and
+        those of each header that does not compile when it is included alone"""
+
+        options = TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD
+        if len(self.paths) == 1:
+            tu = self.parser.index.parse(
+                str(self.path), args=self.parser.args, options=options
+            )
+            self.diagnostics += self.errors(tu, "parse-error")
+            return tu
+
+        name = str(self.path.parent / "yace-headers.c")
         tu = self.parser.index.parse(
-            str(self.path),
+            name,
             args=self.parser.args,
-            options=TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
+            unsaved_files=[(name, self.includes())],
+            options=options,
         )
-        for diag in tu.diagnostics:
-            if diag.severity >= 3:
-                self.diagnostics.append(
-                    Diagnostic(
-                        rule="parse-error",
-                        message=diag.spelling,
-                        file=(
-                            Path(diag.location.file.name).name
-                            if diag.location.file
-                            else ""
-                        ),
-                        line=diag.location.line,
-                        column=diag.location.column,
-                    )
-                )
+        together = self.errors(tu, "parse-error")
+        self.diagnostics += together
+        seen = {(d.file, d.line, d.column, d.message) for d in together}
+        for path in self.paths:
+            alone = self.parser.index.parse(
+                str(path), args=self.parser.args + ["-ferror-limit=0"]
+            )
+            new = [
+                found
+                for found in self.errors(alone, "self-contained")
+                if (found.file, found.line, found.column, found.message) not in seen
+            ]
+            if not new:
+                continue
+            first = new[0]
+            first.message = (
+                f"{path.name} does not compile when included alone: {first.message}"
+            )
+            if len(new) > 1:
+                more = len(new) - 1
+                first.message += f", and {more} more error{'s' * (more > 1)}"
+            self.diagnostics.append(first)
+        return tu
+
+    def run(self):
+        tu = self.translation_unit()
 
         cursors = [c for c in tu.cursor.get_children() if self.in_header(c)]
 
@@ -1057,7 +1117,7 @@ class _HeaderParser(object):
         meta = {
             "name": self.path.stem,
             "prefix": self.path.stem,
-            "header": self.path.name,
+            "headers": [path.name for path in self.paths],
             "abi": host_abi(),
         }
         meta.update(self.meta)
@@ -1089,7 +1149,16 @@ class _HeaderParser(object):
         kind = cursor.kind
 
         if kind == CursorKind.INCLUSION_DIRECTIVE:
+            try:
+                included = cursor.get_included_file()
+            except AssertionError:  # not found, which the parse reports
+                included = None
+            if included and Path(included.name).resolve() in self.paths:
+                return []  # one of the headers of the API, already in the model
             system = any(t.spelling == "<" for t in cursor.get_tokens())
+            if (cursor.displayname, system) in self.included:
+                return []  # included by more than one of the headers
+            self.included.add((cursor.displayname, system))
             return [decls.Include(name=cursor.displayname, system=system)]
 
         if kind == CursorKind.MACRO_DEFINITION:
@@ -1190,26 +1259,20 @@ class _HeaderParser(object):
 
 def c_to_yace(
     paths: List[Path], output: Path, meta: Optional[dict] = None, args=None
-) -> List[Tuple[Path, Model, List[Diagnostic]]]:
+) -> Tuple[Model, List[Diagnostic]]:
     """
-    Parse each header in 'paths', writing its IR to '<output>/<stem>.yaml' and
-    its diagnostics to '<output>/<stem>.status'
+    Parse the headers in 'paths' as one API, writing its IR to
+    '<output>/<stem>.yaml' and its diagnostics to '<output>/<stem>.status', where
+    '<stem>' is that of the first header
     """
 
     output.mkdir(parents=True, exist_ok=True)
-    parser = CParser(args)
+    model, diagnostics = CParser(args).parse(paths, meta)
+    stem = Path(paths[0]).stem
+    model.save(output / f"{stem}.yaml")
 
-    results = []
-    for path in [Path(p).resolve() for p in paths]:
-        model, diagnostics = parser.parse(path, meta)
-        model.save(output / f"{path.stem}.yaml")
+    lines = [f"Parsed {len(model.entities)} entities, {len(diagnostics)} diagnostics"]
+    lines += [str(diag) for diag in diagnostics]
+    (output / f"{stem}.status").write_text("\n".join(lines) + "\n")
 
-        lines = [
-            f"Parsed {len(model.entities)} entities," f" {len(diagnostics)} diagnostics"
-        ]
-        lines += [str(diag) for diag in diagnostics]
-        (output / f"{path.stem}.status").write_text("\n".join(lines) + "\n")
-
-        results.append((path, model, diagnostics))
-
-    return results
+    return model, diagnostics
