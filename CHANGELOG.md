@@ -10,6 +10,28 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## 0.7.0
+
+The header is the description of an FFI boundary, in a C subset. yace reports
+every step outside the subset as a diagnostic naming the rule, and skips what
+no binding can hold, with everything that uses it, rather than dropping or
+coercing it silently. The IR records the layout of each record, and every
+target checks it. Doxygen tags say what C cannot: `@param[in|out|in,out]`,
+`@nullable`, `@len`, `@errno`, `@destroys`, and `@lifetime` for how long the
+library may invoke a callback.
+
+The targets are the C API with pretty-printers, Python through ctypes, a `-sys`
+style Rust crate, a header-only C++ layer, and Zig 0.16. Over the raw bindings,
+the Python, Rust, C++ and Zig targets add an idiomatic layer: handles released
+by their destructors, errors from errno, sequences for arrays, and closures for
+callbacks. Every target is checked against the libfoo fixture.
+
+Breaking: the IR format; the CLI, with `--meta`, `--strict`, `--schema` and
+`-I`, and `--emit` no longer defaulting to `capi`; and the ctypes target, which
+emitted empty modules, is gone.
+
+`make devenv-run` runs a command in the development environment that CI uses.
+
 ## 0.6.0
 
 The C parser carries the signature of a function pointer wherever it appears
