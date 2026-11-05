@@ -9,6 +9,9 @@ ARG RUST=1.96.0
 # The rust-version the generated Cargo.toml declares, which a test builds with
 ARG RUST_MSRV=1.81
 ARG ZIG=0.16.0
+ARG GO=1.27.3
+ARG GO_SHA256_X86_64=65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40
+ARG GO_SHA256_AARCH64=a06e99309dbcbdca1a8ccd2282c3ee146e55930886e26b4f1193269587165f49
 
 LABEL org.opencontainers.image.source=https://github.com/safl/yace
 LABEL org.opencontainers.image.description="The toolchains yace is tested with"
@@ -37,7 +40,13 @@ ENV YACE_RUST_MSRV=${RUST_MSRV}
 COPY toolbox/devenv/install-zig.sh /tmp/install-zig.sh
 RUN bash /tmp/install-zig.sh ${ZIG} /opt/zig && rm /tmp/install-zig.sh
 
+COPY toolbox/devenv/install-go.sh /tmp/install-go.sh
+RUN bash /tmp/install-go.sh ${GO} /opt/go ${GO_SHA256_X86_64} ${GO_SHA256_AARCH64} \
+ && rm /tmp/install-go.sh
+# The Go installed, never one go.mod asks to download
+ENV GOTOOLCHAIN=local
+
 # A home any user can write, for running as the developer's own user
 RUN mkdir -m 1777 /home/yace
 ENV HOME=/home/yace \
-    PATH=/home/yace/.local/bin:/opt/zig:/opt/rust/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    PATH=/home/yace/.local/bin:/opt/zig:/opt/go/bin:/opt/rust/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
