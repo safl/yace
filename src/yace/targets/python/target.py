@@ -129,6 +129,8 @@ class Python(Target):
             "record_kind": cgen.tag,
             "layout": model.meta.abi == host_abi(),
             "value_key": VALUE_KEY,
+            "accessor": pygen.accessor,
+            "attribute": pygen.attribute,
             "idiomatic": idiomatic.Renderer(Idioms(model), namer).render(),
         }
 

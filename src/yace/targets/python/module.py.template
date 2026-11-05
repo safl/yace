@@ -223,6 +223,23 @@ class {{ namer(record.name) }}(ctypes.{{ "Union" if record | is_union else "Stru
         "{{ field.name }}": ({% for mask in field.masks %}("{{ mask.name }}", {{ "%#x" % mask.value }}, {{ mask.lo }}), {% endfor %}),
 {%- endfor %}
     }
+{%- for field in record.fields %}
+{%- for mask in field.masks %}
+{%- set name = accessor(field, mask) %}
+
+    @property
+    def {{ name }}(self):
+        {{ (mask.doc | docstring("        ") or mask.name) | quoted("        ") }}
+
+        return ({{ attribute(field.name) }} & {{ "%#x" % mask.value }}) >> {{ mask.lo }}
+
+    @{{ name }}.setter
+    def {{ name }}(self, value):
+        if not 0 <= value <= {{ "%#x" % mask.largest }}:
+            raise ValueError(f"{{ name }} is {{ mask.width }} bit{{ "s" if mask.width > 1 }}, not {value}")
+        {{ attribute(field.name, "(" ~ attribute(field.name) ~ " & ~" ~ ("%#x" % mask.value) ~ ") | (value << " ~ mask.lo ~ ")") }}
+{%- endfor %}
+{%- endfor %}
 {%- endif %}
 {%- endif %}
 {%- endfor %}

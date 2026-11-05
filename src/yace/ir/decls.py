@@ -80,7 +80,13 @@ class Mask(Node):
     def value(self) -> int:
         """The mask, the bits in their place"""
 
-        return ((1 << self.width) - 1) << self.lo
+        return self.largest << self.lo
+
+    @property
+    def largest(self) -> int:
+        """The largest value of the part"""
+
+        return (1 << self.width) - 1
 
 
 class Field(Node):

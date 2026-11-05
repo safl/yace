@@ -244,6 +244,28 @@ def returns(function: decls.Function, namer: Namer) -> str:
     return ""
 
 
+# What the records have of their own, which no accessor may hide
+RECORD_NAMES = {"to_dict", "fpr", "pr"}
+
+
+def accessor(field: decls.Field, mask: decls.Mask) -> str:
+    """The name of the property reading and writing the part 'mask' of 'field'"""
+
+    name = f"{field.name}_{mask.name}"
+    return f"{name}_" if name in RECORD_NAMES else name
+
+
+def attribute(name: str, value: str = "") -> str:
+    """Getting the field 'name' of 'self', or setting it to 'value'; a field
+    named as a keyword is no attribute Python can spell"""
+
+    if not keyword.iskeyword(name):
+        return f"self.{name} = {value}" if value else f"self.{name}"
+    if value:
+        return f'_builtins.setattr(self, "{name}", {value})'
+    return f'_builtins.getattr(self, "{name}")'
+
+
 def argument(param: decls.Param, name: str) -> str:
     """The expression passing the wrapper's argument 'name' on to C"""
 

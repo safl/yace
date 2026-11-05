@@ -656,3 +656,40 @@ def test_a_field_of_bits_prints_its_parts(parse, tmp_path):
         "code": {"val": 0x8A05, "type": 5, "delay": 10, "dnr": 1},
         "wide": {"val": 0x8000000100000002, "low": 2, "top": 1},
     }
+
+
+def test_the_parts_of_a_field_of_bits_are_properties(parse, tmp_path):
+    model, _ = parse(
+        BITS + "/** K */\nstruct api_k {\n"
+        "\tuint8_t class; ///< Class, see API_K_CLASS_*\n"
+        "\tuint8_t to; ///< To, see API_K_TO_*\n};\n"
+        "/** Hi; bits 7:4 of 'class' */\n#define API_K_CLASS_HI 0xf0\n"
+        "/** Dict; bit 0 of 'to' */\n#define API_K_TO_DICT 0x1\n"
+    )
+    assert process(model, ["python"], tmp_path) == []
+
+    api = module(tmp_path)
+    status = api["ApiStatus"](0x8A05, 0x8000000100000002)
+    assert (status.code_type, status.code_delay, status.code_dnr) == (5, 10, 1)
+    assert (status.wide_low, status.wide_top) == (2, 1)
+    status.code_delay = 3
+    status.code_dnr = 0
+    assert status.code == 0x0305 and status.code_type == 5
+    status.wide_top = 0
+    status.wide_low = 0xFFFFFFFF
+    assert status.wide == 0x1FFFFFFFF
+    with pytest.raises(ValueError, match="code_delay is 4 bits, not 16"):
+        status.code_delay = 16
+    with pytest.raises(ValueError):
+        status.code_type = -1
+    assert status.code == 0x0305
+    assert api["ApiStatus"].code_type.__doc__ == "Kind; bits 2:0 of 'code'"
+
+    k = api["ApiK"]()
+    k.class_hi = 0xA
+    k.to_dict_ = 1
+    assert getattr(k, "class") == 0xA0 and k.to == 1
+    assert k.to_dict() == {
+        "class": {"val": 0xA0, "hi": 0xA},
+        "to": {"val": 1, "dict": 1},
+    }

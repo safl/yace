@@ -36,7 +36,7 @@ by the new bit-mask rule, and the mask is left unlinked.
 
 The pretty-printers of every target print a field of bits as its value and its
 parts, `code: {val: 0x8a05, type: 0x5, dnr: 0x1}` in YAML, the same in decimal
-in JSON.
+in JSON. In Python, each part is a property of the record, `status.code_type`.
 
 ## 0.7.0
 
