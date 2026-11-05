@@ -116,7 +116,7 @@ RULES = {
     ),
     "parse-error": (
         "The compiler could not parse the headers, together in the order given;"
-        " the result is incomplete"
+        " the result is incomplete. Every error is reported, each once"
     ),
     "internal-error": (
         "yace failed on this declaration; it is skipped. This is a bug in yace"

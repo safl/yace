@@ -25,6 +25,9 @@ headers, for a set whose umbrella header includes it on behalf of its parts.
 The IR records the prelude, and the generated C header includes it; what the
 API uses of it is still an `external-type`.
 
+A set that does not compile reports every error, once each, rather than the
+first 20 that clang stops at, which hid how far a set was from compiling.
+
 ## 0.7.0
 
 The header is the description of an FFI boundary, in a C subset. yace reports

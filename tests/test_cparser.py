@@ -596,10 +596,24 @@ def test_a_prelude_is_included_ahead_of_the_headers(parser, tmp_path):
 
 
 def test_an_error_in_the_headers_is_reported_once(parser, tmp_path):
-    paths = headers(tmp_path, api_e="/** E */\nint api_e(void) int;\n", api_f="")
+    paths = headers(
+        tmp_path,
+        api_e="/** E */\nint api_e(void) int;\n",
+        api_f='#include "api_e.h"\n',
+    )
     _, diagnostics = parser.parse(paths)
 
-    assert [d.rule for d in diagnostics] == ["parse-error"]
+    assert [str(d) for d in diagnostics] == [
+        "api_e.h:2:16: parse-error: expected ';' after top level declarator"
+    ]
+
+
+def test_every_error_of_the_headers_is_reported(parse):
+    _, diagnostics = parse("".join(f"api_t{n} v{n};\n" for n in range(30)))
+    errors = [d for d in diagnostics if d.rule == "parse-error"]
+
+    assert len(errors) == 30
+    assert errors[-1].message == "unknown type name 'api_t29'"
 
 
 def test_an_include_not_found_is_kept(parse):

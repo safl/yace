@@ -198,7 +198,7 @@ class CParser(object):
             Config().set_library_path(searchpath)
 
         self.index = Index.create()
-        self.args = list(args or [])
+        self.args = ["-ferror-limit=0", *(args or [])]
         builtin = self._clang_builtin_include()
         if builtin:
             self.args += ["-isystem", builtin]
@@ -992,16 +992,22 @@ class _HeaderParser(object):
             unsaved_files=[(name, self.includes())],
             options=TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
         )
-        self.diagnostics += [
-            Diagnostic(
-                rule="parse-error",
-                message=diag.spelling,
-                file=Path(diag.location.file.name).name if diag.location.file else "",
-                line=diag.location.line,
-                column=diag.location.column,
+        # A header without an include guard, included twice, errs twice alike
+        errors = dict.fromkeys(
+            (
+                Path(diag.location.file.name).name if diag.location.file else "",
+                diag.location.line,
+                diag.location.column,
+                diag.spelling,
             )
             for diag in tu.diagnostics
             if diag.severity >= 3
+        )
+        self.diagnostics += [
+            Diagnostic(
+                rule="parse-error", message=message, file=file, line=line, column=col
+            )
+            for file, line, col, message in errors
         ]
         return tu
 

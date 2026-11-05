@@ -91,7 +91,7 @@ breaking one is still parsed; ``--strict`` makes any diagnostic an error.
   A declaration has one doc comment; adjacent ones are joined into one.
 
 ``parse-error``
-  The compiler could not parse the headers, together in the order given; the result is incomplete.
+  The compiler could not parse the headers, together in the order given; the result is incomplete. Every error is reported, each once.
 
 ``internal-error``
   yace failed on this declaration; it is skipped. This is a bug in yace.
