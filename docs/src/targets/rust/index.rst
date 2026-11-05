@@ -56,7 +56,11 @@ Records
   ``fpr(w, obj, flags)`` and ``pr(obj, flags)``, printing ``obj``, or null for
   ``None``, as the C API's ``<name>_fpr()`` and ``<name>_pr()`` do, and
   ``Display``, printing YAML. An opaque record is a zero-sized type that cannot
-  be constructed, used through pointers.
+  be constructed, used through pointers. Each part of a field of bits, see
+  :ref:`sec-ir-csubset`, has a getter and a setter, ``code_type()`` and
+  ``set_code_type(value)``, of the field's type; the setter panics on a value
+  that does not fit the part's bits. The field itself is there as before; a
+  getter of a union's field is safe, as every value of an integer is one.
 
 Callbacks
   A function pointer type is an ``Option`` of an ``unsafe extern "C" fn``, the

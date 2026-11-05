@@ -167,6 +167,15 @@ impl Default for {{ name }} {
     }
 }
 {%- endif %}
+{%- if record.fields and record not in blobs and record.fields | selectattr("masks") | list %}
+
+/// The parts of its fields of bits, by name
+impl {{ name }} {
+{%- for line in accessors(record) %}
+{{ line }}
+{%- endfor %}
+}
+{%- endif %}
 {%- endfor %}
 {%- for name, rust in stubs %}
 

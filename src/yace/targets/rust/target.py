@@ -128,6 +128,7 @@ class Rust(Target):
                 for i, p in enumerate(f.params)
             ],
             "layout": model.meta.abi == host_abi(),
+            "accessors": lambda record: rgen.accessors(record, namer),
             "idiomatic": idiomatic.Renderer(Idioms(model), namer).render(),
         }
 

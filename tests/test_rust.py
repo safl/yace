@@ -1080,3 +1080,36 @@ def test_a_field_of_bits_prints_its_parts(parse, tmp_path):
         "}\n"
     )
     assert run_with_crate(tmp_path, main, {"API_NO_LINK": "1"}) == BITS_PRINTED
+
+
+BITS_UNION = (
+    "/** U */\nunion api_u {\n"
+    "\tuint32_t type; ///< Type, see API_U_TYPE_*\n\tint32_t i; ///< Signed\n};\n"
+    "/** High half; bits 31:16 of 'type' */\n#define API_U_TYPE_HI 0xffff0000\n"
+)
+
+
+def test_the_parts_of_a_field_of_bits_are_methods(parse, tmp_path):
+    model, _ = parse(BITS + BITS_UNION)
+    assert process(model, ["rust"], tmp_path) == []
+    assert "warning" not in (tmp_path / "rust" / "cargo.log").read_text()
+
+    main = (
+        "use api::*;\nfn main() {\n"
+        "    let mut s = ApiStatus { code: 0x8a05, wide: 0x8000000100000002 };\n"
+        '    println!("{} {} {} {} {}", s.code_type(), s.code_delay(), s.code_dnr(),'
+        " s.wide_low(), s.wide_top());\n"
+        "    s.set_code_delay(3);\n    s.set_code_dnr(0);\n"
+        '    println!("{:#x} {}", s.code, s.code_type());\n'
+        "    let over = std::panic::catch_unwind(|| {\n"
+        "        ApiStatus::default().set_code_delay(16);\n    });\n"
+        '    println!("{}", over.is_err());\n'
+        "    let mut u = ApiU::default();\n    u.set_type_hi(0xabcd);\n"
+        '    println!("{:#x} {:#x}", unsafe { u.r#type }, u.type_hi());\n'
+        "}\n"
+    )
+    assert run_with_crate(tmp_path, main, {"API_NO_LINK": "1"}) == (
+        "5 10 1 2 1\n0x305 5\ntrue\n0xabcd0000 0xabcd\n"
+    )
+    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    assert "/// Kind; bits 2:0 of 'code'\n    pub fn code_type(&self) -> u16 {" in lib

@@ -184,6 +184,45 @@ def define_value(value) -> str:
     return str(value.value)
 
 
+PRINTER_METHODS = {"yace_json", "yace_yaml"}
+
+
+def accessors(record, namer: Namer) -> List[str]:
+    """The methods reading and writing the parts of the fields of bits of
+    'record'; reading a field of a union is unsafe, writing one is not"""
+
+    union = isinstance(record, decls.Union)
+    lines: List[str] = []
+    for field in record.fields:
+        typ = namer.rtype(field.typ)
+        place = f"self.{ident(field.name)}"
+        read = f"unsafe {{ {place} }}" if union else place
+        for mask in field.masks:
+            name = f"{field.name}_{mask.name}"
+            if name in PRINTER_METHODS:
+                name += "_"
+            bits = f"{mask.width} bit{'s' * (mask.width > 1)}"
+            lines += [""] if lines else []
+            lines += [f"    /// {line}".rstrip() for line in doc_lines(mask.doc)]
+            lines += [
+                f"    pub fn {name}(&self) -> {typ} {{",
+                f"        ({read} & {mask.value:#x}) >> {mask.lo}",
+                "    }",
+                "",
+                f"    /// Set the part of '{field.name}' that {name}() reads",
+                "    ///",
+                "    /// # Panics",
+                "    ///",
+                f"    /// When 'value' does not fit in {bits}",
+                f"    pub fn set_{name}(&mut self, value: {typ}) {{",
+                f'        assert!(value <= {mask.largest:#x}, "{name} is {bits}");',
+                f"        {place} = ({read} & !{mask.value:#x})"
+                f" | (value << {mask.lo});",
+                "    }",
+            ]
+    return lines
+
+
 class Printer(object):
     """The Rust statements printing a value of a type as JSON"""
 
