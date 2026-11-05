@@ -156,6 +156,15 @@ def decl_key(cursor) -> Tuple[str, int]:
     return (loc.file.name if loc.file else "", loc.offset)
 
 
+def qualify(typ: types.Type):
+    """Make 'typ' const; C qualifies an array by its elements"""
+
+    while isinstance(typ, types.Array):
+        typ = typ.of
+    if not isinstance(typ, types.FunctionType):
+        typ.const = True
+
+
 def comment_before(lines: List[str], lineno: int) -> Optional[str]:
     """
     The Doxygen comment ending on the line above 'lineno', or trailing on it;
@@ -352,7 +361,8 @@ class _HeaderParser(object):
                     raise Unsupported(f"'{name}', a typedef that is skipped")
                 if decl_key(decl) in self.absorbed | self.aliases:
                     found = self.typ(decl.underlying_typedef_type, cursor)
-                    found.const = found.const or const
+                    if const:
+                        qualify(found)
                     return found
                 return types.TypedefRef(name=name, const=const)
             self.report(
