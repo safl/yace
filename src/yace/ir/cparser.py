@@ -254,24 +254,30 @@ class CParser(object):
 
         return None
 
-    def parse(self, paths, meta: Optional[dict] = None):
+    def parse(
+        self, paths, meta: Optional[dict] = None, prelude: Optional[List[str]] = None
+    ):
         """
         Parse the header, or the headers, at 'paths' as one API; returns the
         (Model, [Diagnostic]). What the headers declare is in the model, and what
-        any other header declares is external.
+        any other header declares is external. The system headers named in
+        'prelude', such as 'stdio.h', are included ahead of them.
         """
 
         if isinstance(paths, (str, Path)):
             paths = [paths]
         resolved = [Path(path).resolve() for path in paths]
-        return _HeaderParser(self, resolved, meta or {}).run()
+        return _HeaderParser(self, resolved, meta or {}, prelude or []).run()
 
 
 class _HeaderParser(object):
     """The state of parsing the headers of one API"""
 
-    def __init__(self, parser: CParser, paths: List[Path], meta: dict):
+    def __init__(
+        self, parser: CParser, paths: List[Path], meta: dict, prelude: List[str]
+    ):
         self.parser = parser
+        self.prelude = prelude
         self.paths = list(dict.fromkeys(paths))
         self.path = self.paths[0]
         self.meta = meta
@@ -312,9 +318,9 @@ class _HeaderParser(object):
 
     def includes(self) -> str:
         """A translation unit of the headers, in the order given, after the
-        standard headers whose types the C subset has"""
+        standard headers whose types the C subset has and the prelude"""
 
-        names = [f"<{name}>" for name in STANDARD_HEADERS]
+        names = [f"<{name}>" for name in [*STANDARD_HEADERS, *self.prelude]]
         names += [f'"{path}"' for path in self.paths]
         return "".join(f"#include {name}\n" for name in names)
 
@@ -1091,6 +1097,7 @@ class _HeaderParser(object):
             "name": self.path.stem,
             "prefix": self.path.stem,
             "headers": [path.name for path in self.paths],
+            "prelude": self.prelude,
             "abi": host_abi(),
         }
         meta.update(self.meta)
@@ -1231,16 +1238,20 @@ class _HeaderParser(object):
 
 
 def c_to_yace(
-    paths: List[Path], output: Path, meta: Optional[dict] = None, args=None
+    paths: List[Path],
+    output: Path,
+    meta: Optional[dict] = None,
+    args=None,
+    prelude: Optional[List[str]] = None,
 ) -> Tuple[Model, List[Diagnostic]]:
     """
-    Parse the headers in 'paths' as one API, writing its IR to
-    '<output>/<stem>.yaml' and its diagnostics to '<output>/<stem>.status', where
-    '<stem>' is that of the first header
+    Parse the headers in 'paths' as one API, after the system headers named in
+    'prelude', writing its IR to '<output>/<stem>.yaml' and its diagnostics to
+    '<output>/<stem>.status', where '<stem>' is that of the first header
     """
 
     output.mkdir(parents=True, exist_ok=True)
-    model, diagnostics = CParser(args).parse(paths, meta)
+    model, diagnostics = CParser(args).parse(paths, meta, prelude)
     stem = Path(paths[0]).stem
     model.save(output / f"{stem}.yaml")
 

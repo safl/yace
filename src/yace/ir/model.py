@@ -28,6 +28,7 @@ class Meta(Node):
     author: str = ""
     license: str = ""
     headers: List[str] = []  # the names of the headers the IR was parsed from
+    prelude: List[str] = []  # system headers included ahead of them, as 'stdio.h'
     pkg: str = ""  # its pkg-config name, if any
     abi: str = ""  # the platform whose layout the 'size', 'align' and 'offset' are
 

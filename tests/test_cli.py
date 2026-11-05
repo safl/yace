@@ -78,3 +78,19 @@ def test_headers_including_nothing_pass_strict_and_build(tmp_path):
     proc = yace(a, b, "--output", out, "--strict", "--emit", "capi")
 
     assert proc.returncode == 0, proc.stderr
+
+
+def test_a_prelude_supplies_what_the_headers_do_not_include(tmp_path):
+    header = tmp_path / "api_v.h"
+    header.write_text(
+        "/**\n * V\n *\n * @param f F\n * @param iov Vector\n * @return N\n */\n"
+        "ssize_t api_v(FILE *f, const struct iovec *iov);\n"
+    )
+    out = tmp_path / "out"
+    preludes = ["--prelude", "stdio.h", "--prelude", "sys/uio.h"]
+    proc = yace(header, "--output", out, *preludes, "--emit", "capi")
+
+    assert proc.returncode == 0, proc.stderr
+    assert "parse-error" not in proc.stderr
+    assert "'FILE' is declared outside the headers" in proc.stderr
+    assert "'struct iovec' is declared outside the headers" in proc.stderr

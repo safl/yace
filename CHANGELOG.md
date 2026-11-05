@@ -20,6 +20,11 @@ library read through its umbrella header do. The `self-contained` rule is gone;
 a set that does not compile is a `parse-error`, and a type from any other
 header is still an `external-type`.
 
+`--prelude HEADER` includes a system header, such as `stdio.h`, ahead of the
+headers, for a set whose umbrella header includes it on behalf of its parts.
+The IR records the prelude, and the generated C header includes it; what the
+API uses of it is still an `external-type`.
+
 ## 0.7.0
 
 The header is the description of an FFI boundary, in a C subset. yace reports

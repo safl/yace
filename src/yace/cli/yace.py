@@ -60,6 +60,15 @@ def parse_args():
         help="include directory, for parsing headers and building the checks",
     )
     parser.add_argument(
+        "--prelude",
+        action="append",
+        default=[],
+        metavar="HEADER",
+        help="system header, such as stdio.h, to include ahead of the headers, for"
+        " what they use but do not include; what the API uses of it is still"
+        " external",
+    )
+    parser.add_argument(
         "--strict",
         action="store_true",
         help="fail when a header steps outside the C subset",
@@ -119,7 +128,9 @@ def main():
     if ".h" in suffixes:
         meta = yaml.safe_load(args.meta.read_text()) if args.meta else None
         args_clang = [f"-I{path}" for path in args.include]
-        model, diagnostics = c_to_yace(args.filepath, args.output, meta, args_clang)
+        model, diagnostics = c_to_yace(
+            args.filepath, args.output, meta, args_clang, args.prelude
+        )
         for diagnostic in diagnostics:
             print(diagnostic, file=sys.stderr)
         log.info("%d entities, %d diagnostics", len(model.entities), len(diagnostics))

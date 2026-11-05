@@ -63,6 +63,14 @@ reported as ``parse-error``. Of the system headers, only the types listed above
 may appear in the API; ``ssize_t``, from ``<sys/types.h>``, is the one a header
 includes itself.
 
+A set whose umbrella header includes other system headers on behalf of its
+parts, such as ``<stdio.h>``, can be given them with ``--prelude``, once for
+each, as ``--prelude stdio.h``. They are included after the standard headers
+above and before the set, as the umbrella would, and the IR records them in its
+meta, so that the generated C header includes them too. What they declare is
+not part of the API: a type of theirs that the API uses, such as ``FILE``, is
+still reported as external-type.
+
 For example, of a library whose headers are in ``include/``::
 
   yace --emit python rust -I include include/libfoo.h include/libfoo_*.h

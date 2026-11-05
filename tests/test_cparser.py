@@ -572,6 +572,29 @@ def test_a_type_from_outside_the_set_is_external_with_no_include(parser, tmp_pat
     assert diagnostics[0].file == "api_p.h"
 
 
+# Uses what <stdio.h> declares, without including it
+API_Q = (
+    "/** End of file, and one */\n#define API_EOF1 (EOF + 1)\n"
+    "/**\n * Q\n *\n * @param f F\n * @return N\n */\nint api_q(FILE *f);\n"
+)
+
+
+def test_a_prelude_is_included_ahead_of_the_headers(parser, tmp_path):
+    paths = headers(tmp_path, api_q=API_Q)
+    _, without = parser.parse(paths)
+    model, diagnostics = parser.parse(paths, prelude=["stdio.h"])
+
+    assert "parse-error" in rules(without)
+    # Which header of the C library declares FILE differs between libcs
+    assert len(diagnostics) == 1
+    assert str(diagnostics[0]).startswith(
+        "api_q.h:9:17: external-type: 'FILE' is declared outside the headers, in "
+    )
+    assert [e.name for e in model.entities] == ["API_EOF1", "api_q"]
+    assert model.find("API_EOF1").value.value == 0
+    assert model.meta.prelude == ["stdio.h"]
+
+
 def test_an_error_in_the_headers_is_reported_once(parser, tmp_path):
     paths = headers(tmp_path, api_e="/** E */\nint api_e(void) int;\n", api_f="")
     _, diagnostics = parser.parse(paths)

@@ -141,6 +141,9 @@ class CAPI(Target):
             "PREFIX": prefix,
             "guard": f"LIB{prefix}_H",
             "includes": [
+                f"<{name}>" for name in model.meta.prelude if name not in defaults
+            ]
+            + [
                 f"<{e.name}>" if e.system else f'"{e.name}"'
                 for e in entities
                 if isinstance(e, decls.Include) and e.name not in defaults
