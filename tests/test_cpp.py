@@ -744,3 +744,20 @@ def test_the_parts_of_a_field_of_bits_are_functions(parse, tmp_path):
     )
     run = subprocess.run([str(program)], capture_output=True, text=True)
     assert run.stdout == ("5 10 1 2 1\n0x305 0x1ffffffff\nthrown\n0xabcd0000 0xabcd\n")
+
+
+@needs_cc
+def test_a_layout_other_than_recorded_fails_the_check(parser, tmp_path):
+    model, _ = parser.parse(HEADERS / "valid.h")
+    model.find("valid_point").size = 12
+
+    failures = process(model, ["cpp"], tmp_path)
+    assert failures and "sizeof(valid_point)" in failures[0]
+
+
+def test_an_offset_other_than_recorded_fails_the_check(parser, tmp_path):
+    model, _ = parser.parse(HEADERS / "valid.h")
+    model.find("valid_point").fields[1].offset = 40
+
+    failures = process(model, ["cpp"], tmp_path)
+    assert failures and "offsetof(valid_point, y)" in failures[0]

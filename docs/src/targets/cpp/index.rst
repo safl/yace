@@ -12,12 +12,13 @@ the target also emits the C API into ``<output>/capi``, as the C target does:
   ``std::span``.
 
 ``<prefix>_check.cpp``
-  The check, not part of the API: it prints a zeroed instance of every record,
-  through the layer, as YAML or JSON.
+  The check, not part of the API: it asserts the layout of the records, and
+  prints a zeroed instance of every record, through the layer, as YAML or JSON.
 
 The check is built with ``$CXX``, by default ``c++``, as C++20 with all
 warnings as errors, and run; **yace** then parses what it printed, as YAML and
-as JSON. The layout is the C API's, asserted by its check.
+as JSON. The check asserts the layout of the C API's records, which the layer
+uses, as the C check does.
 
 The layer
 ---------

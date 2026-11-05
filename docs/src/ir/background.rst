@@ -168,8 +168,8 @@ of the C API asserts them at compile time, for this example:
    :start-at: _Static_assert
    :end-at: offsetof(pad_sample, count)
 
-The other targets assert the same in their own language, and the C++ layer
-uses the records of the C API, which its check asserts. Where the ``abi``
+The other targets assert the same in their own language. The C++ layer uses
+the records of the C API, and its check asserts them as the C check does. Where the ``abi``
 differs from the host's, or with ``--no-check``, the layout is not asserted.
 
 No check asserts a calling convention. The fixture exercises them end to end:

@@ -20,7 +20,7 @@ from pathlib import Path
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
-from yace.ir.model import Model
+from yace.ir.model import Model, host_abi
 from yace.targets.capi import cgen
 from yace.targets.capi.target import CAPI, comment
 from yace.targets.target import Target
@@ -55,6 +55,7 @@ class CPP(Target):
             "body": renderer.render(),
             "operators": "\n".join(renderer.operators()),
             "complete": cgen.ordered_records(model),
+            "layout": model.meta.abi == host_abi(),
         }
         for filename, template in [
             (f"{prefix}.hpp", "header.hpp.template"),
