@@ -122,11 +122,54 @@ renamed by each generator::
 
 Bit-fields are left out for the same reason: Rust has none, and the packed
 structs of Zig are not laid out as C bit-fields are. Use a fixed-width integer
-and document the bits, for example with an enum of the masks.
+and name its parts with masks, as a field of bits, below.
 
 Records cross the boundary by pointer. Passed or returned by value, they depend
 on the calling convention of each platform for records, which other languages
 implement to varying degrees.
+
+Fields of bits
+--------------
+
+A field of bits, such as a status of a device, is an unsigned integer of the
+width the field has, and each of its parts is named by a mask: an object-like
+``#define`` of the part's bits in their place. The integer's doc names the
+prefix of its masks, and each mask's doc ends in which bits of which field it
+is::
+
+  /**
+   * A status
+   */
+  struct foo_status {
+	uint16_t code; ///< Status code, see FOO_STATUS_CODE_*
+  };
+
+  /** Generic, command specific or media error; bits 2:0 of 'code' */
+  #define FOO_STATUS_CODE_TYPE 0x7
+  /** Whether there is more in the log; bit 15 of 'code' */
+  #define FOO_STATUS_CODE_MORE 0x8000
+
+The masks are named ``<PREFIX>_<STRUCT>_<FIELD>_<PART>``, and follow the
+record, in the order of its fields and of the bits within each. **yace** links
+each mask to its field in the IR, as :py:class:`yace.ir.decls.Mask`, and the
+targets use it.
+
+The link is declared by the doc comments, not by a tag of yace's own. Both ends
+of it are written by the author of the header, the field naming the prefix of
+its masks and each mask naming its field and its bits, so nothing is inferred
+from a name alone, and the convention is the one a header for C would follow
+anyway, as xNVMe's do. A tag would say again what the two comments already say.
+What remains is to check that they agree, and every way they may not is
+reported by the bit-mask rule, the mask left unlinked: a mask whose name is
+under the prefix of no field of that name, or of more than one; a prefix that
+does not end in the field's name; a field that is not an unsigned integer; a
+mask of no bits, of bits that are not contiguous, or wider than the field; a
+doc whose bits are not those of the value; masks of a field that overlap; a
+part that is no identifier, or whose accessor, ``<field>_<part>``, the record
+has already; and a ``#define`` under the prefix of a field of bits whose doc
+does not say which bits it is. A field whose ``see <PREFIX>_*`` names constants
+none of which say which bits they are, such as the values of an opcode, is not
+a field of bits.
 
 Integers and ``char``
 ---------------------

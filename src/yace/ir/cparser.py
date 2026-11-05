@@ -34,7 +34,7 @@ from clang.cindex import (
 )
 from pydantic import BaseModel
 
-from . import decls, doc, types
+from . import decls, doc, masks, types
 from .diagnostics import Diagnostic
 from .model import Meta, Model, host_abi
 from .semantics import Semantics
@@ -1059,6 +1059,7 @@ class _HeaderParser(object):
                 resolved.append(entity)
                 continue
             name, cursor = entity
+            self.cursors[name] = cursor
             if name not in values:
                 self.report(
                     "macro-value",
@@ -1098,6 +1099,7 @@ class _HeaderParser(object):
         resolved = self.drop_uses(resolved)
         self.share_docs(resolved)
         Semantics(resolved, self.report).run(self.cursors)
+        masks.link(resolved, self.report, self.cursors)
 
         meta = {
             "name": self.path.stem,

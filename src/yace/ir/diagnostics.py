@@ -26,6 +26,13 @@ RULES = {
         "Bit-fields have no equivalent in Rust or Zig; use a fixed-width integer"
         " and document the bits"
     ),
+    "bit-mask": (
+        "A field of bits is an unsigned integer whose doc names the prefix of"
+        " its masks, 'see <PREFIX>_*', and each mask a #define of contiguous"
+        " bits that fit it, named by the prefix and the part, whose doc ends in"
+        " 'bits <hi>:<lo> of '<field>'' or 'bit <n> of '<field>''; a mask that"
+        " does not agree is not linked to the field"
+    ),
     "flexible-array": (
         "A flexible array member has no length to bind; use a pointer and a length"
     ),

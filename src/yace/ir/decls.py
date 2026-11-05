@@ -64,11 +64,31 @@ class Enum(Node):
     doc: Doc = Doc()
 
 
+class Mask(Node):
+    """
+    A named part of an integer field: the bits the ``#define`` named 'define'
+    masks, 'width' of them from bit 'lo'; see :py:mod:`yace.ir.masks`
+    """
+
+    name: str  # the part, in lower case, such as 'format'
+    define: str
+    lo: int
+    width: int
+    doc: Doc = Doc()
+
+    @property
+    def value(self) -> int:
+        """The mask, the bits in their place"""
+
+        return ((1 << self.width) - 1) << self.lo
+
+
 class Field(Node):
     name: str
     typ: Type
     bits: Optional[int] = None  # the width of a bit-field
     offset: Optional[int] = None  # in bits, from the start of the record
+    masks: List[Mask] = []  # the named parts of an integer field, by bit
     doc: Doc = Doc()
 
 

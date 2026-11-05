@@ -26,6 +26,12 @@ Types
 .. automodule:: yace.ir.types
    :members:
 
+Fields of bits
+==============
+
+.. automodule:: yace.ir.masks
+   :members: link
+
 Documentation
 =============
 

@@ -28,6 +28,12 @@ API uses of it is still an `external-type`.
 A set that does not compile reports every error, once each, rather than the
 first 20 that clang stops at, which hid how far a set was from compiling.
 
+A field of bits, an unsigned integer whose parts are named by `#define` masks,
+is linked to its masks in the IR. The integer's doc names the prefix of its
+masks, `see FOO_STATUS_CODE_*`, and each mask's doc says which bits of which
+field it is, `bits 2:0 of 'code'`. Every way the two can disagree is reported
+by the new bit-mask rule, and the mask is left unlinked.
+
 ## 0.7.0
 
 The header is the description of an FFI boundary, in a C subset. yace reports
