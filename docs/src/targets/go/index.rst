@@ -24,9 +24,8 @@ through cgo, into ``<output>/go``:
 ``<prefix>_callbacks.c``
   The C trampolines of the callbacks given as Go functions, when there are any.
 
-``lib<prefix>.h`` and ``<prefix>_pp.c``
-  The C API and its pretty-printers, as the C target emits them, which the
-  package includes and compiles.
+``lib<prefix>.h``
+  The C API, as the C target emits it, which the package includes.
 
 ``check/main.go``
   The check, not part of the API: it does not compile unless every record has
@@ -74,9 +73,13 @@ What cgo cannot call is not bound, and a comment in its place says why: a
 variadic function, one named as a Go keyword, or one taking or returning by
 value a type Go knows only the name of.
 
-Every struct and union has the pretty-printers of the C API:
-``Fpr(w, flags)``, printing to an ``io.Writer``, also through a nil pointer, as
-``<name>_fpr()`` does, and ``String()``, printing YAML, for ``fmt``. Each part of
+Every struct and union has printers of its own, not calling the C API's:
+``Fpr(w, flags)`` prints to an ``io.Writer``, also through a nil pointer, as
+``<name>_fpr()`` does, and ``String()``, the ``fmt.Stringer`` of the record, is
+its YAML. They print what the C API's pretty-printers print, floats as C's
+``%g`` prints them, except for a record with bit-fields: Go keeps it as its
+bytes, so it has no printers, and a record holding one prints it as ``null``,
+where the C printers print its fields. Each part of
 a field of bits, see :ref:`sec-ir-csubset`, has a getter and a setter,
 ``CodeType()`` and ``SetCodeType(value)``, of the field's type, the setter
 panicking on a value that does not fit the part's bits. A name the struct has

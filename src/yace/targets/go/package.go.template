@@ -8,8 +8,8 @@
 //
 // The raw layer declares the C API as C has it, by its C names, exported; the
 // idiomatic layer, after it, is what the header says beyond C. Every struct and
-// union prints itself by the C API's pretty-printers. Memory given to C must
-// hold no Go pointers, as cgo requires.
+// union prints itself as the C API's pretty-printers print it. Memory given to
+// C must hold no Go pointers, as cgo requires.
 package {{ package }}
 
 /*

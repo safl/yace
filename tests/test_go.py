@@ -1,9 +1,7 @@
-import json
 import os
 import subprocess
 
 import pytest
-import yaml
 
 from tests.conftest import (
     BITS,
@@ -34,10 +32,6 @@ from yace.compiler import process
 from yace.targets.go.target import GO_VERSION, Go
 
 pytestmark = needs_go
-
-
-def json_lines(text):
-    return [json.loads(line) for line in text.splitlines()]
 
 
 def run_go(tmp_path, main: str, impl: str = "", strict: bool = False) -> str:
@@ -90,18 +84,167 @@ def test_the_subset_prints_as_the_c_api_does(parser, tmp_path):
     model, _ = parser.parse(HEADERS / "valid.h")
     assert process(model, ["capi", "go"], tmp_path) == []
 
-    for fmt, load in (("yaml", yaml.safe_load_all), ("json", json_lines)):
+    for fmt in ("yaml", "json"):
         c_out = (tmp_path / "capi" / f"check.{fmt}").read_text()
-        go_out = (tmp_path / "go" / f"check.{fmt}").read_text()
-        assert list(load(go_out)) == list(load(c_out))
+        assert (tmp_path / "go" / f"check.{fmt}").read_text() == c_out
 
 
-@pytest.mark.parametrize("header", ["valid", "bits", "skipped", "hidden"])
+# A value of every kind a printer prints, a union, and a field of bits
+VALUES = (
+    "#include <stdbool.h>\n#include <stddef.h>\n#include <stdint.h>\n"
+    "/** E */\nenum api_e { API_E_A = -1, API_E_B = 2, API_E_C = 2 };\n"
+    "/** P */\nstruct api_p { int32_t x; int32_t y; };\n"
+    "/** Called */\ntypedef void (*api_cb)(void *arg);\n"
+    "/** V */\nstruct api_v {\n"
+    "\tbool flag; char letter; char high; signed char sc; unsigned char uc;\n"
+    "\tint64_t i64; uint64_t u64; size_t size; long l; unsigned long ul;\n"
+    "\tfloat f; double d; enum api_e e;\n"
+    "\tconst char *label; const char *none; char name[4]; char full[4];\n"
+    "\tvoid *ptr; void *nil; api_cb cb; struct api_p at; struct api_p path[2];\n"
+    "\tint16_t grid[2][2];\n};\n"
+    "/** U */\nunion api_u { uint32_t u; struct api_p p; uint16_t h[2]; };\n"
+    "/** G */\nstruct api_g { double d[11]; float f[3]; };\n"
+) + BITS
+
+# The C printers, called on the records the Go program fills in
+VALUES_C = r"""#include <stdio.h>
+#include <libapi.h>
+void cb(void *arg) { (void)arg; }
+void print_all(const void *v, const void *u, const void *s, const void *g)
+{
+	for (int flags = API_PR_YAML; flags <= API_PR_JSON; flags++) {
+		api_v_fpr(stdout, v, flags);
+		api_u_fpr(stdout, u, flags);
+		api_status_fpr(stdout, s, flags);
+		api_g_fpr(stdout, g, flags);
+		api_v_fpr(stdout, NULL, flags);
+	}
+	int values[] = { -1, 2, 3 };
+	for (int i = 0; i < 3; i++) {
+		printf("%s\n", api_e_str(values[i]));
+	}
+	fflush(stdout);
+}
+"""
+
+VALUES_GO = r"""package main
+
+/*
+#cgo CFLAGS: -I${SRCDIR}
+#include <stdlib.h>
+void cb(void *arg);
+void print_all(const void *v, const void *u, const void *s, const void *g);
+*/
+import "C"
+
+import (
+	"fmt"
+	"math"
+	"os"
+	"unsafe"
+
+	"api"
+)
+
+func main() {
+	var v api.ApiV
+	v.Flag, v.Letter, v.High, v.Sc, v.Uc = true, 'y', 0xe9, -2, 250
+	v.I64, v.U64, v.Size, v.L, v.Ul = math.MinInt64, math.MaxUint64, 11, -5, 6
+	v.F, v.D, v.E = 0.1, -2.5e-5, api.API_E_A
+	v.Label = (*byte)(unsafe.Pointer(C.CString("say \"hi\"\t\\ \x7f \xc3\xa9")))
+	copy(v.Name[:], "ab")
+	copy(v.Full[:], "abcd")
+	v.Ptr, v.Cb = C.malloc(1), api.ApiCb(C.cb)
+	v.At, v.Path[1], v.Grid[0][1] = api.ApiP{X: -1, Y: 2}, api.ApiP{X: 3, Y: 4}, -5
+	var u api.ApiU
+	*u.U() = 0xffffffff
+	s := api.ApiStatus{Code: 0x8f05, Wide: 0x80000000ffffffff}
+	var g api.ApiG
+	values := []float64{0.1, -2.5e-5, 1e-4, 123456, 1234567, 1e300,
+		math.Copysign(0, -1), 0.5, 99999.95, math.Inf(1), math.Inf(-1)}
+	copy(g.D[:], values)
+	g.F = [3]float32{0.1, 1e-7, 3.4e38}
+
+	C.print_all(unsafe.Pointer(&v), unsafe.Pointer(&u), unsafe.Pointer(&s),
+		unsafe.Pointer(&g))
+	fmt.Print("===\n")
+	for _, flags := range []int{api.API_PR_YAML, api.API_PR_JSON} {
+		for _, fpr := range []func(w *os.File, flags int) error{
+			func(w *os.File, flags int) error { return v.Fpr(w, flags) },
+			func(w *os.File, flags int) error { return u.Fpr(w, flags) },
+			func(w *os.File, flags int) error { return s.Fpr(w, flags) },
+			func(w *os.File, flags int) error { return g.Fpr(w, flags) },
+			func(w *os.File, flags int) error { return (*api.ApiV)(nil).Fpr(w, flags) },
+		} {
+			if err := fpr(os.Stdout, flags); err != nil {
+				panic(err)
+			}
+		}
+	}
+	for _, e := range []api.ApiE{-1, 2, 3} {
+		name, ok := e.Name()
+		if !ok {
+			name = "UNKNOWN"
+		}
+		fmt.Println(name)
+	}
+	fmt.Print("===\n")
+	fmt.Print(v)
+	fmt.Print(s)
+}
+"""
+
+
+def test_values_print_as_the_c_printers_print_them(parse, tmp_path):
+    model, _ = parse(VALUES)
+    assert process(model, ["capi", "go"], tmp_path) == []
+
+    project = tmp_path / "user"
+    project.mkdir()
+    (project / "go.mod").write_text(
+        f"module user\n\ngo {GO_VERSION}\n\nrequire api v0.0.0\n\n"
+        f"replace api => {tmp_path / 'go'}\n"
+    )
+    (project / "main.go").write_text(VALUES_GO)
+    (project / "print.c").write_text(VALUES_C)
+    for name in ("libapi.h", "api_pp.c"):
+        (project / name).write_text((tmp_path / "capi" / name).read_text())
+    env = {**os.environ, "GOFLAGS": "-mod=mod", "GOTOOLCHAIN": "local"}
+    binary = tmp_path / "user.bin"
+    build = subprocess.run(
+        ["go", "build", "-buildvcs=false", "-tags", "api_no_link"]
+        + ["-o", str(binary), "."],
+        cwd=project,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert build.returncode == 0, build.stderr
+    out = subprocess.run([str(binary)], capture_output=True, text=True, check=True)
+    c_out, go_out, strings = out.stdout.split("===\n")
+
+    assert '"say \\"hi\\"\\u0009\\\\ \\u007f é"' in c_out
+    assert "code: {val: 0x8f05, type: 0x5, delay: 0xf, dnr: 0x1}" in c_out
+    assert "high: -23" in c_out or "high: 233" in c_out
+    assert go_out == c_out
+    v_yaml = c_out[c_out.index("api_v:") : c_out.index("api_u:")]
+    s_yaml = c_out[c_out.index("api_status:") : c_out.index("api_g:")]
+    assert strings == v_yaml + s_yaml  # String() is the YAML
+
+
+# A union whose members are an array, a string and a field of bits
+UNION = (
+    BITS + BITS_UNION + "/** W */\nunion api_w { uint32_t words[2]; char name[8]; };\n"
+)
+
+
+@pytest.mark.parametrize("header", ["valid", "bits", "skipped", "hidden", "union"])
 def test_the_package_is_formatted_as_gofmt_formats_it(parse, parser, tmp_path, header):
     if header == "valid":
         model, _ = parser.parse(HEADERS / "valid.h")
     else:
-        model, _ = parse({"bits": BITS, "skipped": SKIPPED, "hidden": HIDDEN}[header])
+        headers = {"bits": BITS, "skipped": SKIPPED, "hidden": HIDDEN}
+        model, _ = parse({**headers, "union": UNION}[header])
     assert process(model, ["go"], tmp_path) == []
 
     gofmt = subprocess.run(

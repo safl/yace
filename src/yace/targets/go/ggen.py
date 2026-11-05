@@ -10,6 +10,7 @@ may point to C memory; ``void *`` and function pointers are ``unsafe.Pointer``.
 from typing import Dict, List, Tuple
 
 from yace.ir import decls, types
+from yace.ir.masks import VALUE_KEY
 from yace.ir.model import Model
 from yace.ir.semantics import is_void_ptr
 from yace.targets.capi.target import string_literal
@@ -80,7 +81,7 @@ PREDECLARED = set(
 )
 
 # The packages the generated code imports, which nothing may shadow
-IMPORTS = {"C", "cgo", "errors", "fmt", "io", "strconv", "syscall", "unsafe"}
+IMPORTS = {"C", "cgo", "errors", "fmt", "io", "math", "strconv", "syscall", "unsafe"}
 
 # What the package declares of its own, before any name of the C API
 OWN = {"CLong", "CULong"}
@@ -351,11 +352,13 @@ class Records(object):
     """The Go declarations of the records, and their methods: the members of a
     union, the printers and the parts of the fields of bits"""
 
-    def __init__(self, namer: Namer, printable: List):
+    def __init__(self, namer: Namer, complete: List):
         self.namer = namer
-        self.printable = {r.name for r in printable}
+        # Go knows nothing of the bit-fields of a record kept as its bytes
+        self.printable = {r.name for r in complete if not self.is_blob(r)}
         self.fields: Dict[str, Dict[str, str]] = {}
         self.methods: Dict[str, Dict[str, str]] = {}
+        self.printer = Printer(namer, self)
 
     def is_blob(self, record) -> bool:
         return bool(record.size) and any(f.bits is not None for f in record.fields)
@@ -503,23 +506,40 @@ class Records(object):
         return lines
 
     def printers(self, record, name: str, prefix: str) -> List[str]:
-        """Fpr() and String(), printing as the C API's pretty-printers do"""
+        """Fpr() and String(), printing what the C API's pretty-printers
+        print, without calling them"""
 
         if record.name not in self.printable:
             return []
         methods = self.method_names(record)
         fpr, string = methods["Fpr"], methods["String"]
-        cname = f"C.{record.name}_fpr"
-        ctype = f"C.{'union' if isinstance(record, decls.Union) else 'struct'}"
-        ctype += f"_{record.name}"
+        printer = self.printer
         lines = [
+            "",
+            f"func (r *{name}) yaceJSON(out []byte) []byte {{",
+            *["\t" + line for line in printer.json_body(record)],
+            "}",
+            "",
+            f"func (r *{name}) yaceYAML(out []byte, indent int) []byte {{",
+            *["\t" + line for line in printer.yaml_body(record)],
+            "}",
             "",
             f"// {fpr} prints r, or null when nil, to w, as {record.name}_fpr() does:",
             f"// as YAML, or as JSON on one line, by flags, one of {prefix}_PR_*",
             f"func (r *{name}) {fpr}(w io.Writer, flags int) error {{",
-            "\treturn yacePrint(w, func(stream *C.FILE) {",
-            f"\t\t{cname}(stream, (*{ctype})(unsafe.Pointer(r)), C.int(flags))",
-            "\t})",
+            "\tvar out []byte",
+            "\tswitch {",
+            f"\tcase flags&{prefix}_PR_JSON != 0 && r == nil:",
+            '\t\tout = append(out, "null\\n"...)',
+            f"\tcase flags&{prefix}_PR_JSON != 0:",
+            "\t\tout = append(r.yaceJSON(out), '\\n')",
+            "\tcase r == nil:",
+            f'\t\tout = append(out, "{record.name}: ~\\n"...)',
+            "\tdefault:",
+            f'\t\tout = r.yaceYAML(append(out, "{record.name}:\\n"...), 2)',
+            "\t}",
+            "\t_, err := w.Write(out)",
+            "\treturn err",
             "}",
         ]
         if string == "String":
@@ -527,9 +547,157 @@ class Records(object):
                 "",
                 "// String is the YAML of r, as Fpr prints it",
                 f"func (r {name}) String() string {{",
-                "\tvar text yaceText",
-                f"\t_ = r.{fpr}(&text, {prefix}_PR_YAML)",
-                "\treturn string(text)",
+                f'\treturn string(r.yaceYAML([]byte("{record.name}:\\n"), 2))',
                 "}",
             ]
         return lines
+
+
+class Printer(object):
+    """The Go statements appending to the []byte 'out' a value of a type, as
+    the pretty-printers of the C API print it"""
+
+    def __init__(self, namer: Namer, records: "Records"):
+        self.namer = namer
+        self.records = records
+
+    def printable(self, typ):
+        """The record 'typ' is, if it is one with printers"""
+
+        typ = self.namer.resolve(typ)
+        if isinstance(typ, types.Record):
+            record = self.namer.records.get(typ.name)
+            if record is not None and record.name in self.records.printable:
+                return record
+        return None
+
+    def value(self, typ, expr: str, depth: int = 0) -> List[str]:
+        typ = self.namer.resolve(typ)
+        null = ['out = append(out, "null"...)']
+
+        if isinstance(typ, types.Builtin):
+            name = typ.name
+            if name == "bool":
+                return [f"out = yaceBool(out, {expr})"]
+            if name in ("float", "double"):
+                return [f"out = yaceG(out, float64({expr}))"]
+            if name.startswith(("unsigned", "uint")) or name == "size_t":
+                return [f"out = strconv.AppendUint(out, uint64({expr}), 10)"]
+            if name == "void":
+                return null
+            if name == "char":
+                # As signed as C's char is on the platform, as C prints it
+                return [f"out = strconv.AppendInt(out, int64(C.char({expr})), 10)"]
+            return [f"out = strconv.AppendInt(out, int64({expr}), 10)"]
+
+        if isinstance(typ, types.EnumRef):
+            return [f"out = strconv.AppendInt(out, int64({expr}), 10)"]
+
+        if isinstance(typ, types.Pointer):
+            if types.is_string(typ):
+                return [f"out = yaceStr(out, unsafe.Pointer({expr}))"]
+            return [f"out = yacePtr(out, uintptr(unsafe.Pointer({expr})))"]
+
+        if isinstance(typ, types.Array):
+            if typ.length is None:
+                return null
+            elem = self.namer.resolve(typ.of)
+            if isinstance(elem, types.Builtin) and elem.name == "char":
+                return [f"out = yaceStrn(out, {expr}[:])"]
+            idx = f"i{depth}"
+            # A member of a union is ranged over by its pointer, as gofmt drops
+            # the parentheses of '(*r.Member())' there
+            ranged = (
+                expr[2:-1] if expr.startswith("(*") and expr.endswith(")") else expr
+            )
+            lines = [
+                "out = append(out, '[')",
+                f"for {idx} := range {ranged} {{",
+                f"\tif {idx} > 0 {{",
+                '\t\tout = append(out, ", "...)',
+                "\t}",
+            ]
+            inner = self.value(elem, f"{expr}[{idx}]", depth + 1)
+            if not any(f"[{idx}]" in line for line in inner):
+                lines[1] = f"for {idx} := 0; {idx} < len({ranged}); {idx}++ {{"
+            lines += ["\t" + line for line in inner]
+            return lines + ["}", "out = append(out, ']')"]
+
+        if isinstance(typ, types.Record) and self.printable(typ) is not None:
+            return [f"out = {expr}.yaceJSON(out)"]
+
+        return null
+
+    def place(self, record, field) -> str:
+        """The expression of 'field' of the record 'r'"""
+
+        name = self.records.field_names(record)[field.name]
+        return f"(*r.{name}())" if isinstance(record, decls.Union) else f"r.{name}"
+
+    def parts(self, field, expr: str, base: int, quote: str) -> List[str]:
+        """The value of a field of bits and of each of its parts, as a mapping
+        on one line, with the keys quoted by 'quote', the values in 'base'"""
+
+        prefix = "0x" if base == 16 else ""
+        value = f"uint64({expr})"
+
+        def put(text: str, part: str) -> List[str]:
+            return [
+                f"out = append(out, {go_quote(text + prefix)}...)",
+                f"out = strconv.AppendUint(out, {part}, {base})",
+            ]
+
+        lines = put(f"{{{quote}{VALUE_KEY}{quote}: ", value)
+        for mask in field.masks:
+            lines += put(
+                f", {quote}{mask.name}{quote}: ",
+                f"{value}&{mask.value:#x}>>{mask.lo}",
+            )
+        return lines + ["out = append(out, '}')"]
+
+    def named(self, record) -> list:
+        """The fields printed: those with a name, not padding bit-fields"""
+
+        return [f for f in record.fields if f.name]
+
+    def json_body(self, record) -> List[str]:
+        lines = ["out = append(out, '{')"]
+        for idx, field in enumerate(self.named(record)):
+            sep = ", " if idx else ""
+            key = go_quote(f'{sep}"{field.name}": ')
+            lines.append(f"out = append(out, {key}...)")
+            if self.records.is_flexible(record, field):
+                lines.append('out = append(out, "null"...)')
+            elif field.masks:
+                lines += self.parts(field, self.place(record, field), 10, '"')
+            else:
+                lines += self.value(field.typ, self.place(record, field))
+        return lines + ["return append(out, '}')"]
+
+    def yaml_body(self, record) -> List[str]:
+        lines = []
+        for field in self.named(record):
+            lines.append("out = yaceIndent(out, indent)")
+            if self.records.is_flexible(record, field):
+                lines.append(f"out = append(out, {go_quote(field.name + ': null')}...)")
+                lines.append("out = append(out, '\\n')")
+                continue
+            place = self.place(record, field)
+            if self.printable(field.typ) is not None:
+                lines.append(f"out = append(out, {go_quote(field.name + ':')}...)")
+                lines.append("out = append(out, '\\n')")
+                lines.append(f"out = {place}.yaceYAML(out, indent+2)")
+                continue
+            lines.append(f"out = append(out, {go_quote(field.name + ': ')}...)")
+            if field.masks:
+                lines += self.parts(field, place, 16, "")
+            else:
+                lines += self.value(field.typ, place)
+            lines.append("out = append(out, '\\n')")
+        return lines + ["return out"]
+
+
+def go_quote(text: str) -> str:
+    """'text' as a Go string literal"""
+
+    return string_literal(text, "\\x{:02x}")

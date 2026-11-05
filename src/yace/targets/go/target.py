@@ -1,8 +1,8 @@
 """
 The Go target: a cgo package binding the API, in two layers, the raw one
 declaring the C API as C has it and the idiomatic one over it, with every struct
-and union printing itself by the C API's pretty-printers, and a check of what
-it generated
+and union printing itself as the C API's pretty-printers print it, and a check
+of what it generated
 
 Emits, into ``<output>/go``, the module of the package:
 
@@ -12,8 +12,8 @@ Emits, into ``<output>/go``, the module of the package:
   ``<prefix>_no_link``
 * ``<prefix>_no_link.c``, what is linked with that tag in place of the library
 * ``<prefix>_callbacks.c``, the C side of the closures given as callbacks
-* ``lib<prefix>.h`` and ``<prefix>_pp.c``, the C API and its pretty-printers,
-  as the C target emits them, which the package includes and compiles
+* ``lib<prefix>.h``, the C API, as the C target emits it, which the package
+  includes
 * ``check/main.go``, the check program
 
 The module needs Go 1.22 and a C compiler, as cgo does.
@@ -45,34 +45,71 @@ from .raw import Raw
 GO_VERSION = "1.22"
 
 # What the package's own code calls, after its declarations
-HELPERS = """
-// yaceText is what is written to it, for String()
-type yaceText []byte
-
-func (t *yaceText) Write(p []byte) (int, error) {
-	*t = append(*t, p...)
-	return len(p), nil
+HELPERS = r"""
+// yaceIndent appends indent spaces to out
+func yaceIndent(out []byte, indent int) []byte {
+	for ; indent > 0; indent-- {
+		out = append(out, ' ')
+	}
+	return out
 }
 
-// yacePrint writes to w what print writes to a C stream
-func yacePrint(w io.Writer, print func(stream *C.FILE)) error {
-	stream, err := C.tmpfile()
-	if stream == nil {
-		return err
+func yaceBool(out []byte, value bool) []byte {
+	if value {
+		return append(out, "true"...)
 	}
-	defer C.fclose(stream)
-	print(stream)
-	size := C.ftell(stream)
-	if size < 0 {
-		return errors.New("ftell() of the printed failed")
+	return append(out, "false"...)
+}
+
+// yaceG appends value as C's printf() prints it with "%g"
+func yaceG(out []byte, value float64) []byte {
+	switch {
+	case math.IsNaN(value) && math.Signbit(value):
+		return append(out, "-nan"...)
+	case math.IsNaN(value):
+		return append(out, "nan"...)
+	case math.IsInf(value, 1):
+		return append(out, "inf"...)
+	case math.IsInf(value, -1):
+		return append(out, "-inf"...)
 	}
-	C.rewind(stream)
-	text := make([]byte, int(size))
-	if size > 0 && C.fread(unsafe.Pointer(&text[0]), C.size_t(size), 1, stream) != 1 {
-		return errors.New("fread() of the printed failed")
+	return strconv.AppendFloat(out, value, 'g', 6, 64)
+}
+
+// yaceStrn appends chars, up to the first NUL, as a JSON string
+func yaceStrn(out []byte, chars []byte) []byte {
+	const hex = "0123456789abcdef"
+	out = append(out, '"')
+	for _, chr := range chars {
+		switch {
+		case chr == 0:
+			return append(out, '"')
+		case chr == '"' || chr == '\\':
+			out = append(out, '\\', chr)
+		case chr < 0x20 || chr == 0x7f:
+			out = append(out, '\\', 'u', '0', '0', hex[chr>>4], hex[chr&0xf])
+		default:
+			out = append(out, chr)
+		}
 	}
-	_, err = w.Write(text)
-	return err
+	return append(out, '"')
+}
+
+// yaceStr appends the C string at ptr as a JSON string, or null
+func yaceStr(out []byte, ptr unsafe.Pointer) []byte {
+	if ptr == nil {
+		return append(out, "null"...)
+	}
+	return yaceStrn(out, []byte(C.GoString((*C.char)(ptr))))
+}
+
+// yacePtr appends addr in hexadecimal, as a string, or null
+func yacePtr(out []byte, addr uintptr) []byte {
+	if addr == 0 {
+		return append(out, "null"...)
+	}
+	out = strconv.AppendUint(append(out, `"0x`...), uint64(addr), 16)
+	return append(out, '"')
 }
 """.strip(
     "\n"
@@ -167,7 +204,7 @@ class Go(Target):
             "imports": imports(body),
             "body": body,
             "functions": [f for f in raw.functions if raw.unbindable(f) is None],
-            "printable": complete,
+            "printable": [r for r in complete if r.name in records.printable],
             "fpr": lambda record: records.method_names(record)["Fpr"],
             "asserts": asserts,
         }
@@ -205,12 +242,11 @@ class Go(Target):
             path.write_text("\n".join([head, *context["definitions"]]) + "\n")
             paths.append(path)
 
-        # The C API and its printers, as the C target emits them, in the package
+        # The C API, as the C target emits it, in the package
         capi = self.capi.environment()
         capi_context = self.capi.context(model)
         for filename, template in [
             (f"lib{model.meta.prefix}.h", "header.h.template"),
-            (f"{model.meta.prefix}_pp.c", "pp.c.template"),
         ]:
             path = self.output / filename
             path.write_text(capi.get_template(template).render(**capi_context))
