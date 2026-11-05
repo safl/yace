@@ -9,12 +9,15 @@ it, and :func:`.schema` is its JSON Schema, for tools that read the IR without
 
 import platform
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional, Tuple, Type, TypeVar, overload
 
 import yaml
 
 from . import decls
 from .types import Node
+
+T = TypeVar("T")
+U = TypeVar("U")
 
 
 class Meta(Node):
@@ -75,7 +78,16 @@ class Model(Node):
 
         return {e.name: e for e in self.entities if isinstance(e, decls.Enum)}
 
-    def find(self, name: str, kind=None) -> Optional[object]:
+    @overload
+    def find(self, name: str, kind: Type[T]) -> Optional[T]: ...
+
+    @overload
+    def find(self, name: str, kind: Tuple[Type[T], Type[U]]) -> Optional[T | U]: ...
+
+    @overload
+    def find(self, name: str, kind: None = None) -> Optional[Any]: ...
+
+    def find(self, name: str, kind: Any = None) -> Optional[Any]:
         """The entity named 'name', of 'kind' where given, as C has records and
         functions of the same name"""
 

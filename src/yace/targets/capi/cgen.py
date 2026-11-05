@@ -143,7 +143,7 @@ class Printer(object):
             typ = self.typedefs[typ.name].typ
         return typ
 
-    def record_of(self, typ) -> Optional[object]:
+    def record_of(self, typ) -> Optional[decls.Struct | decls.Union]:
         typ = self.resolve(typ)
         if isinstance(typ, types.Record):
             return self.records.get(typ.name)

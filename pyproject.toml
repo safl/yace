@@ -76,3 +76,23 @@ lint.select = ["E", "F", "I"]
 [tool.pylsp]
 [tool.pylsp.plugins]
 rope = { enabled = true }
+
+[tool.mypy]
+files = ["src"]
+python_version = "3.12"
+
+[[tool.mypy.overrides]]
+module = ["clang", "clang.*"]
+ignore_missing_imports = true
+
+# The generators branch on what the idiom layer decided (an Arg's kind implies
+# its type and which optional fields are set), which mypy cannot follow
+[[tool.mypy.overrides]]
+module = [
+    "yace.targets.capi.*",
+    "yace.targets.cpp.*",
+    "yace.targets.python.*",
+    "yace.targets.rust.*",
+    "yace.targets.zig.*",
+]
+disable_error_code = ["union-attr", "arg-type"]

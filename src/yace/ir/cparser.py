@@ -20,7 +20,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple
 
 import clang
 from clang.cindex import (
@@ -163,6 +163,10 @@ def qualify(typ: types.Type):
         typ = typ.of
     if not isinstance(typ, types.FunctionType):
         typ.const = True
+
+
+def record_tag(cursor) -> Literal["struct", "union"]:
+    return "union" if cursor.kind == CursorKind.UNION_DECL else "struct"
 
 
 def comment_before(lines: List[str], lineno: int) -> Optional[str]:
@@ -400,8 +404,7 @@ class _HeaderParser(object):
                 return types.EnumRef(name=name, const=const)
             if name in self.skipped_records:
                 raise Unsupported(f"'{name}', a record that is skipped")
-            tag = "union" if decl.kind == CursorKind.UNION_DECL else "struct"
-            return types.Record(tag=tag, name=name, const=const)
+            return types.Record(tag=record_tag(decl), name=name, const=const)
 
         if kind == TypeKind.POINTER:
             return types.Pointer(to=self.typ(ctype.get_pointee(), cursor), const=const)
@@ -457,8 +460,10 @@ class _HeaderParser(object):
         }
         shared = set()
         for typedef in entities:
-            tag = tags.get(getattr(typedef, "name", None))
-            if not isinstance(typedef, decls.Typedef) or tag is None:
+            if not isinstance(typedef, decls.Typedef):
+                continue
+            tag = tags.get(typedef.name)
+            if tag is None:
                 continue
             if getattr(typedef.typ, "name", None) != typedef.name:
                 continue
@@ -628,11 +633,10 @@ class _HeaderParser(object):
                     if first is not None:
                         found = cursor.type.get_offset(first.spelling)
                         offset = found - max(first.get_field_offsetof(), 0)
-                    tag = "union" if child.kind == CursorKind.UNION_DECL else "struct"
                     fields.append(
                         decls.Field(
                             name=member,
-                            typ=types.Record(tag=tag, name=nested),
+                            typ=types.Record(tag=record_tag(child), name=nested),
                             offset=(
                                 offset if offset is not None and offset >= 0 else None
                             ),
