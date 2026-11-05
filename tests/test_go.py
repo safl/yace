@@ -14,7 +14,22 @@ from tests.conftest import (
     needs_cc,
     needs_go,
 )
-from tests.test_rust import BITS_PRINTED, BITS_UNION, HIDDEN, doc
+from tests.test_rust import (
+    BITS_PRINTED,
+    BITS_UNION,
+    EDGES,
+    HANDLE_NAMED_AS_PREFIX,
+    HIDDEN,
+    IO,
+    IO_C,
+    KEPT,
+    KEPT_C,
+    MORE,
+    MORE_C,
+    NAMES,
+    SHARED,
+    doc,
+)
 from yace.compiler import process
 from yace.targets.go.target import GO_VERSION, Go
 
@@ -372,4 +387,187 @@ def test_the_parts_of_a_field_of_bits_are_methods(parse, tmp_path):
     assert run_go(tmp_path, main) == (
         "5 10 1 2 1\n0x305 0x1ffffffff\n0xabcd0000 0xabcd\n0x80 2 0\n"
         "ApiStatus.SetCodeDelay: 16 does not fit\n"
+    )
+
+
+def test_the_idiomatic_layer_builds_for_every_kind_of_parameter(parse, tmp_path):
+    model, _ = parse(EDGES)
+    assert process(model, ["go"], tmp_path) == []
+
+    module = (tmp_path / "go" / "api.go").read_text()
+    assert "type ApiCbFunc func(p *ApiP, n int32) int32" in module
+    assert "func Open(name *string) (*H, error) {" in module
+    assert "func (h *H) Each(cb ApiCbFunc) (int, error) {" in module
+    assert "func (h *H) Submit(cb ApiCbFunc) error {" in module
+    assert "// C keeps 'cb' until it has been called, once." in module
+    assert "// C keeps 'cb' until the handle is destroyed." in module
+    assert "func (h *H) Inline(fn unsafe.Pointer, ctx unsafe.Pointer) error {" in module
+    assert "func (h *H) Step(pos *uintptr) (int32, error) {" in module
+    assert "func (h *H) Raw(p *ApiP, opaque unsafe.Pointer) int32 {" in module
+    assert "func (h *H) Other() *ApiH {" in module
+    assert "func (h *H) Close() error {" in module
+    assert "func Base(path string) string {" in module
+
+
+@needs_cc
+def test_shared_counts_handles_given_and_constructors_without_errno(parse, tmp_path):
+    model, _ = parse(MORE)
+    assert process(model, ["go"], tmp_path) == []
+
+    module = (tmp_path / "go" / "api.go").read_text()
+    assert "func Make() *H {" in module
+    assert "if len(b) != len(a) {" in module
+    assert "if len(in) != len(out) {" in module
+
+    main = program(
+        "\th, err := api.Open()\n\tif err != nil {\n\t\tpanic(err)\n\t}\n"
+        "\tdefer h.Close()\n"
+        "\tif err := h.Copy(api.Make()); err != nil {\n\t\tpanic(err)\n\t}\n"
+        "\ta := []int32{1, 2}\n\tb := []int32{3, 4}\n"
+        "\tmapped, err := api.Map(a, make([]int32, 2))\n"
+        "\tif err != nil {\n\t\tpanic(err)\n\t}\n"
+        "\tlabel, _ := h.Label()\n"
+        "\tfmt.Println(api.Dot(a, b), mapped[1], *label)\n"
+        "\tdefer func() { fmt.Println(recover()) }()\n"
+        "\tapi.Dot(a, b[:1])\n"
+    )
+    assert run_go(tmp_path, main, MORE + MORE_C) == (
+        "11 4 108\napi_dot: 'b' does not have the count 'n'\n"
+    )
+
+
+@needs_cc
+def test_bytes_out_arrays_sharing_a_count_and_clones(parse, tmp_path):
+    header = IO + doc("Get", "@param[out] retval R") + "void api_get(int *retval);\n"
+    model, _ = parse(header)
+    assert process(model, ["go"], tmp_path) == []
+
+    main = program(
+        "\tread, err := api.Read(make([]byte, 8))\n"
+        "\tif err != nil {\n\t\tpanic(err)\n\t}\n"
+        "\th, _ := api.Open()\n\tclone, _ := h.Clone()\n"
+        "\ta, b := api.Pair(make([]int32, 3), make([]int32, 3))\n"
+        "\tv := []int32{1, 2}\n\tapi.Twice(v)\n"
+        '\tfmt.Println(api.Write([]byte("abcd")), string(read), api.Get(),'
+        " clone.Ptr() == h.Ptr(), a[2], b[2], v)\n"
+        "\tfmt.Println(h.Close(), clone.Close(), api.Use(1, nil))\n"
+    )
+    impl = header + IO_C + "void api_get(int *retval) { *retval = 42; }\n"
+    assert run_go(tmp_path, main, impl) == (
+        "4 xyz 42 false 2 20 [2 4]\n<nil> api_close: input/output error -1\n"
+    )
+
+
+@needs_cc
+def test_closures_are_kept_as_long_as_their_lifetime_says(parse, tmp_path):
+    model, _ = parse(KEPT)
+    assert process(model, ["go"], tmp_path) == []
+
+    main = program(
+        "\tsum := int32(0)\n"
+        "\th, err := api.Open()\n\tif err != nil {\n\t\tpanic(err)\n\t}\n"
+        "\tdefer h.Close()\n"
+        "\tadd := func(v int32) int32 {\n\t\tsum += v\n\t\treturn 0\n\t}\n"
+        "\tif err := h.On(add); err != nil {\n\t\tpanic(err)\n\t}\n"
+        "\ttaken := h.On(add)\n"
+        "\tif err := h.Submit(nil); err != nil {\n\t\tpanic(err)\n\t}\n"
+        "\tif err := h.Submit(func(v int32) int32 {\n"
+        "\t\tsum += 100 * v\n\t\treturn 0\n\t}); err != nil {\n\t\tpanic(err)\n\t}\n"
+        "\tbusy := h.Submit(add)\n"
+        "\tn, err := h.Poke()\n\tif err != nil {\n\t\tpanic(err)\n\t}\n"
+        "\tif err := h.Fire(5); err != nil {\n\t\tpanic(err)\n\t}\n"
+        "\tfmt.Println(errors.Is(taken, syscall.EBUSY),\n"
+        '\t\tbusy.Error() == "api_submit: "+syscall.EBUSY.Error(), n, sum)\n',
+        imports=("errors", "fmt", "syscall"),
+    )
+    assert run_go(tmp_path, main, KEPT + KEPT_C, strict=True) == "true true 1 705\n"
+
+
+@needs_cc
+def test_a_string_with_a_count_is_counted_from_the_string(parse, tmp_path):
+    header = (
+        "#include <stddef.h>\n"
+        + doc("Write", "@nullable buf", "@len buf n")
+        + "int api_write(const char *buf, size_t n);\n"
+        + doc("Put", "@len buf n")
+        + "int api_put(const char *buf, size_t n);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["go"], tmp_path) == []
+
+    impl = header + (
+        "int api_write(const char *buf, size_t n) { return buf ? (int)n : -1; }\n"
+        "int api_put(const char *buf, size_t n) { return buf[n - 1]; }\n"
+    )
+    main = program(
+        '\ttext := "abc"\n'
+        '\tfmt.Println(api.Write(&text), api.Write(nil), api.Put("hello"))\n'
+    )
+    assert run_go(tmp_path, main, impl, strict=True) == "3 -1 111\n"
+
+
+@needs_cc
+def test_nullable_slices_strings_to_callbacks_and_names_of_the_layer(parse, tmp_path):
+    header = (
+        "#include <stddef.h>\ntypedef void (*api_seen_cb)(void *arg, const char *s);\n"
+        + doc("Ret")
+        + "int api_ret(int ret, int ret_val);\n"
+        + doc("Sum", "@nullable v", "@len v n")
+        + "int api_sum(const int *v, size_t n);\n"
+        + doc("Seen", "@lifetime cb call")
+        + "void api_seen(api_seen_cb cb, void *arg);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["go"], tmp_path) == []
+
+    impl = header + (
+        "int api_ret(int ret, int ret_val) { return ret - ret_val; }\n"
+        "int api_sum(const int *v, size_t n)\n"
+        "{\n\tint s = 0;\n\tif (!v) return -1;\n"
+        "\tfor (size_t i = 0; i < n; i++) s += v[i];\n\treturn s;\n}\n"
+        'void api_seen(api_seen_cb cb, void *arg) { cb(arg, "hi"); }\n'
+    )
+    main = program(
+        '\tseen := ""\n\tapi.Seen(func(s string) { seen = s })\n'
+        "\tfmt.Println(api.Ret(5, 3), api.Sum([]int32{1, 2, 3}), api.Sum(nil), seen)\n"
+    )
+    assert run_go(tmp_path, main, impl, strict=True) == "2 6 -1 hi\n"
+
+
+def test_names_of_the_layer_are_made_distinct(parse, tmp_path):
+    model, _ = parse(
+        HANDLE_NAMED_AS_PREFIX + SHARED + doc("Ptr") + "int api_ptr(struct api *h);\n"
+    )
+    assert process(model, ["go"], tmp_path) == []
+
+    module = (tmp_path / "go" / "api.go").read_text()
+    assert "type ApiHandle struct {" in module
+    assert "func (h *ApiHandle) Ptr_() int32 {" in module
+    assert "func ApiBar(x int32) int32 {" in module and "func Bar_(x int32)" in module
+
+
+def test_parameters_named_as_locals_of_the_layer_build(parse, tmp_path):
+    model, _ = parse(NAMES)
+    assert process(model, ["go"], tmp_path) == []
+
+
+def test_parameters_named_as_what_the_body_uses_build(parse, tmp_path):
+    model, _ = parse(HIDDEN)
+    assert process(model, ["go"], tmp_path) == []
+
+
+def test_a_call_without_an_idiomatic_form_says_so(parse, tmp_path):
+    model, _ = parse(
+        doc("R")
+        + "struct api_r { int x; };\n"
+        + doc("Now", "@param[out] tv T")
+        + "void api_now(struct api_r *tv);\n"
+    )
+    model.find("api_r").fields = []  # as for a record defined elsewhere
+    assert process(model, ["go"], tmp_path) == []
+
+    module = (tmp_path / "go" / "api.go").read_text()
+    assert (
+        "// api_now() has no idiomatic form, as what api_now() writes has no"
+        " fields to return; see Api_now." in module
     )

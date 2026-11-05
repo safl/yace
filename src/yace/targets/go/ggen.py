@@ -80,7 +80,7 @@ PREDECLARED = set(
 )
 
 # The packages the generated code imports, which nothing may shadow
-IMPORTS = {"C", "errors", "io", "strconv", "unsafe"}
+IMPORTS = {"C", "cgo", "errors", "fmt", "io", "strconv", "syscall", "unsafe"}
 
 # What the package declares of its own, before any name of the C API
 OWN = {"CLong", "CULong"}
