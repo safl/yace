@@ -15,7 +15,11 @@ The C target, ``capi``, generates the C API of the header, into
   The pretty-printers. Every struct and union with fields gets
   ``<name>_fpr()``, printing to a stream, and ``<name>_pr()``, printing to
   stdout, as YAML, the default, or as JSON on one line. Every enum gets
-  ``<name>_str()``, the name of a value.
+  ``<name>_str()``, the name of a value. A field of bits, see
+  :ref:`sec-ir-csubset`, is printed as a mapping on one line of its value,
+  ``val``, and of each of its parts, by bit, in hexadecimal in YAML,
+  ``code: {val: 0x8a05, type: 0x5, dnr: 0x1}``, and in decimal in JSON. The
+  printers of the other targets print the same.
 
 ``<prefix>_check.c``
   The check, not part of the API: it asserts at compile time that every record

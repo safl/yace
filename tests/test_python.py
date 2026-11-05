@@ -6,7 +6,7 @@ import sys
 import pytest
 import yaml
 
-from tests.conftest import ESCAPED, ESCAPED_VALUE, HEADERS, SKIPPED, needs_cc
+from tests.conftest import BITS, ESCAPED, ESCAPED_VALUE, HEADERS, SKIPPED, needs_cc
 from yace.compiler import process
 from yace.targets.python.target import Python
 
@@ -639,3 +639,20 @@ def test_a_closed_handle_keeps_no_closure(parse, tmp_path, monkeypatch):
 def test_skipped_records_and_padding_bits_build(parse, tmp_path):
     model, _ = parse(SKIPPED)
     assert process(model, ["python"], tmp_path) == []
+
+
+def test_a_field_of_bits_prints_its_parts(parse, tmp_path):
+    model, _ = parse(BITS)
+    assert process(model, ["python"], tmp_path) == []
+
+    api = module(tmp_path)
+    status = api["ApiStatus"](0x8A05, 0x8000000100000002)
+    assert str(status) == (
+        "api_status:\n"
+        "  code: {val: 0x8a05, type: 0x5, delay: 0xa, dnr: 0x1}\n"
+        "  wide: {val: 0x8000000100000002, low: 0x2, top: 0x1}\n"
+    )
+    assert status.to_dict() == {
+        "code": {"val": 0x8A05, "type": 5, "delay": 10, "dnr": 1},
+        "wide": {"val": 0x8000000100000002, "low": 2, "top": 1},
+    }

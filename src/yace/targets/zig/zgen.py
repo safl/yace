@@ -9,6 +9,7 @@ import re
 from typing import Dict, List
 
 from yace.ir import decls, types
+from yace.ir.masks import VALUE_KEY
 from yace.ir.model import Model
 from yace.targets.capi.target import string_literal
 from yace.targets.python.pygen import camel
@@ -308,12 +309,29 @@ class Printer(object):
             return self.records.get(typ.name)
         return None
 
+    def parts(self, field, expr: str, fmt: str, quote: str) -> List[str]:
+        """The value of a field of bits and of each of its parts, as a mapping
+        on one line, with the keys quoted by 'quote', the values by 'fmt'"""
+
+        lines = [f'try w.print("{{{{{quote}{VALUE_KEY}{quote}: {fmt}", .{{{expr}}});']
+        for mask in field.masks:
+            part = f"({expr} & {mask.value:#x}) >> {mask.lo}"
+            lines.append(
+                f'try w.print(", {quote}{mask.name}{quote}: {fmt}", .{{{part}}});'
+            )
+        lines.append('try w.writeAll("}");')
+        return lines
+
     def json_body(self, record) -> List[str]:
         lines = ['try w.writeAll("{");']
         for idx, field in enumerate(record.fields):
             sep = ", " if idx else ""
             lines.append(f'try w.writeAll("{sep}\\"{field.name}\\": ");')
-            lines += self.value(field.typ, f"self.{ident(field.name)}")
+            expr = f"self.{ident(field.name)}"
+            if field.masks:
+                lines += self.parts(field, expr, "{d}", '\\"')
+                continue
+            lines += self.value(field.typ, expr)
         lines.append('try w.writeAll("}");')
         return lines
 
@@ -328,6 +346,9 @@ class Printer(object):
                 lines.append(f"try self.{name}.{yaml}(w, indent + 2);")
                 continue
             lines.append(f'try w.writeAll("{field.name}: ");')
-            lines += self.value(field.typ, f"self.{name}")
+            if field.masks:
+                lines += self.parts(field, f"self.{name}", "0x{x}", "")
+            else:
+                lines += self.value(field.typ, f"self.{name}")
             lines.append('try w.writeAll("\\n");')
         return lines

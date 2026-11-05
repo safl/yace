@@ -25,6 +25,7 @@ import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 from yace.ir import decls
+from yace.ir.masks import VALUE_KEY
 from yace.ir.model import Model, host_abi
 from yace.targets.capi import cgen
 from yace.targets.idiom import Idioms
@@ -127,6 +128,7 @@ class Python(Target):
             "returns": pygen.returns,
             "record_kind": cgen.tag,
             "layout": model.meta.abi == host_abi(),
+            "value_key": VALUE_KEY,
             "idiomatic": idiomatic.Renderer(Idioms(model), namer).render(),
         }
 

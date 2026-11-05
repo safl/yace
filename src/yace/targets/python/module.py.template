@@ -94,10 +94,17 @@ def _plain(ctype, value):
     return value
 
 
+class _Bits(_builtins.dict):
+    """A field of bits, its value and its parts by name, printed on one line"""
+
+
 def _yaml(data, indent):
     lines = []
     for key, value in data.items():
-        if _builtins.isinstance(value, _builtins.dict):
+        if _builtins.isinstance(value, _Bits):
+            parts = ", ".join(f"{name}: {part:#x}" for name, part in value.items())
+            lines.append(f"{'':{indent}}{key}: " + "{" + parts + "}\n")
+        elif _builtins.isinstance(value, _builtins.dict):
             lines.append(f"{'':{indent}}{key}:\n{_yaml(value, indent + 2)}")
         else:
             lines.append(f"{'':{indent}}{key}: {_json.dumps(value)}\n")
@@ -122,15 +129,25 @@ class _Record(object):
     field of the same name hides one"""
 
     _yace_name = ""
+    _yace_masks = {}  # the parts of each field of bits: name, mask and shift
 
     def to_dict(self):
-        """The fields, by name, as plain values: pointers as hex strings"""
+        """The fields, by name, as plain values: pointers as hex strings, a
+        field of bits as its value and its parts"""
 
-        return {
-            name: _plain(ctype, _builtins.getattr(self, name))
-            for name, ctype, *_ in _builtins.type(self)._fields_
-            if name  # not a padding bit-field
-        }
+        cls = _builtins.type(self)
+        found = {}
+        for name, ctype, *_ in cls._fields_:
+            if not name:
+                continue  # a padding bit-field
+            value = _plain(ctype, _builtins.getattr(self, name))
+            if name in cls._yace_masks:
+                value = _Bits(
+                    {"{{ value_key }}": value},
+                    **{part: (value & mask) >> lo for part, mask, lo in cls._yace_masks[name]},
+                )
+            found[name] = value
+        return found
 
     @classmethod
     def fpr(cls, stream, obj, flags={{ PREFIX }}_PR_DEF):
@@ -200,6 +217,13 @@ class {{ namer(record.name) }}(ctypes.{{ "Union" if record | is_union else "Stru
 {%- if record.fields and record not in blobs %}
 
     _yace_name = "{{ record.name }}"
+{%- if record.fields | selectattr("masks") | list %}
+    _yace_masks = {
+{%- for field in record.fields if field.masks %}
+        "{{ field.name }}": ({% for mask in field.masks %}("{{ mask.name }}", {{ "%#x" % mask.value }}, {{ mask.lo }}), {% endfor %}),
+{%- endfor %}
+    }
+{%- endif %}
 {%- endif %}
 {%- endfor %}
 {%- for name, pyname in stubs %}

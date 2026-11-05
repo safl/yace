@@ -9,6 +9,7 @@ from typing import List, Optional
 
 from yace.ir import decls, types
 from yace.ir.cparser import CXX_KEYWORDS
+from yace.ir.masks import VALUE_KEY
 from yace.ir.model import Model
 
 
@@ -215,6 +216,24 @@ class Printer(object):
             used.add("strn")
         return used
 
+    def parts(self, field, expr: str, fmt: str, quote: str) -> List[str]:
+        """The value of a field of bits and of each of its parts, as a mapping
+        on one line, with the keys quoted by 'quote', the values by 'fmt'"""
+
+        def key(name: str) -> str:
+            return f"{quote}{name}{quote}"
+
+        lines = [
+            f'wrtn += fprintf(stream, "{{{key(VALUE_KEY)}: {fmt}", (uintmax_t){expr});'
+        ]
+        for mask in field.masks:
+            part = f"(((uintmax_t){expr} & {mask.define}) >> {mask.lo})"
+            lines.append(
+                f'wrtn += fprintf(stream, ", {key(mask.name)}: {fmt}", {part});'
+            )
+        lines.append('wrtn += fprintf(stream, "}");')
+        return lines
+
     def json_body(self, record) -> List[str]:
         lines = ["if (!obj) {", '\treturn fprintf(stream, "null");', "}", ""]
         lines.append('wrtn += fprintf(stream, "{");')
@@ -222,6 +241,9 @@ class Printer(object):
         for idx, field in enumerate(named):
             sep = ", " if idx else ""
             lines.append(f'wrtn += fprintf(stream, "{sep}\\"{field.name}\\": ");')
+            if field.masks:
+                lines += self.parts(field, f"obj->{field.name}", "%ju", '\\"')
+                continue
             lines += self.value(field.typ, f"obj->{field.name}")
         lines.append('wrtn += fprintf(stream, "}");')
         return lines
@@ -240,6 +262,9 @@ class Printer(object):
                 )
                 continue
             lines.append(f'wrtn += fprintf(stream, "%*s{field.name}: ", indent, "");')
-            lines += self.value(field.typ, f"obj->{field.name}")
+            if field.masks:
+                lines += self.parts(field, f"obj->{field.name}", "0x%jx", "")
+            else:
+                lines += self.value(field.typ, f"obj->{field.name}")
             lines.append('wrtn += fprintf(stream, "\\n");')
         return lines

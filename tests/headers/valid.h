@@ -38,6 +38,21 @@ struct valid_point {
 };
 
 /**
+ * A status, its code a field of bits
+ */
+struct valid_status {
+	uint16_t code; ///< Status code, see VALID_STATUS_CODE_*
+	uint8_t op;    ///< Opcode, not a field of bits
+};
+
+/** Kind of status; bits 2:0 of 'code' */
+#define VALID_STATUS_CODE_TYPE 0x7
+/** Delay before a retry; bits 11:8 of 'code' */
+#define VALID_STATUS_CODE_DELAY 0xf00
+/** Do not retry; bit 15 of 'code' */
+#define VALID_STATUS_CODE_DNR 0x8000
+
+/**
  * Called back with the argument given and a value
  *
  * @param arg The argument

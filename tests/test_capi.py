@@ -3,11 +3,11 @@ import subprocess
 
 import yaml
 
-from tests.conftest import ESCAPED, ESCAPED_VALUE, HEADERS, SKIPPED, needs_cc
+from tests.conftest import BITS, ESCAPED, ESCAPED_VALUE, HEADERS, SKIPPED, needs_cc
 from yace.compiler import process
 from yace.ir import decls
 from yace.ir.model import load
-from yace.targets.capi.target import CAPI
+from yace.targets.capi.target import CAPI, CFLAGS
 
 
 def emit(model, output):
@@ -199,3 +199,40 @@ def test_the_header_generated_is_in_the_subset(parser, tmp_path):
     # The pretty-printers take the FILE of stdio.h, which the subset does not
     _, diagnostics = parser.parse(tmp_path / "capi" / "libvalid.h")
     assert [d.message for d in diagnostics if d.rule != "external-type"] == []
+
+
+@needs_cc
+def test_a_field_of_bits_prints_its_parts(parse, tmp_path):
+    model, diagnostics = parse(BITS)
+    assert [d for d in diagnostics if d.rule == "bit-mask"] == []
+    assert process(model, ["capi"], tmp_path) == []
+
+    program = tmp_path / "b.c"
+    program.write_text(
+        '#include <string.h>\n#include "libapi.h"\n'
+        "int main(int argc, char **argv) {\n"
+        "\tstruct api_status s = {0x8a05, 0x8000000100000002ULL};\n"
+        "\t(void)argc;\n"
+        '\treturn api_status_pr(&s, strcmp(argv[1], "json") ? API_PR_YAML'
+        " : API_PR_JSON) < 0;\n}\n"
+    )
+    cmd = ["cc", *CFLAGS, "-I", str(tmp_path / "capi"), str(program)]
+    cmd += [str(tmp_path / "capi" / "api_pp.c"), "-o", str(tmp_path / "b")]
+    subprocess.run(cmd, check=True)
+
+    def run(fmt):
+        proc = subprocess.run(
+            [str(tmp_path / "b"), fmt], capture_output=True, text=True
+        )
+        assert proc.returncode == 0
+        return proc.stdout
+
+    assert run("yaml") == (
+        "api_status:\n"
+        "  code: {val: 0x8a05, type: 0x5, delay: 0xa, dnr: 0x1}\n"
+        "  wide: {val: 0x8000000100000002, low: 0x2, top: 0x1}\n"
+    )
+    assert json.loads(run("json")) == {
+        "code": {"val": 0x8A05, "type": 5, "delay": 10, "dnr": 1},
+        "wide": {"val": 0x8000000100000002, "low": 2, "top": 1},
+    }

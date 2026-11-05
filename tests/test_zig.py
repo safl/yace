@@ -4,6 +4,7 @@ import subprocess
 import yaml
 
 from tests.conftest import (
+    BITS,
     ESCAPED,
     ESCAPED_VALUE,
     HEADERS,
@@ -11,7 +12,13 @@ from tests.conftest import (
     needs_cc,
     needs_zig,
 )
-from tests.test_rust import EDGES, HANDLE_NAMED_AS_PREFIX, doc, misindented_docs
+from tests.test_rust import (
+    BITS_PRINTED,
+    EDGES,
+    HANDLE_NAMED_AS_PREFIX,
+    doc,
+    misindented_docs,
+)
 from yace.compiler import process
 
 pytestmark = needs_zig
@@ -377,3 +384,41 @@ def test_kept_contexts_are_called(parse, tmp_path):
 def test_skipped_records_and_padding_bits_build(parse, tmp_path):
     model, _ = parse(SKIPPED)
     assert process(model, ["zig"], tmp_path) == []
+
+
+def run_zig(tmp_path, body: str) -> str:
+    """Run 'body', in a main() with 'out' the writer of stdout, against the
+    module generated into 'tmp_path'; returns what it printed"""
+
+    main = tmp_path / "main.zig"
+    main.write_text(
+        'const std = @import("std");\nconst api = @import("api.zig");\n'
+        "pub fn main(init: std.process.Init) !void {\n"
+        "    var buf: [4096]u8 = undefined;\n"
+        "    var out = std.Io.File.stdout().writer(init.io, &buf);\n"
+        f"{body}"
+        "    try out.interface.flush();\n}\n"
+    )
+    (tmp_path / "api.zig").write_text((tmp_path / "zig" / "api.zig").read_text())
+    cache = str(tmp_path / ".cache")
+    run = subprocess.run(
+        ["zig", "run", "-lc", str(main), "--cache-dir", cache]
+        + ["--global-cache-dir", cache],
+        capture_output=True,
+        text=True,
+    )
+    assert run.returncode == 0, run.stderr
+    return run.stdout
+
+
+def test_a_field_of_bits_prints_its_parts(parse, tmp_path):
+    model, _ = parse(BITS)
+    assert process(model, ["zig"], tmp_path) == []
+
+    printed = run_zig(
+        tmp_path,
+        "    const s = api.ApiStatus{ .code = 0x8a05, .wide = 0x8000000100000002 };\n"
+        '    try out.interface.print("{f}", .{s});\n'
+        "    try api.ApiStatus.fpr(&out.interface, &s, api.API_PR_JSON);\n",
+    )
+    assert printed == BITS_PRINTED

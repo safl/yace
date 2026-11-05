@@ -48,6 +48,20 @@ SKIPPED = (
 )
 
 
+# A record with fields of bits, and the masks of their parts
+BITS = (
+    "#include <stdint.h>\n"
+    "/** A status */\nstruct api_status {\n"
+    "\tuint16_t code; ///< Status code, see API_STATUS_CODE_*\n"
+    "\tuint64_t wide; ///< All of the bits, see API_STATUS_WIDE_*\n};\n"
+    "/** Kind; bits 2:0 of 'code' */\n#define API_STATUS_CODE_TYPE 0x7\n"
+    "/** Delay; bits 11:8 of 'code' */\n#define API_STATUS_CODE_DELAY 0xf00\n"
+    "/** Do not retry; bit 15 of 'code' */\n#define API_STATUS_CODE_DNR 0x8000\n"
+    "/** Top; bit 63 of 'wide' */\n#define API_STATUS_WIDE_TOP 0x8000000000000000\n"
+    "/** Low; bits 31:0 of 'wide' */\n#define API_STATUS_WIDE_LOW 0xffffffff\n"
+)
+
+
 @pytest.fixture(scope="session")
 def parser():
     return CParser()

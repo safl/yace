@@ -34,6 +34,10 @@ masks, `see FOO_STATUS_CODE_*`, and each mask's doc says which bits of which
 field it is, `bits 2:0 of 'code'`. Every way the two can disagree is reported
 by the new bit-mask rule, and the mask is left unlinked.
 
+The pretty-printers of every target print a field of bits as its value and its
+parts, `code: {val: 0x8a05, type: 0x5, dnr: 0x1}` in YAML, the same in decimal
+in JSON.
+
 ## 0.7.0
 
 The header is the description of an FFI boundary, in a C subset. yace reports

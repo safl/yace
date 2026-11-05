@@ -6,6 +6,7 @@ import pytest
 import yaml
 
 from tests.conftest import (
+    BITS,
     ESCAPED,
     ESCAPED_VALUE,
     HEADERS,
@@ -1056,3 +1057,26 @@ def test_closures_kept_by_a_handle_nothing_destroys_are_kept(parse, tmp_path):
 def test_skipped_records_and_padding_bits_build(parse, tmp_path):
     model, _ = parse(SKIPPED)
     assert process(model, ["rust"], tmp_path) == []
+
+
+BITS_PRINTED = (
+    "api_status:\n"
+    "  code: {val: 0x8a05, type: 0x5, delay: 0xa, dnr: 0x1}\n"
+    "  wide: {val: 0x8000000100000002, low: 0x2, top: 0x1}\n"
+    '{"code": {"val": 35333, "type": 5, "delay": 10, "dnr": 1},'
+    ' "wide": {"val": 9223372041149743106, "low": 2, "top": 1}}\n'
+)
+
+
+def test_a_field_of_bits_prints_its_parts(parse, tmp_path):
+    model, _ = parse(BITS)
+    assert process(model, ["rust"], tmp_path) == []
+
+    main = (
+        "use api::*;\nfn main() {\n"
+        "    let s = ApiStatus { code: 0x8a05, wide: 0x8000000100000002 };\n"
+        '    print!("{}", s);\n'
+        "    ApiStatus::fpr(&mut std::io::stdout(), Some(&s), API_PR_JSON).unwrap();\n"
+        "}\n"
+    )
+    assert run_with_crate(tmp_path, main, {"API_NO_LINK": "1"}) == BITS_PRINTED
