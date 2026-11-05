@@ -164,6 +164,7 @@ docs-kmdo: example
 	kmdo docs/src/targets/rust
 	kmdo docs/src/targets/cpp
 	kmdo docs/src/targets/zig
+	kmdo docs/src/targets/go
 	kmdo docs/src/usage
 
 define docs-gen-entities-help
