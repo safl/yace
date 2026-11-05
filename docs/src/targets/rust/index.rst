@@ -55,8 +55,11 @@ Records
   ``Default`` of all zeros. Each has the pretty-printers:
   ``fpr(w, obj, flags)`` and ``pr(obj, flags)``, printing ``obj``, or null for
   ``None``, as the C API's ``<name>_fpr()`` and ``<name>_pr()`` do, and
-  ``Display``, printing YAML. An opaque record is a zero-sized type that cannot
-  be constructed, used through pointers. Each part of a field of bits, see
+  ``Display``, printing YAML. ``Debug`` shows a struct by its C fields; a
+  union, or a record of bit-fields kept as bytes, shows none,
+  ``FooValue { .. }``, as which member of a union is meant is not known. An
+  opaque record is a zero-sized type that cannot be constructed, used through
+  pointers. Each part of a field of bits, see
   :ref:`sec-ir-csubset`, has a getter and a setter, ``code_type()`` and
   ``set_code_type(value)``, of the field's type; the setter panics on a value
   that does not fit the part's bits. The field itself is there as before; a

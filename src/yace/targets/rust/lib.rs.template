@@ -148,7 +148,7 @@ pub {{ "union" if record | is_union else "struct" }} {{ name }} {
 }
 {%- else %}
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy{{ ", Debug" if not debug(record) }})]
 pub {{ "union" if record | is_union else "struct" }} {{ name }} {
 {%- for field in record.fields %}
 {%- if field.doc.brief %}
@@ -159,6 +159,9 @@ pub {{ "union" if record | is_union else "struct" }} {{ name }} {
 }
 {%- endif %}
 {%- if record.fields %}
+{%- for line in debug(record) %}
+{{ "\n" if loop.first }}{{ line }}
+{%- endfor %}
 
 impl Default for {{ name }} {
     /// All zero: no field has a type for which zero is not a value
