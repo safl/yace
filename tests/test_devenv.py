@@ -52,6 +52,7 @@ def test_the_versions_are_those_ci_and_the_crate_name():
 
     workflow = (ROOT / ".github/workflows/verify_and_publish.yml").read_text()
     assert re.findall(r"^\s+version: (\S+)$", workflow, re.M) == [args["ZIG"]]
+    assert re.findall(r"^\s+go-version: (\S+)$", workflow, re.M) == [args["GO"]]
 
 
 def test_devenv_run_passes_the_command_as_given(tmp_path):

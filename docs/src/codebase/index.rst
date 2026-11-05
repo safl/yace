@@ -59,7 +59,7 @@ push, so one changing ``toolbox/devenv`` fails until the change is pushed from
 the repository itself.
 
 The macOS jobs of CI cannot run containers. They use the toolchains of the
-runner, with Python and Zig installed by their actions.
+runner, with Python, Zig and Go installed by their actions.
 
 TOC
 ===

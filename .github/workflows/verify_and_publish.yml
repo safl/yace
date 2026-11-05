@@ -127,6 +127,12 @@ jobs:
         version: 0.16.0
         use-cache: false
 
+    - name: Install Go
+      uses: actions/setup-go@v7.0.0
+      with:
+        go-version: 1.27.3
+        cache: false
+
     - name: Install the build and test it
       run: |
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"

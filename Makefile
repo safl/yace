@@ -141,7 +141,7 @@ define example-help
 endef
 .PHONY: example
 example:
-	yace examples/libfoo/include/foo.h --meta examples/libfoo/meta.yaml --output output --emit capi python rust cpp zig --strict
+	yace examples/libfoo/include/foo.h --meta examples/libfoo/meta.yaml --output output --emit capi python rust cpp zig go --strict
 
 define docs-build-prep-help
 # Install docs tooling and dependencies
