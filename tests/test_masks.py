@@ -190,6 +190,18 @@ def test_a_part_read_as_another_field_is_reported(parse):
     assert masks_of(model, "api_a")["mode"] == [("slow", "API_A_MODE_SLOW", 1, 1)]
 
 
+def test_a_mask_defined_twice_is_one_mask(parse):
+    """C allows a macro to be defined again as it was; it is one mask, not one
+    overlapping itself"""
+
+    twice = "/** Kind; bits 2:0 of 'code' */\n#define API_STATUS_CODE_TYPE 0x7\n"
+    model, diagnostics = parse(RECORD + twice + twice)
+    defines = [e for e in model.entities if isinstance(e, decls.Define)]
+    assert len(defines) == 2
+    assert bit_masks(diagnostics) == []
+    assert masks_of(model)["code"] == [("type", "API_STATUS_CODE_TYPE", 0, 3)]
+
+
 def test_constants_of_the_values_of_a_field_are_no_masks(parse):
     """A field naming the constants of its values, and none says which bits it
     is, has no masks, and is not reported"""
