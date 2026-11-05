@@ -8,7 +8,7 @@ of 'expected.yaml', as for the raw layer.
 import sys
 
 import foo
-from check import document, name_of, record
+from check import document, name_of, record, statuses
 
 
 def errno_of(call, *args):
@@ -99,6 +99,7 @@ def main():
             },
             as_json,
         )
+        statuses(handle.status_get(), flags, as_json)
     handle.close()  # closing again does nothing
 
     record(foo.FooScalars, foo.scalars_fill(), flags)

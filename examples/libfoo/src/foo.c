@@ -155,6 +155,15 @@ foo_poke(struct foo_handle *handle)
 }
 
 void
+foo_status_get(const struct foo_handle *handle, struct foo_status *status)
+{
+	status->code = (uint16_t)((handle->done ? FOO_STATUS_CODE_PENDING : 0) |
+				  ((handle->npoints << 4) & FOO_STATUS_CODE_POINTS) |
+				  (handle->npoints == FOO_POINTS_MAX ? FOO_STATUS_CODE_FULL : 0));
+	status->max = FOO_POINTS_MAX;
+}
+
+void
 foo_scalars_fill(struct foo_scalars *scalars)
 {
 	memset(scalars, 0, sizeof(*scalars));

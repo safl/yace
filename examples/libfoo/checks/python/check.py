@@ -32,6 +32,22 @@ def record(cls, obj, flags):
     print("}")
 
 
+def statuses(status, flags, as_json):
+    """Print the status of a full handle, its parts, and a status of parts set"""
+
+    record(foo.FooStatus, status, flags)
+    parts = {
+        "pending": status.code_pending,
+        "points": status.code_points,
+        "full": status.code_full,
+    }
+    document("status", parts, as_json)
+    made = foo.FooStatus(max=foo.FOO_POINTS_MAX)
+    made.code_points = 5
+    made.code_pending = 1
+    record(foo.FooStatus, made, flags)
+
+
 def name_of(enum, value):
     try:
         return enum(value).name
@@ -130,6 +146,9 @@ def main():
         },
         as_json,
     )
+    status = foo.FooStatus()
+    foo.foo_status_get(handle, status)
+    statuses(status, flags, as_json)
     foo.foo_close(handle)
     foo.foo_close(None)
 

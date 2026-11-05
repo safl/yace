@@ -114,6 +114,7 @@ main(int argc, char **argv)
 	struct foo_visitor visitor = {summarize, &with};
 	struct foo_scalars scalars;
 	struct foo_figure figure;
+	struct foo_status status;
 	union foo_value value;
 	int added = 0;
 
@@ -188,6 +189,23 @@ main(int argc, char **argv)
 	int_value("add", foo_add(handle, &points[0]));
 	int_value("add_many", foo_add_many(handle, points, 1));
 	doc_end();
+
+	foo_status_get(handle, &status);
+	record_begin("foo_status");
+	foo_status_fpr(stdout, &status, flags);
+	record_end();
+	doc_begin("status");
+	int_value("pending", (status.code & FOO_STATUS_CODE_PENDING) >> 0);
+	int_value("points", (status.code & FOO_STATUS_CODE_POINTS) >> 4);
+	int_value("full", (status.code & FOO_STATUS_CODE_FULL) >> 15);
+	doc_end();
+	memset(&status, 0, sizeof(status));
+	status.code |= (5 << 4) & FOO_STATUS_CODE_POINTS;
+	status.code |= FOO_STATUS_CODE_PENDING;
+	status.max = FOO_POINTS_MAX;
+	record_begin("foo_status");
+	foo_status_fpr(stdout, &status, flags);
+	record_end();
 	foo_close(handle);
 	foo_close(NULL);
 

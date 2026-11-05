@@ -145,6 +145,7 @@ fn main() -> io::Result<()> {
         ],
         as_json,
     );
+    statuses(&handle.status_get(), flags, as_json)?;
     handle.close();
 
     record("foo_scalars", FooScalars::fpr, Some(&safe::scalars_fill()), flags)?;

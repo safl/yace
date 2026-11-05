@@ -204,6 +204,18 @@ pub fn main(init: std.process.Init) !void {
         .{ "add_many", .{ .int = errno(handle.addMany(points[0..1])) } },
     });
 
+    const status = handle.statusGet();
+    try record(w, foo.FooStatus, "foo_status", status);
+    try document(w, "status", &.{
+        .{ "pending", .{ .int = status.codePending() } },
+        .{ "points", .{ .int = status.codePoints() } },
+        .{ "full", .{ .int = status.codeFull() } },
+    });
+    var made = foo.FooStatus{ .code = 0, .max = foo.FOO_POINTS_MAX };
+    made.setCodePoints(5);
+    made.setCodePending(1);
+    try record(w, foo.FooStatus, "foo_status", made);
+
     try record(w, foo.FooScalars, "foo_scalars", foo.scalarsFill());
     for ([_]foo.FooShape{ .point, .line, .polygon }) |shape| {
         const figure = try foo.figureFill(@intCast(@intFromEnum(shape)));

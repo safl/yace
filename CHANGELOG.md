@@ -40,7 +40,8 @@ in JSON. In Python, each part is a property of the record, `status.code_type`;
 in Rust, a getter and a setter, `code_type()` and `set_code_type()`; in C++,
 functions overloaded on the record, `foo::code_type(status)` and
 `foo::set_code_type(status, value)`; in Zig, `codeType()` and `setCodeType()`,
-of an integer as wide as the part.
+of an integer as wide as the part. The libfoo fixture has a field of bits, and
+the check of every target reads, writes and prints its parts.
 
 ## 0.7.0
 

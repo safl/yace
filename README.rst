@@ -23,8 +23,10 @@ Welcome to yace
 FFI boundary of the API as a C header, in a subset of C99 that can be described
 equivalently in C, C++, Python, Rust and Zig, and **yace** generates, for each,
 code that is idiomatic for that language: for C, a C API with pretty-printers
-for every struct, union and enum. Headers outside the subset are parsed too,
-with every place they step outside it reported.
+for every struct, union and enum. A field of bits, an integer whose parts are
+named by masks, is printed part by part, and read and written by part in every
+language. Headers outside the subset are parsed too, with every place they step
+outside it reported.
 
 * The project is hosted on `GitHUB`_
 

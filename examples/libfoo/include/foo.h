@@ -137,6 +137,21 @@ union foo_value {
 };
 
 /**
+ * The status of a handle, its code a field of bits
+ */
+struct foo_status {
+	uint16_t code; ///< Status code, see FOO_STATUS_CODE_*
+	uint16_t max;  ///< Points the handle holds at most
+};
+
+/** A count is submitted and not yet completed; bit 0 of 'code' */
+#define FOO_STATUS_CODE_PENDING 0x1
+/** Points held; bits 11:4 of 'code' */
+#define FOO_STATUS_CODE_POINTS 0xff0
+/** The handle holds FOO_POINTS_MAX points; bit 15 of 'code' */
+#define FOO_STATUS_CODE_FULL 0x8000
+
+/**
  * The version of the library
  *
  * @return The version, as "MAJOR.MINOR.PATCH"
@@ -299,6 +314,15 @@ foo_submit(struct foo_handle *handle, foo_done_cb done, void *arg);
  */
 size_t
 foo_poke(struct foo_handle *handle);
+
+/**
+ * The status of the handle
+ *
+ * @param handle The handle
+ * @param[out] status The status to fill in
+ */
+void
+foo_status_get(const struct foo_handle *handle, struct foo_status *status);
 
 /**
  * Fill in a value of every kind of scalar, the limits of the fixed-width ones

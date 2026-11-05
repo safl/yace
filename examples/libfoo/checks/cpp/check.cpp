@@ -216,6 +216,18 @@ main(int argc, char **argv)
 					  return handle.add_many(std::span(points).first(1));
 				  }))},
 			 });
+	auto status = handle.status_get();
+	record("foo_status", std::optional(status));
+	document("status", {
+				   {"pending", num(foo::code_pending(status))},
+				   {"points", num(foo::code_points(status))},
+				   {"full", num(foo::code_full(status))},
+			   });
+	foo::status made = {};
+	made.max = FOO_POINTS_MAX;
+	foo::set_code_points(made, 5);
+	foo::set_code_pending(made, 1);
+	record("foo_status", std::optional(made));
 	handle.close();
 
 	record("foo_scalars", std::optional(foo::scalars_fill()));

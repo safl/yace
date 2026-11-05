@@ -48,6 +48,19 @@ full:
   add: -28
   add_many: -28
 ---
+foo_status:
+  code: {val: 0x8080, pending: 0x0, points: 0x8, full: 0x1}
+  max: 8
+---
+status:
+  pending: 0
+  points: 8
+  full: 1
+---
+foo_status:
+  code: {val: 0x51, pending: 0x1, points: 0x5, full: 0x0}
+  max: 8
+---
 foo_scalars:
   flag: true
   letter: 121

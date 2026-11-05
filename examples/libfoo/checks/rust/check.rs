@@ -141,6 +141,9 @@ fn main() -> io::Result<()> {
             ("add_many", Value::Int(foo_add_many(handle, points.as_ptr(), 1) as i64)),
         ];
         document("full", &full, as_json);
+        let mut status = FooStatus::default();
+        foo_status_get(handle, &mut status);
+        statuses(&status, flags, as_json)?;
         foo_close(handle);
         foo_close(ptr::null_mut());
 

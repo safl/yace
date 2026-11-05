@@ -54,3 +54,21 @@ pub fn record<T>(
     fpr(&mut out, obj, flags)?;
     writeln!(out, "}}")
 }
+
+/// Print the status of a full handle, its parts, and a status of parts set
+pub fn statuses(status: &FooStatus, flags: c_int, as_json: bool) -> io::Result<()> {
+    record("foo_status", FooStatus::fpr, Some(status), flags)?;
+    let parts = [
+        ("pending", Value::Int(status.code_pending().into())),
+        ("points", Value::Int(status.code_points().into())),
+        ("full", Value::Int(status.code_full().into())),
+    ];
+    document("status", &parts, as_json);
+    let mut made = FooStatus {
+        max: FOO_POINTS_MAX as u16,
+        ..Default::default()
+    };
+    made.set_code_points(5);
+    made.set_code_pending(1);
+    record("foo_status", FooStatus::fpr, Some(&made), flags)
+}

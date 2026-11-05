@@ -41,6 +41,11 @@ mentioned before, then other code emitters can do this as well, however,
   :ref:`sec-ir`, then the emitter can produce helper-functions
   pretty-printing those enums, structs, and unions in **YAML**, **JSON**.
 
+* **Fields of bits**; C bit-fields do not cross an FFI boundary, so a field of
+  bits is an integer whose parts are named by masks. The :ref:`sec-ir` links
+  each mask to its field, from the doc comments, so the pretty-printers print
+  the parts by name, and every target reads and writes them by name.
+
 For a quick introduction to using **yace** then jump to the :ref:`sec-usage`
 section. For details and reference see the :ref:`sec-ir`. For details on the
 supported targets, then have a look at the **yace** :ref:`sec-targets` section.
