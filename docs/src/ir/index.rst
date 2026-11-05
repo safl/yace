@@ -19,6 +19,7 @@ What is the same across all of them is the ABI: the layout of every record and
 the signature of every function. The IR records the layout as the compiler laid
 it out, and every target checks what it generates against it.
 
+* :ref:`sec-ir-background`, the API, the ABI, and what yace does about each
 * :ref:`sec-ir-csubset`, the subset, and why
 * :ref:`sec-ir-rules`, the rules, as **yace** reports them
 * :ref:`sec-ir-cparser`, parsing a header
@@ -29,6 +30,7 @@ it out, and every target checks what it generates against it.
    :maxdepth: 2
    :hidden:
 
+   background.rst
    csubset.rst
    rules.rst
    cparser.rst
