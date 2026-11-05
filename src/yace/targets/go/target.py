@@ -1,0 +1,255 @@
+"""
+The Go target: a cgo package binding the API, its raw layer declaring the C
+API as C has it, with every struct and union printing itself by the C API's
+pretty-printers, and a check of what it generated
+
+Emits, into ``<output>/go``, the module of the package:
+
+* ``go.mod``, the module, named as the prefix
+* ``<prefix>.go``, the bindings
+* ``<prefix>_link.go``, linking the library, unless built with the tag
+  ``<prefix>_no_link``
+* ``<prefix>_no_link.c``, what is linked with that tag in place of the library
+* ``lib<prefix>.h`` and ``<prefix>_pp.c``, the C API and its pretty-printers,
+  as the C target emits them, which the package includes and compiles
+* ``check/main.go``, the check program
+
+The module needs Go 1.22 and a C compiler, as cgo does.
+"""
+
+import json
+import os
+import re
+import shutil
+import subprocess
+from pathlib import Path
+from typing import List
+
+import yaml
+from jinja2 import Environment, FileSystemLoader, StrictUndefined
+
+from yace.ir import decls
+from yace.ir.model import Model, host_abi
+from yace.targets.capi import cgen
+from yace.targets.capi.target import CAPI
+from yace.targets.target import Target
+
+from . import ggen
+from .raw import Raw
+
+# The oldest Go the module is declared to need, that of Ubuntu 24.04
+GO_VERSION = "1.22"
+
+# What the package's own code calls, after its declarations
+HELPERS = """
+// yaceText is what is written to it, for String()
+type yaceText []byte
+
+func (t *yaceText) Write(p []byte) (int, error) {
+	*t = append(*t, p...)
+	return len(p), nil
+}
+
+// yacePrint writes to w what print writes to a C stream
+func yacePrint(w io.Writer, print func(stream *C.FILE)) error {
+	stream, err := C.tmpfile()
+	if stream == nil {
+		return err
+	}
+	defer C.fclose(stream)
+	print(stream)
+	size := C.ftell(stream)
+	if size < 0 {
+		return errors.New("ftell() of the printed failed")
+	}
+	C.rewind(stream)
+	text := make([]byte, int(size))
+	if size > 0 && C.fread(unsafe.Pointer(&text[0]), C.size_t(size), 1, stream) != 1 {
+		return errors.New("fread() of the printed failed")
+	}
+	_, err = w.Write(text)
+	return err
+}
+""".strip(
+    "\n"
+)
+
+
+def oneline(text: str) -> str:
+    return " ".join(text.split())
+
+
+def imports(lines: List[str]) -> List[str]:
+    """The packages 'lines' of Go use, other than in comments and strings"""
+
+    code = "\n".join(line for line in lines if not line.lstrip().startswith("//"))
+    code = re.sub(r'"(?:[^"\\\n]|\\.)*"', '""', code)
+    return sorted(
+        name for name in ggen.IMPORTS - {"C"} if re.search(rf"\b{name}\.", code)
+    )
+
+
+class Go(Target):
+    NAME = "go"
+
+    def __init__(self, output: Path, include=None):
+        super().__init__(output, include)
+        self.capi = CAPI(output, include)
+
+    def context(self, model: Model) -> dict:
+        prefix = cgen.c_ident(model.meta.prefix)
+        package = f"{prefix}_" if prefix in ggen.KEYWORDS else prefix
+        namer = ggen.Namer(model)
+        complete = cgen.ordered_records(model)
+        records = ggen.Records(namer, complete)
+        raw = Raw(model, namer, records)
+
+        body = [""] + HELPERS.splitlines() + raw.render()
+
+        library = model.meta.name or prefix
+        if library.startswith("lib"):
+            library = library[3:]
+
+        def offsets(record):
+            if isinstance(record, decls.Union) or records.is_blob(record):
+                return []
+            names = records.field_names(record)
+            return [
+                (field, names[field.name])
+                for field in record.fields
+                if field.offset is not None and not records.is_flexible(record, field)
+            ]
+
+        asserts = []
+        if model.meta.abi == host_abi():
+            for record in complete:
+                if not record.size:
+                    continue
+                name = f"{package}.{namer.type_name(record)}{{}}"
+                asserts += [
+                    f"unsafe.Sizeof({name}) ^ {record.size}",
+                    f"unsafe.Alignof({name}) ^ {record.align}",
+                ]
+                asserts += [
+                    f"unsafe.Offsetof({name}.{member}) ^ {field.offset // 8}"
+                    for field, member in offsets(record)
+                ]
+
+        return {
+            "meta": model.meta,
+            "package": package,
+            "module": prefix,
+            "PREFIX": prefix.upper(),
+            "library": library,
+            "no_link": f"{prefix}_no_link",
+            "namer": namer,
+            "imports": imports(body),
+            "body": body,
+            "functions": [f for f in raw.functions if raw.unbindable(f) is None],
+            "printable": complete,
+            "fpr": lambda record: records.method_names(record)["Fpr"],
+            "asserts": asserts,
+        }
+
+    def emit(self, model: Model) -> list:
+        env = Environment(
+            loader=FileSystemLoader(Path(__file__).parent),
+            undefined=StrictUndefined,
+            keep_trailing_newline=True,
+        )
+        env.filters.update(oneline=oneline)
+        context = self.context(model)
+        prefix = cgen.c_ident(model.meta.prefix)
+
+        paths = []
+        gomod = self.output / "go.mod"
+        gomod.write_text(f"module {context['module']}\n\ngo {GO_VERSION}\n")
+        paths.append(gomod)
+        (self.output / "check").mkdir(exist_ok=True)
+        for filename, template in [
+            (f"{prefix}.go", "package.go.template"),
+            (f"{prefix}_link.go", "link.go.template"),
+            (f"{prefix}_no_link.c", "no_link.c.template"),
+            ("check/main.go", "check.go.template"),
+        ]:
+            path = self.output / filename
+            path.write_text(env.get_template(template).render(**context))
+            paths.append(path)
+
+        # The C API and its printers, as the C target emits them, in the package
+        capi = self.capi.environment()
+        capi_context = self.capi.context(model)
+        for filename, template in [
+            (f"lib{model.meta.prefix}.h", "header.h.template"),
+            (f"{model.meta.prefix}_pp.c", "pp.c.template"),
+        ]:
+            path = self.output / filename
+            path.write_text(capi.get_template(template).render(**capi_context))
+            paths.append(path)
+
+        return paths
+
+    def check(self, model: Model) -> list:
+        """Vet the package and the check, then build and run the check; returns
+        what failed, if anything"""
+
+        go = os.environ.get("GO", "go")
+        if not shutil.which(go):
+            return [f"no Go toolchain ('{go}'); set GO"]
+
+        prefix = cgen.c_ident(model.meta.prefix)
+        out = self.output.resolve()
+        binary = out / f"{prefix}_check"
+        env = {**os.environ, "GOFLAGS": "-mod=mod", "GOTOOLCHAIN": "local"}
+        env["CGO_ENABLED"] = "1"
+        cflags = " ".join(f"-I{path.resolve()}" for path in self.include)
+        if cflags:
+            env["CGO_CFLAGS"] = f"{os.environ.get('CGO_CFLAGS', '-g -O2')} {cflags}"
+        # The module is named as the prefix, which Go would also find in std;
+        # listed in std's own module, as the module of the package is ambiguous
+        goroot = subprocess.run(
+            [go, "env", "GOROOT"], capture_output=True, text=True, env=env
+        ).stdout.strip()
+        std = ""
+        if goroot and (Path(goroot) / "src").is_dir():
+            std = subprocess.run(
+                [go, "list", "std"],
+                cwd=Path(goroot) / "src",
+                capture_output=True,
+                text=True,
+                env={**env, "GOFLAGS": ""},
+            ).stdout
+        if prefix in std.split():
+            return [
+                f"the module '{prefix}', named as the prefix, is a package of Go's"
+                " standard library, so an import of it is ambiguous"
+            ]
+
+        tags = ["-tags", f"{prefix}_no_link"]
+        log = []
+        for cmd in [
+            [go, "vet", "-stdmethods=false", *tags, "./..."],
+            [go, "build", "-buildvcs=false", *tags, "-o", str(binary), "./check"],
+        ]:
+            proc = subprocess.run(cmd, cwd=out, capture_output=True, text=True, env=env)
+            log.append(f"{' '.join(cmd)}\n{proc.stdout}{proc.stderr}")
+            (self.output / "go.log").write_text("\n".join(log))
+            if proc.returncode:
+                return [f"building the check failed:\n{proc.stderr}"]
+
+        failures = []
+        for fmt in ("yaml", "json"):
+            proc = subprocess.run([str(binary), fmt], capture_output=True, text=True)
+            (self.output / f"check.{fmt}").write_text(proc.stdout)
+            if proc.returncode:
+                failures.append(f"the check exited {proc.returncode} printing {fmt}")
+                continue
+            try:
+                if fmt == "yaml":
+                    list(yaml.safe_load_all(proc.stdout))
+                else:
+                    [json.loads(line) for line in proc.stdout.splitlines()]
+            except (yaml.YAMLError, json.JSONDecodeError) as exc:
+                failures.append(f"the pretty-printers print invalid {fmt}: {exc}")
+
+        return failures

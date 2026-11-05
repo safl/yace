@@ -82,3 +82,4 @@ def parse(parser, tmp_path):
 needs_cc = pytest.mark.skipif(not shutil.which("cc"), reason="no C compiler")
 needs_cargo = pytest.mark.skipif(not shutil.which("cargo"), reason="no Rust toolchain")
 needs_zig = pytest.mark.skipif(not shutil.which("zig"), reason="no Zig toolchain")
+needs_go = pytest.mark.skipif(not shutil.which("go"), reason="no Go toolchain")

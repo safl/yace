@@ -62,6 +62,7 @@ python = "yace.targets.python.target:Python"
 rust = "yace.targets.rust.target:Rust"
 cpp = "yace.targets.cpp.target:CPP"
 zig = "yace.targets.zig.target:Zig"
+go = "yace.targets.go.target:Go"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -91,6 +92,7 @@ ignore_missing_imports = true
 module = [
     "yace.targets.capi.*",
     "yace.targets.cpp.*",
+    "yace.targets.go.*",
     "yace.targets.python.*",
     "yace.targets.rust.*",
     "yace.targets.zig.*",

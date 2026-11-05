@@ -1,0 +1,375 @@
+import json
+import os
+import subprocess
+
+import pytest
+import yaml
+
+from tests.conftest import (
+    BITS,
+    ESCAPED,
+    ESCAPED_VALUE,
+    HEADERS,
+    SKIPPED,
+    needs_cc,
+    needs_go,
+)
+from tests.test_rust import BITS_PRINTED, BITS_UNION, HIDDEN, doc
+from yace.compiler import process
+from yace.targets.go.target import GO_VERSION, Go
+
+pytestmark = needs_go
+
+
+def json_lines(text):
+    return [json.loads(line) for line in text.splitlines()]
+
+
+def run_go(tmp_path, main: str, impl: str = "", strict: bool = False) -> str:
+    """Build and run 'main', the source of a Go program, against the package
+    generated into 'tmp_path'; linked with 'impl', the C source of the library,
+    or with nothing, by the tag 'api_no_link'. 'strict' checks every pointer
+    crossing to C, as GOEXPERIMENT=cgocheck2 does. Returns what it printed."""
+
+    project = tmp_path / "user"
+    project.mkdir()
+    (project / "go.mod").write_text(
+        f"module user\n\ngo {GO_VERSION}\n\nrequire api v0.0.0\n\n"
+        f"replace api => {tmp_path / 'go'}\n"
+    )
+    (project / "main.go").write_text(main)
+    env = {**os.environ, "GOFLAGS": "-mod=mod", "GOTOOLCHAIN": "local"}
+    cmd = ["go", "build", "-buildvcs=false", "-o", str(tmp_path / "user.bin")]
+    if impl:
+        (tmp_path / "api.c").write_text(impl)
+        subprocess.run(
+            ["cc", "-shared", "-fPIC", str(tmp_path / "api.c")]
+            + ["-o", str(tmp_path / "libapi.so")],
+            check=True,
+        )
+        env["CGO_LDFLAGS"] = f"-L{tmp_path} -Wl,-rpath,{tmp_path}"
+    else:
+        cmd += ["-tags", "api_no_link"]
+    if strict:
+        env["GOEXPERIMENT"] = "cgocheck2"
+    build = subprocess.run(
+        cmd + ["."], cwd=project, capture_output=True, text=True, env=env
+    )
+    assert build.returncode == 0, build.stderr
+    run = subprocess.run([str(tmp_path / "user.bin")], capture_output=True, text=True)
+    assert run.returncode == 0, run.stderr
+    return run.stdout
+
+
+def program(body: str, imports=("fmt",)) -> str:
+    """A Go program of 'body', in main(), importing the package as 'api'"""
+
+    lines = "".join(f'\t"{name}"\n' for name in imports)
+    return (
+        f'package main\n\nimport (\n{lines}\n\t"api"\n)\n\nfunc main() {{\n{body}}}\n'
+    )
+
+
+@needs_cc
+def test_the_subset_prints_as_the_c_api_does(parser, tmp_path):
+    model, _ = parser.parse(HEADERS / "valid.h")
+    assert process(model, ["capi", "go"], tmp_path) == []
+
+    for fmt, load in (("yaml", yaml.safe_load_all), ("json", json_lines)):
+        c_out = (tmp_path / "capi" / f"check.{fmt}").read_text()
+        go_out = (tmp_path / "go" / f"check.{fmt}").read_text()
+        assert list(load(go_out)) == list(load(c_out))
+
+
+@pytest.mark.parametrize("header", ["valid", "bits", "skipped", "hidden"])
+def test_the_package_is_formatted_as_gofmt_formats_it(parse, parser, tmp_path, header):
+    if header == "valid":
+        model, _ = parser.parse(HEADERS / "valid.h")
+    else:
+        model, _ = parse({"bits": BITS, "skipped": SKIPPED, "hidden": HIDDEN}[header])
+    assert process(model, ["go"], tmp_path) == []
+
+    gofmt = subprocess.run(
+        ["gofmt", "-l", str(tmp_path / "go")], capture_output=True, text=True
+    )
+    assert gofmt.returncode == 0, gofmt.stderr
+    assert gofmt.stdout == ""
+
+
+def test_a_layout_other_than_recorded_fails_the_check(parser, tmp_path):
+    model, _ = parser.parse(HEADERS / "valid.h")
+    model.find("valid_point").size = 12
+
+    failures = process(model, ["go"], tmp_path)
+    assert failures and "building the check failed" in failures[0]
+    assert "unsafe.Sizeof(valid.ValidPoint{}) ^ 12" in failures[0]
+
+
+def test_an_offset_other_than_recorded_fails_the_check(parser, tmp_path):
+    model, _ = parser.parse(HEADERS / "valid.h")
+    model.find("valid_point").fields[1].offset = 40
+
+    failures = process(model, ["go"], tmp_path)
+    assert failures and "building the check failed" in failures[0]
+    assert "unsafe.Offsetof(valid.ValidPoint{}.Y) ^ 5" in failures[0]
+
+
+def test_a_prefix_naming_a_package_of_the_standard_library_fails(parser, tmp_path):
+    header = tmp_path / "sort.h"
+    header.write_text("/** P */\nstruct sort_p { int x; };\n")
+    model, _ = parser.parse(header, {"name": "libsort", "prefix": "sort"})
+
+    assert process(model, ["go"], tmp_path) == [
+        "go: the module 'sort', named as the prefix, is a package of Go's standard"
+        " library, so an import of it is ambiguous"
+    ]
+
+
+def test_a_goroot_without_sources_is_a_failure_not_a_crash(
+    parser, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("GOROOT", str(tmp_path / "no-such-goroot"))
+    monkeypatch.chdir(tmp_path)
+    model, _ = parser.parse(HEADERS / "valid.h")
+
+    failures = process(model, ["go"], tmp_path / "out")
+    assert failures and "GOROOT" in failures[0]
+
+
+def test_a_pointer_to_an_array_of_no_length_is_not_bound(parse, tmp_path):
+    model, _ = parse(doc("F") + "int api_f(int (*p)[]);\n")
+    assert process(model, ["go"], tmp_path) == []
+
+    source = (tmp_path / "go" / "api.go").read_text()
+    assert "a pointer to an array of no length, which cgo cannot type" in source
+    assert "func Api_f(" not in source
+
+
+@needs_cc
+def test_pointers_to_arrays_are_given_as_such(parse, tmp_path):
+    header = (
+        doc("F")
+        + "int api_f(int (*p)[4]);\n"
+        + doc("G")
+        + "int api_g(int p[4], int n);\n"
+        + doc("Arr")
+        + "typedef int api_arr[4];\n"
+        + doc("H")
+        + "int api_h(api_arr a);\n"
+        + doc("Rec")
+        + "struct api_rec { api_arr a; int (*pa)[4]; };\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["go"], tmp_path) == []
+
+    impl = header + (
+        "int api_f(int (*p)[4]) { return (*p)[3]; }\n"
+        "int api_g(int p[4], int n) { return p[n]; }\n"
+        "int api_h(api_arr a) { return a[1]; }\n"
+    )
+    main = program(
+        "\tarr := [4]int32{1, 2, 3, 4}\n"
+        "\trec := api.ApiRec{Pa: &arr}\n"
+        "\tfmt.Println(api.Api_f(&arr), api.Api_g(&arr[0], 2), api.Api_h(&arr[0]),"
+        " rec.Pa[0])\n"
+    )
+    assert run_go(tmp_path, main, impl, strict=True) == "4 3 2 1\n"
+
+
+def test_emitting_is_deterministic(parser, tmp_path):
+    model, _ = parser.parse(HEADERS / "valid.h")
+    first = [p.read_bytes() for p in Go(tmp_path / "a").emit(model)]
+    second = [p.read_bytes() for p in Go(tmp_path / "b").emit(model)]
+    assert first == second
+
+
+def test_no_toolchain_is_a_failure_not_a_crash(parser, tmp_path, monkeypatch):
+    monkeypatch.setenv("GO", "no-such-go")
+    model, _ = parser.parse(HEADERS / "valid.h")
+
+    assert process(model, ["go"], tmp_path) == [
+        "go: no Go toolchain ('no-such-go'); set GO"
+    ]
+
+
+def test_string_defines_keep_their_value(parse, tmp_path):
+    # A package named in a string is not one the package uses
+    model, _ = parse(ESCAPED + '/** P */\n#define API_P "strconv.Itoa cgo.Handle"\n')
+    assert process(model, ["go"], tmp_path) == []
+
+    main = program("\tfmt.Print(api.API_S)\n")
+    assert run_go(tmp_path, main) == ESCAPED_VALUE
+
+
+def test_enums_are_integers_with_names(parse, tmp_path):
+    model, _ = parse(
+        "/** Kinds */\nenum api_kind { API_A = 1, API_B = 2, API_ALSO_B = 2 };\n"
+    )
+    assert process(model, ["go"], tmp_path) == []
+
+    main = program(
+        "\tname, ok := api.ApiKind(7).Name()\n"
+        '\tfmt.Println(api.ApiKind(2), api.API_A, api.ApiKind(7), name == "", ok)\n'
+    )
+    assert run_go(tmp_path, main) == "API_B API_A ApiKind(7) true false\n"
+
+
+def test_names_are_made_usable(parse, tmp_path):
+    model, _ = parse(
+        "struct foo_bar { int type; int self; int Type; };\n"
+        "struct foo__bar { int x; };\n"
+        "int api_r(int func, int len, int unsafe, int Foo_bar);\n"
+        "int range(int x);\n"
+        "typedef int type;\nint api_t(type x);\n"
+        "enum kind { lower = 1 };\n"
+        "typedef unsigned api_u32;\n"
+        "struct _hidden { int x; };\n"
+        "int _hidden_f(int _);\n"
+    )
+    assert process(model, ["go"], tmp_path) == []
+
+    module = (tmp_path / "go" / "api.go").read_text()
+    assert "type Foo_bar struct {" in module and "type Foo__bar struct {" in module
+    assert "\tType  int32\n\tSelf  int32\n\tType_ int32\n" in module
+    assert (
+        "func Api_r(func_ int32, len_ int32, unsafe_ int32, Foo_bar_ int32) int32 {"
+        in module
+    )
+    assert "// Range is not bound: range() is named as a Go keyword" in module
+    assert "// Api_t is not bound: api_t() uses the typedef 'type'" in module
+    assert "Lower Kind = 1" in module
+    assert "type ApiU32 = uint32" in module
+    assert "type Hidden struct {" in module
+    assert "func X_hidden_f(arg0 int32) int32 {" in module
+
+
+def test_skipped_records_and_padding_bits_build(parse, tmp_path):
+    model, _ = parse(SKIPPED)
+    assert process(model, ["go"], tmp_path) == []
+
+
+def test_what_cgo_cannot_call_is_not_bound_and_says_so(parse, tmp_path):
+    model, _ = parse(
+        doc("Log")
+        + "int api_log(const char *fmt, ...);\n"
+        + "struct api_x;\n"
+        + doc("Take")
+        + "int api_take(struct api_x x);\n"
+    )
+    assert process(model, ["go"], tmp_path) == []
+
+    module = (tmp_path / "go" / "api.go").read_text()
+    assert "// Api_log is not bound: api_log() is variadic, which cgo cannot call." in (
+        module
+    )
+    assert "func Api_log(" not in module
+    assert "// Api_take is not bound: api_take() takes or returns a ApiX" in module
+
+
+def test_a_struct_ending_in_a_flexible_array_has_its_layout(parse, tmp_path):
+    model, _ = parse(
+        "#include <stdint.h>\n"
+        + doc("Message")
+        + "struct api_msg { uint8_t len; uint64_t data[]; };\n"
+    )
+    assert process(model, ["go"], tmp_path) == []
+
+    module = (tmp_path / "go" / "api.go").read_text()
+    assert "// 'data', a flexible array, follows it in memory: Go" in module
+
+
+@needs_cc
+def test_raw_functions_call_c(parse, tmp_path):
+    header = (
+        "#include <stddef.h>\n#include <stdint.h>\n"
+        + doc("P")
+        + "struct api_p { int32_t x; int32_t y; };\n"
+        + doc("Sum")
+        + "long api_sum(const struct api_p *p, size_t n, char *name);\n"
+        + doc("Get")
+        + "struct api_p *api_get(void);\n"
+        + doc("Swap")
+        + "struct api_p api_swap(struct api_p p);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["go"], tmp_path) == []
+
+    impl = header + (
+        "long api_sum(const struct api_p *p, size_t n, char *name)\n"
+        "{\n\tlong s = 0;\n\tfor (size_t i = 0; i < n; i++) s += p[i].x * p[i].y;\n"
+        "\tname[0] = 'S';\n\treturn s;\n}\n"
+        "static struct api_p one = { 7, 8 };\n"
+        "struct api_p *api_get(void) { return &one; }\n"
+        "struct api_p api_swap(struct api_p p)"
+        " { struct api_p q = { p.y, p.x }; return q; }\n"
+    )
+    main = program(
+        "\tps := []api.ApiP{{X: 1, Y: 2}, {X: 3, Y: 4}}\n"
+        '\tname := []byte("s\\x00")\n'
+        "\tsum := api.Api_sum(&ps[0], uintptr(len(ps)), &name[0])\n"
+        "\tfmt.Println(sum, string(name[:1]), *api.Api_get(),"
+        " api.Api_swap(api.ApiP{X: 1, Y: 2}).X)\n"
+    )
+    assert run_go(tmp_path, main, impl, strict=True) == (
+        "14 S api_p:\n  x: 7\n  y: 8\n 2\n"
+    )
+
+
+def test_unions_are_read_and_written_through_their_members(parse, tmp_path):
+    model, _ = parse(
+        "#include <stdint.h>\n"
+        + doc("Point")
+        + "struct api_p { int16_t x; int16_t y; };\n"
+        + doc("Either")
+        + "union api_u { uint32_t u; int32_t i; struct api_p p; uint8_t b[4]; };\n"
+    )
+    assert process(model, ["go"], tmp_path) == []
+
+    main = program(
+        "\tvar u api.ApiU\n\t*u.I() = -1\n\tu.P().X = 0\n"
+        '\tfmt.Printf("%#x %d %d\\n", *u.U(), u.P().Y, u.B()[3])\n'
+    )
+    assert run_go(tmp_path, main) == "0xffff0000 -1 255\n"
+
+
+def test_a_field_of_bits_prints_its_parts(parse, tmp_path):
+    model, _ = parse(BITS)
+    assert process(model, ["go"], tmp_path) == []
+
+    main = program(
+        "\ts := api.ApiStatus{Code: 0x8a05, Wide: 0x8000000100000002}\n"
+        "\tfmt.Print(s)\n"
+        "\tif err := s.Fpr(os.Stdout, api.API_PR_JSON); err != nil {\n"
+        "\t\tpanic(err)\n\t}\n",
+        imports=("fmt", "os"),
+    )
+    assert run_go(tmp_path, main) == BITS_PRINTED
+
+
+def test_the_parts_of_a_field_of_bits_are_methods(parse, tmp_path):
+    model, _ = parse(
+        BITS + BITS_UNION + "/** C */\nstruct api_c {\n"
+        "\tuint8_t status; ///< Status, see API_C_STATUS_*\n"
+        "\tuint8_t StatusFlags; ///< Named as a getter in Go\n};\n"
+        "/** Flags; bits 7:6 of 'status' */\n#define API_C_STATUS_FLAGS 0xc0\n"
+    )
+    assert process(model, ["go"], tmp_path) == []
+
+    main = program(
+        "\ts := api.ApiStatus{Code: 0x8a05, Wide: 0x8000000100000002}\n"
+        "\tfmt.Println(s.CodeType(), s.CodeDelay(), s.CodeDnr(), s.WideLow(),"
+        " s.WideTop())\n"
+        "\ts.SetCodeDelay(3)\n\ts.SetCodeDnr(0)\n"
+        "\ts.SetWideTop(0)\n\ts.SetWideLow(0xffffffff)\n"
+        '\tfmt.Printf("%#x %#x\\n", s.Code, s.Wide)\n'
+        "\tvar u api.ApiU\n\tu.SetTypeHi(0xabcd)\n"
+        '\tfmt.Printf("%#x %#x\\n", *u.Type(), u.TypeHi())\n'
+        "\tvar c api.ApiC\n\tc.SetStatusFlags(2)\n"
+        '\tfmt.Printf("%#x %d %d\\n", c.Status, c.StatusFlags_(), c.StatusFlags)\n'
+        "\tdefer func() { fmt.Println(recover()) }()\n"
+        "\ts.SetCodeDelay(16)\n"
+    )
+    assert run_go(tmp_path, main) == (
+        "5 10 1 2 1\n0x305 0x1ffffffff\n0xabcd0000 0xabcd\n0x80 2 0\n"
+        "ApiStatus.SetCodeDelay: 16 does not fit\n"
+    )
