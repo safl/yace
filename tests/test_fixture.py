@@ -14,11 +14,12 @@ from pathlib import Path
 import pytest
 import yaml
 
-from tests.conftest import needs_cargo, needs_cc, needs_zig
+from tests.conftest import needs_cargo, needs_cc, needs_go, needs_zig
 from yace.compiler import process
 from yace.ir.cparser import CParser
 from yace.targets.capi.target import CFLAGS
 from yace.targets.cpp.target import CXXFLAGS
+from yace.targets.go.target import GO_VERSION
 from yace.targets.rust import target as rust_target
 
 FIXTURE = Path(__file__).parent.parent / "examples" / "libfoo"
@@ -200,6 +201,37 @@ def test_zig(model, library, tmp_path, fmt):
         + ["--dep", "foo", f"-Mroot={FIXTURE / 'checks' / 'zig' / 'check.zig'}"]
         + [f"-Mfoo={tmp_path / 'zig' / 'foo.zig'}", f"-femit-bin={binary}"]
     )
+    expected = list(yaml.safe_load_all((FIXTURE / "expected.yaml").read_text()))
+
+    assert documents(run([binary, fmt]), fmt) == expected
+
+
+@needs_cc
+@needs_go
+@pytest.mark.parametrize("fmt", ["yaml", "json"])
+def test_go(model, library, tmp_path, fmt):
+    assert process(model, ["go"], tmp_path) == []
+
+    project = tmp_path / "check"
+    project.mkdir()
+    (project / "go.mod").write_text(
+        f"module check\n\ngo {GO_VERSION}\n\nrequire foo v0.0.0\n\n"
+        f"replace foo => {tmp_path / 'go'}\n"
+    )
+    (project / "main.go").write_text(
+        (FIXTURE / "checks" / "go" / "main.go").read_text()
+    )
+    env = {**os.environ, "GOFLAGS": "-mod=mod", "GOTOOLCHAIN": "local"}
+    env["CGO_LDFLAGS"] = f"-L{library} -Wl,-rpath,{library}"
+    binary = tmp_path / "check.bin"
+    build = subprocess.run(
+        ["go", "build", "-buildvcs=false", "-o", str(binary), "."],
+        cwd=project,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert build.returncode == 0, build.stderr
     expected = list(yaml.safe_load_all((FIXTURE / "expected.yaml").read_text()))
 
     assert documents(run([binary, fmt]), fmt) == expected
