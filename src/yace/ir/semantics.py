@@ -45,7 +45,7 @@ callback-context rule requires; a returned ``const char *`` is borrowed, as the
 string-return rule requires.
 """
 
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, cast
 
 from . import decls, types
 from .doc import DIRECTIONS
@@ -294,7 +294,7 @@ class Semantics(object):
             elif value == "handle" and not self.is_method(func):
                 annotation(f"@lifetime of '{name}' is handle, but there is no handle")
             else:
-                params[name].lifetime = value
+                params[name].lifetime = cast(decls.Lifetime, value)
 
         for idx, param in enumerate(func.params):
             fntype = self.callback(param.typ)
@@ -359,6 +359,10 @@ class Semantics(object):
                     created.setdefault(typ.to.to.name, func)
             if func.destroys:
                 typ = next(p.typ for p in func.params if p.name == func.destroys)
+                # @destroys was checked to name a pointer to a record
+                assert isinstance(typ, types.Pointer) and isinstance(
+                    typ.to, types.Record
+                )
                 destroyed.add(typ.to.name)
 
         for name, func in created.items():

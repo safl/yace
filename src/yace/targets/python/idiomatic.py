@@ -8,7 +8,7 @@ is derived from where.
 
 import keyword
 from functools import cached_property
-from typing import List
+from typing import List, Optional
 
 from yace.ir import decls, types
 from yace.ir.semantics import is_void_ptr
@@ -296,12 +296,12 @@ class Renderer(object):
                     lines.append(back)
 
         results = []
-        count = "ret" if call.returns == "count" else None
+        counted: Optional[str] = "ret" if call.returns == "count" else None
         for out in call.outs:
             name = self.pname(out.param)
             if out.kind == "array":
-                results.append(f"{name}[: {count or self.pname(out.capacity)}]")
-                count = None  # the count is that of the array, not returned too
+                results.append(f"{name}[: {counted or self.pname(out.capacity)}]")
+                counted = None  # the count is that of the array, not returned too
             elif out.kind == "handle":
                 results.append(f"{self.class_name(out.typ.to.name)}({name})")
             elif out.kind == "record":
@@ -314,7 +314,7 @@ class Renderer(object):
                 results.append(f"{name} or None")  # opaque, such as a FILE *
             else:
                 results.append(f"{name}.value")
-        if count:
+        if counted:
             results.append("ret")
         if call.returns in ("value", "string"):
             results.append("ret")
@@ -366,7 +366,7 @@ class Renderer(object):
         """The parameter list; nullable ones default to None, where all after
         them do too"""
 
-        found = []
+        found: List[str] = []
         for arg in reversed(self.visible(call)):
             default = arg.nullable and all(p.endswith("=None") for p in found)
             found.append(self.pname(arg.param) + ("=None" if default else ""))

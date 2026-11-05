@@ -87,7 +87,7 @@ def link(entities: list, report: Callable[[str, str, object], None], cursors: di
         report("bit-mask", f"'{define.name}' {message}", cursors.get(define.name))
 
     # The prefix each integer field names, with the record and the field
-    owners: Dict[str, List[Tuple[object, decls.Field]]] = {}
+    owners: Dict[str, List[Tuple[decls.Struct | decls.Union, decls.Field]]] = {}
     for record in (e for e in entities if isinstance(e, decls.RECORDS)):
         for field in record.fields:
             text = f"{field.doc.brief} {field.doc.description}"
@@ -166,6 +166,7 @@ def link(entities: list, report: Callable[[str, str, object], None], cursors: di
             )
             continue
 
+        assert isinstance(define.value, decls.IntLiteral)  # as 'defines' holds
         value = define.value.value
         if value <= 0:
             problem(define, f"is {value}, which masks no bits")
@@ -210,8 +211,8 @@ def link(entities: list, report: Callable[[str, str, object], None], cursors: di
         )
 
     linked = {id(f): f for fields in owners.values() for _, f in fields}
-    for key, found in masked.items():
-        linked[key].masks = sorted((mask for mask, _ in found), key=lambda m: m.lo)
+    for key, taken in masked.items():
+        linked[key].masks = sorted((mask for mask, _ in taken), key=lambda m: m.lo)
 
     unlocated(defines, owners, masked, problem)
     accessors(entities, cursors, report)

@@ -5,7 +5,7 @@ point group, so a package can provide one without changes to **yace**.
 """
 
 from abc import ABC, abstractmethod
-from importlib.metadata import entry_points
+from importlib.metadata import EntryPoint, entry_points
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -29,7 +29,7 @@ class Target(ABC):
         """Build and exercise what emit() wrote; returns the failures, if any"""
 
 
-def targets() -> Dict[str, type]:
+def targets() -> Dict[str, EntryPoint]:
     """The installed targets by name, loaded when asked for"""
 
     return {ep.name: ep for ep in entry_points(group="yace.targets")}

@@ -27,7 +27,7 @@ Names lose the prefix of the API, and methods also the name of their handle:
 """
 
 from collections import Counter
-from typing import Dict, Iterable, Iterator, List, Literal, Optional
+from typing import Any, Dict, Iterable, Iterator, List, Literal, Optional
 
 from pydantic import BaseModel
 
@@ -67,17 +67,21 @@ class Out(BaseModel):
     capacity: Optional[str] = None  # for an array, the parameter of its count
 
 
+CallKind = Literal["constructor", "destructor", "method", "function"]
+Returns = Literal["nothing", "value", "string", "pointer", "handle", "count"]
+
+
 class Call(BaseModel):
     """A C function, as called idiomatically"""
 
     function: str  # the C name
     name: str  # the idiomatic name
-    kind: Literal["constructor", "destructor", "method", "function"]
+    kind: CallKind
     handle: Optional[str] = None  # the C name of the record it belongs to
     args: List[Arg]
     outs: List[Out]
     errno: bool = False
-    returns: Literal["nothing", "value", "string", "pointer", "handle", "count"]
+    returns: Returns
     nullable: bool = False  # whether what is returned may be nothing
     ret: types.Type
 
@@ -211,20 +215,27 @@ class Idioms(object):
 
         args: List[Arg] = []
         outs: List[Out] = []
-        kind, handle = "function", None
+        kind: CallKind = "function"
+        handle: Optional[str] = None
 
         for idx, param in enumerate(params):
             typ = param.typ
             pname = param.name or f"arg{idx}"
-            arg = dict(param=pname, index=idx, typ=typ, nullable=param.nullable)
+            arg: Dict[str, Any] = dict(
+                param=pname, index=idx, typ=typ, nullable=param.nullable
+            )
 
             if param.name in lengths:
                 owners = lengths[param.name]
                 outs_of = [p for p in owners if p.direction == "out"]
                 owner = outs_of[0] if outs_of else owners[0]
                 shared = [p.name for p in owners if p is not owner]
-                kind_of = "capacity" if outs_of else "length"
-                args.append(Arg(kind=kind_of, of=owner.name, shared=shared, **arg))
+                if outs_of:
+                    args.append(
+                        Arg(kind="capacity", of=owner.name, shared=shared, **arg)
+                    )
+                else:
+                    args.append(Arg(kind="length", of=owner.name, shared=shared, **arg))
                 continue
             if param.name in contexts:
                 args.append(Arg(kind="context", of=param.context, **arg))
@@ -253,10 +264,10 @@ class Idioms(object):
                 args.append(Arg(kind="out", **arg))
                 continue
 
-            owner = is_opaque_ptr(typ, self.handles)
-            if idx == 0 and owner and kind == "function":
+            owned = is_opaque_ptr(typ, self.handles)
+            if idx == 0 and owned and kind == "function":
                 args.append(Arg(kind="self", **arg))
-                kind, handle = "method", owner
+                kind, handle = "method", owned
                 if func.destroys == param.name:
                     kind = "destructor"
                 continue
@@ -271,10 +282,12 @@ class Idioms(object):
                 args.append(Arg(kind="value", **arg))
 
         ret = func.ret
+        returns: Returns
         if isinstance(ret, types.Builtin) and ret.name == "void":
             returns = "nothing"
         elif func.errno:
-            returns = "nothing" if ret.name == "int" else "count"
+            # @errno was checked to return a signed integer, which has a name
+            returns = "nothing" if getattr(ret, "name", None) == "int" else "count"
         elif types.is_string(ret):
             returns = "string"
         elif is_opaque_ptr(ret, self.handles):

@@ -4,7 +4,7 @@ style comment above, or trailing ('///<'), the declaration in the header
 """
 
 import re
-from typing import Dict
+from typing import Dict, List, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -12,7 +12,14 @@ TAG = re.compile(r"^[@\\](\w+)(?:\[([^\]]*)\])?\s*(.*)$")
 
 NAMED_TAGS = ("param", "tparam", "retval")  # tags whose first word is a name
 
-DIRECTIONS = {"in": "in", "out": "out", "in,out": "inout", "out,in": "inout"}
+Direction = Literal["in", "out", "inout"]
+
+DIRECTIONS: Dict[str, Direction] = {
+    "in": "in",
+    "out": "out",
+    "in,out": "inout",
+    "out,in": "inout",
+}
 
 # Doxygen's commands naming what is documented; the declaration says that itself
 STRUCTURAL_TAGS = ("enum", "struct", "union", "typedef", "fn", "def", "var", "file")
@@ -60,7 +67,7 @@ def parse(raw) -> Doc:
     if not raw:
         return Doc()
 
-    paragraphs = []  # untagged text, as paragraphs
+    paragraphs: List[str] = []  # untagged text, as paragraphs
     tagged = []  # [tag, name, text]
     in_tag = False
     directions = {}

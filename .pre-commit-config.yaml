@@ -35,3 +35,15 @@ repos:
   - id: ruff
     name: Python-lint-ruff
     args: [--fix]
+
+- repo: https://github.com/pre-commit/mirrors-mypy
+  rev: v2.4.1
+  hooks:
+  - id: mypy
+    name: Python-typecheck-mypy
+    # Check src as a whole, by the [tool.mypy] in pyproject.toml
+    pass_filenames: false
+    additional_dependencies:
+    - jinja2
+    - pydantic>=2.0,<3.0
+    - types-PyYAML

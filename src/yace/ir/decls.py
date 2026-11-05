@@ -20,7 +20,7 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field as PydanticField
 
-from .doc import Doc
+from .doc import Direction, Doc
 from .types import Builtin, Node, Type
 
 
@@ -123,6 +123,9 @@ class Typedef(Node):
     doc: Doc = Doc()
 
 
+Lifetime = Literal["call", "once", "handle"]
+
+
 class Param(Node):
     """
     A parameter, with what C cannot say about it, from its documentation: whether
@@ -133,11 +136,11 @@ class Param(Node):
 
     name: str = ""
     typ: Type
-    direction: Literal["in", "out", "inout"] = "in"
+    direction: Direction = "in"
     nullable: bool = False
     length: Optional[str] = None  # the parameter holding its number of elements
     context: Optional[str] = None  # the callback parameter it is given back to
-    lifetime: Optional[Literal["call", "once", "handle"]] = None
+    lifetime: Optional[Lifetime] = None
 
 
 class Function(Node):
