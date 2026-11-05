@@ -147,6 +147,43 @@ def test_names_are_made_usable(parse, tmp_path):
     assert "pub fn r#match(r#fn: c_int) -> c_int;" in lib
 
 
+def test_debug_names_the_c_fields_and_reads_no_union(parse, tmp_path):
+    model, _ = parse(
+        "#include <stdint.h>\n"
+        "enum api_e { API_E_A = -1 };\n"
+        "struct api_p { int32_t x; int32_t y; };\n"
+        "struct api_v { enum api_e e; uint8_t grid[2][2]; struct api_p at;\n"
+        "\tconst char *label; int type; int self; };\n"
+        "union api_u { uint32_t u; struct api_p p; };\n"
+        "struct api_flags { unsigned int a : 4; unsigned int : 4; };\n"
+        "struct api_k { int type; };\n"
+    )
+    assert process(model, ["rust"], tmp_path) == []
+    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    assert "#[derive(Clone, Copy, Debug)]\npub struct ApiP {" in lib
+
+    out = run_with_crate(
+        tmp_path,
+        "use api::*;\nfn main() {\n"
+        "    let mut v = ApiV::default();\n"
+        "    v.e = API_E_A;\n    v.grid[1][0] = 5;\n    v.at.y = -2;\n"
+        "    v.r#type = 3;\n    v.self_ = 4;\n"
+        '    println!("{:?}", v);\n'
+        '    println!("{:?}", ApiU { u: 1 });\n'
+        '    println!("{:?}", ApiFlags::default());\n'
+        '    println!("{:?}", ApiK { r#type: 1 });\n'
+        "}\n",
+        {"API_NO_LINK": "1"},
+    )
+    assert out.splitlines() == [
+        "ApiV { e: ApiE(-1), grid: [[0, 0], [5, 0]], at: ApiP { x: 0, y: -2 },"
+        " label: 0x0, type: 3, self: 4 }",
+        "ApiU { .. }",
+        "ApiFlags { .. }",
+        "ApiK { type: 1 }",
+    ]
+
+
 def test_a_typedef_of_its_own_record_or_enum_is_that_type(parse, tmp_path):
     model, _ = parse(
         "struct api_buf { int len; };\ntypedef struct api_buf api_buf;\n"

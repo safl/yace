@@ -223,6 +223,33 @@ def accessors(record, namer: Namer) -> List[str]:
     return lines
 
 
+def debug(record, namer: Namer, blob: bool) -> List[str]:
+    """A hand-written Debug of 'record', or none where derive(Debug) names its
+    fields as C does. Of a union, or of a blob, no field is shown: which member
+    of a union is meant is not known, and reading the wrong one may be unsound;
+    a blob has no field to read."""
+
+    name = namer(record.name)
+    union = isinstance(record, decls.Union)
+    renamed = [f for f in record.fields if ident(f.name).removeprefix("r#") != f.name]
+    if not (union or blob or renamed):
+        return []
+    lines = [
+        f"impl fmt::Debug for {name} {{",
+        "    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {",
+        f'        f.debug_struct("{name}")',
+    ]
+    if union or blob:
+        lines.append("            .finish_non_exhaustive()")
+    else:
+        lines += [
+            f'            .field("{field.name}", &self.{ident(field.name)})'
+            for field in record.fields
+        ]
+        lines.append("            .finish()")
+    return lines + ["    }", "}"]
+
+
 class Printer(object):
     """The Rust statements printing a value of a type as JSON"""
 
