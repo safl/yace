@@ -330,6 +330,19 @@ def test_a_typedef_of_another_type_by_its_records_name_is_that_type(parse):
     assert "its type is used in its place" in typedef.message
 
 
+def test_an_array_typedef_by_its_records_name_is_that_array(parse):
+    model, _ = parse(
+        "struct node { int v; };\ntypedef struct node node[2];\n"
+        "struct holder { node n; const node c; };\n"
+    )
+    record = types.Record(tag="struct", name="node")
+    held = {f.name: f.typ for f in model.find("holder").fields}
+    assert held["n"] == types.Array(of=record, length=2)
+    assert held["c"] == types.Array(
+        of=record.model_copy(update={"const": True}), length=2
+    )
+
+
 def test_a_typedef_of_its_own_record_is_that_record_where_used(parse):
     model, diagnostics = parse(
         "typedef struct h h;\ntypedef enum e { E_A = 1 } e;\nint f(const h *p, e v);"
