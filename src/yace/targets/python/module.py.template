@@ -130,6 +130,7 @@ class _Record(object):
 
     _yace_name = ""
     _yace_masks = {}  # the parts of each field of bits: name, mask and shift
+    _yace_enums = {}  # the enum of each field typed as one
 
     def to_dict(self):
         """The fields, by name, as plain values: pointers as hex strings, a
@@ -176,6 +177,33 @@ class _Record(object):
 
     def __str__(self):
         return f"{self._yace_name}:\n{_yaml(_Record.to_dict(self), 2)}"
+
+    def __repr__(self):
+        """As the constructor is called: each field by name, every one of a
+        union, as which member is meant is not known"""
+
+        cls = _builtins.type(self)
+        fields = []
+        for name, *_ in cls._fields_:
+            value = _builtins.getattr(self, name)
+            fields.append(f"{name}={_repr(value, cls._yace_enums.get(name))}")
+        return f"{cls.__name__}({', '.join(fields)})"
+
+
+def _repr(value, enum=None):
+    """A field's value, as __repr__() shows it: an array as a list, and a value
+    of 'enum' by the name of its member, if it is one"""
+
+    if _builtins.isinstance(value, ctypes.Array) and value._type_ is ctypes.c_char:
+        return _builtins.repr(value.value)
+    if _builtins.isinstance(value, ctypes.Array):
+        return "[" + ", ".join(_repr(item, enum) for item in value) + "]"
+    if enum is not None:
+        try:
+            return f"{enum.__name__}.{enum(value).name}"
+        except _builtins.ValueError:
+            pass
+    return _builtins.repr(value)
 {%- for entity in defines %}
 {{ "\n\n" if loop.first }}{{ entity.name | ident }} = {{ entity.value | define_value }}{% if entity.doc.brief %}  #: {{ entity.doc.brief | oneline }}{% endif %}
 {%- endfor %}
@@ -223,6 +251,16 @@ class {{ namer(record.name) }}(ctypes.{{ "Union" if record | is_union else "Stru
         "{{ field.name }}": ({% for mask in field.masks %}("{{ mask.name }}", {{ "%#x" % mask.value }}, {{ mask.lo }}), {% endfor %}),
 {%- endfor %}
     }
+{%- endif %}
+{%- set enums_of = namer.enum_fields(record) %}
+{%- if enums_of %}
+    _yace_enums = {
+{%- for name, pyenum in enums_of.items() %}
+        "{{ name }}": {{ pyenum }},
+{%- endfor %}
+    }
+{%- endif %}
+{%- if record.fields | selectattr("masks") | list %}
 {%- for field in record.fields %}
 {%- for mask in field.masks %}
 {%- set name = accessor(field, mask) %}

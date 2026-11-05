@@ -218,6 +218,19 @@ class Namer(object):
         args = [self.ctype(typ.ret)] + [self.ctype(p.typ, True) for p in typ.params]
         return f"ctypes.CFUNCTYPE({', '.join(args)})"
 
+    def enum_fields(self, record) -> Dict[str, str]:
+        """The Python enum of each field of 'record' typed as an enum the IR
+        defines, or as an array of one"""
+
+        found = {}
+        for field in record.fields:
+            typ = self.resolve(field.typ)
+            while isinstance(typ, types.Array):
+                typ = self.resolve(typ.of)
+            if isinstance(typ, types.EnumRef) and typ.name in self.enums:
+                found[field.name] = self(typ.name)
+        return found
+
     def fields(self, record) -> List[str]:
         """The entries of the record's '_fields_'; of a blob, its bytes"""
 

@@ -99,6 +99,36 @@ def test_names_are_made_usable(parse, tmp_path):
     assert str(ns["foo__bar"]()) == "foo__bar:\n  x: 0\n"
 
 
+def test_records_repr_as_their_constructor_is_called(parse, tmp_path):
+    model, _ = parse(
+        "#include <stdbool.h>\n#include <stdint.h>\n"
+        "enum api_e { API_E_A = -1, API_E_B = 2, API_E_C = 2 };\n"
+        "typedef enum api_e api_e_t;\n"
+        "struct api_p { int32_t x; int32_t y; };\n"
+        "struct api_v { bool flag; char letter; double d; enum api_e e;\n"
+        "\tapi_e_t es[3]; char name[4]; int16_t grid[2][2]; struct api_p at;\n"
+        "\tstruct api_p path[2]; const char *label; void *nil;\n"
+        "\tchar names[2][3]; };\n"
+        "union api_u { uint32_t u; struct api_p p; };\n" + BITS
+    )
+    assert process(model, ["python"], tmp_path) == []
+
+    api = module(tmp_path)
+    v = api["ApiV"](flag=True, letter=b"y", d=-2.5, e=-1, es=(2, 7, -1), name=b"ab")
+    v.grid[1][0] = -5
+    v.at.x, v.path[1].y, v.label = 3, 4, b"hi"
+    v.names[0].value = b"\t\x7f"
+    assert repr(v) == (
+        "ApiV(flag=True, letter=b'y', d=-2.5, e=ApiE.API_E_A,"
+        " es=[ApiE.API_E_B, 7, ApiE.API_E_A], name=b'ab', grid=[[0, 0], [-5, 0]],"
+        " at=ApiP(x=3, y=0), path=[ApiP(x=0, y=0), ApiP(x=0, y=4)],"
+        " label=b'hi', nil=None, names=[b'\\t\\x7f', b''])"
+    )
+    assert repr(api["ApiU"](u=0xFFFFFFFF)) == "ApiU(u=4294967295, p=ApiP(x=-1, y=0))"
+    status = api["ApiStatus"](code=0x8F05)
+    assert repr(status) == "ApiStatus(code=36613, wide=0)"
+
+
 def test_a_header_named_as_a_module_of_the_standard_library(parse, tmp_path):
     """json, never built into an interpreter, which zlib may or may not be"""
 

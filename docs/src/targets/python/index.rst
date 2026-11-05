@@ -45,8 +45,10 @@ Records
   ``to_dict()``, its fields as plain values, ``fpr(stream, obj, flags)`` and
   ``pr(obj, flags)``, printing ``obj``, an instance, a pointer to one, or
   ``None``, as the C API's ``<name>_fpr()`` and ``<name>_pr()`` do. ``str()`` of
-  a record is its YAML. An opaque record is an empty structure, used through
-  pointers. Each part of a field of bits, see :ref:`sec-ir-csubset`, is a
+  a record is its YAML, and ``repr()`` is as its constructor is called,
+  ``FooPoint(x=3, y=4)``: arrays as lists, a field typed as an enum by the name
+  of its member, every member of a union. An opaque record is an empty
+  structure, used through pointers. Each part of a field of bits, see :ref:`sec-ir-csubset`, is a
   property, ``<field>_<part>``, such as ``status.code_type``, reading the part
   shifted down and writing it in its place, raising :py:class:`ValueError` for a
   value that does not fit its bits; the field itself is there as before.
