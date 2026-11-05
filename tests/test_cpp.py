@@ -9,15 +9,91 @@ pytestmark = needs_cc
 
 
 def test_the_subset_prints_as_the_c_api_does(parser, tmp_path):
-    import yaml
-
     model, _ = parser.parse(HEADERS / "valid.h")
     assert process(model, ["capi"], tmp_path / "c") == []
     assert process(model, ["cpp"], tmp_path / "cpp") == []
 
-    c_out = (tmp_path / "c" / "capi" / "check.yaml").read_text()
-    cpp_out = (tmp_path / "cpp" / "cpp" / "check.yaml").read_text()
-    assert list(yaml.safe_load_all(cpp_out)) == list(yaml.safe_load_all(c_out))
+    for fmt in ("yaml", "json"):
+        c_out = (tmp_path / "c" / "capi" / f"check.{fmt}").read_text()
+        assert (tmp_path / "cpp" / "cpp" / f"check.{fmt}").read_text() == c_out
+
+
+# A value of every kind a printer prints, a union, and a field of bits
+VALUES = (
+    "#include <stdbool.h>\n#include <stddef.h>\n#include <stdint.h>\n"
+    "/** E */\nenum api_e { API_E_A = -1, API_E_B = 2, API_E_C = 2 };\n"
+    "/** P */\nstruct api_p { int32_t x; int32_t y; };\n"
+    "/** Called */\ntypedef void (*api_cb)(void *arg);\n"
+    "/** V */\nstruct api_v {\n"
+    "\tbool flag; char letter; signed char sc; unsigned char uc;\n"
+    "\tint64_t i64; uint64_t u64; size_t size; float f; double d; enum api_e e;\n"
+    "\tconst char *label; const char *none; char name[4]; char full[4];\n"
+    "\tvoid *ptr; void *nil; api_cb cb; struct api_p at; struct api_p path[2];\n"
+    "\tint16_t grid[2][2]; unsigned int bits : 4; unsigned int : 4;\n"
+    "\tunsigned int more : 8;\n};\n"
+    "/** U */\nunion api_u { uint32_t u; struct api_p p; };\n"
+) + BITS
+
+VALUES_MAIN = r"""#include <cstdio>
+#include <cstring>
+#include <iostream>
+#include <api.hpp>
+static void cb(void *) {}
+int main() {
+	struct api_v v{};
+	v.flag = true; v.letter = 'y'; v.sc = -2; v.uc = 250;
+	v.i64 = INT64_MIN; v.u64 = UINT64_MAX; v.size = 11; v.f = 0.1f; v.d = -2.5e-5;
+	v.e = API_E_A; v.label = "say \"hi\"\t\\ \x7f \xc3\xa9"; v.none = nullptr;
+	std::memcpy(v.name, "ab", 3); std::memcpy(v.full, "abcd", 4);
+	v.ptr = &v; v.cb = cb; v.at = {-1, 2}; v.path[1] = {3, 4}; v.grid[0][1] = -5;
+	v.bits = 9; v.more = 200;
+	union api_u u{};
+	u.u = 0xffffffff;
+	struct api_status s{};
+	s.code = 0x8f05; s.wide = 0x80000000ffffffffu;
+	for (int flags : {API_PR_YAML, API_PR_JSON}) {
+		api_v_fpr(stdout, &v, flags);
+		api_u_fpr(stdout, &u, flags);
+		api_status_fpr(stdout, &s, flags);
+	}
+	for (int e : {-1, 2, 3}) {
+		std::printf("%s\n", api_e_str(e));
+	}
+	std::fflush(stdout);
+	std::cout << "===\n";
+	std::cout << api::yaml(v) << api::yaml(u) << api::yaml(s);
+	std::cout << api::json(v) << api::json(u) << api::json(s);
+	for (int e : {-1, 2, 3}) {
+		std::cout << api::name(static_cast<api::e>(e)).value_or("UNKNOWN") << "\n";
+	}
+	return 0;
+}
+"""
+
+
+def test_values_print_as_the_c_printers_print_them(parse, tmp_path):
+    model, _ = parse(VALUES)
+    assert process(model, ["cpp"], tmp_path) == []
+
+    (tmp_path / "main.cpp").write_text(VALUES_MAIN)
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    pp = str(tmp_path / "pp.o")
+    subprocess.run(
+        ["cc", *include, "-c", str(tmp_path / "capi" / "api_pp.c"), "-o", pp],
+        check=True,
+    )
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), pp]
+        + ["-o", str(program)],
+        check=True,
+    )
+    out = subprocess.run([str(program)], capture_output=True, text=True, check=True)
+    c_out, cpp_out = out.stdout.split("===\n")
+
+    assert '"say \\"hi\\"\\u0009\\\\ \\u007f é"' in c_out
+    assert "code: {val: 0x8f05, type: 0x5, delay: 0xf, dnr: 0x1}" in c_out
+    assert cpp_out == c_out
 
 
 def test_the_layer_builds_for_every_kind_of_parameter(parse, tmp_path):
@@ -77,15 +153,13 @@ def test_closing_twice_calls_c_once(parse, tmp_path):
         "\treturn 0;\n}\n"
     )
     include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
-    objects = []
-    for source in (tmp_path / "api.c", tmp_path / "capi" / "api_pp.c"):
-        objects.append(str(source.with_suffix(".o")))
-        subprocess.run(
-            ["cc", *include, "-c", str(source), "-o", objects[-1]], check=True
-        )
+    api_o = str(tmp_path / "api.o")
+    subprocess.run(
+        ["cc", *include, "-c", str(tmp_path / "api.c"), "-o", api_o], check=True
+    )
     program = tmp_path / "main"
     subprocess.run(
-        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), *objects]
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), api_o]
         + ["-o", str(program)],
         check=True,
     )
@@ -113,15 +187,13 @@ def test_shared_counts_handles_given_and_constructors_without_errno(parse, tmp_p
         "\treturn 0;\n}\n"
     )
     include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
-    objects = []
-    for source in (tmp_path / "api.c", tmp_path / "capi" / "api_pp.c"):
-        objects.append(str(source.with_suffix(".o")))
-        subprocess.run(
-            ["cc", *include, "-c", str(source), "-o", objects[-1]], check=True
-        )
+    api_o = str(tmp_path / "api.o")
+    subprocess.run(
+        ["cc", *include, "-c", str(tmp_path / "api.c"), "-o", api_o], check=True
+    )
     program = tmp_path / "main"
     subprocess.run(
-        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), *objects]
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), api_o]
         + ["-o", str(program)],
         check=True,
     )
@@ -177,15 +249,13 @@ def test_bytes_two_callbacks_and_outs_named_like_ret(parse, tmp_path):
         "\treturn 0;\n}\n"
     )
     include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
-    objects = []
-    for source in (tmp_path / "api.c", tmp_path / "capi" / "api_pp.c"):
-        objects.append(str(source.with_suffix(".o")))
-        subprocess.run(
-            ["cc", *include, "-c", str(source), "-o", objects[-1]], check=True
-        )
+    api_o = str(tmp_path / "api.o")
+    subprocess.run(
+        ["cc", *include, "-c", str(tmp_path / "api.c"), "-o", api_o], check=True
+    )
     program = tmp_path / "main"
     subprocess.run(
-        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), *objects]
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), api_o]
         + ["-o", str(program)],
         check=True,
     )
@@ -249,15 +319,13 @@ def test_a_function_given_by_name_as_a_callback(parse, tmp_path):
         " api::run([](int v) { return v; }));\n\treturn 0;\n}\n"
     )
     include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
-    objects = []
-    for source in (tmp_path / "api.c", tmp_path / "capi" / "api_pp.c"):
-        objects.append(str(source.with_suffix(".o")))
-        subprocess.run(
-            ["cc", *include, "-c", str(source), "-o", objects[-1]], check=True
-        )
+    api_o = str(tmp_path / "api.o")
+    subprocess.run(
+        ["cc", *include, "-c", str(tmp_path / "api.c"), "-o", api_o], check=True
+    )
     program = tmp_path / "main"
     subprocess.run(
-        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), *objects]
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), api_o]
         + ["-o", str(program)],
         check=True,
     )
@@ -434,15 +502,13 @@ def test_kept_callables_are_called_and_released(parse, tmp_path):
         "\treturn 0;\n}\n"
     )
     include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
-    objects = []
-    for source in (tmp_path / "api.c", tmp_path / "capi" / "api_pp.c"):
-        objects.append(str(source.with_suffix(".o")))
-        subprocess.run(
-            ["cc", *include, "-c", str(source), "-o", objects[-1]], check=True
-        )
+    api_o = str(tmp_path / "api.o")
+    subprocess.run(
+        ["cc", *include, "-c", str(tmp_path / "api.c"), "-o", api_o], check=True
+    )
     program = tmp_path / "main"
     subprocess.run(
-        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), *objects]
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), api_o]
         + ["-o", str(program)],
         check=True,
     )
@@ -480,15 +546,13 @@ def test_a_failed_call_without_a_nullable_callback_frees_the_others(parse, tmp_p
         "\treturn 0;\n}\n"
     )
     include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
-    objects = []
-    for source in (tmp_path / "api.c", tmp_path / "capi" / "api_pp.c"):
-        objects.append(str(source.with_suffix(".o")))
-        subprocess.run(
-            ["cc", *include, "-c", str(source), "-o", objects[-1]], check=True
-        )
+    api_o = str(tmp_path / "api.o")
+    subprocess.run(
+        ["cc", *include, "-c", str(tmp_path / "api.c"), "-o", api_o], check=True
+    )
     program = tmp_path / "main"
     subprocess.run(
-        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), *objects]
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), api_o]
         + ["-o", str(program)],
         check=True,
     )
@@ -533,15 +597,13 @@ def test_callables_kept_by_a_handle_whose_destructor_fails_are_kept(parse, tmp_p
         "\treturn 0;\n}\n"
     )
     include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
-    objects = []
-    for source in (tmp_path / "api.c", tmp_path / "capi" / "api_pp.c"):
-        objects.append(str(source.with_suffix(".o")))
-        subprocess.run(
-            ["cc", *include, "-c", str(source), "-o", objects[-1]], check=True
-        )
+    api_o = str(tmp_path / "api.o")
+    subprocess.run(
+        ["cc", *include, "-c", str(tmp_path / "api.c"), "-o", api_o], check=True
+    )
     program = tmp_path / "main"
     subprocess.run(
-        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), *objects]
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), api_o]
         + ["-o", str(program)],
         check=True,
     )
@@ -573,15 +635,13 @@ def test_callables_kept_by_a_handle_nothing_destroys_are_kept(parse, tmp_path):
         "\treturn 0;\n}\n"
     )
     include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
-    objects = []
-    for source in (tmp_path / "api.c", tmp_path / "capi" / "api_pp.c"):
-        objects.append(str(source.with_suffix(".o")))
-        subprocess.run(
-            ["cc", *include, "-c", str(source), "-o", objects[-1]], check=True
-        )
+    api_o = str(tmp_path / "api.o")
+    subprocess.run(
+        ["cc", *include, "-c", str(tmp_path / "api.c"), "-o", api_o], check=True
+    )
     program = tmp_path / "main"
     subprocess.run(
-        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), *objects]
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), api_o]
         + ["-o", str(program)],
         check=True,
     )
@@ -621,16 +681,14 @@ def test_a_handle_moved_over_is_destroyed_before_its_callables(parse, tmp_path):
         "\treturn 0;\n}\n"
     )
     include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
-    objects = []
-    for source in (tmp_path / "api.c", tmp_path / "capi" / "api_pp.c"):
-        objects.append(str(source.with_suffix(".o")))
-        subprocess.run(
-            ["cc", *include, "-c", str(source), "-o", objects[-1]], check=True
-        )
+    api_o = str(tmp_path / "api.o")
+    subprocess.run(
+        ["cc", *include, "-c", str(tmp_path / "api.c"), "-o", api_o], check=True
+    )
     program = tmp_path / "main"
     subprocess.run(
         ["c++", *CXXFLAGS, "-fsanitize=address", *include]
-        + [str(tmp_path / "main.cpp"), *objects, "-o", str(program)],
+        + [str(tmp_path / "main.cpp"), api_o, "-o", str(program)],
         check=True,
     )
     run = subprocess.run([str(program)], capture_output=True, text=True)

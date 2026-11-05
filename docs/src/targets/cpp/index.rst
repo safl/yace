@@ -16,9 +16,8 @@ the target also emits the C API into ``<output>/capi``, as the C target does:
   through the layer, as YAML or JSON.
 
 The check is built with ``$CXX``, by default ``c++``, as C++20 with all
-warnings as errors, with the pretty-printers of the C API built by ``$CC``, and
-run; **yace** then parses what it printed, as YAML and as JSON. The layout is
-the C API's, asserted by its check.
+warnings as errors, and run; **yace** then parses what it printed, as YAML and
+as JSON. The layout is the C API's, asserted by its check.
 
 The layer
 ---------
@@ -74,10 +73,11 @@ Arguments
 
 Records and enums
   The records are named without the prefix, ``foo::point``, the C records
-  themselves. ``foo::yaml()`` and ``foo::json()`` print a record, by the C
-  API's pretty-printers, and ``operator<<`` prints its YAML. Each part of a
-  field of bits, see :ref:`sec-ir-csubset`, is read by a function of the
-  namespace overloaded on the record, ``foo::code_type(status)``, and written by
+  themselves. ``foo::yaml()`` and ``foo::json()`` print a record, as the C
+  API's pretty-printers print it, without calling them, and ``operator<<``
+  prints its YAML. Each part of a field of bits, see :ref:`sec-ir-csubset`, is
+  read by a function of the namespace overloaded on the record,
+  ``foo::code_type(status)``, and written by
   another, ``foo::set_code_type(status, value)``, which throws
   ``std::out_of_range`` for a value that does not fit the part's bits; the
   records being C's, they have no methods. Each enum is an
