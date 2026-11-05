@@ -6,15 +6,21 @@
 
 // Package {{ package }} binds {{ meta.name }}{% if meta.brief %}: {{ meta.brief | oneline }}{% endif %}
 //
-// The raw layer declares the C API as C has it, by its C names, exported.
-// Every struct and union prints itself by the C API's pretty-printers. Memory
-// given to C must hold no Go pointers, as cgo requires.
+// The raw layer declares the C API as C has it, by its C names, exported; the
+// idiomatic layer, after it, is what the header says beyond C. Every struct and
+// union prints itself by the C API's pretty-printers. Memory given to C must
+// hold no Go pointers, as cgo requires.
 package {{ package }}
 
 /*
 #cgo CFLAGS: -I${SRCDIR}
 #include <stdlib.h>
 #include "lib{{ meta.prefix }}.h"
+{%- for line in trampolines %}
+{%- if loop.first %}
+{% endif %}
+{{ line }}
+{%- endfor %}
 */
 import "C"
 {%- for name in imports %}
