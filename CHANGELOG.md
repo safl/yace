@@ -10,15 +10,15 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
-## Unreleased
+## 0.8.0
 
-The headers given are parsed together, in the order given, after
-`<stdbool.h>`, `<stddef.h>` and `<stdint.h>`, and it is that set which has to
-compile, not each header alone. A header may use the standard types and what a
-header given before it declares without including either, as the parts of a
-library read through its umbrella header do. The `self-contained` rule is gone;
-a set that does not compile is a `parse-error`, and a type from any other
-header is still an `external-type`.
+The headers given are the API, parsed together into one IR in the order given,
+after `<stdbool.h>`, `<stddef.h>` and `<stdint.h>`. A library read through an
+umbrella header, with one header per part and types crossing between them, such
+as xNVMe, is described by all of its headers at once: a header may use the
+standard types and what a header given before it declares without including
+either, and it is the set which has to compile. A set that does not compile is
+a `parse-error`, and a type from any other header is an `external-type`.
 
 `--prelude HEADER` includes a system header, such as `stdio.h`, ahead of the
 headers, for a set whose umbrella header includes it on behalf of its parts.
@@ -42,6 +42,8 @@ functions overloaded on the record, `foo::code_type(status)` and
 `foo::set_code_type(status, value)`; in Zig, `codeType()` and `setCodeType()`,
 of an integer as wide as the part. The libfoo fixture has a field of bits, and
 the check of every target reads, writes and prints its parts.
+
+Breaking: the IR's meta records the headers given, in place of the one header.
 
 ## 0.7.0
 
