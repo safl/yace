@@ -782,6 +782,48 @@ class Renderer(object):
             ]
         return lines
 
+    def accessors(self, record) -> List[str]:
+        """Functions reading and writing the parts of the fields of bits of
+        'record', overloaded on it; the C records are C's, without methods"""
+
+        records = [e.name for e in self.model.entities if isinstance(e, decls.RECORDS)]
+        enums = [e.name for e in self.model.entities if isinstance(e, decls.Enum)]
+        typed = {self.name(n) for n in records + enums + list(self.classes)}
+        raw = f"{cgen.tag(record)} ::{record.name}"
+        lines: List[str] = []
+        for field in record.fields:
+            typ = self.c(field.typ)
+            for mask in field.masks:
+                name = ident(f"{field.name}_{mask.name}")
+                while name in typed | RESERVED:
+                    name += "_"
+                bits = f"{mask.width} bit{'s' * (mask.width > 1)}"
+                lines += comment(mask.doc)
+                lines += [
+                    f"inline {typ}",
+                    f"{name}(const {raw} &obj) noexcept",
+                    "{",
+                    f"\treturn static_cast<{typ}>((obj.{field.name} & {mask.value:#x}u)"
+                    f" >> {mask.lo});",
+                    "}",
+                    "",
+                    f"/// Set the part of '{field.name}' that {name}() reads;",
+                    f"/// std::out_of_range when 'value' does not fit in {bits}",
+                    "inline void",
+                    f"set_{name}({raw} &obj, {typ} value)",
+                    "{",
+                    f"\tif (value > {mask.largest:#x}u) {{",
+                    f'\t\tthrow std::out_of_range("{name} is {bits}");',
+                    "\t}",
+                    f"\tconst {typ} mask = {mask.value:#x}u;",
+                    f"\tobj.{field.name} = static_cast<{typ}>((obj.{field.name}"
+                    f" & static_cast<{typ}>(~mask)) | static_cast<{typ}>(value <<"
+                    f" {mask.lo}));",
+                    "}",
+                    "",
+                ]
+        return lines
+
     def operators(self) -> List[str]:
         """operator<<, in the global namespace, where the records are, for ADL"""
 
@@ -811,6 +853,8 @@ class Renderer(object):
             if alias not in self.functions():
                 out.append(f"using {alias} = {cgen.tag(record)} ::{record.name};")
         out.append("")
+        for record in cgen.ordered_records(self.model):
+            out += self.accessors(record)
         out += [f"class {self.name(record)};" for record in self.classes]
         if self.classes:
             out.append("")

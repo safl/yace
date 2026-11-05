@@ -75,7 +75,12 @@ Arguments
 Records and enums
   The records are named without the prefix, ``foo::point``, the C records
   themselves. ``foo::yaml()`` and ``foo::json()`` print a record, by the C
-  API's pretty-printers, and ``operator<<`` prints its YAML. Each enum is an
+  API's pretty-printers, and ``operator<<`` prints its YAML. Each part of a
+  field of bits, see :ref:`sec-ir-csubset`, is read by a function of the
+  namespace overloaded on the record, ``foo::code_type(status)``, and written by
+  another, ``foo::set_code_type(status, value)``, which throws
+  ``std::out_of_range`` for a value that does not fit the part's bits; the
+  records being C's, they have no methods. Each enum is an
   ``enum class``, its members without the prefix of the enum, in lower case:
   ``FOO_SHAPE_POINT`` is ``foo::shape::point``. ``foo::name()`` is the C name
   of a value, none when it has none.

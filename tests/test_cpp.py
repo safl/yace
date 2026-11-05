@@ -1,7 +1,7 @@
 import subprocess
 
-from tests.conftest import HEADERS, SKIPPED, needs_cc
-from tests.test_rust import EDGES, HANDLE_NAMED_AS_PREFIX
+from tests.conftest import BITS, HEADERS, SKIPPED, needs_cc
+from tests.test_rust import BITS_UNION, EDGES, HANDLE_NAMED_AS_PREFIX
 from yace.compiler import process
 from yace.targets.cpp.target import CXXFLAGS
 
@@ -652,3 +652,37 @@ def test_a_pointer_to_a_record_of_another_header_is_returned(parser, tmp_path):
 def test_skipped_records_and_padding_bits_build(parse, tmp_path):
     model, _ = parse(SKIPPED)
     assert process(model, ["cpp"], tmp_path) == []
+
+
+def test_the_parts_of_a_field_of_bits_are_functions(parse, tmp_path):
+    model, _ = parse(
+        BITS + BITS_UNION + "/** Named as a part */\nstruct api_code_type { int x; };\n"
+    )
+    assert process(model, ["cpp"], tmp_path) == []
+
+    (tmp_path / "main.cpp").write_text(
+        "#include <cstdio>\n#include <stdexcept>\n#include <api.hpp>\n"
+        "int main() {\n"
+        "\tapi::status s = {0x8a05, 0x8000000100000002ULL};\n"
+        '\tstd::printf("%u %u %u %llu %llu\\n", (unsigned)api::code_type_(s),'
+        " (unsigned)api::code_delay(s), (unsigned)api::code_dnr(s),"
+        " (unsigned long long)api::wide_low(s),"
+        " (unsigned long long)api::wide_top(s));\n"
+        "\tapi::set_code_delay(s, 3);\n\tapi::set_code_dnr(s, 0);\n"
+        "\tapi::set_wide_top(s, 0);\n\tapi::set_wide_low(s, 0xffffffffu);\n"
+        '\tstd::printf("%#x %#llx\\n", (unsigned)s.code, (unsigned long long)s.wide);\n'
+        "\ttry {\n\t\tapi::set_code_delay(s, 16);\n"
+        "\t} catch (const std::out_of_range &) {\n"
+        '\t\tstd::printf("thrown\\n");\n\t}\n'
+        "\tapi::u u = {};\n\tapi::set_type_hi(u, 0xabcd);\n"
+        '\tstd::printf("%#x %#x\\n", (unsigned)u.type, (unsigned)api::type_hi(u));\n'
+        "\treturn 0;\n}\n"
+    )
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), "-o", str(program)],
+        check=True,
+    )
+    run = subprocess.run([str(program)], capture_output=True, text=True)
+    assert run.stdout == ("5 10 1 2 1\n0x305 0x1ffffffff\nthrown\n0xabcd0000 0xabcd\n")
