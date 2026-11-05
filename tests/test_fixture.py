@@ -175,14 +175,10 @@ def test_cpp(model, library, tmp_path, fmt):
 
     cxx = os.environ.get("CXX", "c++")
     includes = ["-I", tmp_path / "capi", "-I", tmp_path / "cpp"]
-    run(
-        [cc(), *CFLAGS, *includes, "-c", tmp_path / "capi" / "foo_pp.c"]
-        + ["-o", tmp_path / "pp.o"]
-    )
     binary = tmp_path / "check"
     run(
         [cxx, *CXXFLAGS, *includes, FIXTURE / "checks" / "cpp" / "check.cpp"]
-        + [tmp_path / "pp.o", "-L", library, "-lfoo", f"-Wl,-rpath,{library}"]
+        + ["-L", library, "-lfoo", f"-Wl,-rpath,{library}"]
         + ["-o", binary]
     )
     expected = list(yaml.safe_load_all((FIXTURE / "expected.yaml").read_text()))

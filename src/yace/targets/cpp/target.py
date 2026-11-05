@@ -8,7 +8,7 @@ Emits, into ``<output>/cpp``:
 * ``<prefix>_check.cpp``, the check program
 
 and the C API into ``<output>/capi``, as the C target does, which the layer
-includes and its printers call.
+includes; its printers are its own, printing what the C API's print.
 """
 
 import json
@@ -22,7 +22,7 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 from yace.ir.model import Model
 from yace.targets.capi import cgen
-from yace.targets.capi.target import CAPI, CFLAGS, comment
+from yace.targets.capi.target import CAPI, comment
 from yace.targets.target import Target
 
 from . import cppgen
@@ -69,29 +69,22 @@ class CPP(Target):
     def check(self, model: Model) -> list:
         """Build and run the check program; returns what failed, if anything"""
 
-        cc = os.environ.get("CC", "cc")
         cxx = os.environ.get("CXX", "c++")
-        for tool, var in ((cc, "CC"), (cxx, "CXX")):
-            if not shutil.which(tool):
-                return [f"no compiler ('{tool}'); set {var}"]
+        if not shutil.which(cxx):
+            return [f"no compiler ('{cxx}'); set CXX"]
 
         prefix = cgen.c_ident(model.meta.prefix)
         includes = ["-I", str(self.capi.output), "-I", str(self.output)]
         includes += [f"-I{path}" for path in self.include]
-        pp = self.output / f"{prefix}_pp.o"
         binary = self.output / f"{prefix}_check"
-        log = []
-        for cmd in [
-            [cc, *CFLAGS, *includes, "-c", str(self.capi.output / f"{prefix}_pp.c")]
-            + ["-o", str(pp)],
-            [cxx, *CXXFLAGS, *includes, str(self.output / f"{prefix}_check.cpp")]
-            + [str(pp), "-o", str(binary)],
-        ]:
-            proc = subprocess.run(cmd, capture_output=True, text=True)
-            log.append(f"{' '.join(cmd)}\n{proc.stdout}{proc.stderr}")
-            (self.output / "cc.log").write_text("\n".join(log))
-            if proc.returncode:
-                return [f"compiling the check failed:\n{proc.stderr}"]
+        cmd = [cxx, *CXXFLAGS, *includes, str(self.output / f"{prefix}_check.cpp")]
+        cmd += ["-o", str(binary)]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        (self.output / "cc.log").write_text(
+            f"{' '.join(cmd)}\n{proc.stdout}{proc.stderr}"
+        )
+        if proc.returncode:
+            return [f"compiling the check failed:\n{proc.stderr}"]
 
         failures = []
         for fmt in ("yaml", "json"):

@@ -14,9 +14,10 @@ C API has a declaration named as the prefix, the namespace is the prefix and
 """
 
 from functools import cached_property
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from yace.ir import decls, types
+from yace.ir.masks import VALUE_KEY
 from yace.ir.semantics import is_void_ptr
 from yace.targets.capi import cgen
 from yace.targets.capi.target import comment as uncommented
@@ -68,6 +69,193 @@ def comment(doc, indent: str = "") -> List[str]:
         return []
     body = [f"{indent} * {uncommented(line)}".rstrip() for line in lines]
     return [f"{indent}/**"] + body + [f"{indent} */"]
+
+
+HELPERS = r"""inline void
+put_int(std::string &out, std::intmax_t value)
+{
+	out += std::to_string(value);
+}
+
+inline void
+put_uint(std::string &out, std::uintmax_t value)
+{
+	out += std::to_string(value);
+}
+
+inline void
+put_hex(std::string &out, std::uintmax_t value)
+{
+	char buf[32];
+	int len = std::snprintf(buf, sizeof(buf), "0x%jx", value);
+	out.append(buf, static_cast<std::size_t>(len));
+}
+
+/// 'value' as printf() prints it with "%g", by C's own, so they agree
+inline void
+put_g(std::string &out, double value)
+{
+	char buf[32];
+	int len = std::snprintf(buf, sizeof(buf), "%g", value);
+	out.append(buf, static_cast<std::size_t>(len));
+}
+
+inline void
+put_strn(std::string &out, const char *str, std::size_t len)
+{
+	if (!str) {
+		out += "null";
+		return;
+	}
+	out += '"';
+	for (std::size_t i = 0; i < len && str[i]; ++i) {
+		auto chr = static_cast<unsigned char>(str[i]);
+		if (chr == '"' || chr == '\\') {
+			out += '\\';
+			out += static_cast<char>(chr);
+		} else if (chr < 0x20 || chr == 0x7f) {
+			char buf[8];
+			std::snprintf(buf, sizeof(buf), "\\u%04x", chr);
+			out += buf;
+		} else {
+			out += static_cast<char>(chr);
+		}
+	}
+	out += '"';
+}
+
+inline void
+put_str(std::string &out, const char *str)
+{
+	put_strn(out, str, SIZE_MAX);
+}
+
+inline void
+put_ptr(std::string &out, std::uintptr_t addr)
+{
+	if (!addr) {
+		out += "null";
+		return;
+	}
+	out += '"';
+	put_hex(out, addr);
+	out += '"';
+}""".splitlines()
+
+
+class Printer(object):
+    """The C++ statements printing a value of a type into the std::string
+    'out', as the pretty-printers of the C API print it"""
+
+    def __init__(self, model):
+        self.typedefs = model.typedefs()
+        self.records = {name: r for name, r in model.records().items() if r.fields}
+
+    def resolve(self, typ):
+        while isinstance(typ, types.TypedefRef) and typ.name in self.typedefs:
+            typ = self.typedefs[typ.name].typ
+        return typ
+
+    def named(self, record) -> list:
+        """The fields printed: those with a name, not padding bit-fields"""
+
+        return [f for f in record.fields if f.name]
+
+    def value(self, typ, expr: str, depth: int = 0) -> List[str]:
+        typ = self.resolve(typ)
+        null = ['out += "null";']
+
+        if isinstance(typ, types.Builtin):
+            name = typ.name
+            if name == "bool":
+                return [f'out += {expr} ? "true" : "false";']
+            if name in ("float", "double"):
+                return [f"detail::put_g(out, static_cast<double>({expr}));"]
+            if name.startswith(("unsigned", "uint")) or name == "size_t":
+                return [f"detail::put_uint(out, static_cast<std::uintmax_t>({expr}));"]
+            if name == "void":
+                return null
+            return [f"detail::put_int(out, static_cast<std::intmax_t>({expr}));"]
+
+        if isinstance(typ, types.EnumRef):
+            return [f"detail::put_int(out, static_cast<std::intmax_t>({expr}));"]
+
+        if isinstance(typ, types.Pointer):
+            if types.is_string(typ):
+                return [f"detail::put_str(out, {expr});"]
+            return [f"detail::put_ptr(out, reinterpret_cast<std::uintptr_t>({expr}));"]
+
+        if isinstance(typ, types.Array):
+            if typ.length is None:
+                return null
+            elem = self.resolve(typ.of)
+            if isinstance(elem, types.Builtin) and elem.name == "char":
+                return [f"detail::put_strn(out, {expr}, {typ.length});"]
+            idx = f"i{depth}"
+            lines = [
+                "out += '[';",
+                f"for (std::size_t {idx} = 0; {idx} < {typ.length}; ++{idx}) {{",
+                f'\tout += {idx} ? ", " : "";',
+            ]
+            lines += [
+                "\t" + line for line in self.value(elem, f"{expr}[{idx}]", depth + 1)
+            ]
+            return lines + ["}", "out += ']';"]
+
+        if isinstance(typ, types.Record) and typ.name in self.records:
+            return [f"detail::json(out, {expr});"]
+
+        return null
+
+    def record_of(self, typ):
+        typ = self.resolve(typ)
+        if isinstance(typ, types.Record):
+            return self.records.get(typ.name)
+        return None
+
+    def parts(self, field, expr: str, put: str, quote: str) -> List[str]:
+        """The value of a field of bits and of each of its parts, as a mapping
+        on one line, with the keys quoted by 'quote', the values put by 'put'"""
+
+        value = f"static_cast<std::uintmax_t>({expr})"
+        lines = [
+            f'out += "{{{quote}{VALUE_KEY}{quote}: ";',
+            f"detail::{put}(out, {value});",
+        ]
+        for mask in field.masks:
+            lines += [
+                f'out += ", {quote}{mask.name}{quote}: ";',
+                f"detail::{put}(out, ({value} & {mask.value:#x}u) >> {mask.lo});",
+            ]
+        return lines + ["out += '}';"]
+
+    def json_body(self, record) -> List[str]:
+        lines = ["out += '{';"]
+        for idx, field in enumerate(self.named(record)):
+            sep = ", " if idx else ""
+            lines.append(f'out += "{sep}\\"{field.name}\\": ";')
+            if field.masks:
+                lines += self.parts(field, f"obj.{field.name}", "put_uint", '\\"')
+            else:
+                lines += self.value(field.typ, f"obj.{field.name}")
+        return lines + ["out += '}';"]
+
+    def yaml_body(self, record) -> List[str]:
+        lines = []
+        for field in self.named(record):
+            lines.append("out.append(static_cast<std::size_t>(indent), ' ');")
+            nested = self.record_of(field.typ) if field.bits is None else None
+            if nested is not None:
+                lines.append(f'out += "{field.name}:\\n";')
+                lines.append(f"detail::yaml(out, obj.{field.name}, indent + 2);")
+                continue
+            lines.append(f'out += "{field.name}: ";')
+            if field.masks:
+                lines += self.parts(field, f"obj.{field.name}", "put_hex", "")
+            else:
+                lines += self.value(field.typ, f"obj.{field.name}")
+            lines.append("out += '\\n';")
+        return lines
 
 
 class Renderer(object):
@@ -712,56 +900,60 @@ class Renderer(object):
         member_prefix = enum.name.upper()
         lines = comment(enum.doc)
         lines.append(f"enum class {name} : {underlying} {{")
+        named: Dict[int, Tuple[str, str]] = {}
         for member in enum.members:
             mname = ident(strip(member.name, member_prefix).lower())
             if mname[:1].isdigit():
                 mname = ident(member.name.lower())
             lines.append(f"\t{mname} = ::{member.name},")
+            named.setdefault(member.value, (mname, member.name))
         lines += ["};", ""]
         lines += [
             "/// The C name of the value, none when it is none of those named",
             "inline std::optional<std::string_view>",
             f"name({name} value)",
             "{",
-            f"\tconst char *found = ::{enum.name}_str(static_cast<int>(value));",
-            '\tif (std::string_view(found) == "UNKNOWN") {',
-            "\t\treturn std::nullopt;",
-            "\t}",
-            "\treturn found;",
-            "}",
+            "\tswitch (value) {",
         ]
+        for mname, cname in named.values():
+            lines += [f"\tcase {name}::{mname}:", f'\t\treturn "{cname}";']
+        lines += ["\tdefault:", "\t\treturn std::nullopt;", "\t}", "}"]
         return lines
 
     def printers(self) -> List[str]:
-        """yaml(), json() and operator<< of every record with fields, by the
-        pretty-printers of the C API"""
+        """yaml() and json() of every record with fields, printing what the
+        pretty-printers of the C API print, without calling them"""
 
-        prefix = cgen.c_ident(self.prefix).upper()
-        lines = [
-            "namespace detail {",
-            "",
-            "template <class T>",
-            "std::string",
-            "print(int (*fpr)(FILE *, const T *, int), const T &obj, int flags)",
-            "{",
-            "\tstd::unique_ptr<FILE, int (*)(FILE *)> stream(std::tmpfile(),"
-            " std::fclose);",
-            "\tif (!stream) {",
-            '\t\tthrow std::system_error(errno, std::generic_category(), "tmpfile");',
-            "\t}",
-            "\tfpr(stream.get(), &obj, flags);",
-            "\tauto size = static_cast<std::size_t>(std::ftell(stream.get()));",
-            "\tstd::string text(size, '\\0');",
-            "\tstd::rewind(stream.get());",
-            "\tif (std::fread(text.data(), 1, size, stream.get()) != size) {",
-            '\t\tthrow std::system_error(EIO, std::generic_category(), "fread");',
-            "\t}",
-            "\treturn text;",
-            "}",
-            "",
-            "} // namespace detail",
-        ]
-        for record in cgen.ordered_records(self.model):
+        printer = Printer(self.model)
+        records = cgen.ordered_records(self.model)
+        lines = ["namespace detail {", ""] + HELPERS
+        for record in records:
+            raw = f"{cgen.tag(record)} ::{record.name}"
+            lines += [
+                "",
+                f"inline void json(std::string &out, const {raw} &obj);",
+                f"inline void yaml(std::string &out, const {raw} &obj, int indent);",
+            ]
+        for record in records:
+            raw = f"{cgen.tag(record)} ::{record.name}"
+            unused = "" if printer.named(record) else "[[maybe_unused]] "
+            lines += [
+                "",
+                "inline void",
+                f"json(std::string &out, {unused}const {raw} &obj)",
+                "{",
+                *["\t" + line for line in printer.json_body(record)],
+                "}",
+                "",
+                "inline void",
+                f"yaml({unused}std::string &out, {unused}const {raw} &obj,"
+                f" {unused}int indent)",
+                "{",
+                *["\t" + line for line in printer.yaml_body(record)],
+                "}",
+            ]
+        lines += ["", "} // namespace detail"]
+        for record in records:
             raw = f"{cgen.tag(record)} ::{record.name}"
             lines += [
                 "",
@@ -770,14 +962,19 @@ class Renderer(object):
                 "inline std::string",
                 f"yaml(const {raw} &obj)",
                 "{",
-                f"\treturn detail::print(::{record.name}_fpr, obj, {prefix}_PR_YAML);",
+                f'\tstd::string out = "{record.name}:\\n";',
+                "\tdetail::yaml(out, obj, 2);",
+                "\treturn out;",
                 "}",
                 "",
-                f"/// The JSON of a {cgen.tag(record)} {record.name}, on one line",
+                f"/// The JSON of a {cgen.tag(record)} {record.name}, on one line,"
+                f" as {record.name}_pr() prints it",
                 "inline std::string",
                 f"json(const {raw} &obj)",
                 "{",
-                f"\treturn detail::print(::{record.name}_fpr, obj, {prefix}_PR_JSON);",
+                "\tstd::string out;",
+                "\tdetail::json(out, obj);",
+                "\treturn out += '\\n';",
                 "}",
             ]
         return lines
