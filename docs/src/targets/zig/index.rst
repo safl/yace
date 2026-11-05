@@ -45,6 +45,13 @@ printing to a ``*std.Io.Writer`` as the C API's ``<name>_fpr()`` does, and
 ``snprintf()``: Zig rounds a float from its shortest decimal form, C from its
 binary one, and the two differ.
 
+Each part of a field of bits, see :ref:`sec-ir-csubset`, has a getter and a
+setter, ``codeType()`` and ``setCodeType(value)``, taking and giving an
+integer of the part's own width, such as ``u3``, so a value that does not fit
+is a compile error, or a checked cast, rather than one written into the bits
+beside it. The field itself is there as before. A name the struct has already,
+as a field or a printer, gets a trailing underscore.
+
 The idiomatic layer
 -------------------
 

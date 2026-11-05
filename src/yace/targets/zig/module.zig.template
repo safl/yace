@@ -151,6 +151,11 @@ pub const {{ name }} = extern {{ "union" if record | is_union else "struct" }} {
         return @This().{{ printer.method(record, "fpr") }}(w, &self, {{ PREFIX }}_PR_YAML);
     }
 {%- endif %}
+{%- for line in printer.accessors(record) %}
+{%- if loop.first %}
+{% endif %}
+{{ "    " ~ line if line }}
+{%- endfor %}
 {%- endfilter %}
 {%- endif %}
 };

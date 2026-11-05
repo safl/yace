@@ -197,7 +197,7 @@ class Locals(object):
     BOUND = {
         "idiomatic": re.compile(r"self|ret|context|s|h|p|err|tag|field|a\d+"),
         "helpers": re.compile(r"w|chars|chr|addr|buf|len|fmt|value"),
-        "methods": re.compile(r"self|w|indent|obj|flags|o|p|(idx|item)\d+"),
+        "methods": re.compile(r"self|w|indent|obj|flags|o|p|value|(idx|item)\d+"),
     }
 
     def __init__(self, declared: set):
@@ -308,6 +308,44 @@ class Printer(object):
         if isinstance(typ, types.Record):
             return self.records.get(typ.name)
         return None
+
+    def accessors(self, record) -> List[str]:
+        """The methods reading and writing the parts of the fields of bits of
+        'record', each part an integer of its own width, so a value that does
+        not fit is not one Zig lets be passed"""
+
+        taken = {ident(f.name) for f in record.fields} | {"format", "cName"}
+        taken |= {self.method(record, name) for name in ("json", "yaml", "fpr")}
+
+        def unique(name: str) -> str:
+            while name in taken:
+                name += "_"
+            taken.add(name)
+            return name
+
+        lines: List[str] = []
+        for field in record.fields:
+            typ = self.namer.ztype(field.typ)
+            place = f"self.{ident(field.name)}"
+            for mask in field.masks:
+                name = f"{field.name}_{mask.name}"
+                getter = unique(lower_camel(name))
+                setter = unique(lower_camel(f"set_{name}"))
+                part = f"u{mask.width}"
+                lines += [""] if lines else []
+                lines += [f"/// {line}".rstrip() for line in doc_lines(mask.doc)]
+                lines += [
+                    f"pub fn {getter}(self: @This()) {part} {{",
+                    f"    return @truncate(({place} & {mask.value:#x}) >> {mask.lo});",
+                    "}",
+                    "",
+                    f"/// Set the part of '{field.name}' that {getter}() reads",
+                    f"pub fn {setter}(self: *@This(), value: {part}) void {{",
+                    f"    {place} = ({place} & ~@as({typ}, {mask.value:#x}))"
+                    f" | (@as({typ}, value) << {mask.lo});",
+                    "}",
+                ]
+        return lines
 
     def parts(self, field, expr: str, fmt: str, quote: str) -> List[str]:
         """The value of a field of bits and of each of its parts, as a mapping

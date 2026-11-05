@@ -14,6 +14,7 @@ from tests.conftest import (
 )
 from tests.test_rust import (
     BITS_PRINTED,
+    BITS_UNION,
     EDGES,
     HANDLE_NAMED_AS_PREFIX,
     doc,
@@ -422,3 +423,32 @@ def test_a_field_of_bits_prints_its_parts(parse, tmp_path):
         "    try api.ApiStatus.fpr(&out.interface, &s, api.API_PR_JSON);\n",
     )
     assert printed == BITS_PRINTED
+
+
+def test_the_parts_of_a_field_of_bits_are_methods(parse, tmp_path):
+    model, _ = parse(
+        BITS + BITS_UNION + "/** C */\nstruct api_c {\n"
+        "\tuint8_t status; ///< Status, see API_C_STATUS_*\n"
+        "\tuint8_t statusFlags; ///< Named as a getter in Zig\n};\n"
+        "/** Flags; bits 7:6 of 'status' */\n#define API_C_STATUS_FLAGS 0xc0\n"
+        "/** A function named as the parameter of a setter */\nint value(int x);\n"
+    )
+    assert process(model, ["zig"], tmp_path) == []
+
+    printed = run_zig(
+        tmp_path,
+        "    var s = api.ApiStatus{ .code = 0x8a05, .wide = 0x8000000100000002 };\n"
+        '    try out.interface.print("{d} {d} {d} {d} {d}\\n", .{ s.codeType(),'
+        " s.codeDelay(), s.codeDnr(), s.wideLow(), s.wideTop() });\n"
+        "    s.setCodeDelay(3);\n    s.setCodeDnr(0);\n"
+        "    s.setWideTop(0);\n    s.setWideLow(0xffffffff);\n"
+        '    try out.interface.print("0x{x} 0x{x}\\n", .{ s.code, s.wide });\n'
+        "    var u = std.mem.zeroes(api.ApiU);\n    u.setTypeHi(0xabcd);\n"
+        '    try out.interface.print("0x{x} 0x{x}\\n", .{ u.@"type", u.typeHi() });\n'
+        "    var c = std.mem.zeroes(api.ApiC);\n    c.setStatusFlags(2);\n"
+        '    try out.interface.print("0x{x} {d}\\n",'
+        " .{ c.status, c.statusFlags_() });\n"
+        '    try out.interface.print("{s}\\n",'
+        " .{@typeName(@TypeOf(s.codeDelay()))});\n",
+    )
+    assert printed == "5 10 1 2 1\n0x305 0x1ffffffff\n0xabcd0000 0xabcd\n0x80 2\nu4\n"

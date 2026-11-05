@@ -39,7 +39,8 @@ parts, `code: {val: 0x8a05, type: 0x5, dnr: 0x1}` in YAML, the same in decimal
 in JSON. In Python, each part is a property of the record, `status.code_type`;
 in Rust, a getter and a setter, `code_type()` and `set_code_type()`; in C++,
 functions overloaded on the record, `foo::code_type(status)` and
-`foo::set_code_type(status, value)`.
+`foo::set_code_type(status, value)`; in Zig, `codeType()` and `setCodeType()`,
+of an integer as wide as the part.
 
 ## 0.7.0
 
