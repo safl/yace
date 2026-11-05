@@ -519,25 +519,60 @@ def test_a_header_included_but_not_given_is_external(parser, tmp_path):
     assert "external-type" in rules(diagnostics)
 
 
-def test_a_header_relying_on_another_to_include_for_it_is_reported(parser, tmp_path):
+# An API of two headers that include nothing: 'api_n.h' uses what 'api_m.h'
+# declares, and both the standard types that yace includes before them
+API_M = (
+    "/** M */\nstruct api_m {\n\tuint32_t v; ///< V\n};\n"
+    "/** M */\ntypedef struct api_m api_m;\n"
+)
+API_N = (
+    "/**\n * N\n *\n * @param m M\n * @param len Length\n * @return Whether\n */\n"
+    "bool api_n(api_m *m, size_t len);\n"
+)
+
+
+def test_a_header_may_use_what_one_given_before_it_declares(parser, tmp_path):
+    model, diagnostics = parser.parse(headers(tmp_path, api_m=API_M, api_n=API_N))
+
+    assert [str(d) for d in diagnostics] == []
+    assert [e.name for e in model.entities] == ["api_m", "api_m", "api_n"]
+    params = model.find("api_n").params
+    assert params[0].typ == types.Pointer(to=types.Record(tag="struct", name="api_m"))
+    assert params[1].typ == types.Builtin(name="size_t")
+
+
+def test_a_header_using_a_type_before_its_header_is_given_is_reported(parser, tmp_path):
+    m, n = headers(tmp_path, api_m=API_M, api_n=API_N)
+    _, diagnostics = parser.parse([n, m])
+
+    assert [d.rule for d in diagnostics] == ["parse-error"]
+    assert diagnostics[0].file == "api_n.h"
+    assert diagnostics[0].message == "unknown type name 'api_m'"
+
+
+def test_the_standard_types_need_no_include(parse):
+    model, diagnostics = parse(
+        "/**\n * F\n *\n * @param a A\n * @return B\n */\n"
+        "uint64_t api_f(int8_t a);\n"
+    )
+
+    assert [str(d) for d in diagnostics] == []
+    assert model.find("api_f").ret == types.Builtin(name="uint64_t")
+
+
+def test_a_type_from_outside_the_set_is_external_with_no_include(parser, tmp_path):
     paths = headers(
         tmp_path,
-        api_c="#include <stdint.h>\n#include <stdint.h>\n",
-        api_d="/**\n * D\n *\n * @return N\n */\nuint32_t api_d(uint8_t v);\n",
+        api_o="#include <stdio.h>\n",
+        api_p="/**\n * P\n *\n * @param f F\n * @return N\n */\nint api_p(FILE *f);\n",
     )
-    model, diagnostics = parser.parse(paths)
+    _, diagnostics = parser.parse(paths)
 
-    assert [d.rule for d in diagnostics] == ["self-contained"]
-    assert [e.name for e in model.entities] == ["stdint.h", "api_d"]
-    assert diagnostics[0].file == "api_d.h"
-    assert diagnostics[0].message == (
-        "api_d.h does not compile when included alone: unknown type name"
-        " 'uint32_t', and 1 more error"
-    )
-    assert model.find("api_d") is not None
+    assert [d.rule for d in diagnostics] == ["external-type"]
+    assert diagnostics[0].file == "api_p.h"
 
 
-def test_an_error_in_every_parse_is_reported_once(parser, tmp_path):
+def test_an_error_in_the_headers_is_reported_once(parser, tmp_path):
     paths = headers(tmp_path, api_e="/** E */\nint api_e(void) int;\n", api_f="")
     _, diagnostics = parser.parse(paths)
 

@@ -64,3 +64,17 @@ def test_the_headers_given_are_parsed_as_one_ir(tmp_path):
     assert proc.returncode == 0, proc.stderr
     assert sorted(p.name for p in out.iterdir()) == ["api_a.status", "api_a.yaml"]
     assert "api_b" in (out / "api_a.yaml").read_text()
+
+
+def test_headers_including_nothing_pass_strict_and_build(tmp_path):
+    a = tmp_path / "api_a.h"
+    a.write_text("/** A */\nstruct api_a {\n\tuint64_t n; ///< N\n};\n")
+    b = tmp_path / "api_b.h"
+    b.write_text(
+        "/**\n * B\n *\n * @param a A\n * @return N\n */\n"
+        "size_t api_b(struct api_a *a);\n"
+    )
+    out = tmp_path / "out"
+    proc = yace(a, b, "--output", out, "--strict", "--emit", "capi")
+
+    assert proc.returncode == 0, proc.stderr

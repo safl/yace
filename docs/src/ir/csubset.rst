@@ -51,11 +51,17 @@ the API: it parses them together, as one model, and generates one binding of
 it per target. What they declare of each other is internal to the API, and
 what any other header declares, those of the system included, is external.
 
-Each header includes the headers that declare what it uses, those of the
-system and those of the API alike, and has an include guard, so that it
-compiles when it is included on its own. A header relying on another to
-include for it is reported as ``self-contained``. Of the system headers, only
-the types listed above may appear in the API.
+The headers given, in the order given, compile together as one unit; that set,
+not each header in it, is what has to be self-contained. **yace** includes
+``<stdbool.h>``, ``<stddef.h>`` and ``<stdint.h>`` before them, so a header
+may use the standard types those declare without including them, and a header
+may use what one given before it declares without including it. The
+umbrella header of a library often does this on behalf of its parts, and the
+parts can then be given in its order. A set that does not compile, such as
+one given in an order where a type is used before the header declaring it, is
+reported as ``parse-error``. Of the system headers, only the types listed above
+may appear in the API; ``ssize_t``, from ``<sys/types.h>``, is the one a header
+includes itself.
 
 For example, of a library whose headers are in ``include/``::
 

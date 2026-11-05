@@ -10,6 +10,16 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## Unreleased
+
+The headers given are parsed together, in the order given, after
+`<stdbool.h>`, `<stddef.h>` and `<stdint.h>`, and it is that set which has to
+compile, not each header alone. A header may use the standard types and what a
+header given before it declares without including either, as the parts of a
+library read through its umbrella header do. The `self-contained` rule is gone;
+a set that does not compile is a `parse-error`, and a type from any other
+header is still an `external-type`.
+
 ## 0.7.0
 
 The header is the description of an FFI boundary, in a C subset. yace reports

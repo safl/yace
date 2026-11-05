@@ -114,12 +114,9 @@ RULES = {
     "doc-comment": (
         "A declaration has one doc comment; adjacent ones are joined into one"
     ),
-    "self-contained": (
-        "Each header of the API includes what it uses, so that it compiles when"
-        " included alone"
-    ),
     "parse-error": (
-        "The compiler could not parse the header; the result is incomplete"
+        "The compiler could not parse the headers, together in the order given;"
+        " the result is incomplete"
     ),
     "internal-error": (
         "yace failed on this declaration; it is skipped. This is a bug in yace"

@@ -67,6 +67,10 @@ DOCUMENTED = ("struct", "union", "enum", "typedef")
 
 EVAL_BATCH = 200  # macros evaluated per generated translation unit
 
+# Included before the headers, so that the set of them, not each one, has to
+# include what else it uses
+STANDARD_HEADERS = ("stdbool.h", "stddef.h", "stdint.h")
+
 
 class Unsupported(Exception):
     """A type that the IR cannot represent; the message says which"""
@@ -307,9 +311,12 @@ class _HeaderParser(object):
         return self.lines[path]
 
     def includes(self) -> str:
-        """A translation unit of the headers, in the order given"""
+        """A translation unit of the headers, in the order given, after the
+        standard headers whose types the C subset has"""
 
-        return "".join(f'#include "{path}"\n' for path in self.paths)
+        names = [f"<{name}>" for name in STANDARD_HEADERS]
+        names += [f'"{path}"' for path in self.paths]
+        return "".join(f"#include {name}\n" for name in names)
 
     def typ(self, ctype, cursor) -> types.Type:
         """The IR type of the libclang 'ctype'; raises Unsupported"""
@@ -968,12 +975,20 @@ class _HeaderParser(object):
                         found.setdefault(name, child.enum_value)
         return found
 
-    def errors(self, tu, rule: str) -> List[Diagnostic]:
-        """The errors of parsing 'tu', as diagnostics of 'rule'"""
+    def translation_unit(self):
+        """The headers parsed together as one translation unit, reporting its
+        errors"""
 
-        return [
+        name = str(self.path.parent / "yace-headers.c")
+        tu = self.parser.index.parse(
+            name,
+            args=self.parser.args,
+            unsaved_files=[(name, self.includes())],
+            options=TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
+        )
+        self.diagnostics += [
             Diagnostic(
-                rule=rule,
+                rule="parse-error",
                 message=diag.spelling,
                 file=Path(diag.location.file.name).name if diag.location.file else "",
                 line=diag.location.line,
@@ -982,48 +997,6 @@ class _HeaderParser(object):
             for diag in tu.diagnostics
             if diag.severity >= 3
         ]
-
-    def translation_unit(self):
-        """The headers parsed as one translation unit, reporting its errors, and
-        those of each header that does not compile when it is included alone"""
-
-        options = TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD
-        if len(self.paths) == 1:
-            tu = self.parser.index.parse(
-                str(self.path), args=self.parser.args, options=options
-            )
-            self.diagnostics += self.errors(tu, "parse-error")
-            return tu
-
-        name = str(self.path.parent / "yace-headers.c")
-        tu = self.parser.index.parse(
-            name,
-            args=self.parser.args,
-            unsaved_files=[(name, self.includes())],
-            options=options,
-        )
-        together = self.errors(tu, "parse-error")
-        self.diagnostics += together
-        seen = {(d.file, d.line, d.column, d.message) for d in together}
-        for path in self.paths:
-            alone = self.parser.index.parse(
-                str(path), args=self.parser.args + ["-ferror-limit=0"]
-            )
-            new = [
-                found
-                for found in self.errors(alone, "self-contained")
-                if (found.file, found.line, found.column, found.message) not in seen
-            ]
-            if not new:
-                continue
-            first = new[0]
-            first.message = (
-                f"{path.name} does not compile when included alone: {first.message}"
-            )
-            if len(new) > 1:
-                more = len(new) - 1
-                first.message += f", and {more} more error{'s' * (more > 1)}"
-            self.diagnostics.append(first)
         return tu
 
     def run(self):
