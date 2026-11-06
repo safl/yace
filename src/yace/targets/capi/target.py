@@ -110,10 +110,19 @@ def define_value(value) -> str:
     return str(value.value)
 
 
+def header(model: Model) -> str:
+    """The C API, lib<prefix>.h, as the C target emits it, for a target that
+    includes it in what it emits"""
+
+    template = CAPI.environment().get_template("header.h.template")
+    return template.render(**CAPI.context(model))
+
+
 class CAPI(Target):
     NAME = "capi"
 
-    def environment(self) -> Environment:
+    @staticmethod
+    def environment() -> Environment:
         env = Environment(
             loader=FileSystemLoader(Path(__file__).parent),
             undefined=StrictUndefined,
@@ -130,7 +139,8 @@ class CAPI(Target):
         )
         return env
 
-    def context(self, model: Model) -> dict:
+    @staticmethod
+    def context(model: Model) -> dict:
         prefix = cgen.c_ident(model.meta.prefix).upper()
         entities = model.entities
         printer = cgen.Printer(model)
