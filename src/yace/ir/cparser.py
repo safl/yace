@@ -407,6 +407,10 @@ class _HeaderParser(object):
             name = self.names.get(decl_key(decl), decl.spelling)
             if is_unnamed(decl) and decl_key(decl) not in self.names:
                 raise Unsupported(f"an anonymous {ctype.spelling} with no name")
+            # C has no incomplete enum: one named but defined nowhere, such as
+            # one first named in a parameter list, has no values or size
+            if kind == TypeKind.ENUM and decl.get_definition() is None:
+                raise Unsupported(f"'{ctype.spelling}', an enum defined nowhere")
             if not self.in_header(decl):
                 self.report(
                     "external-type",

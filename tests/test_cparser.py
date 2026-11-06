@@ -694,3 +694,17 @@ def test_an_include_not_found_is_kept(parse):
 
     assert [e.name for e in model.entities] == ["api_missing.h", "f"]
     assert rules(diagnostics) == ["parse-error"]
+
+
+def test_an_enum_defined_nowhere_skips_what_uses_it(parse):
+    model, diagnostics = parse(
+        "/** S @return 0 */\nint s(enum shown mode);\n"
+        "/** T @return 0 */\nint t(enum shown *mode);\n"
+    )
+    assert [str(d).split(": ", 1)[1] for d in diagnostics] == [
+        "unsupported-type: 's' uses the type 'enum shown', an enum defined nowhere;"
+        " it is skipped",
+        "unsupported-type: 't' uses the type 'enum shown', an enum defined nowhere;"
+        " it is skipped",
+    ]
+    assert [getattr(e, "name", None) for e in model.entities] == []
