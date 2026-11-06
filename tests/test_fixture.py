@@ -7,6 +7,7 @@ import json
 import os
 import platform
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -156,6 +157,33 @@ def test_cython(model, library, tmp_path, fmt):
     expected = list(yaml.safe_load_all((FIXTURE / "expected.yaml").read_text()))
 
     assert documents(proc.stdout, fmt) == expected
+
+
+@needs_cc
+@needs_cython
+def test_the_benchmark_of_the_pxd_runs_every_way_alike(model, library, tmp_path):
+    assert process(model, ["python"], tmp_path) == []
+
+    lib = next(path for path in library.iterdir() if path.stem == "libfoo")
+    bench = tmp_path / "bench"
+    shutil.copytree(FIXTURE / "bench", bench)
+    env = {**os.environ, "FOO_BINDINGS": str(tmp_path / "python")}
+    env["FOO_LIBRARY"] = str(lib)
+    run_in(bench, [sys.executable, "setup.py", "-q", "build_ext", "--inplace"], env)
+    env["PYTHONPATH"] = f"{tmp_path / 'python'}{os.pathsep}{bench}"
+    out = run_in(
+        bench, [sys.executable, "bench.py", "3", "--repeat", "1", "--json"], env
+    )
+
+    rows = [json.loads(line) for line in out.splitlines()]
+    assert len(rows) == 6 and all(row["ns"] > 0 for row in rows)
+    assert {row["sum"] for row in rows} == {3 * sum(range(8))}
+
+
+def run_in(cwd, cmd, env) -> str:
+    proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env=env)
+    assert proc.returncode == 0, proc.stderr
+    return proc.stdout
 
 
 def check_rust(model, library, tmp_path, fmt, program):
