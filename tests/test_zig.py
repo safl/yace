@@ -474,3 +474,21 @@ def test_a_packed_record_is_an_extern_struct_of_fields_aligned_to_1(parse, tmp_p
         " @alignOf(api.ApiKu) });\n",
     )
     assert printed == PACKED_PRINTED + "8 1\n"
+
+
+def test_a_record_of_no_field_printed_but_as_null_builds(parse, tmp_path):
+    model, _ = parse(
+        "/** F, kept as its bytes */\nstruct api_f {\n"
+        "\tunsigned int a : 4; ///< A\n\tunsigned int b : 4; ///< B\n};\n"
+        "/** E, printing its fields as null, one named as the receiver */\n"
+        "union api_e {\n\tstruct api_f self; ///< Self\n\tstruct api_f g; ///< G\n};\n"
+    )
+    assert process(model, ["zig"], tmp_path) == []
+
+    printed = run_zig(
+        tmp_path,
+        "    const e = std.mem.zeroes(api.ApiE);\n"
+        "    try api.ApiE.fpr(&out.interface, &e, api.API_PR_JSON);\n"
+        '    try out.interface.print("{f}", .{e});\n',
+    )
+    assert printed == '{"self": null, "g": null}\napi_e:\n  self: null\n  g: null\n'

@@ -238,6 +238,16 @@ class Locals(object):
         return "\n".join(lines)
 
 
+def used(lines: List[str]) -> List[str]:
+    """The body of a printer, 'lines', discarding 'self' where they print none
+    of its fields, as Zig rejects an unused parameter"""
+
+    code = [re.sub(r'"(?:[^"\\]|\\.)*"', '""', line) for line in lines]
+    if any(re.search(r"\bself\b", line) for line in code):
+        return lines
+    return ["_ = self;"] + lines
+
+
 class Printer(object):
     """The Zig statements printing a value of a type as JSON"""
 
@@ -371,7 +381,7 @@ class Printer(object):
                 continue
             lines += self.value(field.typ, expr)
         lines.append('try w.writeAll("}");')
-        return lines
+        return used(lines)
 
     def yaml_body(self, record) -> List[str]:
         lines = []
@@ -389,4 +399,4 @@ class Printer(object):
             else:
                 lines += self.value(field.typ, f"self.{name}")
             lines.append('try w.writeAll("\\n");')
-        return lines
+        return used(lines)
