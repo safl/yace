@@ -1,0 +1,22 @@
+# What bench.yaml runs: each way sums the points 'rounds' times, and is run
+# 'repeat' times, the best kept, for each of 'targets'
+[bench]
+rounds = 200000
+repeat = 5
+targets = ["c", "cpp", "rust", "zig", "go", "python", "cython"]
+
+# The commands, on the machine benchmarked, of yace and the toolchains; the
+# Python must have Cython and setuptools for the cython target
+yace = "yace"
+cc = "cc"
+cxx = "c++"
+rustc = "rustc"
+cargo = "cargo"
+zig = "zig"
+go = "go"
+python = "python3"
+
+# A step that fails ends the run, rather than the next one running on what it
+# did not make
+[cijoe.task]
+fail_fast = true
