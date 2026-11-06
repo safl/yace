@@ -213,6 +213,11 @@ Cython, ``foo_visit()`` calling Cython    1.6
 C, ``foo_at()``                           1.4
 ========================================  ============
 
+Through the ``.pxd``, a Cython loop calls the C API as fast as C does, and some
+300 times faster than ctypes, whose every call goes through the interpreter.
+That is what the ``.pxd`` is for: code with a hot loop over the library writes
+it in Cython, and the rest uses the ctypes module.
+
 Example
 -------
 
