@@ -1,0 +1,12 @@
+# Runs the benchmark on another machine, over ssh; the only file here naming
+# it. Fill in its address and your key. The machine needs yace and the
+# toolchains bench.toml names, on the PATH of a command run over ssh.
+[cijoe.targets.bench.ssh]
+username = "bench"
+hostname = "bench.example.org"
+port = 22
+key_filename = "/home/user/.ssh/id_ed25519"
+
+# Where the machine builds and runs, made afresh by each run
+[bench]
+workdir = "/tmp/yace-bench"
