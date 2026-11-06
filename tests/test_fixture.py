@@ -84,7 +84,8 @@ def test_the_fixture_is_in_the_subset():
 @needs_cc
 @pytest.mark.parametrize("fmt", ["yaml", "json"])
 def test_capi(model, library, tmp_path, fmt):
-    assert process(model, ["capi"], tmp_path) == []
+    assert process(model, ["capi"], tmp_path, include=[FIXTURE / "include"]) == []
+    assert "not checked" not in (tmp_path / "capi" / "signatures.log").read_text()
 
     capi = tmp_path / "capi"
     binary = tmp_path / "check"

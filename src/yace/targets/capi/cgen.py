@@ -5,7 +5,7 @@ them that depends on the types.
 """
 
 import re
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from yace.ir import decls, types
 from yace.ir.cparser import CXX_KEYWORDS
@@ -23,8 +23,11 @@ def c_ident(text: str) -> str:
     return re.sub(r"[^0-9A-Za-z_]", "_", text)
 
 
-def decl(typ, inner: str = "") -> str:
-    """The C declaration of 'inner' as a 'typ', such as ``int *x``"""
+def decl(typ, inner: str = "", spelled: Optional[Dict[str, str]] = None) -> str:
+    """The C declaration of 'inner' as a 'typ', such as ``int *x``; a record or
+    enum named in 'spelled' is spelled as it says, rather than by tag and name"""
+
+    spelled = spelled or {}
 
     def join(base: str, inner: str) -> str:
         return f"{base} {inner}" if inner else base
@@ -34,9 +37,11 @@ def decl(typ, inner: str = "") -> str:
     if isinstance(typ, types.Builtin):
         return join(f"{const}{typ.name}", inner)
     if isinstance(typ, types.Record):
-        return join(f"{const}{typ.tag} {typ.name}", inner)
+        name = spelled.get(typ.name, f"{typ.tag} {typ.name}")
+        return join(f"{const}{name}", inner)
     if isinstance(typ, types.EnumRef):
-        return join(f"{const}enum {typ.name}", inner)
+        name = spelled.get(typ.name, f"enum {typ.name}")
+        return join(f"{const}{name}", inner)
     if isinstance(typ, types.TypedefRef):
         return join(f"{const}{typ.name}", inner)
     if isinstance(typ, types.Pointer):
@@ -47,16 +52,16 @@ def decl(typ, inner: str = "") -> str:
         )
         if isinstance(typ.to, (types.Array, types.FunctionType)):
             star = f"({star})"
-        return decl(typ.to, star)
+        return decl(typ.to, star, spelled)
     if isinstance(typ, types.Array):
         length = "" if typ.length is None else str(typ.length)
-        return decl(typ.of, f"{inner}[{length}]")
+        return decl(typ.of, f"{inner}[{length}]", spelled)
     if isinstance(typ, types.FunctionType):
-        params = ", ".join(decl(p.typ, param_name(p.name)) for p in typ.params)
+        params = ", ".join(decl(p.typ, param_name(p.name), spelled) for p in typ.params)
         params = params or "void"
         if typ.variadic:
             params += ", ..."
-        return decl(typ.ret, f"{inner}({params})")
+        return decl(typ.ret, f"{inner}({params})", spelled)
 
     raise ValueError(f"no C spelling for {typ!r}")
 
@@ -82,6 +87,24 @@ def signature(function: decls.Function) -> str:
     if ret.endswith("*" + mark):
         return f"{ret[:-1]}\n{declarator}"
     return decl(function.ret, declarator)
+
+
+def pointer_type(function: decls.Function, spelled: Dict[str, str]) -> str:
+    """The type of a pointer to 'function', as the headers spell its types"""
+
+    params = ", ".join(decl(p.typ, "", spelled) for p in function.params) or "void"
+    if function.variadic:
+        params += ", ..."
+    return decl(function.ret, f"(*)({params})", spelled)
+
+
+def spellings(model: Model) -> Dict[str, str]:
+    """The records and enums the headers spell other than by tag and name"""
+
+    kinds = (decls.Struct, decls.Union, decls.Enum)
+    return {
+        e.name: e.spelled for e in model.entities if isinstance(e, kinds) and e.spelled
+    }
 
 
 def record_deps(record, model: Model) -> List[str]:

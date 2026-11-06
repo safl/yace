@@ -27,10 +27,25 @@ The C target, ``capi``, generates the C API of the header, into
   with fields has the size, alignment and field offsets recorded in the IR,
   then prints a zeroed instance of each, as YAML or JSON.
 
+``<prefix>_signatures.c``
+  The check of the signatures, not part of the API: it includes the headers
+  the IR was parsed from, not the generated C API, and asserts at compile time
+  that each function has the type the IR gives it. Every target declares the
+  functions from the IR, and C++, Go and the ``.pxd`` call them through
+  ``lib<prefix>.h``, so a signature the IR got wrong fails here rather than at
+  run time.
+
 The check is built with ``$CC``, by default ``cc``, as C11 with all warnings as
 errors, and run; **yace** then parses what it printed, as YAML and as JSON. The
 layout is asserted only on the platform it was recorded on, the ``abi`` of the
 IR's meta.
+
+The check of the signatures is compiled, as GNU C11, with the include
+directories, which hold the headers when they were given by path, or by
+``-I``. Where a header is not found, **yace** warns that the signatures are not
+checked, and fails nothing. It does not say whether a library was built from
+these headers; that is for a tool comparing the library's ABI with them, such as
+``abidiff``.
 
 Example
 -------
