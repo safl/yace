@@ -14,14 +14,13 @@ and the printers use its ``std.Io.Writer``, and libc, as the C API does.
 """
 
 import json
-import os
-import shutil
 import subprocess
 from pathlib import Path
 
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
+from yace import toolchain
 from yace.ir import decls
 from yace.ir.model import Model, host_abi
 from yace.targets.capi import cgen
@@ -40,6 +39,7 @@ def zigdoc(doc) -> str:
 
 class Zig(Target):
     NAME = "zig"
+    TOOLCHAINS = (toolchain.ZIG,)
 
     def context(self, model: Model) -> dict:
         prefix = cgen.c_ident(model.meta.prefix)
@@ -136,9 +136,10 @@ class Zig(Target):
     def check(self, model: Model) -> list:
         """Build and run the check program; returns what failed, if anything"""
 
-        zig = os.environ.get("ZIG", "zig")
-        if not shutil.which(zig):
-            return [f"no Zig toolchain ('{zig}'); set ZIG"]
+        failures = toolchain.missing(self.TOOLCHAINS)
+        if failures:
+            return failures
+        zig = toolchain.ZIG.command()
 
         prefix = cgen.c_ident(model.meta.prefix)
         out = self.output.resolve()  # zig runs in it, so relative paths would not do

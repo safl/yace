@@ -14,6 +14,8 @@ class Target(ABC):
     """Emit code for the IR into '<output>/<NAME>', and check what it emitted"""
 
     NAME = ""
+    # What check() builds and runs with, see yace.toolchain
+    TOOLCHAINS: tuple = ()
 
     def __init__(self, output: Path, include: Optional[List[Path]] = None):
         self.output = Path(output) / self.NAME

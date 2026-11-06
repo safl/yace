@@ -22,7 +22,6 @@ The module needs Go 1.22 and a C compiler, as cgo does.
 import json
 import os
 import re
-import shutil
 import subprocess
 from pathlib import Path
 from typing import List
@@ -30,6 +29,7 @@ from typing import List
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
+from yace import toolchain
 from yace.ir import decls
 from yace.ir.model import Model, host_abi
 from yace.targets.capi import cgen
@@ -157,6 +157,7 @@ def imports(lines: List[str]) -> List[str]:
 
 class Go(Target):
     NAME = "go"
+    TOOLCHAINS = (toolchain.GO,)
 
     def __init__(self, output: Path, include=None):
         super().__init__(output, include)
@@ -270,9 +271,10 @@ class Go(Target):
         """Vet the package and the check, then build and run the check; returns
         what failed, if anything"""
 
-        go = os.environ.get("GO", "go")
-        if not shutil.which(go):
-            return [f"no Go toolchain ('{go}'); set GO"]
+        failures = toolchain.missing(self.TOOLCHAINS)
+        if failures:
+            return failures
+        go = toolchain.GO.command()
 
         prefix = cgen.c_ident(model.meta.prefix)
         out = self.output.resolve()

@@ -22,7 +22,6 @@ import importlib.util
 import json
 import logging as log
 import os
-import shutil
 import subprocess
 import sys
 import sysconfig
@@ -31,6 +30,7 @@ from pathlib import Path
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
+from yace import toolchain
 from yace.ir import decls
 from yace.ir.masks import VALUE_KEY
 from yace.ir.model import Model, host_abi
@@ -77,6 +77,7 @@ def module_name(model: Model) -> str:
 
 class Python(Target):
     NAME = "python"
+    TOOLCHAINS = (toolchain.PYTHON, toolchain.CC)
 
     def environment(self) -> Environment:
         env = Environment(
@@ -227,9 +228,10 @@ class Python(Target):
         if proc.returncode:
             return [f"Cython failed on the check of the .pxd:\n{proc.stderr}"]
 
-        cc = os.environ.get("CC", "cc")
-        if not shutil.which(cc):
-            return [f"no C compiler ('{cc}') to compile the check of the .pxd; set CC"]
+        failures = toolchain.missing(self.TOOLCHAINS)
+        if failures:
+            return failures
+        cc = toolchain.CC.command()
         includes = [sysconfig.get_paths()["include"], str(out), *self.include]
         cmd = [cc, "-fsyntax-only", *CYTHON_CHECK_CFLAGS]
         cmd += [f"-I{path}" for path in includes] + [str(source)]

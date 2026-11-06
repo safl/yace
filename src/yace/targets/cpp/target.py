@@ -12,14 +12,13 @@ includes; its printers are its own, printing what the C API's print.
 """
 
 import json
-import os
-import shutil
 import subprocess
 from pathlib import Path
 
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
+from yace import toolchain
 from yace.ir.model import Model, host_abi
 from yace.targets.capi import cgen
 from yace.targets.capi.target import CAPI, comment
@@ -32,6 +31,7 @@ CXXFLAGS = ["-std=c++20", "-pedantic-errors", "-Wall", "-Wextra", "-Werror"]
 
 class CPP(Target):
     NAME = "cpp"
+    TOOLCHAINS = (toolchain.CXX,)
 
     def __init__(self, output: Path, include=None):
         super().__init__(output, include)
@@ -70,9 +70,10 @@ class CPP(Target):
     def check(self, model: Model) -> list:
         """Build and run the check program; returns what failed, if anything"""
 
-        cxx = os.environ.get("CXX", "c++")
-        if not shutil.which(cxx):
-            return [f"no compiler ('{cxx}'); set CXX"]
+        failures = toolchain.missing(self.TOOLCHAINS)
+        if failures:
+            return failures
+        cxx = toolchain.CXX.command()
 
         prefix = cgen.c_ident(model.meta.prefix)
         includes = ["-I", str(self.capi.output), "-I", str(self.output)]

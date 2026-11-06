@@ -6,6 +6,7 @@ Given C headers, parses them as one API into the IR, writing '<stem>.yaml' and
 the diagnostics to '<stem>.status', named by the first header, and reports every
 place the headers step outside the C subset. Given IR files, '.yaml', reads them.
 Either way, '--emit' then generates the code of the given targets and checks it.
+With '--toolchains', prints what those checks build with instead.
 """
 
 import argparse
@@ -20,7 +21,7 @@ from yace import __version__ as version
 from yace.compiler import process
 from yace.ir import model as ir
 from yace.ir.cparser import c_to_yace
-from yace.targets.target import targets
+from yace.targets.target import load, targets
 
 
 def parse_args():
@@ -81,6 +82,12 @@ def parse_args():
     parser.add_argument(
         "--schema", action="store_true", help="print the JSON Schema of the IR"
     )
+    parser.add_argument(
+        "--toolchains",
+        action="store_true",
+        help="print, as JSON, the toolchains the checks of the '--emit' targets, or"
+        " of every target, build with: the command, where it is, and its version",
+    )
     parser.add_argument("--version", action="version", version=f"%(prog)s {version}")
     parser.add_argument(
         "--log-level",
@@ -106,6 +113,17 @@ def main():
         print(json.dumps(ir.schema(), indent=2))
         return 0
 
+    unknown = [name for name in args.emit if name not in targets()]
+    if unknown:
+        log.error("no target %s; installed: %s", unknown, ", ".join(sorted(targets())))
+        return 1
+
+    if args.toolchains:
+        names = args.emit or sorted(targets())
+        found = {name: [tc.find() for tc in load(name).TOOLCHAINS] for name in names}
+        print(json.dumps(found, indent=2))
+        return 0
+
     if not args.filepath:
         log.error("give C headers (.h) or IR files (.yaml)")
         return 1
@@ -118,11 +136,6 @@ def main():
     suffixes = {path.suffix for path in args.filepath}
     if len(suffixes) != 1 or not suffixes <= {".h", ".yaml"}:
         log.error("give either C headers (.h) or IR files (.yaml), not %s", suffixes)
-        return 1
-
-    unknown = [name for name in args.emit if name not in targets()]
-    if unknown:
-        log.error("no target %s; installed: %s", unknown, ", ".join(sorted(targets())))
         return 1
 
     if ".h" in suffixes:

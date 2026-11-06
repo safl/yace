@@ -828,10 +828,7 @@ def test_the_check_of_the_pxd_needs_a_c_compiler(parse, tmp_path, monkeypatch):
     monkeypatch.setenv("CC", "/nonexistent/cc")
 
     failures = process(model, ["python"], tmp_path)
-    assert failures == [
-        "python: no C compiler ('/nonexistent/cc') to compile the check of the"
-        " .pxd; set CC"
-    ]
+    assert failures == ["python: no C compiler ('/nonexistent/cc'); set CC"]
 
 
 def test_without_cython_the_pxd_is_said_not_checked(

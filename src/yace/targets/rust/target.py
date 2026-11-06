@@ -16,13 +16,13 @@ of the C API applies; types become CamelCase, as Rust names types:
 
 import json
 import os
-import shutil
 import subprocess
 from pathlib import Path
 
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
+from yace import toolchain
 from yace.ir import decls
 from yace.ir.model import Model, host_abi
 from yace.targets.capi import cgen
@@ -51,6 +51,7 @@ def toml_str(text: str) -> str:
 
 class Rust(Target):
     NAME = "rust"
+    TOOLCHAINS = (toolchain.CARGO,)
 
     def environment(self) -> Environment:
         env = Environment(
@@ -153,9 +154,10 @@ class Rust(Target):
     def check(self, model: Model) -> list:
         """Build and run the check program; returns what failed, if anything"""
 
-        cargo = os.environ.get("CARGO", "cargo")
-        if not shutil.which(cargo):
-            return [f"no Rust toolchain ('{cargo}'); set CARGO"]
+        failures = toolchain.missing(self.TOOLCHAINS)
+        if failures:
+            return failures
+        cargo = toolchain.CARGO.command()
 
         prefix = cgen.c_ident(model.meta.prefix).upper()
         env = {**os.environ, f"{prefix}_NO_LINK": "1"}
