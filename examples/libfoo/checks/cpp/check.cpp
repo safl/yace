@@ -141,19 +141,19 @@ main(int argc, char **argv)
 
 	std::int64_t added = 0;
 	for (const auto &point : points) {
-		added += errno_of([&] { handle.add(point); }) == 0;
+		added += errno_of([&] { handle.point_add(point); }) == 0;
 	}
-	std::int64_t count = static_cast<std::int64_t>(handle.count());
+	std::int64_t count = static_cast<std::int64_t>(handle.point_count());
 
 	std::int64_t sum_x = 0, sum_y = 0, seen = 0, with_x = 0;
-	std::int64_t visit = static_cast<std::int64_t>(handle.visit([&](const foo::point &p) {
+	std::int64_t visit = static_cast<std::int64_t>(handle.point_visit([&](const foo::point &p) {
 		sum_x += p.x;
 		sum_y += p.y;
 		return 0;
 	}));
 	std::int64_t stopped = static_cast<std::int64_t>(
-		handle.visit([&](const foo::point &) { return ++seen == 2 ? 1 : 0; }));
-	std::int64_t without = ::foo_visit(handle.native_handle(), nullptr, nullptr);
+		handle.point_visit([&](const foo::point &) { return ++seen == 2 ? 1 : 0; }));
+	std::int64_t without = ::foo_point_visit(handle.native_handle(), nullptr, nullptr);
 	foo::visitor visitor = {
 		[](void *arg, const ::foo_point *p) -> int {
 			*static_cast<std::int64_t *>(arg) += p->x;
@@ -161,21 +161,21 @@ main(int argc, char **argv)
 		},
 		&with_x,
 	};
-	std::int64_t visit_with = static_cast<std::int64_t>(handle.visit_with(visitor));
+	std::int64_t visit_with = static_cast<std::int64_t>(handle.point_visit_with(visitor));
 	std::int64_t unknown = errno_of([] { foo::figure_fill(3); });
-	std::int64_t add_many = static_cast<std::int64_t>(handle.add_many(points));
-	std::int64_t count_after = static_cast<std::int64_t>(handle.count());
-	auto copied = handle.points(4);
+	std::int64_t add_many = static_cast<std::int64_t>(handle.point_add_many(points));
+	std::int64_t count_after = static_cast<std::int64_t>(handle.point_count());
+	auto copied = handle.point_copy(4);
 	std::int64_t copied_x = 0;
 	for (const auto &p : copied) {
 		copied_x += p.x;
 	}
 	std::size_t done_count = 0;
 	auto counter = [&done_count](std::size_t n) { done_count = n; };
-	std::int64_t submit = errno_of([&] { handle.submit(counter); });
-	std::int64_t submit_busy = errno_of([&] { handle.submit(counter); });
-	std::int64_t poke = static_cast<std::int64_t>(handle.poke());
-	std::int64_t poke_again = static_cast<std::int64_t>(handle.poke());
+	std::int64_t submit = errno_of([&] { handle.count_submit(counter); });
+	std::int64_t submit_busy = errno_of([&] { handle.count_submit(counter); });
+	std::int64_t complete = static_cast<std::int64_t>(handle.count_complete());
+	std::int64_t complete_again = static_cast<std::int64_t>(handle.count_complete());
 
 	document("calls", {
 				  {"version", quoted(std::string(foo::version()))},
@@ -198,22 +198,22 @@ main(int argc, char **argv)
 				  {"points_sum_x", num(copied_x)},
 				  {"submit", num(submit)},
 				  {"submit_busy", num(submit_busy)},
-				  {"poke", num(poke)},
+				  {"complete", num(complete)},
 				  {"done_count", num(static_cast<std::int64_t>(done_count))},
-				  {"poke_again", num(poke_again)},
+				  {"complete_again", num(complete_again)},
 			  });
 
-	record("foo_point", handle.at(1));
-	record("foo_point", handle.at(6));
+	record("foo_point", handle.point_get(1));
+	record("foo_point", handle.point_get(6));
 
-	while (errno_of([&] { handle.add(points[0]); }) == 0) {
+	while (errno_of([&] { handle.point_add(points[0]); }) == 0) {
 	}
 	document("full", {
-				 {"count", num(static_cast<std::int64_t>(handle.count()))},
-				 {"add", num(errno_of([&] { handle.add(points[0]); }))},
+				 {"count", num(static_cast<std::int64_t>(handle.point_count()))},
+				 {"add", num(errno_of([&] { handle.point_add(points[0]); }))},
 				 {"add_many",
 				  num(errno_of([&] {
-					  return handle.add_many(std::span(points).first(1));
+					  return handle.point_add_many(std::span(points).first(1));
 				  }))},
 			 });
 	auto status = handle.status_get();
@@ -235,7 +235,7 @@ main(int argc, char **argv)
 		record("foo_figure", std::optional(foo::figure_fill(static_cast<std::uint32_t>(shape))));
 	}
 	record("foo_value", std::optional(foo::value_set(-1)));
-	record("foo_packed", std::optional(foo::packed_fill()));
+	record("foo_wire", std::optional(foo::wire_fill()));
 
 	return 0;
 }

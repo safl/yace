@@ -70,37 +70,37 @@ fn main() -> io::Result<()> {
     let mut handle = Handle::open(c"points")?;
     let open_without_name = unsafe { foo_open(ptr::null(), &mut ptr::null_mut()) };
     let name = handle.name().to_string_lossy().into_owned();
-    let added = points.iter().filter(|p| handle.add(p).is_ok()).count();
-    let count_before = handle.count();
+    let added = points.iter().filter(|p| handle.point_add(p).is_ok()).count();
+    let count_before = handle.point_count();
 
     let (mut sum_x, mut sum_y) = (0i64, 0i64);
-    let visit = count(handle.visit(&mut |p: &FooPoint| {
+    let visit = count(handle.point_visit(&mut |p: &FooPoint| {
         sum_x += p.x as i64;
         sum_y += p.y as i64;
         0
     }));
     let mut seen = 0;
-    let stopped = count(handle.visit(&mut |_: &FooPoint| {
+    let stopped = count(handle.point_visit(&mut |_: &FooPoint| {
         seen += 1;
         (seen == 2) as c_int
     }));
-    let without = unsafe { foo_visit(handle.as_ptr(), None, ptr::null_mut()) };
+    let without = unsafe { foo_point_visit(handle.as_ptr(), None, ptr::null_mut()) };
     let mut with_x = 0i64;
     let visitor = FooVisitor {
         visit: Some(add_x),
         arg: &mut with_x as *mut i64 as *mut c_void,
     };
     // A record holding a callback and its context: unsafe, as nothing checks them
-    let visit_with = count(unsafe { handle.visit_with(&visitor) });
+    let visit_with = count(unsafe { handle.point_visit_with(&visitor) });
     let unknown = status(safe::figure_fill(3).map(|_| ()));
-    let add_many = count(handle.add_many(&points));
-    let copied = handle.points(4)?;
+    let add_many = count(handle.point_add_many(&points));
+    let copied = handle.point_copy(4)?;
     let counted = std::rc::Rc::new(std::cell::Cell::new(0));
     let (once, again) = (counted.clone(), counted.clone());
-    let submit = status(handle.submit(Box::new(move |n| once.set(n))));
-    let submit_busy = status(handle.submit(Box::new(move |n| again.set(n))));
-    let poke = handle.poke();
-    let poke_again = handle.poke();
+    let submit = status(handle.count_submit(Box::new(move |n| once.set(n))));
+    let submit_busy = status(handle.count_submit(Box::new(move |n| again.set(n))));
+    let complete = handle.count_complete();
+    let complete_again = handle.count_complete();
 
     document(
         "calls",
@@ -120,28 +120,28 @@ fn main() -> io::Result<()> {
             ("visit_with_sum_x", Value::Int(with_x)),
             ("figure_of_unknown_shape", Value::Int(unknown)),
             ("add_many", Value::Int(add_many)),
-            ("count_after_add_many", Value::Int(handle.count() as i64)),
+            ("count_after_add_many", Value::Int(handle.point_count() as i64)),
             ("points_copied", Value::Int(copied.len() as i64)),
             ("points_sum_x", Value::Int(copied.iter().map(|p| p.x as i64).sum())),
             ("submit", Value::Int(submit)),
             ("submit_busy", Value::Int(submit_busy)),
-            ("poke", Value::Int(poke as i64)),
+            ("complete", Value::Int(complete as i64)),
             ("done_count", Value::Int(counted.get() as i64)),
-            ("poke_again", Value::Int(poke_again as i64)),
+            ("complete_again", Value::Int(complete_again as i64)),
         ],
         as_json,
     );
 
-    record("foo_point", FooPoint::fpr, handle.at(1).as_ref(), flags)?;
-    record("foo_point", FooPoint::fpr, handle.at(6).as_ref(), flags)?;
+    record("foo_point", FooPoint::fpr, handle.point_get(1).as_ref(), flags)?;
+    record("foo_point", FooPoint::fpr, handle.point_get(6).as_ref(), flags)?;
 
-    while handle.add(&points[0]).is_ok() {}
+    while handle.point_add(&points[0]).is_ok() {}
     document(
         "full",
         &[
-            ("count", Value::Int(handle.count() as i64)),
-            ("add", Value::Int(status(handle.add(&points[0])))),
-            ("add_many", Value::Int(count(handle.add_many(&points[..1])))),
+            ("count", Value::Int(handle.point_count() as i64)),
+            ("add", Value::Int(status(handle.point_add(&points[0])))),
+            ("add_many", Value::Int(count(handle.point_add_many(&points[..1])))),
         ],
         as_json,
     );
@@ -154,7 +154,7 @@ fn main() -> io::Result<()> {
         record("foo_figure", FooFigure::fpr, Some(&figure), flags)?;
     }
     record("foo_value", FooValue::fpr, Some(&safe::value_set(-1)), flags)?;
-    record("foo_packed", FooPacked::fpr, Some(&safe::packed_fill()), flags)?;
+    record("foo_wire", FooWire::fpr, Some(&safe::wire_fill()), flags)?;
 
     Ok(())
 }

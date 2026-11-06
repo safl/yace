@@ -116,7 +116,7 @@ cdef dict figure(const c.foo_figure *obj):
     }
 
 
-cdef dict packed(const c.foo_packed *obj):
+cdef dict wire(const c.foo_wire *obj):
     # A copy, as a packed field may not be aligned for its address to be taken
     cdef c.foo_point at = obj.at
 
@@ -158,7 +158,7 @@ def main(fmt):
     cdef c.foo_figure figure_
     cdef c.foo_status status_
     cdef c.foo_value value
-    cdef c.foo_packed packed_
+    cdef c.foo_wire wire_
     cdef size_t done_count = 0
     cdef uint32_t shape
 
@@ -201,39 +201,39 @@ def main(fmt):
         return 1
     calls["open_without_name"] = c.foo_open(NULL, &handle)
     calls["name"] = string(c.foo_name(handle))
-    calls["added"] = sum([not c.foo_add(handle, &points[idx]) for idx in range(3)])
-    calls["count"] = c.foo_count(handle)
-    calls["visit"] = c.foo_visit(handle, summarize, &every)
+    calls["added"] = sum([not c.foo_point_add(handle, &points[idx]) for idx in range(3)])
+    calls["count"] = c.foo_point_count(handle)
+    calls["visit"] = c.foo_point_visit(handle, summarize, &every)
     calls["visit_sum_x"] = every.x
     calls["visit_sum_y"] = every.y
-    calls["visit_stopped"] = c.foo_visit(handle, summarize, &first_two)
-    calls["visit_without_callback"] = c.foo_visit(handle, NULL, NULL)
-    calls["visit_with"] = c.foo_visit_with(handle, &visitor)
+    calls["visit_stopped"] = c.foo_point_visit(handle, summarize, &first_two)
+    calls["visit_without_callback"] = c.foo_point_visit(handle, NULL, NULL)
+    calls["visit_with"] = c.foo_point_visit_with(handle, &visitor)
     calls["visit_with_sum_x"] = with_visitor.x
     calls["figure_of_unknown_shape"] = c.foo_figure_fill(&figure_, 3)
-    calls["add_many"] = c.foo_add_many(handle, points, 3)
-    calls["count_after_add_many"] = c.foo_count(handle)
-    calls["points_copied"] = c.foo_points(handle, copied, 4)
+    calls["add_many"] = c.foo_point_add_many(handle, points, 3)
+    calls["count_after_add_many"] = c.foo_point_count(handle)
+    calls["points_copied"] = c.foo_point_copy(handle, copied, 4)
     calls["points_sum_x"] = sum([copied[idx].x for idx in range(4)])
-    calls["submit"] = c.foo_submit(handle, count_done, &done_count)
-    calls["submit_busy"] = c.foo_submit(handle, count_done, &done_count)
-    calls["poke"] = c.foo_poke(handle)
+    calls["submit"] = c.foo_count_submit(handle, count_done, &done_count)
+    calls["submit_busy"] = c.foo_count_submit(handle, count_done, &done_count)
+    calls["complete"] = c.foo_count_complete(handle)
     calls["done_count"] = done_count
-    calls["poke_again"] = c.foo_poke(handle)
+    calls["complete_again"] = c.foo_count_complete(handle)
     document("calls", calls, as_json)
 
     for idx in (1, 6):
-        found = c.foo_at(handle, idx)
+        found = c.foo_point_get(handle, idx)
         record("foo_point", None if found == NULL else point(found), as_json)
 
-    while not c.foo_add(handle, &points[0]):
+    while not c.foo_point_add(handle, &points[0]):
         pass
     document(
         "full",
         {
-            "count": c.foo_count(handle),
-            "add": c.foo_add(handle, &points[0]),
-            "add_many": c.foo_add_many(handle, points, 1),
+            "count": c.foo_point_count(handle),
+            "add": c.foo_point_add(handle, &points[0]),
+            "add_many": c.foo_point_add_many(handle, points, 1),
         },
         as_json,
     )
@@ -259,7 +259,7 @@ def main(fmt):
     record(
         "foo_value", {"i": value.i, "u": value.u, "point": point(&value.point)}, as_json
     )
-    c.foo_packed_fill(&packed_)
-    record("foo_packed", packed(&packed_), as_json)
+    c.foo_wire_fill(&wire_)
+    record("foo_wire", wire(&wire_), as_json)
     return 0
 

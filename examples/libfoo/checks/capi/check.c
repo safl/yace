@@ -116,7 +116,7 @@ main(int argc, char **argv)
 	struct foo_figure figure;
 	struct foo_status status;
 	union foo_value value;
-	struct foo_packed packed;
+	struct foo_wire wire;
 	int added = 0;
 
 	if (argc > 1 && !strcmp(argv[1], "json")) {
@@ -148,47 +148,47 @@ main(int argc, char **argv)
 	int_value("open_without_name", foo_open(NULL, &handle));
 	str_value("name", foo_name(handle));
 	for (size_t idx = 0; idx < sizeof(points) / sizeof(*points); ++idx) {
-		added += !foo_add(handle, &points[idx]);
+		added += !foo_point_add(handle, &points[idx]);
 	}
 	int_value("added", added);
-	int_value("count", (intmax_t)foo_count(handle));
-	int_value("visit", foo_visit(handle, summarize, &all));
+	int_value("count", (intmax_t)foo_point_count(handle));
+	int_value("visit", foo_point_visit(handle, summarize, &all));
 	int_value("visit_sum_x", all.x);
 	int_value("visit_sum_y", all.y);
-	int_value("visit_stopped", foo_visit(handle, summarize, &first_two));
-	int_value("visit_without_callback", foo_visit(handle, NULL, NULL));
-	int_value("visit_with", foo_visit_with(handle, &visitor));
+	int_value("visit_stopped", foo_point_visit(handle, summarize, &first_two));
+	int_value("visit_without_callback", foo_point_visit(handle, NULL, NULL));
+	int_value("visit_with", foo_point_visit_with(handle, &visitor));
 	int_value("visit_with_sum_x", with.x);
 	int_value("figure_of_unknown_shape", foo_figure_fill(&figure, 3));
-	int_value("add_many", foo_add_many(handle, points, sizeof(points) / sizeof(*points)));
-	int_value("count_after_add_many", (intmax_t)foo_count(handle));
-	int_value("points_copied", foo_points(handle, copied, 4));
+	int_value("add_many", foo_point_add_many(handle, points, sizeof(points) / sizeof(*points)));
+	int_value("count_after_add_many", (intmax_t)foo_point_count(handle));
+	int_value("points_copied", foo_point_copy(handle, copied, 4));
 	for (size_t idx = 0; idx < 4; ++idx) {
 		sum_x += copied[idx].x;
 	}
 	int_value("points_sum_x", sum_x);
-	int_value("submit", foo_submit(handle, count_done, &done_count));
-	int_value("submit_busy", foo_submit(handle, count_done, &done_count));
-	int_value("poke", (intmax_t)foo_poke(handle));
+	int_value("submit", foo_count_submit(handle, count_done, &done_count));
+	int_value("submit_busy", foo_count_submit(handle, count_done, &done_count));
+	int_value("complete", (intmax_t)foo_count_complete(handle));
 	int_value("done_count", (intmax_t)done_count);
-	int_value("poke_again", (intmax_t)foo_poke(handle));
+	int_value("complete_again", (intmax_t)foo_count_complete(handle));
 	doc_end();
 
 	record_begin("foo_point");
-	foo_point_fpr(stdout, foo_at(handle, 1), flags);
+	foo_point_fpr(stdout, foo_point_get(handle, 1), flags);
 	record_end();
 
 	record_begin("foo_point");
-	foo_point_fpr(stdout, foo_at(handle, 6), flags);
+	foo_point_fpr(stdout, foo_point_get(handle, 6), flags);
 	record_end();
 
-	while (!foo_add(handle, &points[0])) {
+	while (!foo_point_add(handle, &points[0])) {
 		;
 	}
 	doc_begin("full");
-	int_value("count", (intmax_t)foo_count(handle));
-	int_value("add", foo_add(handle, &points[0]));
-	int_value("add_many", foo_add_many(handle, points, 1));
+	int_value("count", (intmax_t)foo_point_count(handle));
+	int_value("add", foo_point_add(handle, &points[0]));
+	int_value("add_many", foo_point_add_many(handle, points, 1));
 	doc_end();
 
 	foo_status_get(handle, &status);
@@ -229,9 +229,9 @@ main(int argc, char **argv)
 	foo_value_fpr(stdout, &value, flags);
 	record_end();
 
-	foo_packed_fill(&packed);
-	record_begin("foo_packed");
-	foo_packed_fpr(stdout, &packed, flags);
+	foo_wire_fill(&wire);
+	record_begin("foo_wire");
+	foo_wire_fpr(stdout, &wire, flags);
 	record_end();
 
 	return 0;

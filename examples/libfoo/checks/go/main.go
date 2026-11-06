@@ -140,37 +140,37 @@ func main() {
 	openWithoutName := foo.Foo_open(nil, &unopened)
 	added := 0
 	for idx := range points {
-		if handle.Add(&points[idx]) == nil {
+		if handle.PointAdd(&points[idx]) == nil {
 			added++
 		}
 	}
-	count := handle.Count()
+	count := handle.PointCount()
 
 	var sumX, sumY int64
-	visit := value(handle.Visit(func(point *foo.FooPoint) int32 {
+	visit := value(handle.PointVisit(func(point *foo.FooPoint) int32 {
 		sumX += int64(point.X)
 		sumY += int64(point.Y)
 		return 0
 	}))
 	visited := 0
-	stopped := value(handle.Visit(func(point *foo.FooPoint) int32 {
+	stopped := value(handle.PointVisit(func(point *foo.FooPoint) int32 {
 		visited++
 		if visited == 2 {
 			return 1
 		}
 		return 0
 	}))
-	without := foo.Foo_visit(handle.Ptr(), nil, nil)
+	without := foo.Foo_point_visit(handle.Ptr(), nil, nil)
 	withX := (*int64)(C.malloc(C.size_t(unsafe.Sizeof(int64(0)))))
 	defer C.free(unsafe.Pointer(withX))
 	*withX = 0
 	visitor := foo.FooVisitor{Visit: foo.FooVisitCb(C.addX), Arg: unsafe.Pointer(withX)}
-	visitWith := value(handle.VisitWith(&visitor))
+	visitWith := value(handle.PointVisitWith(&visitor))
 	_, err = foo.FigureFill(3)
 	unknown := errno(err)
-	addMany := value(handle.AddMany(points))
-	countAfter := handle.Count()
-	copied, err := handle.Points(make([]foo.FooPoint, 4))
+	addMany := value(handle.PointAddMany(points))
+	countAfter := handle.PointCount()
+	copied, err := handle.PointCopy(make([]foo.FooPoint, 4))
 	if err != nil {
 		panic(err)
 	}
@@ -179,10 +179,10 @@ func main() {
 		copiedX += int64(p.X)
 	}
 	var done uintptr
-	submit := errno(handle.Submit(func(count uintptr) { done = count }))
-	submitBusy := errno(handle.Submit(func(count uintptr) { done = 0 }))
-	poke := handle.Poke()
-	pokeAgain := handle.Poke()
+	submit := errno(handle.CountSubmit(func(count uintptr) { done = count }))
+	submitBusy := errno(handle.CountSubmit(func(count uintptr) { done = 0 }))
+	complete := handle.CountComplete()
+	completeAgain := handle.CountComplete()
 
 	document("calls", []field{
 		{"version", quoted(foo.Version())},
@@ -205,13 +205,13 @@ func main() {
 		{"points_sum_x", num(copiedX)},
 		{"submit", num(submit)},
 		{"submit_busy", num(submitBusy)},
-		{"poke", num(poke)},
+		{"complete", num(complete)},
 		{"done_count", num(done)},
-		{"poke_again", num(pokeAgain)},
+		{"complete_again", num(completeAgain)},
 	})
 
 	for _, idx := range []uintptr{1, 6} {
-		point, ok := handle.At(idx)
+		point, ok := handle.PointGet(idx)
 		if !ok {
 			record("foo_point", (*foo.FooPoint)(nil).Fpr)
 			continue
@@ -219,12 +219,12 @@ func main() {
 		record("foo_point", point.Fpr)
 	}
 
-	for handle.Add(&points[0]) == nil {
+	for handle.PointAdd(&points[0]) == nil {
 	}
 	document("full", []field{
-		{"count", num(handle.Count())},
-		{"add", num(errno(handle.Add(&points[0])))},
-		{"add_many", num(value(handle.AddMany(points[:1])))},
+		{"count", num(handle.PointCount())},
+		{"add", num(errno(handle.PointAdd(&points[0])))},
+		{"add_many", num(value(handle.PointAddMany(points[:1])))},
 	})
 
 	status := handle.StatusGet()
@@ -250,6 +250,6 @@ func main() {
 	}
 	set := foo.ValueSet(-1)
 	record("foo_value", set.Fpr)
-	packed := foo.PackedFill()
-	record("foo_packed", packed.Fpr)
+	wire := foo.WireFill()
+	record("foo_wire", wire.Fpr)
 }

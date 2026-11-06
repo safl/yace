@@ -144,29 +144,29 @@ pub fn main(init: std.process.Init) !void {
     var unopened: ?*foo.FooHandle = null;
     const open_without_name = foo.foo_open(null, &unopened);
     var added: i64 = 0;
-    for (&points) |*point| added += @intFromBool(errno(handle.add(point)) == 0);
-    const count = handle.count();
+    for (&points) |*point| added += @intFromBool(errno(handle.pointAdd(point)) == 0);
+    const count = handle.pointCount();
 
     var every = Sum{};
-    const visit = errno(handle.visit(&every, Sum.visit));
+    const visit = errno(handle.pointVisit(&every, Sum.visit));
     var first_two = Sum{ .stop_after = 2 };
-    const stopped = errno(handle.visit(&first_two, Sum.visit));
-    const without = foo.foo_visit(handle.ptr, null, null);
+    const stopped = errno(handle.pointVisit(&first_two, Sum.visit));
+    const without = foo.foo_point_visit(handle.ptr, null, null);
     var with_x: i64 = 0;
     const visitor = foo.FooVisitor{ .visit = &addX, .arg = &with_x };
-    const visit_with = errno(handle.visitWith(&visitor));
+    const visit_with = errno(handle.pointVisitWith(&visitor));
     const unknown = errno(foo.figureFill(3));
-    const add_many = errno(handle.addMany(&points));
-    const count_after = handle.count();
+    const add_many = errno(handle.pointAddMany(&points));
+    const count_after = handle.pointCount();
     var copied_buf: [4]foo.FooPoint = undefined;
-    const copied = try handle.points(&copied_buf);
+    const copied = try handle.pointCopy(&copied_buf);
     var copied_x: i64 = 0;
     for (copied) |p| copied_x += p.x;
     var done = Done{};
-    const submit = errno(handle.submit(&done, Done.set));
-    const submit_busy = errno(handle.submit(&done, Done.set));
-    const poke = handle.poke();
-    const poke_again = handle.poke();
+    const submit = errno(handle.countSubmit(&done, Done.set));
+    const submit_busy = errno(handle.countSubmit(&done, Done.set));
+    const complete = handle.countComplete();
+    const complete_again = handle.countComplete();
 
     try document(w, "calls", &.{
         .{ "version", .{ .str = foo.version() } },
@@ -189,19 +189,19 @@ pub fn main(init: std.process.Init) !void {
         .{ "points_sum_x", .{ .int = copied_x } },
         .{ "submit", .{ .int = submit } },
         .{ "submit_busy", .{ .int = submit_busy } },
-        .{ "poke", .{ .int = @intCast(poke) } },
+        .{ "complete", .{ .int = @intCast(complete) } },
         .{ "done_count", .{ .int = @intCast(done.count) } },
-        .{ "poke_again", .{ .int = @intCast(poke_again) } },
+        .{ "complete_again", .{ .int = @intCast(complete_again) } },
     });
 
-    try record(w, foo.FooPoint, "foo_point", handle.at(1));
-    try record(w, foo.FooPoint, "foo_point", handle.at(6));
+    try record(w, foo.FooPoint, "foo_point", handle.pointGet(1));
+    try record(w, foo.FooPoint, "foo_point", handle.pointGet(6));
 
-    while (errno(handle.add(&points[0])) == 0) {}
+    while (errno(handle.pointAdd(&points[0])) == 0) {}
     try document(w, "full", &.{
-        .{ "count", .{ .int = @intCast(handle.count()) } },
-        .{ "add", .{ .int = errno(handle.add(&points[0])) } },
-        .{ "add_many", .{ .int = errno(handle.addMany(points[0..1])) } },
+        .{ "count", .{ .int = @intCast(handle.pointCount()) } },
+        .{ "add", .{ .int = errno(handle.pointAdd(&points[0])) } },
+        .{ "add_many", .{ .int = errno(handle.pointAddMany(points[0..1])) } },
     });
 
     const status = handle.statusGet();
@@ -222,6 +222,6 @@ pub fn main(init: std.process.Init) !void {
         try record(w, foo.FooFigure, "foo_figure", figure);
     }
     try record(w, foo.FooValue, "foo_value", foo.valueSet(-1));
-    try record(w, foo.FooPacked, "foo_packed", foo.packedFill());
+    try record(w, foo.FooWire, "foo_wire", foo.wireFill());
     try w.flush();
 }

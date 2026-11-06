@@ -140,7 +140,7 @@ union foo_value {
  * A record laid out without padding, as a wire format is: no field after the
  * first is aligned
  */
-struct __attribute__((packed)) foo_packed {
+struct __attribute__((packed)) foo_wire {
 	uint8_t kind;        ///< One of enum foo_shape
 	uint32_t length;     ///< At offset 1
 	struct foo_point at; ///< A point, at offset 5
@@ -216,7 +216,7 @@ foo_name(const struct foo_handle *handle);
  * @errno
  */
 int
-foo_add(struct foo_handle *handle, const struct foo_point *point);
+foo_point_add(struct foo_handle *handle, const struct foo_point *point);
 
 /**
  * Add points to the handle, as many as it has room for
@@ -231,7 +231,7 @@ foo_add(struct foo_handle *handle, const struct foo_point *point);
  * @errno
  */
 ssize_t
-foo_add_many(struct foo_handle *handle, const struct foo_point *points, size_t npoints);
+foo_point_add_many(struct foo_handle *handle, const struct foo_point *points, size_t npoints);
 
 /**
  * The number of points held
@@ -241,7 +241,7 @@ foo_add_many(struct foo_handle *handle, const struct foo_point *points, size_t n
  * @return The number of points
  */
 size_t
-foo_count(const struct foo_handle *handle);
+foo_point_count(const struct foo_handle *handle);
 
 /**
  * A point held by the handle
@@ -254,7 +254,7 @@ foo_count(const struct foo_handle *handle);
  * @nullable return
  */
 const struct foo_point *
-foo_at(const struct foo_handle *handle, size_t idx);
+foo_point_get(const struct foo_handle *handle, size_t idx);
 
 /**
  * Copy the points held, as many as fit
@@ -269,7 +269,7 @@ foo_at(const struct foo_handle *handle, size_t idx);
  * @errno
  */
 ssize_t
-foo_points(const struct foo_handle *handle, struct foo_point *points, size_t npoints);
+foo_point_copy(const struct foo_handle *handle, struct foo_point *points, size_t npoints);
 
 /**
  * Visit the points in the order they were added
@@ -285,10 +285,10 @@ foo_points(const struct foo_handle *handle, struct foo_point *points, size_t npo
  * @errno
  */
 ssize_t
-foo_visit(struct foo_handle *handle, foo_visit_cb visit, void *arg);
+foo_point_visit(struct foo_handle *handle, foo_visit_cb visit, void *arg);
 
 /**
- * Visit the points with a visitor; as foo_visit()
+ * Visit the points with a visitor; as foo_point_visit()
  *
  * @param handle The handle
  * @param[in] visitor The callback and its argument
@@ -298,13 +298,13 @@ foo_visit(struct foo_handle *handle, foo_visit_cb visit, void *arg);
  * @errno
  */
 ssize_t
-foo_visit_with(struct foo_handle *handle, const struct foo_visitor *visitor);
+foo_point_visit_with(struct foo_handle *handle, const struct foo_visitor *visitor);
 
 /**
- * Submit a count of the points, completed by foo_poke()
+ * Submit a count of the points, completed by foo_count_complete()
  *
  * @param handle The handle
- * @param done Called once, by foo_poke(), with the number of points
+ * @param done Called once, by foo_count_complete(), with the number of points
  * @param arg Given to 'done'
  *
  * @return 0, -EBUSY when a count is submitted and not yet completed
@@ -314,7 +314,7 @@ foo_visit_with(struct foo_handle *handle, const struct foo_visitor *visitor);
  * @errno
  */
 int
-foo_submit(struct foo_handle *handle, foo_done_cb done, void *arg);
+foo_count_submit(struct foo_handle *handle, foo_done_cb done, void *arg);
 
 /**
  * Complete the count submitted, if any, calling its callback
@@ -324,7 +324,7 @@ foo_submit(struct foo_handle *handle, foo_done_cb done, void *arg);
  * @return The number of counts completed, 0 or 1
  */
 size_t
-foo_poke(struct foo_handle *handle);
+foo_count_complete(struct foo_handle *handle);
 
 /**
  * The status of the handle
@@ -368,9 +368,9 @@ foo_value_set(union foo_value *value, int32_t i);
 /**
  * Fill in a packed record
  *
- * @param[out] packed The record to fill in
+ * @param[out] wire The record to fill in
  */
 void
-foo_packed_fill(struct foo_packed *packed);
+foo_wire_fill(struct foo_wire *wire);
 
 #endif /* FOO_H */

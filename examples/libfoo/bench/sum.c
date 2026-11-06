@@ -8,12 +8,12 @@
 int64_t
 bench_sum(const struct foo_handle *handle, size_t rounds)
 {
-	size_t count = foo_count(handle);
+	size_t count = foo_point_count(handle);
 	int64_t sum = 0;
 
 	for (size_t round = 0; round < rounds; ++round) {
 		for (size_t idx = 0; idx < count; ++idx) {
-			sum += foo_at(handle, idx)->x;
+			sum += foo_point_get(handle, idx)->x;
 		}
 	}
 
