@@ -63,7 +63,10 @@ Records
   :ref:`sec-ir-csubset`, has a getter and a setter, ``code_type()`` and
   ``set_code_type(value)``, of the field's type; the setter panics on a value
   that does not fit the part's bits. The field itself is there as before; a
-  getter of a union's field is safe, as every value of an integer is one.
+  getter of a union's field is safe, as every value of an integer is one. A
+  packed record is ``#[repr(C, packed)]``: a reference to one of its fields
+  may not be aligned, which Rust does not allow, so ``Debug``, the printers and
+  the getters read each field by a copy.
 
 Callbacks
   A function pointer type is an ``Option`` of an ``unsafe extern "C" fn``, the
@@ -125,7 +128,9 @@ Rust can make those point anywhere. A panic in a closure aborts, as unwinding
 cannot cross C.
 
 A record with bit-fields, which Rust has none of, keeps only its size and
-alignment, as an array of bytes, and is not printed. Types declared outside the
+alignment, as an array of integers as wide as its alignment, and is not
+printed. Its alignment is that of the integers, not ``repr(align)``, which a
+packed record may not hold. Types declared outside the
 header, such as ``FILE``, are opaque types, usable through pointers. These are
 outside the C subset; the diagnostics of the header say so.
 

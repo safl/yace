@@ -108,6 +108,31 @@ union valid_either {
 };
 
 /**
+ * Laid out without padding, as a wire format is
+ */
+struct __attribute__((packed)) valid_packed {
+	uint8_t tag;                ///< first, so no field after it is aligned
+	uint32_t value;             ///< at offset 1
+	struct valid_point at;      ///< record by value
+	struct valid_point path[2]; ///< array of records
+	uint16_t pair[2];           ///< array
+	char name[3];               ///< char array
+	const char *label;          ///< string
+	uint16_t code;              ///< Status code, see VALID_PACKED_CODE_*
+};
+
+/** Kind of packet; bits 3:0 of 'code' */
+#define VALID_PACKED_CODE_KIND 0xf
+
+/**
+ * One of the two, packed
+ */
+union __attribute__((packed)) valid_packed_either {
+	uint64_t number;          ///< a number
+	struct valid_point point; ///< or a point
+};
+
+/**
  * Open a handle
  *
  * @param path What to open

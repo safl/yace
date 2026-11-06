@@ -57,7 +57,9 @@ Enumerations
 
 Records
   Each struct and union is a :py:class:`ctypes.Structure` or
-  :py:class:`ctypes.Union`. Each that has fields has the pretty-printers:
+  :py:class:`ctypes.Union`, a packed one with ``_pack_ = 1``, and in the
+  ``.pxd`` a packed struct is ``packed``. Each that has fields has the
+  pretty-printers:
   ``to_dict()``, its fields as plain values, ``fpr(stream, obj, flags)`` and
   ``pr(obj, flags)``, printing ``obj``, an instance, a pointer to one, or
   ``None``, as the C API's ``<name>_fpr()`` and ``<name>_pr()`` do. ``str()`` of

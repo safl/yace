@@ -243,11 +243,26 @@ def debug(record, namer: Namer, blob: bool) -> List[str]:
         lines.append("            .finish_non_exhaustive()")
     else:
         lines += [
-            f'            .field("{field.name}", &self.{ident(field.name)})'
+            f'            .field("{field.name}", &{place(record, field)})'
             for field in record.fields
         ]
         lines.append("            .finish()")
     return lines + ["    }", "}"]
+
+
+def place(record, field) -> str:
+    """The expression of 'field' of 'self'; of a packed record, a copy, as a
+    reference to the field may not be aligned"""
+
+    expr = f"self.{ident(field.name)}"
+    return f"{{ {expr} }}" if record.packed else expr
+
+
+def receiver(expr: str) -> str:
+    """'expr' as the receiver of a method called as a statement, which a block
+    would end"""
+
+    return f"({expr})" if expr.startswith("{") else expr
 
 
 class Printer(object):
@@ -274,7 +289,9 @@ class Printer(object):
 
         if isinstance(typ, types.Pointer):
             if types.is_string(typ):
-                return [f"yace_pp::str(w, {expr})?;"]
+                # Passed by value, which copies without the braces
+                bare = expr[2:-2] if expr.startswith("{ ") else expr
+                return [f"yace_pp::str(w, {bare})?;"]
             if self.namer.rtype(typ).startswith("Option<"):
                 return [f"yace_pp::ptr(w, {expr}.map_or(0, |f| f as usize))?;"]
             return [f"yace_pp::ptr(w, {expr} as usize)?;"]
@@ -297,7 +314,7 @@ class Printer(object):
 
         if isinstance(typ, types.Record):
             if typ.name in self.records:
-                return [f"{expr}.yace_json(w)?;"]
+                return [f"{receiver(expr)}.yace_json(w)?;"]
             return ['w.write_all(b"null")?;']
 
         if isinstance(typ, types.TypedefRef):
@@ -327,7 +344,7 @@ class Printer(object):
         for idx, field in enumerate(record.fields):
             sep = ", " if idx else ""
             lines.append(f'w.write_all(b"{sep}\\"{field.name}\\": ")?;')
-            expr = f"self.{ident(field.name)}"
+            expr = place(record, field)
             if field.masks:
                 lines += self.parts(field, expr, "{}", '\\"')
                 continue
@@ -338,16 +355,16 @@ class Printer(object):
     def yaml_body(self, record) -> List[str]:
         lines = []
         for field in record.fields:
-            name = ident(field.name)
+            expr = place(record, field)
             nested = self.record_of(field.typ) if field.bits is None else None
             if nested is not None:
                 lines.append(f'writeln!(w, "{{:indent$}}{field.name}:", "")?;')
-                lines.append(f"self.{name}.yace_yaml(w, indent + 2)?;")
+                lines.append(f"{receiver(expr)}.yace_yaml(w, indent + 2)?;")
                 continue
             lines.append(f'write!(w, "{{:indent$}}{field.name}: ", "")?;')
             if field.masks:
-                lines += self.parts(field, f"self.{name}", "{:#x}", "")
+                lines += self.parts(field, expr, "{:#x}", "")
             else:
-                lines += self.value(field.typ, f"self.{name}")
+                lines += self.value(field.typ, expr)
             lines.append("writeln!(w)?;")
         return lines

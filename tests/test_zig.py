@@ -8,6 +8,8 @@ from tests.conftest import (
     ESCAPED,
     ESCAPED_VALUE,
     HEADERS,
+    PACKED,
+    PACKED_PRINTED,
     SKIPPED,
     needs_cc,
     needs_zig,
@@ -452,3 +454,23 @@ def test_the_parts_of_a_field_of_bits_are_methods(parse, tmp_path):
         " .{@typeName(@TypeOf(s.codeDelay()))});\n",
     )
     assert printed == "5 10 1 2 1\n0x305 0x1ffffffff\n0xabcd0000 0xabcd\n0x80 2\nu4\n"
+
+
+def test_a_packed_record_is_an_extern_struct_of_fields_aligned_to_1(parse, tmp_path):
+    model, _ = parse(PACKED)
+    assert process(model, ["zig"], tmp_path) == []
+    assert "    value: u32 align(1)," in (tmp_path / "zig" / "api.zig").read_text()
+
+    printed = run_zig(
+        tmp_path,
+        "    const p = api.ApiP{ .x = 4, .y = 5 };\n"
+        "    var k = api.ApiK{ .tag = 1, .value = 0xdeadbeef,"
+        " .at = .{ .x = -2, .y = 3 }, .path = .{ p, .{ .x = 6, .y = 7 } },"
+        ' .pair = .{ 8, 9 }, .@"type" = 0x10 };\n'
+        "    k.setTypeLow(0xa);\n"
+        '    try out.interface.print("{f}", .{k});\n'
+        "    try api.ApiK.fpr(&out.interface, &k, api.API_PR_JSON);\n"
+        '    try out.interface.print("{d} {d}\\n", .{ @sizeOf(api.ApiKu),'
+        " @alignOf(api.ApiKu) });\n",
+    )
+    assert printed == PACKED_PRINTED + "8 1\n"

@@ -92,19 +92,27 @@ fields, with ``__attribute__((packed))`` or ``#pragma pack``. Its counterpart,
 of these is C99. Each compiler spells them its own way, and not every target
 language can express each of them.
 
-**yace** does not generate packed records. The IR records the layout the
-compiler chose, packed, but every target declares the record without the
-packing, laid out as if it were unpacked. The checks of C, Python, Rust and
-Zig then fail, as the layout generated is not the one recorded. A packed or
-aligned attribute on a record is reported by the attribute rule;
-``#pragma pack``, and an aligned attribute on a field, are not reported. Where the
-layout is not checked, see :ref:`sec-ir-background-checked`, the bindings of a
-packed record are wrong. Only the diagnostic of the attribute says so, and for
-``#pragma pack`` there is none.
+A record declared with ``__attribute__((packed))`` is recorded as ``packed``
+in the IR, with the layout the compiler chose, and every target declares it
+packed: the C API with the attribute, and so C++; Python with ``_pack_ = 1``;
+Rust with ``#[repr(C, packed)]``; Zig as an ``extern struct`` whose fields are
+each ``align(1)``. Go aligns every field, so a packed record is its bytes, each
+field read and written by a copy, through a getter and a setter. A field of a
+packed record may not be aligned for its type, so a reference to it, or its
+address, may not be used as one to an aligned value: the printers of every
+target read such a field by a copy. A packed record is in the subset.
 
-Keep records unpacked on the boundary. Where a layout is fixed by something
-else, such as a device or a wire format, order the fields, and add fields for
-the padding, so that the natural layout is the one required.
+The aligned attribute is not carried to any target. On a record, it is
+reported by the attribute rule; ``#pragma pack``, and an attribute on a field,
+are not reported. Where the layout is not checked, see
+:ref:`sec-ir-background-checked`, the bindings of such a record are wrong.
+Only the diagnostic of the attribute says so, and for ``#pragma pack`` there is
+none.
+
+Ctypes packs bit-fields only as MSVC does, which is not as GCC packs them, so
+in Python a packed record with bit-fields keeps only its size and alignment, as
+an array of bytes, as the other targets keep any record with bit-fields, see
+below.
 
 Bit-fields
 ----------

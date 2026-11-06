@@ -1,6 +1,6 @@
 import pytest
 
-from tests.conftest import ESCAPED, ESCAPED_VALUE, HEADERS, SKIPPED
+from tests.conftest import ESCAPED, ESCAPED_VALUE, HEADERS, PACKED, SKIPPED
 from yace.ir import decls, types
 
 
@@ -110,7 +110,7 @@ VIOLATIONS = [
     ("enum-value", "/** E */\nenum e { E_BIG = 0x80000000 };"),
     ("cxx-keyword", "/** S */\nstruct s { int class; };"),
     ("attribute", "/** F */\n__attribute__((warn_unused_result)) int f(void);"),
-    ("attribute", "struct __attribute__((packed)) s { char c; int i; };"),
+    ("attribute", "struct __attribute__((aligned(8))) s { char c; int i; };"),
     ("parse-error", "int f(unknown_t x);"),
     ("string-return", "char *f(void);"),
     ("callback-context", "typedef int (*visit_cb)(int value);"),
@@ -295,6 +295,27 @@ def test_names_of_cxx_and_attributes_are_reported_where_they_are(parse):
         6,
         "'api_f' has the attribute 'deprecated'; it is ignored",
     )
+
+
+def test_a_packed_record_is_recorded_as_packed(parse):
+    model, diagnostics = parse(
+        PACKED + "/** A */\nstruct api_a {\n\tuint8_t c; ///< C\n"
+        "\tuint32_t i; ///< I\n} __attribute__((__packed__));\n"
+        "/** S */\nstruct __attribute__((aligned(8))) api_s {\n\tint i; ///< I\n};\n"
+    )
+    assert [str(d).split(": ", 1)[1] for d in diagnostics] == [
+        "attribute: 'api_s' has the attribute 'aligned'; it is ignored"
+    ]
+
+    k = model.find("api_k")
+    assert (k.packed, k.size, k.align) == (True, 35, 1)
+    assert [f.offset // 8 for f in k.fields] == [0, 1, 5, 13, 29, 33]
+    assert [model.find(n).packed for n in ("api_p", "api_ku", "api_a")] == [
+        False,
+        True,
+        True,
+    ]
+    assert (model.find("api_ku").size, model.find("api_ku").align) == (8, 1)
 
 
 def test_a_rejected_lifetime_is_reported_once(parse):

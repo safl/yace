@@ -161,6 +161,10 @@ fn main() -> io::Result<()> {
         let mut value = FooValue::default();
         foo_value_set(&mut value, -1);
         record("foo_value", FooValue::fpr, Some(&value), flags)?;
+
+        let mut packed = FooPacked::default();
+        foo_packed_fill(&mut packed);
+        record("foo_packed", FooPacked::fpr, Some(&packed), flags)?;
     }
 
     Ok(())

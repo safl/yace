@@ -129,11 +129,14 @@ class Namer(object):
         """Whether ctypes cannot lay out the record as C does: an unnamed
         bit-field sets no alignment in C, but does in ctypes, which refuses one
         of width 0; ctypes starts bit-fields of another type, and a field after
-        one, in a unit of their own, where GCC packs them in what is left"""
+        one, in a unit of their own, where GCC packs them in what is left; and
+        ctypes packs bit-fields only as MSVC does"""
 
         bits = [f for f in record.fields if f.bits is not None]
         if not record.size or not bits:
             return False
+        if record.packed:
+            return True
         if any(not f.name for f in bits) or any(f.typ != bits[0].typ for f in bits):
             return True
         if any(self.resolve(f.typ) == types.Builtin(name="char") for f in bits):

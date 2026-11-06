@@ -54,7 +54,7 @@ typedef {{ entity.typ | decl(entity.name) }};
 {%- endfor %}
 {%- for record in complete %}
 {{ record.doc | docblock }}
-{{ record | tag }} {{ record.name }} {
+{{ record | tag }} {% if record.packed %}__attribute__((packed)) {% endif %}{{ record.name }} {
 {%- for field in record.fields %}
 	{{ field | field_decl }};{% if field.doc.brief %} ///< {{ field.doc.brief | comment }}{% endif %}
 {%- endfor %}

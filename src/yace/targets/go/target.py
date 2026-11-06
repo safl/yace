@@ -103,6 +103,18 @@ func yaceStr(out []byte, ptr unsafe.Pointer) []byte {
 	return yaceStrn(out, []byte(C.GoString((*C.char)(ptr))))
 }
 
+// yaceGet reads a T from the start of b, which need not be aligned for it
+func yaceGet[T any](b []byte) T {
+	var v T
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(&v)), unsafe.Sizeof(v)), b)
+	return v
+}
+
+// yaceSet writes v to the start of b, which need not be aligned for it
+func yaceSet[T any](b []byte, v T) {
+	copy(b, unsafe.Slice((*byte)(unsafe.Pointer(&v)), unsafe.Sizeof(v)))
+}
+
 // yacePtr appends addr in hexadecimal, as a string, or null
 func yacePtr(out []byte, addr uintptr) []byte {
 	if addr == 0 {
@@ -167,7 +179,7 @@ class Go(Target):
             library = library[3:]
 
         def offsets(record):
-            if isinstance(record, decls.Union) or records.is_blob(record):
+            if isinstance(record, decls.Union) or records.is_bytes(record):
                 return []
             names = records.field_names(record)
             return [

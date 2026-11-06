@@ -129,6 +129,18 @@ def tag(record) -> str:
     return "union" if isinstance(record, decls.Union) else "struct"
 
 
+def copied(typ: types.Record, expr: str, local: str, call: str) -> List[str]:
+    """The statements calling 'call', formatted with the name of the record and
+    a local, on a copy of 'expr' in that local"""
+
+    return [
+        "{",
+        f"\tconst {typ.tag} {typ.name} {local} = {expr};",
+        f"\twrtn += {call.format(typ.name, local)};",
+        "}",
+    ]
+
+
 class Printer(object):
     """The C statements printing a value of a type as JSON, one per line"""
 
@@ -149,7 +161,10 @@ class Printer(object):
             return self.records.get(typ.name)
         return None
 
-    def value(self, typ, expr: str, depth: int = 0) -> List[str]:
+    def value(self, typ, expr: str, depth: int = 0, packed: bool = False) -> List[str]:
+        """Statements printing 'expr'; of a field of a 'packed' record, a record
+        is printed through a copy, as its address may not be aligned"""
+
         typ = self.resolve(typ)
         out = 'wrtn += fprintf(stream, "{fmt}"{args});'
 
@@ -192,15 +207,18 @@ class Printer(object):
                 f'\twrtn += fprintf(stream, "%s", {idx} ? ", " : "");',
             ]
             lines += [
-                "\t" + line for line in self.value(elem, f"{expr}[{idx}]", depth + 1)
+                "\t" + line
+                for line in self.value(elem, f"{expr}[{idx}]", depth + 1, packed)
             ]
             lines += ["}", out.format(fmt="]", args="")]
             return lines
 
         if isinstance(typ, types.Record):
-            if typ.name in self.records:
-                return [f"wrtn += yace_pp_json_{typ.name}(stream, &{expr});"]
-            return [out.format(fmt="null", args="")]
+            if typ.name not in self.records:
+                return [out.format(fmt="null", args="")]
+            if packed:
+                return copied(typ, expr, f"v{depth}", "yace_pp_json_{}(stream, &{})")
+            return [f"wrtn += yace_pp_json_{typ.name}(stream, &{expr});"]
 
         return [out.format(fmt="null", args="")]
 
@@ -244,7 +262,7 @@ class Printer(object):
             if field.masks:
                 lines += self.parts(field, f"obj->{field.name}", "%ju", '\\"')
                 continue
-            lines += self.value(field.typ, f"obj->{field.name}")
+            lines += self.value(field.typ, f"obj->{field.name}", packed=record.packed)
         lines.append('wrtn += fprintf(stream, "}");')
         return lines
 
@@ -256,15 +274,21 @@ class Printer(object):
                 lines.append(
                     f'wrtn += fprintf(stream, "%*s{field.name}:\\n", indent, "");'
                 )
-                lines.append(
-                    f"wrtn += yace_pp_yaml_{nested.name}(stream, &obj->{field.name},"
-                    " indent + 2);"
-                )
+                call = "yace_pp_yaml_{}(stream, &{}, indent + 2)"
+                if record.packed:
+                    typ = types.Record(tag=tag(nested), name=nested.name)
+                    lines += copied(typ, f"obj->{field.name}", "v0", call)
+                else:
+                    lines.append(
+                        f"wrtn += {call.format(nested.name, 'obj->' + field.name)};"
+                    )
                 continue
             lines.append(f'wrtn += fprintf(stream, "%*s{field.name}: ", indent, "");')
             if field.masks:
                 lines += self.parts(field, f"obj->{field.name}", "0x%jx", "")
             else:
-                lines += self.value(field.typ, f"obj->{field.name}")
+                lines += self.value(
+                    field.typ, f"obj->{field.name}", packed=record.packed
+                )
             lines.append('wrtn += fprintf(stream, "\\n");')
         return lines

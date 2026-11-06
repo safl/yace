@@ -63,6 +63,35 @@ BITS = (
 )
 
 
+# A packed record, no field after the first aligned, one of them a field of
+# bits, and a packed union
+PACKED = (
+    "#include <stdint.h>\n"
+    "/** P */\nstruct api_p {\n\tint32_t x; ///< X\n\tint32_t y; ///< Y\n};\n"
+    "/** K */\nstruct __attribute__((packed)) api_k {\n"
+    "\tuint8_t tag; ///< Tag\n\tuint32_t value; ///< Value\n"
+    "\tstruct api_p at; ///< At\n\tstruct api_p path[2]; ///< Path\n"
+    "\tuint16_t pair[2]; ///< Pair\n\tuint16_t type; ///< Type, see API_K_TYPE_*\n};\n"
+    "/** Low; bits 3:0 of 'type' */\n#define API_K_TYPE_LOW 0xf\n"
+    "/** U */\nunion __attribute__((packed)) api_ku {\n"
+    "\tuint64_t n; ///< N\n\tstruct api_p p; ///< P\n};\n"
+)
+
+# An api_k of a value in every field, as each target fills it in, and printed
+PACKED_C = (
+    "{.tag = 1, .value = 0xdeadbeef, .at = {-2, 3}, .path = {{4, 5}, {6, 7}},"
+    " .pair = {8, 9}, .type = 0x1a}"
+)
+PACKED_PRINTED = (
+    "api_k:\n  tag: 1\n  value: 3735928559\n  at:\n    x: -2\n    y: 3\n"
+    '  path: [{"x": 4, "y": 5}, {"x": 6, "y": 7}]\n  pair: [8, 9]\n'
+    "  type: {val: 0x1a, low: 0xa}\n"
+    '{"tag": 1, "value": 3735928559, "at": {"x": -2, "y": 3}, "path":'
+    ' [{"x": 4, "y": 5}, {"x": 6, "y": 7}], "pair": [8, 9],'
+    ' "type": {"val": 26, "low": 10}}\n'
+)
+
+
 @pytest.fixture(scope="session")
 def parser():
     return CParser()

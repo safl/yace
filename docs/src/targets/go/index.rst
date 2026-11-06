@@ -55,7 +55,13 @@ their fields exported, ``Ncorners``; the layout is what the check asserts.
 
 A union is its bytes, aligned as the union, and a method per member returning a
 pointer to the member in them, ``*value.I() = -1``, as Go has no unions. A
-record with bit-fields keeps only its size and alignment, as in Zig. A flexible
+record with bit-fields keeps only its size and alignment, as in Zig. A packed
+record, which cgo does not declare the unaligned fields of, is its bytes, with
+a getter and a setter per field reading and writing a copy of it, ``At()`` and
+``SetAt(value)``, as Go aligns every field. A getter, also of a part of a
+field of bits, takes the record by value, so getters chain, ``Many()[1].At()``;
+the garbage collector does not see
+a pointer set through a setter. A flexible
 array, last in a struct, is left out, as a struct ending in a zero-sized field
 is padded in Go; a comment says so. An opaque record is a struct of no fields,
 usable only through pointers, as is a type declared outside the headers.

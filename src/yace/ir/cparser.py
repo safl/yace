@@ -694,10 +694,12 @@ class _HeaderParser(object):
                 )
                 continue
 
+            if child.kind == CursorKind.PACKED_ATTR:
+                continue
             if child.kind.is_attribute():
                 self.report(
                     "attribute",
-                    f"'{name}' has the attribute '{attribute(child)}'",
+                    f"'{name}' has the attribute '{attribute(child)}'; it is ignored",
                     child,
                 )
                 continue
@@ -726,6 +728,7 @@ class _HeaderParser(object):
                 fields=fields,
                 size=size if size > 0 else None,
                 align=align if align > 0 else None,
+                packed=any(c.kind == CursorKind.PACKED_ATTR for c in children),
                 doc=self.doc_of(cursor),
             )
         ]

@@ -216,7 +216,9 @@ class Raw(object):
     def record(self, record) -> List[str]:
         name = self.namer.type_name(types.Record(tag="struct", name=record.name))
         lines = [""] + self.records.declare(record, name)
-        if isinstance(record, decls.Union) and not self.records.is_blob(record):
+        if record.packed and not self.records.is_blob(record):
+            lines += self.records.packed_fields(record, name)
+        elif isinstance(record, decls.Union) and not self.records.is_blob(record):
             lines += self.records.members(record, name)
         lines += self.records.printers(record, name, self.prefix)
         lines += self.records.accessors(record, name)

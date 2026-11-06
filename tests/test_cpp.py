@@ -1,6 +1,14 @@
 import subprocess
 
-from tests.conftest import BITS, HEADERS, SKIPPED, needs_cc
+from tests.conftest import (
+    BITS,
+    HEADERS,
+    PACKED,
+    PACKED_C,
+    PACKED_PRINTED,
+    SKIPPED,
+    needs_cc,
+)
 from tests.test_rust import BITS_UNION, EDGES, HANDLE_NAMED_AS_PREFIX
 from yace.compiler import process
 from yace.targets.cpp.target import CXXFLAGS
@@ -761,3 +769,23 @@ def test_an_offset_other_than_recorded_fails_the_check(parser, tmp_path):
 
     failures = process(model, ["cpp"], tmp_path)
     assert failures and "offsetof(valid_point, y)" in failures[0]
+
+
+def test_a_packed_record_prints_through_copies(parse, tmp_path):
+    model, _ = parse(PACKED)
+    assert process(model, ["cpp"], tmp_path) == []
+
+    (tmp_path / "main.cpp").write_text(
+        "#include <iostream>\n#include <api.hpp>\n"
+        f"int main() {{\n\tapi::k k = {PACKED_C};\n"
+        "\tapi::set_type_low(k, 0xa);\n"
+        "\tstd::cout << api::yaml(k) << api::json(k);\n\treturn 0;\n}\n"
+    )
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), "-o", str(program)],
+        check=True,
+    )
+    run = subprocess.run([str(program)], capture_output=True, text=True)
+    assert run.stdout == PACKED_PRINTED
