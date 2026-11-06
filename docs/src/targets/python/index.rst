@@ -16,9 +16,25 @@ The Python target, ``python``, generates bindings of the API through
   alignment and field offsets recorded in the IR, then prints a zeroed instance
   of every record, as YAML or JSON.
 
+``<prefix>.pxd``, ``lib<prefix>.h``
+  The C API for Cython, see :ref:`sec-targets-python-cython`, and the header it
+  declares, as the C target emits it.
+
+``<prefix>_check.pyx``
+  The check of the ``.pxd``, not part of the API: it assigns each name the
+  ``.pxd`` declares to what the ``.pxd`` says its type is, or its address to a
+  pointer to that.
+
 The check is run with the Python running **yace**. It loads no library, so it
 needs none built. **yace** then parses what it printed, as YAML and as JSON. As
 for the C API, the layout is asserted only on the platform it was recorded on.
+Where that Python has Cython, **yace** also translates the check of the
+``.pxd`` and compiles what Cython made of it with the header, so a declaration
+that disagrees with the header fails to compile. A bit-field is the exception:
+it has no address to take, so the integer type the ``.pxd`` gives it is not
+checked. Nothing runs it. Where that
+Python has no Cython, **yace** warns that the ``.pxd`` is not checked, and the
+check does not fail.
 
 The bindings
 ------------
@@ -123,6 +139,53 @@ Types declared outside the headers, such as ``FILE``, are empty structures,
 usable through pointers. These are outside the C subset; the diagnostics of the
 header say so.
 
+.. _sec-targets-python-cython:
+
+From Cython
+-----------
+
+The module is the one Python API. For Cython code calling C in its own hot
+loops, ``<prefix>.pxd`` declares the C API, its records, enums, defines and
+functions, from the same IR, in a ``cdef extern`` block of ``lib<prefix>.h``,
+``nogil``, so the functions are called also without the GIL:
+
+.. code-block:: cython
+
+   cimport foo as lib
+
+   def count(int times):
+       cdef lib.foo_handle *handle = NULL
+       if lib.foo_open(b"loop", &handle):
+           raise OSError("foo_open() failed")
+       ...
+
+The ``.pxd`` is named as the module, and beside it, so ``cimport foo`` finds the
+declarations and ``import foo`` the ctypes module; Cython code may do both.
+Cimporting it as another name, such as ``lib``, also works for a prefix that
+Cython reserves, such as ``api``. Names are those of the C API, but for those
+Cython reserves, such as a function named ``include``, and the tags of records
+and enums named as a function, define, enum member or typedef, which C keeps
+apart and Cython does not: these are declared with a trailing ``_`` and their C
+name, ``int include_ "include"(int cdef_)``. A flexible array is left out, as
+Cython has none, and a comment says so.
+
+A user's extension is built with ``<output>/python`` on the include path of
+both Cython, for the ``.pxd``, and the C compiler, for the header, and linked
+against the library; with setuptools:
+
+.. code-block:: python
+
+   from Cython.Build import cythonize
+   from setuptools import Extension, setup
+
+   extension = Extension(
+       "loop", ["loop.pyx"], include_dirs=["output/python"], libraries=["foo"]
+   )
+   setup(ext_modules=cythonize([extension], include_path=["output/python"]))
+
+``examples/libfoo/checks/cython/check.pyx`` calls libfoo this way, and prints
+what it got back, its records from their C fields.
+
 Example
 -------
 
@@ -150,6 +213,11 @@ Bindings
    :caption:
    :lines: 1-
 
+.. literalinclude:: ../../../../output/python/foo.pxd
+   :language: cython
+   :caption:
+   :lines: 1-
+
 Implementation
 --------------
 
@@ -160,4 +228,7 @@ Implementation
    :members:
 
 .. automodule:: yace.targets.python.idiomatic
+   :members:
+
+.. automodule:: yace.targets.python.cygen
    :members:
