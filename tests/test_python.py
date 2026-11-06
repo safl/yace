@@ -1,4 +1,5 @@
 import gc
+import importlib.util
 import json
 import subprocess
 import sys
@@ -6,8 +7,18 @@ import sys
 import pytest
 import yaml
 
-from tests.conftest import BITS, ESCAPED, ESCAPED_VALUE, HEADERS, SKIPPED, needs_cc
+from tests.conftest import (
+    BITS,
+    ESCAPED,
+    ESCAPED_VALUE,
+    HEADERS,
+    SKIPPED,
+    needs_cc,
+    needs_cython,
+)
 from yace.compiler import process
+from yace.ir import types
+from yace.targets.python import cygen
 from yace.targets.python.target import Python
 
 
@@ -723,3 +734,119 @@ def test_the_parts_of_a_field_of_bits_are_properties(parse, tmp_path):
         "class": {"val": 0xA0, "hi": 0xA},
         "to": {"val": 1, "dict": 1},
     }
+
+
+# C names Cython reserves, or shares between what C keeps apart
+RESERVED = (
+    "/** S */\nstruct api_s {\n\tint class; ///< C\n\tint include; ///< I\n};\n"
+    "/** Tag */\nstruct tag { int a; };\n"
+    "/** Kinds */\nenum kind { None = 1, DEF = 2 };\n"
+    "/** Include */\nint include(int cdef);\n"
+    "/** Tag */\nint tag(const struct tag *t, const struct api_s *s);\n"
+)
+
+
+@needs_cc
+@needs_cython
+def test_names_cython_reserves_are_declared_by_their_c_names(parse, tmp_path):
+    model, _ = parse(RESERVED)
+    assert process(model, ["python"], tmp_path) == []  # compiles the .pxd check
+
+    pxd = (tmp_path / "python" / "api.pxd").read_text().splitlines()
+    for line in (
+        '        int class_ "class"',
+        '        int include_ "include"',
+        '    struct tag_ "tag":',
+        '        None_ "None"',
+        '        DEF_ "DEF"',
+        '    int include_ "include"(int cdef_)',
+        "    int tag(const tag_ *t, const api_s *s)",
+    ):
+        assert line in pxd
+    ns = module(tmp_path)  # the ctypes names are the C ones
+    assert "include" in ns and "tag" in ns and ns["Kind"].DEF == 2
+
+
+@needs_cc
+@needs_cython
+def test_a_declaration_that_disagrees_with_the_header_fails_the_check(
+    parser, tmp_path, monkeypatch
+):
+    model, _ = parser.parse(HEADERS / "valid.h")
+    decl = cygen.Names.decl
+
+    def signed(self, typ, *args):
+        if isinstance(typ, types.Builtin) and typ.name == "uint32_t":
+            typ = typ.model_copy(update={"name": "int32_t"})
+        return decl(self, typ, *args)
+
+    # A generator spelling a type wrong, in the .pxd and in its check alike
+    monkeypatch.setattr(cygen.Names, "decl", signed)
+    failures = process(model, ["python"], tmp_path)
+    assert len(failures) == 1
+    assert failures[0].startswith("python: compiling the check of the .pxd failed")
+
+
+# What C spells that Cython spells otherwise: a field of a function pointer,
+# which Cython does not declare nogil, and pointers that are const
+SPELLED = (
+    "#include <stddef.h>\n"
+    "/** P */\nstruct api_p {\n\tint x; ///< X\n};\n"
+    "/** Cb */\ntypedef int (*api_cb)(void *arg, int v);\n"
+    "/** F */\nstruct api_f {\n"
+    "\tint (*fp)(int, ...); ///< Fp\n"
+    "\tvoid *(*alloc)(size_t); ///< Alloc\n"
+    "\tconst struct api_p *const *pp; ///< Pp\n"
+    "\tapi_cb cb; ///< Cb\n};\n"
+    "/** Run */\nint api_run(int argc, char *const argv[]);\n"
+    "/** Ptr */\nvoid api_ptr(int *const p);\n"
+)
+
+
+@needs_cc
+@needs_cython
+def test_function_pointer_fields_and_const_pointers_pass_the_check(parse, tmp_path):
+    model, _ = parse(SPELLED)
+    assert process(model, ["python"], tmp_path) == []
+
+    pxd = (tmp_path / "python" / "api.pxd").read_text()
+    assert "    int api_run(int argc, char *const *argv)" in pxd
+    assert "        const api_p *const *pp" in pxd
+    assert (
+        "referenced before assignment"
+        not in (tmp_path / "python" / "cython.log").read_text()
+    )
+
+
+@needs_cython
+def test_the_check_of_the_pxd_needs_a_c_compiler(parse, tmp_path, monkeypatch):
+    model, _ = parse(SPELLED)
+    monkeypatch.setenv("CC", "/nonexistent/cc")
+
+    failures = process(model, ["python"], tmp_path)
+    assert failures == [
+        "python: no C compiler ('/nonexistent/cc') to compile the check of the"
+        " .pxd; set CC"
+    ]
+
+
+def test_without_cython_the_pxd_is_said_not_checked(
+    parse, tmp_path, monkeypatch, caplog
+):
+    model, _ = parse(SPELLED)
+    find_spec = importlib.util.find_spec
+    monkeypatch.setattr(
+        importlib.util,
+        "find_spec",
+        lambda name, *args: None if name == "Cython" else find_spec(name, *args),
+    )
+
+    assert process(model, ["python"], tmp_path) == []
+    assert "the .pxd is not checked: no Cython" in caplog.text
+    assert "not checked" in (tmp_path / "python" / "cython.log").read_text()
+
+
+def test_only_the_python_target_is_emitted(parse, tmp_path):
+    model, _ = parse(SPELLED)
+    assert process(model, ["python"], tmp_path / "out", check=False) == []
+    assert [path.name for path in (tmp_path / "out").iterdir()] == ["python"]
