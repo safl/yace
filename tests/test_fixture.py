@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from tests.conftest import needs_cargo, needs_cc, needs_go, needs_zig
+from tests.conftest import needs_cargo, needs_cc, needs_cython, needs_go, needs_zig
 from yace.compiler import process
 from yace.ir.cparser import CParser
 from yace.targets.capi.target import CFLAGS
@@ -110,6 +110,47 @@ def test_python(model, library, tmp_path, fmt, program):
         capture_output=True,
         text=True,
         env=env,
+    )
+    assert proc.returncode == 0, proc.stderr
+    expected = list(yaml.safe_load_all((FIXTURE / "expected.yaml").read_text()))
+
+    assert documents(proc.stdout, fmt) == expected
+
+
+@needs_cc
+@needs_cython
+@pytest.mark.parametrize("fmt", ["yaml", "json"])
+def test_cython(model, library, tmp_path, fmt):
+    assert process(model, ["python"], tmp_path) == []
+
+    lib = next(path for path in library.iterdir() if path.stem == "libfoo")
+    python = tmp_path / "python"
+    project = tmp_path / "check"
+    project.mkdir()
+    (project / "check.pyx").write_text(
+        (FIXTURE / "checks" / "cython" / "check.pyx").read_text()
+    )
+    (project / "setup.py").write_text(
+        "from Cython.Build import cythonize\n"
+        "from setuptools import Extension, setup\n\n"
+        "extension = Extension(\n"
+        f"    'check', ['check.pyx'], include_dirs=[{str(python)!r}],\n"
+        f"    extra_link_args=[{str(lib)!r}, '-Wl,-rpath,{library}'],\n"
+        ")\n"
+        f"setup(ext_modules=cythonize([extension], include_path=[{str(python)!r}]))\n"
+    )
+    build = subprocess.run(
+        [sys.executable, "setup.py", "-q", "build_ext", "--inplace"],
+        cwd=project,
+        capture_output=True,
+        text=True,
+    )
+    assert build.returncode == 0, build.stderr
+    proc = subprocess.run(
+        [sys.executable, "-c", f"import sys, check; sys.exit(check.main({fmt!r}))"],
+        cwd=project,
+        capture_output=True,
+        text=True,
     )
     assert proc.returncode == 0, proc.stderr
     expected = list(yaml.safe_load_all((FIXTURE / "expected.yaml").read_text()))
