@@ -135,9 +135,20 @@ main(int argc, char **argv)
 			  });
 
 	std::vector<foo::point> points = {{1, 2}, {3, 4}, {5, 6}};
+	// Declared before the handle, which keeps the watcher until it is closed
+	std::int64_t watched = 0, watched_x = 0;
 	auto handle = foo::open("points");
 	::foo_handle *unopened = nullptr;
 	std::int64_t open_without_name = ::foo_open(nullptr, &unopened);
+
+	std::int64_t watch = errno_of([&] {
+		handle.point_watch([&](const foo::point &p) {
+			watched += 1;
+			watched_x += p.x;
+		});
+	});
+	std::int64_t watch_busy =
+		errno_of([&] { handle.point_watch([](const foo::point &) {}); });
 
 	std::int64_t added = 0;
 	for (const auto &point : points) {
@@ -165,6 +176,7 @@ main(int argc, char **argv)
 	std::int64_t unknown = errno_of([] { foo::figure_fill(3); });
 	std::int64_t add_many = static_cast<std::int64_t>(handle.point_add_many(points));
 	std::int64_t count_after = static_cast<std::int64_t>(handle.point_count());
+	std::int64_t watched_after = watched, watched_x_after = watched_x;
 	auto copied = handle.point_copy(4);
 	std::int64_t copied_x = 0;
 	for (const auto &p : copied) {
@@ -182,6 +194,8 @@ main(int argc, char **argv)
 				  {"open", num(0)},
 				  {"open_without_name", num(open_without_name)},
 				  {"name", quoted(std::string(handle.name()))},
+				  {"watch", num(watch)},
+				  {"watch_busy", num(watch_busy)},
 				  {"added", num(added)},
 				  {"count", num(count)},
 				  {"visit", num(visit)},
@@ -194,6 +208,8 @@ main(int argc, char **argv)
 				  {"figure_of_unknown_shape", num(unknown)},
 				  {"add_many", num(add_many)},
 				  {"count_after_add_many", num(count_after)},
+				  {"watched", num(watched_after)},
+				  {"watched_sum_x", num(watched_x_after)},
 				  {"points_copied", num(static_cast<std::int64_t>(copied.size()))},
 				  {"points_sum_x", num(copied_x)},
 				  {"submit", num(submit)},
@@ -215,6 +231,7 @@ main(int argc, char **argv)
 				  num(errno_of([&] {
 					  return handle.point_add_many(std::span(points).first(1));
 				  }))},
+				 {"watched", num(watched)},
 			 });
 	auto status = handle.status_get();
 	record("foo_status", std::optional(status));
