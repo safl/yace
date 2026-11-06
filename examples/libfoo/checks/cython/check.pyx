@@ -144,6 +144,10 @@ cdef int summarize(void *arg, const c.foo_point *point) noexcept nogil:
     return found.visited == found.stop_after
 
 
+cdef void watch_added(void *arg, const c.foo_point *point) noexcept nogil:
+    summarize(arg, point)
+
+
 cdef void count_done(void *arg, size_t count) noexcept nogil:
     (<size_t *>arg)[0] = count
 
@@ -152,7 +156,7 @@ def main(fmt):
     cdef c.foo_handle *handle = NULL
     cdef c.foo_point points[3]
     cdef c.foo_point copied[4]
-    cdef totals every, first_two, with_visitor
+    cdef totals every, first_two, with_visitor, watched
     cdef c.foo_visitor visitor
     cdef c.foo_scalars scalars_
     cdef c.foo_figure figure_
@@ -169,6 +173,7 @@ def main(fmt):
     memset(&every, 0, sizeof(every))
     memset(&first_two, 0, sizeof(first_two))
     memset(&with_visitor, 0, sizeof(with_visitor))
+    memset(&watched, 0, sizeof(watched))
     first_two.stop_after = 2
     visitor.visit = summarize
     visitor.arg = &with_visitor
@@ -201,6 +206,8 @@ def main(fmt):
         return 1
     calls["open_without_name"] = c.foo_open(NULL, &handle)
     calls["name"] = string(c.foo_name(handle))
+    calls["watch"] = c.foo_point_watch(handle, watch_added, &watched)
+    calls["watch_busy"] = c.foo_point_watch(handle, watch_added, &watched)
     calls["added"] = sum([not c.foo_point_add(handle, &points[idx]) for idx in range(3)])
     calls["count"] = c.foo_point_count(handle)
     calls["visit"] = c.foo_point_visit(handle, summarize, &every)
@@ -213,6 +220,8 @@ def main(fmt):
     calls["figure_of_unknown_shape"] = c.foo_figure_fill(&figure_, 3)
     calls["add_many"] = c.foo_point_add_many(handle, points, 3)
     calls["count_after_add_many"] = c.foo_point_count(handle)
+    calls["watched"] = watched.visited
+    calls["watched_sum_x"] = watched.x
     calls["points_copied"] = c.foo_point_copy(handle, copied, 4)
     calls["points_sum_x"] = sum([copied[idx].x for idx in range(4)])
     calls["submit"] = c.foo_count_submit(handle, count_done, &done_count)
@@ -234,6 +243,7 @@ def main(fmt):
             "count": c.foo_point_count(handle),
             "add": c.foo_point_add(handle, &points[0]),
             "add_many": c.foo_point_add_many(handle, points, 1),
+            "watched": watched.visited,
         },
         as_json,
     )

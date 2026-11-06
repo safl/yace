@@ -70,6 +70,13 @@ fn main() -> io::Result<()> {
     let mut handle = Handle::open(c"points")?;
     let open_without_name = unsafe { foo_open(ptr::null(), &mut ptr::null_mut()) };
     let name = handle.name().to_string_lossy().into_owned();
+    let watched = std::rc::Rc::new(std::cell::Cell::new((0usize, 0i64)));
+    let (watcher, busy) = (watched.clone(), watched.clone());
+    let watch = status(handle.point_watch(Box::new(move |p: &FooPoint| {
+        let (n, x) = watcher.get();
+        watcher.set((n + 1, x + p.x as i64));
+    })));
+    let watch_busy = status(handle.point_watch(Box::new(move |_: &FooPoint| busy.set((0, 0)))));
     let added = points.iter().filter(|p| handle.point_add(p).is_ok()).count();
     let count_before = handle.point_count();
 
@@ -109,6 +116,8 @@ fn main() -> io::Result<()> {
             ("open", Value::Int(0)),
             ("open_without_name", Value::Int(open_without_name.into())),
             ("name", Value::Str(name)),
+            ("watch", Value::Int(watch)),
+            ("watch_busy", Value::Int(watch_busy)),
             ("added", Value::Int(added as i64)),
             ("count", Value::Int(count_before as i64)),
             ("visit", Value::Int(visit)),
@@ -121,6 +130,8 @@ fn main() -> io::Result<()> {
             ("figure_of_unknown_shape", Value::Int(unknown)),
             ("add_many", Value::Int(add_many)),
             ("count_after_add_many", Value::Int(handle.point_count() as i64)),
+            ("watched", Value::Int(watched.get().0 as i64)),
+            ("watched_sum_x", Value::Int(watched.get().1)),
             ("points_copied", Value::Int(copied.len() as i64)),
             ("points_sum_x", Value::Int(copied.iter().map(|p| p.x as i64).sum())),
             ("submit", Value::Int(submit)),
@@ -142,6 +153,7 @@ fn main() -> io::Result<()> {
             ("count", Value::Int(handle.point_count() as i64)),
             ("add", Value::Int(status(handle.point_add(&points[0])))),
             ("add_many", Value::Int(count(handle.point_add_many(&points[..1])))),
+            ("watched", Value::Int(watched.get().0 as i64)),
         ],
         as_json,
     );

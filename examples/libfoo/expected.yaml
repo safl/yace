@@ -17,6 +17,8 @@ calls:
   open: 0
   open_without_name: -22
   name: "points"
+  watch: 0
+  watch_busy: -16
   added: 3
   count: 3
   visit: 3
@@ -29,6 +31,8 @@ calls:
   figure_of_unknown_shape: -22
   add_many: 3
   count_after_add_many: 6
+  watched: 6
+  watched_sum_x: 18
   points_copied: 4
   points_sum_x: 10
   submit: 0
@@ -47,6 +51,7 @@ full:
   count: 8
   add: -28
   add_many: -28
+  watched: 8
 ---
 foo_status:
   code: {val: 0x8080, pending: 0x0, points: 0x8, full: 0x1}
