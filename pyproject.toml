@@ -46,8 +46,10 @@ version = { attr = "yace.__version__" }
 [project.optional-dependencies]
 dev = [
     "coverage",
+    "cython>=3.0",
     "kmdo",
     "pudb",
+    "setuptools",
     "sphinx",
     "wheel",
 ]

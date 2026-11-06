@@ -3,6 +3,8 @@ AUX_PATH=toolbox
 PIPX_LOCAL_VENVS=$(shell pipx environment --value PIPX_LOCAL_VENVS)
 PYTEST=$(PIPX_LOCAL_VENVS)/$(PROJECT)/bin/pytest
 PYTHON ?= python3
+# What the tests build Cython code against the .pxd of the Python target with
+CYTHON ?= 3.3.1
 CONTAINER ?= $(shell command -v podman >/dev/null && echo podman || echo docker)
 DEVENV ?= ghcr.io/safl/yace-devenv:$(shell toolbox/devenv/tag.sh)
 
@@ -92,7 +94,7 @@ endef
 install:
 	@echo "## ${PROJECT}: make install"
 	@pipx install --python $(PYTHON) --force dist/*.whl
-	@pipx inject yace pytest pytest-cov coverage --force
+	@pipx inject yace pytest pytest-cov coverage cython==$(CYTHON) setuptools --force
 	@echo "## ${PROJECT}: make install [DONE]"
 
 define install-source-help
