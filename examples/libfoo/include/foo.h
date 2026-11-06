@@ -71,6 +71,14 @@ typedef int (*foo_visit_cb)(void *arg, const struct foo_point *point);
 typedef void (*foo_done_cb)(void *arg, size_t count);
 
 /**
+ * Called back with each point added to a handle watched
+ *
+ * @param arg The argument given along with the callback
+ * @param point The point added
+ */
+typedef void (*foo_added_cb)(void *arg, const struct foo_point *point);
+
+/**
  * A callback and its argument
  */
 struct foo_visitor {
@@ -270,6 +278,22 @@ foo_point_get(const struct foo_handle *handle, size_t idx);
  */
 ssize_t
 foo_point_copy(const struct foo_handle *handle, struct foo_point *points, size_t npoints);
+
+/**
+ * Watch the points added to the handle, from now until it is closed
+ *
+ * @param handle The handle
+ * @param added Called with each point added, until the handle is closed
+ * @param arg Given to 'added'
+ *
+ * @return 0 on success, -EBUSY when the handle is watched already
+ *
+ * @nullable arg
+ * @lifetime added handle
+ * @errno
+ */
+int
+foo_point_watch(struct foo_handle *handle, foo_added_cb added, void *arg);
 
 /**
  * Visit the points in the order they were added

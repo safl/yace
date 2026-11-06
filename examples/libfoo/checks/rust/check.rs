@@ -29,6 +29,10 @@ unsafe extern "C" fn summarize(arg: *mut c_void, point: *const FooPoint) -> c_in
     (sum.visited == sum.stop_after) as c_int
 }
 
+unsafe extern "C" fn watch_added(arg: *mut c_void, point: *const FooPoint) {
+    summarize(arg, point);
+}
+
 unsafe extern "C" fn count_done(arg: *mut c_void, count: usize) {
     *(arg as *mut usize) = count;
 }
@@ -71,6 +75,7 @@ fn main() -> io::Result<()> {
     let mut every = Sum::default();
     let mut first_two = Sum { stop_after: 2, ..Sum::default() };
     let mut with = Sum::default();
+    let mut watched = Sum::default();
     let mut figure = FooFigure::default();
 
     unsafe {
@@ -78,6 +83,9 @@ fn main() -> io::Result<()> {
         let opened = foo_open(c"points".as_ptr(), &mut handle);
         let open_without_name = foo_open(ptr::null(), &mut handle);
         let name = string(foo_name(handle));
+        let watching = &mut watched as *mut Sum as *mut c_void;
+        let watch = foo_point_watch(handle, Some(watch_added), watching);
+        let watch_busy = foo_point_watch(handle, Some(watch_added), watching);
         let added = points.iter().filter(|p| foo_point_add(handle, *p) == 0).count();
         let count = foo_point_count(handle);
         let visit = foo_point_visit(handle, Some(summarize), &mut every as *mut Sum as *mut c_void);
@@ -92,6 +100,7 @@ fn main() -> io::Result<()> {
         let unknown = foo_figure_fill(&mut figure, 3);
         let add_many = foo_point_add_many(handle, points.as_ptr(), points.len());
         let count_after_add_many = foo_point_count(handle);
+        let (watched_count, watched_sum_x) = (watched.visited, watched.x);
         let mut copied = [FooPoint::default(); 4];
         let points_copied = foo_point_copy(handle, copied.as_mut_ptr(), copied.len());
         let points_sum_x: i64 = copied.iter().map(|p| p.x as i64).sum();
@@ -108,6 +117,8 @@ fn main() -> io::Result<()> {
                 ("open", Value::Int(opened.into())),
                 ("open_without_name", Value::Int(open_without_name.into())),
                 ("name", Value::Str(name)),
+                ("watch", Value::Int(watch.into())),
+                ("watch_busy", Value::Int(watch_busy.into())),
                 ("added", Value::Int(added as i64)),
                 ("count", Value::Int(count as i64)),
                 ("visit", Value::Int(visit as i64)),
@@ -120,6 +131,8 @@ fn main() -> io::Result<()> {
                 ("figure_of_unknown_shape", Value::Int(unknown.into())),
                 ("add_many", Value::Int(add_many as i64)),
                 ("count_after_add_many", Value::Int(count_after_add_many as i64)),
+                ("watched", Value::Int(watched_count as i64)),
+                ("watched_sum_x", Value::Int(watched_sum_x)),
                 ("points_copied", Value::Int(points_copied as i64)),
                 ("points_sum_x", Value::Int(points_sum_x)),
                 ("submit", Value::Int(submit.into())),
@@ -139,6 +152,7 @@ fn main() -> io::Result<()> {
             ("count", Value::Int(foo_point_count(handle) as i64)),
             ("add", Value::Int(foo_point_add(handle, &points[0]).into())),
             ("add_many", Value::Int(foo_point_add_many(handle, points.as_ptr(), 1) as i64)),
+            ("watched", Value::Int(watched.visited as i64)),
         ];
         document("full", &full, as_json);
         let mut status = FooStatus::default();

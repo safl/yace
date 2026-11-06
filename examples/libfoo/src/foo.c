@@ -9,6 +9,8 @@ struct foo_handle {
 	size_t npoints;
 	foo_done_cb done;
 	void *done_arg;
+	foo_added_cb added;
+	void *added_arg;
 };
 
 const char *
@@ -65,6 +67,9 @@ foo_point_add(struct foo_handle *handle, const struct foo_point *point)
 		return -ENOSPC;
 	}
 	handle->points[handle->npoints++] = *point;
+	if (handle->added) {
+		handle->added(handle->added_arg, point);
+	}
 
 	return 0;
 }
@@ -101,6 +106,18 @@ foo_point_copy(const struct foo_handle *handle, struct foo_point *points, size_t
 	memcpy(points, handle->points, copied * sizeof(*points));
 
 	return (ssize_t)copied;
+}
+
+int
+foo_point_watch(struct foo_handle *handle, foo_added_cb added, void *arg)
+{
+	if (handle->added) {
+		return -EBUSY;
+	}
+	handle->added = added;
+	handle->added_arg = arg;
+
+	return 0;
 }
 
 ssize_t
