@@ -1,6 +1,13 @@
 import pytest
 
-from tests.conftest import ESCAPED, ESCAPED_VALUE, HEADERS, PACKED, SKIPPED
+from tests.conftest import (
+    ESCAPED,
+    ESCAPED_VALUE,
+    FLEXIBLE,
+    HEADERS,
+    PACKED,
+    SKIPPED,
+)
 from yace.ir import decls, types
 
 
@@ -297,6 +304,34 @@ def test_names_of_cxx_and_attributes_are_reported_where_they_are(parse):
     )
 
 
+def test_a_record_with_a_flexible_array_in_an_array_or_struct(parse):
+    model, diagnostics = parse(FLEXIBLE)
+    found = [d.message for d in diagnostics if d.rule == "flexible-array"]
+    nested = (
+        "which has a flexible array member: ISO C allows such a record neither"
+        " in an array nor in a struct"
+    )
+    assert found == [
+        "field 'd' of 'api_fin' is a flexible array",
+        "field 'd' of 'api_fwide' is a flexible array",
+        f"field 'in' of 'api_fout' is an array of 'struct api_fin', {nested};"
+        " the field is left out",
+        f"field 'in' of 'api_falign' is an array of 'struct api_fwide', {nested};"
+        " leaving the field out would change the alignment of 'api_falign',"
+        " which is skipped",
+        f"field 'in' of 'api_fmember' is a 'struct api_fin', {nested};"
+        " 'api_fmember' is skipped",
+        f"field 'e' of 'api_farr' is an array of 'union api_feither', {nested};"
+        " 'api_farr' is skipped",
+    ]
+    out = model.find("api_fout")
+    assert [f.name for f in out.fields] == ["n"]
+    assert (out.size, out.align) == (4, 4)
+    assert [f.name for f in model.find("api_feither").fields] == ["in", "n"]
+    for name in ("api_falign", "api_fmember", "api_farr", "api_fuse"):
+        assert model.find(name) is None
+
+
 def test_a_packed_record_is_recorded_as_packed(parse):
     model, diagnostics = parse(
         PACKED + "/** A */\nstruct api_a {\n\tuint8_t c; ///< C\n"
@@ -443,6 +478,10 @@ def test_what_uses_a_skipped_record_before_it_is_skipped_too(parse):
         "api_chars",
         "api_pk",
         "api_jump",
+        "api_fin",
+        "api_fwide",
+        "api_feither",
+        "api_fout",
     ]
     skipped = ["api_before", "api_after", "api_t", "api_t_n", "api_lock", "api_lock_n"]
     for name in skipped + ["api_tick_cb", "api_pad", "api_pad_n"]:

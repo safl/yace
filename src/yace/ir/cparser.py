@@ -136,6 +136,22 @@ def element(ctype):
     return ctype
 
 
+def has_flexible(ctype) -> bool:
+    """Whether 'ctype' is a struct ending in a flexible array member, or a union
+    holding one, which ISO C allows neither in an array nor in a struct"""
+
+    ctype = ctype.get_canonical()
+    if ctype.kind != TypeKind.RECORD:
+        return False
+    fields = list(ctype.get_fields())
+    if ctype.get_declaration().kind == CursorKind.UNION_DECL:
+        return any(has_flexible(f.type) for f in fields)
+    if not fields:
+        return False
+    last = fields[-1].type.get_canonical()
+    return last.kind == TypeKind.INCOMPLETEARRAY or has_flexible(last)
+
+
 def location(cursor) -> Tuple[str, int, int]:
     loc = cursor.location
     return (loc.file.name if loc.file else "", loc.line or 0, loc.column or 0)
@@ -660,6 +676,8 @@ class _HeaderParser(object):
                     continue  # for the records nested after it, which are kept
                 if name in self.skipped_records:
                     continue
+                if self.nests_flexible(cursor, child, name):
+                    continue
 
                 self.inline_callback(
                     typ, f"field '{child.spelling}' of '{name}'", child
@@ -732,6 +750,48 @@ class _HeaderParser(object):
                 doc=self.doc_of(cursor),
             )
         ]
+
+    def nests_flexible(self, cursor, child, name: str) -> bool:
+        """Whether the field 'child' of the record 'name' holds a record with a
+        flexible array member where ISO C allows none, reported: a flexible
+        array of them is left out, where that keeps the alignment of the
+        record; otherwise the record is skipped"""
+
+        arrays = (TypeKind.CONSTANTARRAY, TypeKind.INCOMPLETEARRAY)
+        ctype = child.type.get_canonical()
+        elem = ctype
+        while elem.kind in arrays:
+            elem = elem.element_type.get_canonical()
+        in_array = ctype.kind in arrays
+        if not has_flexible(elem):
+            return False
+        if not in_array and cursor.kind == CursorKind.UNION_DECL:
+            return False
+
+        found = (
+            f"field '{child.spelling}' of '{name}' is"
+            f" {'an array of' if in_array else 'a'} '{elem.spelling}', which has"
+            " a flexible array member: ISO C allows such a record neither in an"
+            " array nor in a struct"
+        )
+        others = [f for f in cursor.type.get_fields() if f != child]
+        packed = any(c.kind == CursorKind.PACKED_ATTR for c in cursor.get_children())
+        kept = packed or elem.get_align() <= max(
+            (f.type.get_align() for f in others), default=0
+        )
+        if ctype.kind == TypeKind.INCOMPLETEARRAY and kept:
+            self.report("flexible-array", f"{found}; the field is left out", child)
+            return True
+        if ctype.kind == TypeKind.INCOMPLETEARRAY:
+            found += (
+                f"; leaving the field out would change the alignment of '{name}',"
+                " which is skipped"
+            )
+        else:
+            found += f"; '{name}' is skipped"
+        self.report("flexible-array", found, child)
+        self.skipped_records.add(name)
+        return True
 
     def enum(self, cursor, name: str) -> decls.Enum:
         underlying = None

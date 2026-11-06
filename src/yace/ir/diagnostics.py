@@ -34,7 +34,10 @@ RULES = {
         " does not agree is not linked to the field"
     ),
     "flexible-array": (
-        "A flexible array member has no length to bind; use a pointer and a length"
+        "A flexible array member has no length to bind; use a pointer and a"
+        " length. A record with one is allowed in no array and no struct, as ISO"
+        " C requires; a flexible array of them is left out where that keeps the"
+        " layout, and otherwise the record holding it is skipped"
     ),
     "attribute": (
         "Attributes other than packed, such as aligned, change the layout, and"
