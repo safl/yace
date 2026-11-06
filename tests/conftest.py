@@ -11,6 +11,21 @@ HEADERS = Path(__file__).parent / "headers"
 ESCAPED = '/** S */\n#define API_S "a\\n\\"b\\"\\x41\\t\\\\" "c\\xc3\\xa9"\n'
 ESCAPED_VALUE = 'a\n"b"A\t\\cé'
 
+# Records with a flexible array member, and records holding them, which ISO C
+# allows in no array and no struct: a flexible array of one is left out where
+# that keeps the alignment, the others are skipped, and so what uses them
+FLEXIBLE = (
+    "#include <stdint.h>\n"
+    "struct api_fin { uint32_t n; uint8_t d[]; };\n"
+    "struct api_fwide { uint64_t n; uint8_t d[]; };\n"
+    "union api_feither { struct api_fin in; uint32_t n; };\n"
+    "struct api_fout { uint32_t n; struct api_fin in[]; };\n"
+    "struct api_falign { uint32_t n; struct api_fwide in[]; };\n"
+    "struct api_fmember { struct api_fin in; uint32_t n; };\n"
+    "struct api_farr { uint32_t n; union api_feither e[2]; };\n"
+    "int api_fuse(struct api_fout *o, struct api_fmember *m);\n"
+)
+
 # Records the bindings cannot hold, and those that use them, all skipped, and a
 # record with padding bits, kept
 SKIPPED = (
@@ -46,7 +61,7 @@ SKIPPED = (
     "int api_pk(struct api_pk1 *a, struct api_pk2 *b, struct api_chars *c);\n"
     "#include <stdarg.h>\n#include <setjmp.h>\n"
     "int api_vlog(const char *fmt, va_list ap);\nint api_jump(jmp_buf env);\n"
-)
+) + FLEXIBLE
 
 
 # A record with fields of bits, and the masks of their parts

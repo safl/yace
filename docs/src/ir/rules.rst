@@ -19,7 +19,7 @@ breaking one is still parsed; ``--strict`` makes any diagnostic an error.
   A field of bits is an unsigned integer whose doc names the prefix of its masks, 'see <PREFIX>_\*', and each mask a #define of contiguous bits that fit it, named by the prefix and the part, whose doc ends in 'bits <hi>:<lo> of '<field>'' or 'bit <n> of '<field>''; a mask that does not agree is not linked to the field.
 
 ``flexible-array``
-  A flexible array member has no length to bind; use a pointer and a length.
+  A flexible array member has no length to bind; use a pointer and a length. A record with one is allowed in no array and no struct, as ISO C requires; a flexible array of them is left out where that keeps the layout, and otherwise the record holding it is skipped.
 
 ``attribute``
   Attributes other than packed, such as aligned, change the layout, and others the calling, in ways the targets cannot all express; they are ignored.

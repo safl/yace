@@ -130,6 +130,18 @@ as an array of bytes. The checks of C, Python and Rust assert the size and
 alignment of such a record; that of Zig does not check it. The subset's
 alternative is a field of bits, see :ref:`sec-ir-csubset`.
 
+Flexible arrays
+---------------
+
+A flexible array member, ``uint8_t data[]``, ends a struct, and adds nothing to
+its size but the padding its alignment may need. ISO C allows a record with
+one in no array and no struct, though GCC and Clang accept both, as an
+extension. A flexible array member is reported by the flexible-array rule, and
+so is a field holding a record with one. A flexible array of such records is
+left out of its record, and the record kept, where leaving it out keeps the
+alignment of the record, and so its layout. Otherwise, and for any other field
+holding such a record, the record is skipped, as is what uses it.
+
 Calling conventions
 -------------------
 
