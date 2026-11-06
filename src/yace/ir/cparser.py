@@ -357,6 +357,9 @@ class _HeaderParser(object):
     def typ(self, ctype, cursor) -> types.Type:
         """The IR type of the libclang 'ctype'; raises Unsupported"""
 
+        # The IR has no volatile, and the bindings could not keep its promise
+        if ctype.is_volatile_qualified():
+            raise Unsupported(f"'{ctype.spelling}', which is volatile")
         found = self._typ(ctype, cursor)
         if ctype.is_const_qualified() and hasattr(found, "const"):
             found.const = True
