@@ -5,6 +5,8 @@ PYTEST=$(PIPX_LOCAL_VENVS)/$(PROJECT)/bin/pytest
 PYTHON ?= python3
 # What the tests build Cython code against the .pxd of the Python target with
 CYTHON ?= 3.3.1
+# What runs the benchmark of examples/libfoo/bench, for the tests and the docs
+CIJOE ?= 0.9.70
 CONTAINER ?= $(shell command -v podman >/dev/null && echo podman || echo docker)
 DEVENV ?= ghcr.io/safl/yace-devenv:$(shell toolbox/devenv/tag.sh)
 
@@ -95,6 +97,7 @@ install:
 	@echo "## ${PROJECT}: make install"
 	@pipx install --python $(PYTHON) --force dist/*.whl
 	@pipx inject yace pytest pytest-cov coverage cython==$(CYTHON) setuptools --force
+	@pipx install --force cijoe==$(CIJOE)
 	@echo "## ${PROJECT}: make install [DONE]"
 
 define install-source-help
@@ -109,6 +112,7 @@ install-source:
 	@pipx inject yace ipdb --include-deps
 	@pipx inject yace isort --include-deps
 	@pipx inject yace pytest pytest-cov --include-deps
+	@pipx install --force cijoe==$(CIJOE)
 	@echo "## ${PROJECT}: make install-source [DONE]"
 
 define test-help
