@@ -5,7 +5,7 @@ PYTEST=$(PIPX_LOCAL_VENVS)/$(PROJECT)/bin/pytest
 PYTHON ?= python3
 # What the tests build Cython code against the .pxd of the Python target with
 CYTHON ?= 3.3.1
-# What runs the benchmark of examples/libfoo/bench, for the tests and the docs
+# What runs the benchmark of examples/libfoo/bench
 CIJOE ?= 0.9.70
 CONTAINER ?= $(shell command -v podman >/dev/null && echo podman || echo docker)
 DEVENV ?= ghcr.io/safl/yace-devenv:$(shell toolbox/devenv/tag.sh)

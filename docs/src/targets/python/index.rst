@@ -191,30 +191,9 @@ what it got back, its records from their C fields.
 What it brings
 ~~~~~~~~~~~~~~
 
-``examples/libfoo/bench`` fills a handle with points by
-``foo_point_add_many()``, then sums the x of every point in six ways, from the
-idiomatic layer to plain C. A libfoo handle holds ``FOO_POINTS_MAX`` points,
-8, so each way sums them for a number of rounds; all six must get the same sum. Its ``setup.py`` and
-``bench.py`` say how to build and run it; the tests run it with a few rounds,
-for the sums, never the timings.
-
-One run on one machine, an AMD Ryzen 7 7840U, with Python 3.12.13, Cython 3.3.1
-and libfoo built with ``-O2``, of 200000 rounds, 1600000 points, the best of
-five runs of each way:
-
-============================================  ============
-Way                                           ns per point
-============================================  ============
-ctypes, idiomatic ``handle.point_get()``      660.0
-ctypes, raw ``foo_point_get()``               450.1
-ctypes, ``foo_point_visit()`` calling Python  227.9
-Cython, ``foo_point_get()`` through the .pxd  1.4
-Cython, ``foo_point_visit()`` calling Cython  1.6
-C, ``foo_point_get()``                        1.4
-============================================  ============
-
-Through the ``.pxd``, a Cython loop calls the C API as fast as C does, and some
-300 times faster than ctypes, whose every call goes through the interpreter.
+:ref:`sec-bench` measures a call of libfoo from every target, against C. Through
+the ``.pxd``, a Cython loop calls the C API at C's cost, where ctypes, whose
+every call goes through the interpreter, costs two orders of magnitude more.
 That is what the ``.pxd`` is for: code with a hot loop over the library writes
 it in Cython, and the rest uses the ctypes module.
 

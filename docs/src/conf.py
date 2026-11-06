@@ -58,6 +58,7 @@ html_static_path = ["_static"]
 
 extlinks = {
     "autopxd2": ("https://github.com/elijahr/python-autopxd2%s", None),
+    "cijoe": ("https://refenv.github.io/cijoe/%s", None),
     "cookiecutter": ("https://cookiecutter.readthedocs.io/en/stable/%s", None),
     "ctypes": ("https://docs.python.org/3/library/ctypes.html%s", None),
     "ctypeslib2": ("https://github.com/trolldbois/ctypeslib%s", None),
