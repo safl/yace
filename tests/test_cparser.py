@@ -708,3 +708,17 @@ def test_an_enum_defined_nowhere_skips_what_uses_it(parse):
         " it is skipped",
     ]
     assert [getattr(e, "name", None) for e in model.entities] == []
+
+
+def test_what_uses_a_volatile_type_is_skipped(parse):
+    model, diagnostics = parse(
+        "/** S @return 0 */\nint s(volatile int *stop);\n"
+        "/** A pair */\nstruct pair { volatile int a; };\n"
+    )
+    assert [str(d).split(": ", 1)[1] for d in diagnostics] == [
+        "unsupported-type: 's' uses the type 'volatile int', which is volatile;"
+        " it is skipped",
+        "unsupported-type: field 'a' of 'pair' has the type 'volatile int', which"
+        " is volatile; 'pair' is skipped",
+    ]
+    assert [getattr(e, "name", None) for e in model.entities] == []
