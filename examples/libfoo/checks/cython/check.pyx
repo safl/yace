@@ -116,6 +116,18 @@ cdef dict figure(const c.foo_figure *obj):
     }
 
 
+cdef dict packed(const c.foo_packed *obj):
+    # A copy, as a packed field may not be aligned for its address to be taken
+    cdef c.foo_point at = obj.at
+
+    return {
+        "kind": obj.kind,
+        "length": obj.length,
+        "at": point(&at),
+        "pair": [obj.pair[idx] for idx in range(2)],
+    }
+
+
 cdef struct totals:
     int64_t x
     int64_t y
@@ -146,6 +158,7 @@ def main(fmt):
     cdef c.foo_figure figure_
     cdef c.foo_status status_
     cdef c.foo_value value
+    cdef c.foo_packed packed_
     cdef size_t done_count = 0
     cdef uint32_t shape
 
@@ -246,5 +259,7 @@ def main(fmt):
     record(
         "foo_value", {"i": value.i, "u": value.u, "point": point(&value.point)}, as_json
     )
+    c.foo_packed_fill(&packed_)
+    record("foo_packed", packed(&packed_), as_json)
     return 0
 

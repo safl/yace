@@ -243,6 +243,13 @@ class {{ namer(record.name) }}(ctypes.{{ "Union" if record | is_union else "Stru
     {{ summary | quoted("    ") }}
 {%- endif %}
 {%- if record.fields and record not in blobs %}
+{%- if record.packed %}
+
+    # Packed, as in C: ctypes packs only as MSVC lays out, which is as GCC
+    # does but for bit-fields
+    _layout_ = "ms"
+    _pack_ = 1
+{%- endif %}
 
     _yace_name = "{{ record.name }}"
 {%- if record.fields | selectattr("masks") | list %}

@@ -141,13 +141,19 @@ pub struct {{ name }} {
 ///
 /// Its bit-fields have no counterpart in Rust: only its size and alignment are
 /// kept.
-#[repr(C, align({{ record.align }}))]
+{#- Aligned by its unit, as a packed record may hold no type of repr(align) #}
+{%- set unit = {1: "u8", 2: "u16", 4: "u32", 8: "u64"}.get(record.align) %}
+#[repr(C{% if not unit %}, align({{ record.align }}){% endif %})]
 #[derive(Clone, Copy)]
 pub {{ "union" if record | is_union else "struct" }} {{ name }} {
+{%- if unit %}
+    pub _bits: [{{ unit }}; {{ record.size // record.align }}],
+{%- else %}
     pub _bits: [u8; {{ record.size }}],
+{%- endif %}
 }
 {%- else %}
-#[repr(C)]
+#[repr(C{{ ", packed" if record.packed }})]
 #[derive(Clone, Copy{{ ", Debug" if not debug(record) }})]
 pub {{ "union" if record | is_union else "struct" }} {{ name }} {
 {%- for field in record.fields %}

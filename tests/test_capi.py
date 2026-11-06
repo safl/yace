@@ -3,7 +3,17 @@ import subprocess
 
 import yaml
 
-from tests.conftest import BITS, ESCAPED, ESCAPED_VALUE, HEADERS, SKIPPED, needs_cc
+from tests.conftest import (
+    BITS,
+    ESCAPED,
+    ESCAPED_VALUE,
+    HEADERS,
+    PACKED,
+    PACKED_C,
+    PACKED_PRINTED,
+    SKIPPED,
+    needs_cc,
+)
 from yace.compiler import process
 from yace.ir import decls
 from yace.ir.model import load
@@ -236,3 +246,26 @@ def test_a_field_of_bits_prints_its_parts(parse, tmp_path):
         "code": {"val": 0x8A05, "type": 5, "delay": 10, "dnr": 1},
         "wide": {"val": 0x8000000100000002, "low": 2, "top": 1},
     }
+
+
+@needs_cc
+def test_a_packed_record_is_declared_packed_and_prints(parse, tmp_path):
+    model, _ = parse(PACKED)
+    assert process(model, ["capi"], tmp_path) == []
+    header = (tmp_path / "capi" / "libapi.h").read_text()
+    assert "struct __attribute__((packed)) api_k {" in header
+    assert "union __attribute__((packed)) api_ku {" in header
+
+    program = tmp_path / "k.c"
+    program.write_text(
+        '#include "libapi.h"\n'
+        f"int main(void) {{\n\tstruct api_k k = {PACKED_C};\n\n"
+        "\treturn api_k_pr(&k, API_PR_YAML) < 0 || api_k_pr(&k, API_PR_JSON) < 0;\n}\n"
+    )
+    cmd = ["cc", *CFLAGS, "-I", str(tmp_path / "capi"), str(program)]
+    cmd += [str(tmp_path / "capi" / "api_pp.c"), "-o", str(tmp_path / "k")]
+    subprocess.run(cmd, check=True)
+
+    run = subprocess.run([str(tmp_path / "k")], capture_output=True, text=True)
+    assert run.returncode == 0
+    assert run.stdout == PACKED_PRINTED

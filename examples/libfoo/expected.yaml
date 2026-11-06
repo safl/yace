@@ -138,3 +138,11 @@ foo_value:
   point:
     x: -1
     y: 0
+---
+foo_packed:
+  kind: 1
+  length: 4000000000
+  at:
+    x: -3
+    y: 4
+  pair: [1, 65535]

@@ -166,6 +166,10 @@ def main():
     foo.foo_value_set(value, -1)
     record(foo.FooValue, value, flags)
 
+    packed = foo.FooPacked()
+    foo.foo_packed_fill(packed)
+    record(foo.FooPacked, packed, flags)
+
     return 0
 
 

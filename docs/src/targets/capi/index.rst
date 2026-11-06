@@ -9,7 +9,8 @@ The C target, ``capi``, generates the C API of the header, into
 ``lib<prefix>.h``
   The C API: the declarations of the header, and of the pretty-printers. It is
   generated from the IR, not copied from the header, and may use what C allows
-  and the C subset does not.
+  and the C subset does not. A packed record keeps its
+  ``__attribute__((packed))``, which the C++ layer, including it, shares.
 
 ``<prefix>_pp.c``
   The pretty-printers. Every struct and union with fields gets

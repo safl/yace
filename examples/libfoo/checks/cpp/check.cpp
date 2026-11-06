@@ -235,6 +235,7 @@ main(int argc, char **argv)
 		record("foo_figure", std::optional(foo::figure_fill(static_cast<std::uint32_t>(shape))));
 	}
 	record("foo_value", std::optional(foo::value_set(-1)));
+	record("foo_packed", std::optional(foo::packed_fill()));
 
 	return 0;
 }

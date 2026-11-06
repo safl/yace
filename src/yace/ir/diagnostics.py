@@ -37,8 +37,9 @@ RULES = {
         "A flexible array member has no length to bind; use a pointer and a length"
     ),
     "attribute": (
-        "Attributes such as packed or aligned change the layout, and others the"
-        " calling, in ways the targets cannot all express; they are ignored"
+        "Attributes other than packed, such as aligned, change the layout, and"
+        " others the calling, in ways the targets cannot all express; they are"
+        " ignored"
     ),
     "cxx-keyword": (
         "A name must not be a keyword of C++, which includes the generated C API"

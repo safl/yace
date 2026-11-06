@@ -8,6 +8,8 @@ from tests.conftest import (
     ESCAPED,
     ESCAPED_VALUE,
     HEADERS,
+    PACKED,
+    PACKED_PRINTED,
     SKIPPED,
     needs_cc,
     needs_go,
@@ -714,3 +716,30 @@ def test_a_call_without_an_idiomatic_form_says_so(parse, tmp_path):
         "// api_now() has no idiomatic form, as what api_now() writes has no"
         " fields to return; see Api_now." in module
     )
+
+
+def test_a_packed_record_is_its_bytes_read_and_written_by_methods(parse, tmp_path):
+    model, _ = parse(
+        PACKED + "/** Q */\nstruct __attribute__((packed)) api_q {\n"
+        "\tuint8_t t; ///< T\n\tstruct api_k many[2]; ///< Many\n};\n"
+    )
+    assert process(model, ["go"], tmp_path) == []
+
+    out = run_go(
+        tmp_path,
+        program(
+            "\tvar k api.ApiK\n\tk.SetTag(1)\n\tk.SetValue(0xdeadbeef)\n"
+            "\tk.SetAt(api.ApiP{X: -2, Y: 3})\n"
+            "\tk.SetPath([2]api.ApiP{{X: 4, Y: 5}, {X: 6, Y: 7}})\n"
+            "\tk.SetPair([2]uint16{8, 9})\n\tk.SetType(0x10)\n\tk.SetTypeLow(0xa)\n"
+            "\tk.Fpr(os.Stdout, api.API_PR_YAML)\n\tk.Fpr(os.Stdout, api.API_PR_JSON)\n"
+            "\tvar u api.ApiKu\n\tu.SetP(api.ApiP{X: 1, Y: 2})\n"
+            "\tfmt.Println(k.At().Y, k.TypeLow(), u.N() == 1|2<<32, unsafe.Sizeof(k),"
+            " unsafe.Alignof(u))\n"
+            "\tvar q api.ApiQ\n\tq.SetMany([2]api.ApiK{1: k})\n"
+            "\tfmt.Println(q.Many()[1].At().X, q.Many()[1].TypeLow())\n",
+            ("fmt", "os", "unsafe"),
+        ),
+        strict=True,
+    )
+    assert out == PACKED_PRINTED + "3 10 true 35 1\n-2 10\n"

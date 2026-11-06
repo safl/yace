@@ -244,3 +244,15 @@ foo_value_set(union foo_value *value, int32_t i)
 	memset(value, 0, sizeof(*value));
 	value->i = i;
 }
+
+void
+foo_packed_fill(struct foo_packed *packed)
+{
+	memset(packed, 0, sizeof(*packed));
+	packed->kind = FOO_SHAPE_LINE;
+	packed->length = 4000000000u;
+	packed->at.x = -3;
+	packed->at.y = 4;
+	packed->pair[0] = 1;
+	packed->pair[1] = UINT16_MAX;
+}

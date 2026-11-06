@@ -116,6 +116,7 @@ main(int argc, char **argv)
 	struct foo_figure figure;
 	struct foo_status status;
 	union foo_value value;
+	struct foo_packed packed;
 	int added = 0;
 
 	if (argc > 1 && !strcmp(argv[1], "json")) {
@@ -226,6 +227,11 @@ main(int argc, char **argv)
 	foo_value_set(&value, -1);
 	record_begin("foo_value");
 	foo_value_fpr(stdout, &value, flags);
+	record_end();
+
+	foo_packed_fill(&packed);
+	record_begin("foo_packed");
+	foo_packed_fpr(stdout, &packed, flags);
 	record_end();
 
 	return 0;

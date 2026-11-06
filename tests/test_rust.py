@@ -10,6 +10,8 @@ from tests.conftest import (
     ESCAPED,
     ESCAPED_VALUE,
     HEADERS,
+    PACKED,
+    PACKED_PRINTED,
     SKIPPED,
     needs_cargo,
     needs_cc,
@@ -128,7 +130,7 @@ def test_headers_outside_the_subset_still_bind(parse, tmp_path):
     lib = (tmp_path / "rust" / "lib.rs").read_text()
     assert "pub struct FILE {" in lib
     assert "pub fn log_it(fmt: *const c_char, ...) -> c_int;" in lib
-    assert "pub _bits: [u8; 16]," in lib
+    assert "pub _bits: [u32; 4]," in lib
 
 
 def test_names_are_made_usable(parse, tmp_path):
@@ -1150,3 +1152,33 @@ def test_the_parts_of_a_field_of_bits_are_methods(parse, tmp_path):
     )
     lib = (tmp_path / "rust" / "lib.rs").read_text()
     assert "/// Kind; bits 2:0 of 'code'\n    pub fn code_type(&self) -> u16 {" in lib
+
+
+def test_a_packed_record_is_read_by_copies(parse, tmp_path):
+    model, _ = parse(
+        PACKED + "/** R, its Debug written out, as a field is renamed */\n"
+        "struct __attribute__((packed)) api_r {\n"
+        "\tuint8_t a; ///< A\n\tuint32_t self; ///< Self\n};\n"
+    )
+    assert process(model, ["rust"], tmp_path) == []
+    assert "warning" not in (tmp_path / "rust" / "cargo.log").read_text()
+    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    assert "#[repr(C, packed)]\n#[derive(Clone, Copy, Debug)]\npub struct ApiK {" in lib
+
+    main = (
+        "use api::*;\nfn main() {\n"
+        "    let p = |x, y| ApiP { x, y };\n"
+        "    let mut k = ApiK { tag: 1, value: 0xdeadbeef, at: p(-2, 3),"
+        " path: [p(4, 5), p(6, 7)], pair: [8, 9], r#type: 0x10 };\n"
+        "    k.set_type_low(0xa);\n"
+        '    print!("{}", k);\n'
+        "    ApiK::fpr(&mut std::io::stdout(), Some(&k), API_PR_JSON).unwrap();\n"
+        '    println!("{:?} {}", k, k.type_low());\n'
+        '    println!("{:?}", ApiR { a: 1, self_: 2 });\n'
+        "}\n"
+    )
+    assert run_with_crate(tmp_path, main, {"API_NO_LINK": "1"}) == PACKED_PRINTED + (
+        "ApiK { tag: 1, value: 3735928559, at: ApiP { x: -2, y: 3 }, path:"
+        " [ApiP { x: 4, y: 5 }, ApiP { x: 6, y: 7 }], pair: [8, 9], type: 26 } 10\n"
+        "ApiR { a: 1, self: 2 }\n"
+    )

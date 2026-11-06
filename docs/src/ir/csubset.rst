@@ -126,9 +126,9 @@ and name its parts with masks, as a field of bits, below.
 
 Records cross the boundary by pointer. Passed or returned by value, they depend
 on the calling convention of each platform for records, which other languages
-implement to varying degrees. Records are not packed either. How layout and
-calling conventions bear on a binding, and what **yace** does with records by
-value, bit-fields and packed records, is in :ref:`sec-ir-background`.
+implement to varying degrees. How layout and calling conventions bear on a
+binding, and what **yace** does with records by value, bit-fields and packed
+records, is in :ref:`sec-ir-background`.
 
 Fields of bits
 --------------

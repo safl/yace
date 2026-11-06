@@ -1,5 +1,7 @@
+import ctypes
 import gc
 import importlib.util
+import io
 import json
 import subprocess
 import sys
@@ -12,6 +14,8 @@ from tests.conftest import (
     ESCAPED,
     ESCAPED_VALUE,
     HEADERS,
+    PACKED,
+    PACKED_PRINTED,
     SKIPPED,
     needs_cc,
     needs_cython,
@@ -850,3 +854,44 @@ def test_only_the_python_target_is_emitted(parse, tmp_path):
     model, _ = parse(SPELLED)
     assert process(model, ["python"], tmp_path / "out", check=False) == []
     assert [path.name for path in (tmp_path / "out").iterdir()] == ["python"]
+
+
+def test_a_packed_record_is_laid_out_and_printed_as_in_c(parse, tmp_path):
+    model, _ = parse(
+        PACKED + "/** B */\nstruct __attribute__((packed)) api_b {\n"
+        "\tuint8_t a : 4; ///< A\n\tuint32_t b : 20; ///< B\n};\n"
+    )
+    assert process(model, ["python"], tmp_path) == []
+
+    api = module(tmp_path)
+    packed, point = api["ApiK"], api["ApiP"]
+    assert (ctypes.sizeof(packed), ctypes.alignment(packed)) == (35, 1)
+    offsets = [getattr(packed, name).offset for name in ("value", "at", "pair")]
+    assert offsets == [1, 5, 29]
+    assert (ctypes.sizeof(api["ApiKu"]), ctypes.alignment(api["ApiKu"])) == (8, 1)
+    # ctypes packs bit-fields only as MSVC does, so these are kept as bytes
+    assert [name for name, *_ in api["ApiB"]._fields_] == ["_bits"]
+
+    value = packed(
+        tag=1,
+        value=0xDEADBEEF,
+        at=point(-2, 3),
+        path=(point(4, 5), point(6, 7)),
+        pair=(8, 9),
+        type=0x1A,
+    )
+    out = io.StringIO()
+    packed.fpr(out, value, api["API_PR_YAML"])
+    packed.fpr(out, value, api["API_PR_JSON"])
+    assert out.getvalue() == PACKED_PRINTED
+
+
+@needs_cc
+@needs_cython
+def test_the_check_of_the_pxd_takes_no_address_of_a_packed_field(parse, tmp_path):
+    model, _ = parse(PACKED)
+    assert process(model, ["python"], tmp_path) == []
+
+    assert "packed struct api_k:" in (tmp_path / "python" / "api.pxd").read_text()
+    log = (tmp_path / "python" / "cython.log").read_text()
+    assert "pxd_check.c" in log and "address-of-packed-member" not in log

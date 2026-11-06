@@ -143,6 +143,12 @@ put_ptr(std::string &out, std::uintptr_t addr)
 }""".splitlines()
 
 
+def copied(expr: str, local: str, call: str) -> List[str]:
+    """The statement 'call', formatted with a local, on a copy of 'expr' in it"""
+
+    return ["{", f"\tconst auto {local} = {expr};", f"\t{call.format(local)};", "}"]
+
+
 class Printer(object):
     """The C++ statements printing a value of a type into the std::string
     'out', as the pretty-printers of the C API print it"""
@@ -161,7 +167,10 @@ class Printer(object):
 
         return [f for f in record.fields if f.name]
 
-    def value(self, typ, expr: str, depth: int = 0) -> List[str]:
+    def value(self, typ, expr: str, depth: int = 0, packed: bool = False) -> List[str]:
+        """Statements printing 'expr'; of a field of a 'packed' record, a record
+        is printed through a copy, as a reference to it may not be aligned"""
+
         typ = self.resolve(typ)
         null = ['out += "null";']
 
@@ -198,11 +207,14 @@ class Printer(object):
                 f'\tout += {idx} ? ", " : "";',
             ]
             lines += [
-                "\t" + line for line in self.value(elem, f"{expr}[{idx}]", depth + 1)
+                "\t" + line
+                for line in self.value(elem, f"{expr}[{idx}]", depth + 1, packed)
             ]
             return lines + ["}", "out += ']';"]
 
         if isinstance(typ, types.Record) and typ.name in self.records:
+            if packed:
+                return copied(expr, f"v{depth}", "detail::json(out, {})")
             return [f"detail::json(out, {expr});"]
 
         return null
@@ -237,7 +249,9 @@ class Printer(object):
             if field.masks:
                 lines += self.parts(field, f"obj.{field.name}", "put_uint", '\\"')
             else:
-                lines += self.value(field.typ, f"obj.{field.name}")
+                lines += self.value(
+                    field.typ, f"obj.{field.name}", packed=record.packed
+                )
         return lines + ["out += '}';"]
 
     def yaml_body(self, record) -> List[str]:
@@ -247,13 +261,19 @@ class Printer(object):
             nested = self.record_of(field.typ) if field.bits is None else None
             if nested is not None:
                 lines.append(f'out += "{field.name}:\\n";')
-                lines.append(f"detail::yaml(out, obj.{field.name}, indent + 2);")
+                call = "detail::yaml(out, {}, indent + 2)"
+                if record.packed:
+                    lines += copied(f"obj.{field.name}", "v0", call)
+                else:
+                    lines.append(f"{call.format('obj.' + field.name)};")
                 continue
             lines.append(f'out += "{field.name}: ";')
             if field.masks:
                 lines += self.parts(field, f"obj.{field.name}", "put_hex", "")
             else:
-                lines += self.value(field.typ, f"obj.{field.name}")
+                lines += self.value(
+                    field.typ, f"obj.{field.name}", packed=record.packed
+                )
             lines.append("out += '\\n';")
         return lines
 

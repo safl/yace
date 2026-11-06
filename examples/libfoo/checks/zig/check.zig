@@ -222,5 +222,6 @@ pub fn main(init: std.process.Init) !void {
         try record(w, foo.FooFigure, "foo_figure", figure);
     }
     try record(w, foo.FooValue, "foo_value", foo.valueSet(-1));
+    try record(w, foo.FooPacked, "foo_packed", foo.packedFill());
     try w.flush();
 }

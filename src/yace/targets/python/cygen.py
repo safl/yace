@@ -242,7 +242,9 @@ class Pxd(object):
         head = f"{tag} {self.names.cname(name, record.name)}"
         if not complete:
             return [head]
-        lines = [f"{head}:"]
+        # Cython has no packed union
+        packed = "packed " if record.packed and tag == "struct" else ""
+        lines = [f"{packed}{head}:"]
         for field in record.fields:
             if not field.name:
                 continue  # padding bits, which C names nothing
@@ -378,10 +380,17 @@ class Check(object):
                     continue
                 member = f"{made}.{field_name(field.name)}"
                 spec = "noexcept" if spelled_function(field.typ) else "noexcept nogil"
-                if field.bits is None:
-                    self.local(types.Pointer(to=field.typ), f"&{member}", spec)
-                else:
+                if field.bits is not None:
                     self.local(field.typ, member)  # a bit-field has no address
+                elif record.packed:
+                    # The address of a packed field may not be aligned, so a
+                    # copy of it, of an array its first element, is assigned
+                    typ = field.typ
+                    while isinstance(typ, types.Array):
+                        typ, member = typ.of, f"{member}[0]"
+                    self.local(typ, member, spec)
+                else:
+                    self.local(types.Pointer(to=field.typ), f"&{member}", spec)
         for record in model.records().values():
             if not record.fields:
                 opaque = types.Record(tag=cgen.tag(record), name=record.name)

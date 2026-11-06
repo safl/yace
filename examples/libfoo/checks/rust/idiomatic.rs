@@ -154,6 +154,7 @@ fn main() -> io::Result<()> {
         record("foo_figure", FooFigure::fpr, Some(&figure), flags)?;
     }
     record("foo_value", FooValue::fpr, Some(&safe::value_set(-1)), flags)?;
+    record("foo_packed", FooPacked::fpr, Some(&safe::packed_fill()), flags)?;
 
     Ok(())
 }

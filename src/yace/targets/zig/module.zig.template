@@ -115,7 +115,7 @@ pub const {{ name }} = extern {{ "union" if record | is_union else "struct" }} {
 {%- if field.doc.brief %}
     /// {{ field.doc.brief | oneline }}
 {%- endif %}
-    {{ field.name | ident }}: {{ namer.ztype(field.typ) }},
+    {{ field.name | ident }}: {{ namer.ztype(field.typ) }}{% if record.packed %} align(1){% endif %},
 {%- endfor %}
 {%- if record in printable %}
 {% filter locals("methods") %}

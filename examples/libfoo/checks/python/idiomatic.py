@@ -106,6 +106,7 @@ def main():
     for shape in (foo.FOO_SHAPE_POINT, foo.FOO_SHAPE_LINE, foo.FOO_SHAPE_POLYGON):
         record(foo.FooFigure, foo.figure_fill(shape), flags)
     record(foo.FooValue, foo.value_set(-1), flags)
+    record(foo.FooPacked, foo.packed_fill(), flags)
 
     return 0
 

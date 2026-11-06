@@ -12,7 +12,9 @@ Each is one top-level declaration of the header, in the order they appear:
 
 Struct and union carry their layout, size and alignment in bytes and the offset
 of each field in bits, as the compiler that parsed the header laid them out. Targets
-check what they generate against it.
+check what they generate against it. A record declared with
+``__attribute__((packed))`` is 'packed': its fields are not aligned, and nor is
+the record.
 """
 
 import typing
@@ -104,6 +106,7 @@ class Struct(Node):
     fields: List[Field]
     size: Optional[int] = None  # bytes
     align: Optional[int] = None  # bytes
+    packed: bool = False
     doc: Doc = Doc()
 
 
@@ -113,6 +116,7 @@ class Union(Node):
     fields: List[Field]
     size: Optional[int] = None
     align: Optional[int] = None
+    packed: bool = False
     doc: Doc = Doc()
 
 

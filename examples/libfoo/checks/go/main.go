@@ -250,4 +250,6 @@ func main() {
 	}
 	set := foo.ValueSet(-1)
 	record("foo_value", set.Fpr)
+	packed := foo.PackedFill()
+	record("foo_packed", packed.Fpr)
 }

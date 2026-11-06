@@ -137,6 +137,17 @@ union foo_value {
 };
 
 /**
+ * A record laid out without padding, as a wire format is: no field after the
+ * first is aligned
+ */
+struct __attribute__((packed)) foo_packed {
+	uint8_t kind;        ///< One of enum foo_shape
+	uint32_t length;     ///< At offset 1
+	struct foo_point at; ///< A point, at offset 5
+	uint16_t pair[2];    ///< An array, at offset 13
+};
+
+/**
  * The status of a handle, its code a field of bits
  */
 struct foo_status {
@@ -353,5 +364,13 @@ foo_figure_fill(struct foo_figure *figure, uint32_t shape);
  */
 void
 foo_value_set(union foo_value *value, int32_t i);
+
+/**
+ * Fill in a packed record
+ *
+ * @param[out] packed The record to fill in
+ */
+void
+foo_packed_fill(struct foo_packed *packed);
 
 #endif /* FOO_H */

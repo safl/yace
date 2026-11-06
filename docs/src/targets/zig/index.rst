@@ -30,7 +30,8 @@ The raw layer
 The C API as C has it, by its C names, as Zig's own translation of C headers
 gives it: records as ``extern struct`` and ``extern union``, named in
 CamelCase, ``struct foo_point`` as ``FooPoint``, which ``typedef struct
-foo_point foo_point;`` also names; opaque records as ``opaque``;
+foo_point foo_point;`` also names; a packed record with each field
+``align(1)``; opaque records as ``opaque``;
 functions as ``extern fn``; pointers as C pointers, ``[*c]T``, except to opaque
 types, ``void`` and functions, which are optional pointers; constants by their
 names.

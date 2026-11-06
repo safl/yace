@@ -7,6 +7,7 @@ read and written through a method per member. Pointers are Go pointers, which
 may point to C memory; ``void *`` and function pointers are ``unsafe.Pointer``.
 """
 
+import re
 from typing import Dict, List, Tuple
 
 from yace.ir import decls, types
@@ -363,6 +364,12 @@ class Records(object):
     def is_blob(self, record) -> bool:
         return bool(record.size) and any(f.bits is not None for f in record.fields)
 
+    def is_bytes(self, record) -> bool:
+        """Whether 'record' is declared as its bytes: a blob, or packed, as Go
+        aligns every field"""
+
+        return self.is_blob(record) or (record.packed and bool(record.fields))
+
     def is_flexible(self, record, field) -> bool:
         """Whether 'field' is a flexible array, which Go cannot declare: a
         zero-sized last field would pad the struct"""
@@ -389,8 +396,15 @@ class Records(object):
         """The names of the methods of 'record', other than its fields'"""
 
         if record.name not in self.methods:
-            registry = Registry(self.field_names(record).values())
+            names = self.field_names(record)
+            registry = Registry(names.values())
             found = {}
+            if record.packed and not self.is_blob(record):
+                for field in record.fields:
+                    if field.name and not self.is_flexible(record, field):
+                        found[f"set:{field.name}"] = registry.add(
+                            f"Set{names[field.name]}"
+                        )
             if record.name in self.printable:
                 found["Fpr"] = registry.add("Fpr")
                 found["String"] = registry.add("String")
@@ -415,13 +429,20 @@ class Records(object):
         lines = comment(doc_lines(record.doc))
         if not record.fields and record.size is None:
             return lines + [f"type {name} struct{{ _ [0]byte }}"]
-        if self.is_blob(record) or isinstance(record, decls.Union):
+        if self.is_bytes(record) or isinstance(record, decls.Union):
             if lines:
                 lines.append("//")
             if self.is_blob(record):
                 lines += [
                     "// Its bit-fields have no counterpart in Go: only its size and",
                     "// alignment are kept.",
+                ]
+            elif record.packed:
+                lines += [
+                    "// Packed, which Go cannot declare, as it aligns every field:",
+                    "// each field is read and written by a copy, through its methods.",
+                    "// The garbage collector does not see a pointer set in a field,",
+                    "// so what it points to must be kept alive by other means.",
                 ]
             else:
                 lines += [
@@ -449,6 +470,43 @@ class Records(object):
             lines += (["//"] if lines else []) + notes
         return lines + [f"type {name} struct {{"] + align(rows) + ["}"]
 
+    def packed_fields(self, record, name: str) -> List[str]:
+        """The methods reading and writing each field of a packed record, in its
+        bytes at its offset, which may not be aligned for it; a getter has a
+        value receiver, so that it reads what another getter returns"""
+
+        names = self.field_names(record)
+        setters = self.method_names(record)
+        lines: List[str] = []
+        for field in record.fields:
+            if not field.name or self.is_flexible(record, field):
+                continue
+            getter, setter = names[field.name], setters[f"set:{field.name}"]
+            if field.offset is None:
+                raise ValueError(
+                    f"'{record.name}' is packed, and '{field.name}' has no offset"
+                )
+            typ = self.namer.gotype(field.typ)
+            at = f"r.bytes[{field.offset // 8}:]"
+            brief = " ".join(field.doc.brief.split())
+            lines += [""] + comment(
+                [
+                    f"{getter} is the field '{field.name}'"
+                    + (f": {brief}" if brief else "")
+                ]
+            )
+            lines += [
+                f"func (r {name}) {getter}() {typ} {{",
+                f"\treturn yaceGet[{typ}]({at})",
+                "}",
+                "",
+                f"// {setter} sets the field '{field.name}'",
+                f"func (r *{name}) {setter}(value {typ}) {{",
+                f"\tyaceSet({at}, value)",
+                "}",
+            ]
+        return lines
+
     def members(self, record, name: str) -> List[str]:
         """The method of each member of a union, the member in its bytes"""
 
@@ -472,24 +530,27 @@ class Records(object):
 
     def accessors(self, record, name: str) -> List[str]:
         """The methods reading and writing the parts of the fields of bits of
-        'record'; a value that does not fit its part panics"""
+        'record'; a value that does not fit its part panics. Of a packed record,
+        a getter has a value receiver, as those of its fields do"""
 
         if self.is_blob(record):
             return []
         methods = self.method_names(record)
         union = isinstance(record, decls.Union)
         lines: List[str] = []
+        receiver = f"r {name}" if record.packed else f"r *{name}"
         for field in record.fields:
             typ = self.namer.gotype(field.typ)
             member = self.field_names(record)[field.name]
             place = f"(*r.{member}())" if union else f"r.{member}"
+            read = f"r.{member}()" if record.packed else place
             for mask in field.masks:
                 part = f"{field.name}_{mask.name}"
                 getter, setter = methods[part], methods[f"set_{part}"]
                 lines += [""] + comment(doc_lines(mask.doc))
                 lines += [
-                    f"func (r *{name}) {getter}() {typ} {{",
-                    f"\treturn ({place} & {mask.value:#x}) >> {mask.lo}",
+                    f"func ({receiver}) {getter}() {typ} {{",
+                    f"\treturn ({read} & {mask.value:#x}) >> {mask.lo}",
                     "}",
                     "",
                     f"// {setter} sets the part of '{field.name}' that {getter} reads;",
@@ -500,7 +561,12 @@ class Records(object):
                     f'\t\tpanic("{name}.{setter}: " + strconv.FormatUint(uint64(value),'
                     ' 10) + " does not fit")',
                     "\t}",
-                    f"\t{place} = {place}&^{mask.value:#x} | value<<{mask.lo}",
+                    (
+                        f"\tr.{methods['set:' + field.name]}("
+                        f"{read}&^{mask.value:#x} | value<<{mask.lo})"
+                        if record.packed
+                        else f"\t{place} = {place}&^{mask.value:#x} | value<<{mask.lo}"
+                    ),
                     "}",
                 ]
         return lines
@@ -629,10 +695,22 @@ class Printer(object):
         return null
 
     def place(self, record, field) -> str:
-        """The expression of 'field' of the record 'r'"""
+        """The expression of 'field' of the record 'r'; of a packed record, the
+        local 'v', see bound()"""
 
         name = self.records.field_names(record)[field.name]
+        if record.packed:
+            return "v"
         return f"(*r.{name}())" if isinstance(record, decls.Union) else f"r.{name}"
+
+    def bound(self, record, field, lines: List[str]) -> List[str]:
+        """'lines', in a block binding the local 'v' to a copy of 'field' of a
+        packed record, if they use it, for them to take its address"""
+
+        if not record.packed or not any(re.search(r"\bv\b", ln) for ln in lines):
+            return lines
+        name = self.records.field_names(record)[field.name]
+        return ["{", f"\tv := r.{name}()", *["\t" + ln for ln in lines], "}"]
 
     def parts(self, field, expr: str, base: int, quote: str) -> List[str]:
         """The value of a field of bits and of each of its parts, as a mapping
@@ -669,9 +747,11 @@ class Printer(object):
             if self.records.is_flexible(record, field):
                 lines.append('out = append(out, "null"...)')
             elif field.masks:
-                lines += self.parts(field, self.place(record, field), 10, '"')
+                printed = self.parts(field, self.place(record, field), 10, '"')
+                lines += self.bound(record, field, printed)
             else:
-                lines += self.value(field.typ, self.place(record, field))
+                printed = self.value(field.typ, self.place(record, field))
+                lines += self.bound(record, field, printed)
         return lines + ["return append(out, '}')"]
 
     def yaml_body(self, record) -> List[str]:
@@ -686,13 +766,15 @@ class Printer(object):
             if self.printable(field.typ) is not None:
                 lines.append(f"out = append(out, {go_quote(field.name + ':')}...)")
                 lines.append("out = append(out, '\\n')")
-                lines.append(f"out = {place}.yaceYAML(out, indent+2)")
+                printed = [f"out = {place}.yaceYAML(out, indent+2)"]
+                lines += self.bound(record, field, printed)
                 continue
             lines.append(f"out = append(out, {go_quote(field.name + ': ')}...)")
             if field.masks:
-                lines += self.parts(field, place, 16, "")
+                printed = self.parts(field, place, 16, "")
             else:
-                lines += self.value(field.typ, place)
+                printed = self.value(field.typ, place)
+            lines += self.bound(record, field, printed)
             lines.append("out = append(out, '\\n')")
         return lines + ["return out"]
 
