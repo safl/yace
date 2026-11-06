@@ -29,6 +29,12 @@ bind well, or at all. With ``--strict``, any diagnostic is an error.
 
 Given IR files, ``.yaml``, **yace** reads them instead. Either way, ``--emit``
 generates the code of the given targets, and checks it, unless ``--no-check``.
+A check builds with the toolchain of its target, named by a variable of the
+environment where set: ``CC``, ``CXX``, ``CARGO``, ``ZIG`` and ``GO``. A
+missing toolchain fails the check, naming the variable.
+``--toolchains`` prints, as JSON, the toolchains of the ``--emit`` targets, or
+of every target: each one's command, where it is found, and its version, so
+that whoever records a run can record what it was checked with.
 
 The IR has no place in a C header for the name, prefix, license and so on of
 the API; give those in a YAML file with ``--meta``, of the fields of

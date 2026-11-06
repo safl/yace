@@ -94,3 +94,33 @@ def test_a_prelude_supplies_what_the_headers_do_not_include(tmp_path):
     assert "parse-error" not in proc.stderr
     assert "'FILE' is declared outside the headers" in proc.stderr
     assert "'struct iovec' is declared outside the headers" in proc.stderr
+
+
+def test_toolchains_are_those_the_checks_build_with(monkeypatch):
+    monkeypatch.setenv("GO", "/nonexistent/go")
+    monkeypatch.setenv("CC", sys.executable)
+
+    proc = yace("--toolchains")
+    assert proc.returncode == 0, proc.stderr
+    found = json.loads(proc.stdout)
+    assert set(found) == {"capi", "cpp", "go", "python", "rust", "zig"}
+    assert all(found[name] for name in found)
+    go = found["go"][0]
+    assert (go["env"], go["command"], go["present"]) == ("GO", "/nonexistent/go", False)
+    cc = found["capi"][0]
+    assert cc["present"] and cc["command"] == cc["path"] == sys.executable
+    assert cc["version"].startswith("Python ")
+
+    assert set(json.loads(yace("--toolchains", "--emit", "go").stdout)) == {"go"}
+
+
+def test_a_check_without_its_toolchain_fails_naming_it(tmp_path, monkeypatch):
+    monkeypatch.setenv("CXX", "/nonexistent/c++")
+    header = tmp_path / "one.h"
+    header.write_text("/** One @return 1 */\nint one_get(void);\n")
+    meta = tmp_path / "meta.yaml"
+    meta.write_text("name: one\nprefix: one\n")
+
+    proc = yace(header, "--meta", meta, "--output", tmp_path, "--emit", "cpp")
+    assert proc.returncode == 1
+    assert "cpp: no C++ compiler ('/nonexistent/c++'); set CXX" in proc.stderr

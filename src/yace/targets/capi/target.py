@@ -11,8 +11,6 @@ Emits, into ``<output>/capi``:
 """
 
 import json
-import os
-import shutil
 import subprocess
 import textwrap
 from pathlib import Path
@@ -20,6 +18,7 @@ from pathlib import Path
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
+from yace import toolchain
 from yace.ir import decls
 from yace.ir.model import Model, host_abi
 from yace.targets.target import Target
@@ -120,6 +119,7 @@ def header(model: Model) -> str:
 
 class CAPI(Target):
     NAME = "capi"
+    TOOLCHAINS = (toolchain.CC,)
 
     @staticmethod
     def environment() -> Environment:
@@ -191,9 +191,10 @@ class CAPI(Target):
         """Build and run the check program; returns what failed, if anything"""
 
         prefix = model.meta.prefix
-        cc = os.environ.get("CC", "cc")
-        if not shutil.which(cc):
-            return [f"no C compiler ('{cc}'); set CC"]
+        failures = toolchain.missing(self.TOOLCHAINS)
+        if failures:
+            return failures
+        cc = toolchain.CC.command()
 
         binary = self.output / f"{prefix}_check"
         cmd = [cc, *CFLAGS, "-I", str(self.output)]
