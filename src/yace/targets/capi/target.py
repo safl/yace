@@ -11,6 +11,7 @@ Emits, into ``<output>/capi``:
 """
 
 import json
+import logging as log
 import subprocess
 import textwrap
 from pathlib import Path
@@ -20,6 +21,7 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 from yace import toolchain
 from yace.ir import decls
+from yace.ir.cparser import STANDARD_HEADERS
 from yace.ir.model import Model, host_abi
 from yace.targets.target import Target
 
@@ -135,6 +137,7 @@ class CAPI(Target):
             define_value=define_value,
             field_decl=cgen.field_decl,
             signature=cgen.signature,
+            pointer_type=cgen.pointer_type,
             tag=cgen.tag,
         )
         return env
@@ -167,6 +170,8 @@ class CAPI(Target):
             "printer": printer,
             "helpers": printer.helpers(cgen.ordered_records(model)),
             "layout": model.meta.abi == host_abi(),
+            "spelled": cgen.spellings(model),
+            "standard": list(STANDARD_HEADERS),
         }
 
     def emit(self, model: Model) -> list:
@@ -178,6 +183,7 @@ class CAPI(Target):
             (f"lib{prefix}.h", "header.h.template"),
             (f"{prefix}_pp.c", "pp.c.template"),
             (f"{prefix}_check.c", "check.c.template"),
+            (f"{prefix}_signatures.c", "signatures.c.template"),
         ]
         paths = []
         for filename, template in files:
@@ -211,7 +217,7 @@ class CAPI(Target):
         if proc.returncode:
             return [f"compiling the check failed:\n{proc.stderr}"]
 
-        failures = []
+        failures = self.signatures(model, cc)
         for fmt in ("yaml", "json"):
             proc = subprocess.run([str(binary), fmt], capture_output=True, text=True)
             (self.output / f"check.{fmt}").write_text(proc.stdout)
@@ -227,3 +233,38 @@ class CAPI(Target):
                 failures.append(f"the pretty-printers print invalid {fmt}: {exc}")
 
         return failures
+
+    def signatures(self, model: Model, cc: str) -> list:
+        """Compile the check of the signatures with the headers the IR was
+        parsed from, found in the include directories, so that a function whose
+        type in the IR is not the header's fails; where a header is not found,
+        it warns that the signatures are not checked, and fails nothing"""
+
+        log_path = self.output / "signatures.log"
+        if not model.meta.headers:
+            note = "the signatures are not checked: the IR records no headers"
+            log_path.write_text(f"{note}\n")
+            log.warning("capi: %s", note)
+            return []
+        missing = [
+            name
+            for name in model.meta.headers
+            if not any((path / name).is_file() for path in self.include)
+        ]
+        if missing:
+            note = (
+                f"the signatures are not checked: {', '.join(missing)} not found;"
+                " give its directory with -I"
+            )
+            log_path.write_text(f"{note}\n")
+            log.warning("capi: %s", note)
+            return []
+
+        source = self.output / f"{model.meta.prefix}_signatures.c"
+        cmd = [cc, "-std=gnu11", "-fsyntax-only"]
+        cmd += [f"-I{path}" for path in self.include] + [str(source)]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        log_path.write_text(f"{' '.join(cmd)}\n{proc.stdout}{proc.stderr}")
+        if proc.returncode:
+            return [f"the signatures disagree with the headers:\n{proc.stderr}"]
+        return []

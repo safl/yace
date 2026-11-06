@@ -314,6 +314,7 @@ class _HeaderParser(object):
         self.diagnostics: List[Diagnostic] = []
         self.names: Dict[Tuple[str, int], str] = {}  # anonymous decl -> its name
         self.absorbed: set = set()  # typedefs naming an anonymous record or enum
+        self.typedef_named: set = set()  # the anonymous records and enums they name
         self.aliases: set = set()  # typedefs of the record or enum of their name
         self.skipped: set = set()  # typedefs skipped, which their uses are too
         self.skipped_records: set = set()  # records skipped, by name, as typedefs
@@ -751,6 +752,7 @@ class _HeaderParser(object):
                 size=size if size > 0 else None,
                 align=align if align > 0 else None,
                 packed=any(c.kind == CursorKind.PACKED_ATTR for c in children),
+                spelled=self.spelled(cursor, name),
                 doc=self.doc_of(cursor),
             )
         ]
@@ -828,8 +830,15 @@ class _HeaderParser(object):
                 if child.kind == CursorKind.ENUM_CONSTANT_DECL
             ],
             underlying=underlying,
+            spelled=self.spelled(cursor, name),
             doc=self.doc_of(cursor),
         )
+
+    def spelled(self, cursor, name: str) -> str:
+        """How the headers spell the record or enum 'name', where not by its tag
+        and name: by the typedef naming it, when it is anonymous"""
+
+        return name if decl_key(cursor) in self.typedef_named else ""
 
     def signature_checks(self, fname: str, ret, params, cursor):
         """Report records by value and enums, as parameters or as the return"""
@@ -1110,6 +1119,7 @@ class _HeaderParser(object):
                 and decl_key(decl) not in self.names
             ):
                 self.names[decl_key(decl)] = cursor.spelling
+                self.typedef_named.add(decl_key(decl))
                 self.absorbed.add(decl_key(cursor))
             self.typedefs.add(cursor.spelling)
 

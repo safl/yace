@@ -15,7 +15,7 @@ from tests.conftest import (
     needs_cc,
 )
 from yace.compiler import process
-from yace.ir import decls
+from yace.ir import decls, types
 from yace.ir.model import load
 from yace.targets.capi.target import CAPI, CFLAGS
 
@@ -269,3 +269,55 @@ def test_a_packed_record_is_declared_packed_and_prints(parse, tmp_path):
     run = subprocess.run([str(tmp_path / "k")], capture_output=True, text=True)
     assert run.returncode == 0
     assert run.stdout == PACKED_PRINTED
+
+
+SIGNED = """#include <stdint.h>
+/** A pair */
+typedef struct { int a; } api_pair_t;
+/** A count */
+typedef uint32_t api_count_t;
+/** Sum the pair @return the sum */
+int api_sum(const api_pair_t *pair, api_count_t n, const char *name);
+"""
+
+
+@needs_cc
+def test_the_signatures_are_checked_against_the_headers(parse, tmp_path):
+    model, _ = parse(SIGNED)
+    assert process(model, ["capi"], tmp_path / "out", include=[tmp_path]) == []
+
+    source = (tmp_path / "out" / "capi" / "api_signatures.c").read_text()
+    assert '#include "api.h"' in source
+    assert "int (*)(const api_pair_t *, api_count_t, const char *)" in source
+
+
+@needs_cc
+def test_a_signature_the_header_does_not_have_fails(parse, tmp_path):
+    model, _ = parse(SIGNED)
+    model.find("api_sum").params[1].typ = types.Builtin(name="int")
+
+    failures = process(model, ["capi"], tmp_path / "out", include=[tmp_path])
+    assert len(failures) == 1
+    assert "the signatures disagree with the headers" in failures[0]
+    assert "api_sum: the IR and the headers disagree on its type" in failures[0]
+
+
+@needs_cc
+def test_without_the_headers_the_signatures_are_said_not_checked(
+    parse, tmp_path, caplog
+):
+    model, _ = parse(SIGNED)
+    assert process(model, ["capi"], tmp_path / "out") == []
+
+    note = "the signatures are not checked: api.h not found; give its directory with -I"
+    assert note in caplog.text
+    assert (tmp_path / "out" / "capi" / "signatures.log").read_text() == f"{note}\n"
+
+
+@needs_cc
+def test_an_ir_of_no_headers_is_said_not_checked(parse, tmp_path, caplog):
+    model, _ = parse(SIGNED)
+    model.meta.headers = []
+    assert process(model, ["capi"], tmp_path / "out", include=[tmp_path]) == []
+
+    assert "the signatures are not checked: the IR records no headers" in caplog.text

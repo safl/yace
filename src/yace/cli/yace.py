@@ -159,14 +159,15 @@ def main():
     else:
         models = [ir.load(path) for path in args.filepath]
 
+    # The headers' own directories too, where the check of the signatures finds
+    # them when they are given by path
+    include = [Path(path) for path in args.include]
+    if ".h" in suffixes:
+        include += [p.parent for p in args.filepath if p.parent not in include]
     failures = []
     for model in models:
         failures += process(
-            model,
-            args.emit,
-            args.output,
-            check=not args.no_check,
-            include=[Path(path) for path in args.include],
+            model, args.emit, args.output, check=not args.no_check, include=include
         )
     for failure in failures:
         print(f"yace: {failure}", file=sys.stderr)

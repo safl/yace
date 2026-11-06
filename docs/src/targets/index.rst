@@ -6,7 +6,8 @@
 
 A target generates the code of an API, from its IR, for one language, and
 checks it: that it builds, that its records have the layout recorded in the IR,
-and that it works. Targets are found through the ``yace.targets`` entry point
+and that it works. The C target also checks that the functions have, in the IR,
+the types the headers give them, see :ref:`sec-targets-capi`. Targets are found through the ``yace.targets`` entry point
 group, so a package can provide one without changes to **yace**; see
 :py:mod:`yace.targets.target`.
 
