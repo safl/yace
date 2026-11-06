@@ -33,9 +33,9 @@ calls:
   points_sum_x: 10
   submit: 0
   submit_busy: -16
-  poke: 1
+  complete: 1
   done_count: 6
-  poke_again: 0
+  complete_again: 0
 ---
 foo_point:
   x: 3
@@ -139,7 +139,7 @@ foo_value:
     x: -1
     y: 0
 ---
-foo_packed:
+foo_wire:
   kind: 1
   length: 4000000000
   at:

@@ -1,9 +1,9 @@
 """
 What the .pxd brings: the x of every point of a handle, filled by
-foo_add_many(), summed in six ways, from the idiomatic ctypes layer to plain C,
-'rounds' times over, as a handle holds FOO_POINTS_MAX points. Prints the time
-per point of each, the best of 'repeat' runs, and the sum, which all six must
-agree on; with --json, as JSON lines.
+foo_point_add_many(), summed in six ways, from the idiomatic ctypes layer to
+plain C, 'rounds' times over, as a handle holds FOO_POINTS_MAX points. Prints
+the time per point of each, the best of 'repeat' runs, and the sum, which all
+six must agree on; with --json, as JSON lines.
 
 Needs the bindings, foo, on PYTHONPATH, FOO_LIBRARY set, and fast built, see
 setup.py: python bench.py ROUNDS [--repeat N] [--json]
@@ -19,21 +19,21 @@ import foo
 
 
 def idiomatic(handle, rounds):
-    count = handle.count()
+    count = handle.point_count()
     total = 0
     for _ in range(rounds):
         for idx in range(count):
-            total += handle.at(idx).x
+            total += handle.point_get(idx).x
     return total
 
 
 def raw(handle, rounds):
     ptr = handle._handle
-    count = foo.foo_count(ptr)
+    count = foo.foo_point_count(ptr)
     total = 0
     for _ in range(rounds):
         for idx in range(count):
-            total += foo.foo_at(ptr, idx).contents.x
+            total += foo.foo_point_get(ptr, idx).contents.x
     return total
 
 
@@ -46,7 +46,7 @@ def visit(handle, rounds):
 
     callback = foo.FooVisitCb(add_x)
     for _ in range(rounds):
-        foo.foo_visit(handle._handle, callback, None)
+        foo.foo_point_visit(handle._handle, callback, None)
     return found[0]
 
 
@@ -58,17 +58,31 @@ def main():
     args = parser.parse_args()
 
     handle = foo.open("bench")
-    handle.add_many([foo.FooPoint(idx, -idx) for idx in range(foo.FOO_POINTS_MAX)])
+    handle.point_add_many(
+        [foo.FooPoint(idx, -idx) for idx in range(foo.FOO_POINTS_MAX)]
+    )
     addr = ctypes.cast(handle._handle, ctypes.c_void_p).value
-    points = args.rounds * handle.count()
+    points = args.rounds * handle.point_count()
 
     ways = [
-        ("ctypes, idiomatic handle.at()", lambda: idiomatic(handle, args.rounds)),
-        ("ctypes, raw foo_at()", lambda: raw(handle, args.rounds)),
-        ("ctypes, foo_visit() calling Python", lambda: visit(handle, args.rounds)),
-        ("Cython, foo_at() through the .pxd", lambda: fast.at(addr, args.rounds)),
-        ("Cython, foo_visit() calling Cython", lambda: fast.visit(addr, args.rounds)),
-        ("C, foo_at()", lambda: fast.plain(addr, args.rounds)),
+        (
+            "ctypes, idiomatic handle.point_get()",
+            lambda: idiomatic(handle, args.rounds),
+        ),
+        ("ctypes, raw foo_point_get()", lambda: raw(handle, args.rounds)),
+        (
+            "ctypes, foo_point_visit() calling Python",
+            lambda: visit(handle, args.rounds),
+        ),
+        (
+            "Cython, foo_point_get() through the .pxd",
+            lambda: fast.point_get(addr, args.rounds),
+        ),
+        (
+            "Cython, foo_point_visit() calling Cython",
+            lambda: fast.point_visit(addr, args.rounds),
+        ),
+        ("C, foo_point_get()", lambda: fast.plain(addr, args.rounds)),
     ]
     for name, way in ways:
         best = None

@@ -56,46 +56,46 @@ def main():
         calls["open"] = 0
         calls["open_without_name"] = errno_of(foo.open, None)
         calls["name"] = handle.name()
-        calls["added"] = sum(errno_of(handle.add, p) == 0 for p in points)
-        calls["count"] = handle.count()
+        calls["added"] = sum(errno_of(handle.point_add, p) == 0 for p in points)
+        calls["count"] = handle.point_count()
 
         seen = []
-        calls["visit"] = handle.visit(lambda point: seen.append(point.x) or 0)
+        calls["visit"] = handle.point_visit(lambda point: seen.append(point.x) or 0)
         calls["visit_sum_x"] = sum(seen)
         ys = []
-        handle.visit(lambda point: ys.append(point.y) or 0)
+        handle.point_visit(lambda point: ys.append(point.y) or 0)
         calls["visit_sum_y"] = sum(ys)
-        calls["visit_stopped"] = handle.visit(lambda point: point.x == 3)
-        calls["visit_without_callback"] = errno_of(handle.visit, None)
+        calls["visit_stopped"] = handle.point_visit(lambda point: point.x == 3)
+        calls["visit_without_callback"] = errno_of(handle.point_visit, None)
         with_visitor = []
         callback = foo.FooVisitCb(lambda arg, p: with_visitor.append(p.contents.x) or 0)
-        calls["visit_with"] = handle.visit_with(foo.FooVisitor(visit=callback))
+        calls["visit_with"] = handle.point_visit_with(foo.FooVisitor(visit=callback))
         calls["visit_with_sum_x"] = sum(with_visitor)
         calls["figure_of_unknown_shape"] = errno_of(foo.figure_fill, 3)
-        calls["add_many"] = handle.add_many(points)
-        calls["count_after_add_many"] = handle.count()
-        copied = handle.points(4)
+        calls["add_many"] = handle.point_add_many(points)
+        calls["count_after_add_many"] = handle.point_count()
+        copied = handle.point_copy(4)
         calls["points_copied"] = len(copied)
         calls["points_sum_x"] = sum(point.x for point in copied)
         counted = []
-        calls["submit"] = errno_of(handle.submit, counted.append)
-        calls["submit_busy"] = errno_of(handle.submit, counted.append)
-        calls["poke"] = handle.poke()
+        calls["submit"] = errno_of(handle.count_submit, counted.append)
+        calls["submit_busy"] = errno_of(handle.count_submit, counted.append)
+        calls["complete"] = handle.count_complete()
         calls["done_count"] = counted[0]
-        calls["poke_again"] = handle.poke()
+        calls["complete_again"] = handle.count_complete()
         document("calls", calls, as_json)
 
-        record(foo.FooPoint, handle.at(1), flags)
-        record(foo.FooPoint, handle.at(6), flags)
+        record(foo.FooPoint, handle.point_get(1), flags)
+        record(foo.FooPoint, handle.point_get(6), flags)
 
-        while errno_of(handle.add, points[0]) == 0:
+        while errno_of(handle.point_add, points[0]) == 0:
             pass
         document(
             "full",
             {
-                "count": handle.count(),
-                "add": errno_of(handle.add, points[0]),
-                "add_many": errno_of(handle.add_many, points[:1]),
+                "count": handle.point_count(),
+                "add": errno_of(handle.point_add, points[0]),
+                "add_many": errno_of(handle.point_add_many, points[:1]),
             },
             as_json,
         )
@@ -106,7 +106,7 @@ def main():
     for shape in (foo.FOO_SHAPE_POINT, foo.FOO_SHAPE_LINE, foo.FOO_SHAPE_POLYGON):
         record(foo.FooFigure, foo.figure_fill(shape), flags)
     record(foo.FooValue, foo.value_set(-1), flags)
-    record(foo.FooPacked, foo.packed_fill(), flags)
+    record(foo.FooWire, foo.wire_fill(), flags)
 
     return 0
 

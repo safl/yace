@@ -25,24 +25,25 @@ def test_handles_get_constructors_methods_and_destructors():
         "foo_handle",
     )
     assert found["foo_close"].kind == "destructor"
-    assert (found["foo_add"].kind, found["foo_add"].name) == ("method", "add")
+    add = found["foo_point_add"]
+    assert (add.kind, add.name) == ("method", "point_add")
     assert found["foo_version"].kind == "function"
 
 
 def test_parameters_are_given_returned_or_hidden():
     found = calls()
     assert kinds(found["foo_open"]) == [("name", "string"), ("handle", "out")]
-    assert kinds(found["foo_add_many"]) == [
+    assert kinds(found["foo_point_add_many"]) == [
         ("handle", "self"),
         ("points", "sequence"),
         ("npoints", "length"),
     ]
-    assert kinds(found["foo_points"]) == [
+    assert kinds(found["foo_point_copy"]) == [
         ("handle", "self"),
         ("points", "out"),
         ("npoints", "capacity"),
     ]
-    assert kinds(found["foo_visit"]) == [
+    assert kinds(found["foo_point_visit"]) == [
         ("handle", "self"),
         ("visit", "callback"),
         ("arg", "context"),
@@ -52,9 +53,11 @@ def test_parameters_are_given_returned_or_hidden():
 
 def test_returns_follow_errno_and_nullability():
     found = calls()
-    assert found["foo_add"].returns == "nothing" and found["foo_add"].errno
-    assert found["foo_add_many"].returns == "count"
-    assert found["foo_at"].returns == "pointer" and found["foo_at"].nullable
+    assert found["foo_point_add"].returns == "nothing" and found["foo_point_add"].errno
+    assert found["foo_point_add_many"].returns == "count"
+    assert (
+        found["foo_point_get"].returns == "pointer" and found["foo_point_get"].nullable
+    )
     assert found["foo_name"].returns == "string"
 
 

@@ -78,29 +78,29 @@ fn main() -> io::Result<()> {
         let opened = foo_open(c"points".as_ptr(), &mut handle);
         let open_without_name = foo_open(ptr::null(), &mut handle);
         let name = string(foo_name(handle));
-        let added = points.iter().filter(|p| foo_add(handle, *p) == 0).count();
-        let count = foo_count(handle);
-        let visit = foo_visit(handle, Some(summarize), &mut every as *mut Sum as *mut c_void);
+        let added = points.iter().filter(|p| foo_point_add(handle, *p) == 0).count();
+        let count = foo_point_count(handle);
+        let visit = foo_point_visit(handle, Some(summarize), &mut every as *mut Sum as *mut c_void);
         let stopped =
-            foo_visit(handle, Some(summarize), &mut first_two as *mut Sum as *mut c_void);
-        let without = foo_visit(handle, None, ptr::null_mut());
+            foo_point_visit(handle, Some(summarize), &mut first_two as *mut Sum as *mut c_void);
+        let without = foo_point_visit(handle, None, ptr::null_mut());
         let visitor = FooVisitor {
             visit: Some(summarize),
             arg: &mut with as *mut Sum as *mut c_void,
         };
-        let visit_with = foo_visit_with(handle, &visitor);
+        let visit_with = foo_point_visit_with(handle, &visitor);
         let unknown = foo_figure_fill(&mut figure, 3);
-        let add_many = foo_add_many(handle, points.as_ptr(), points.len());
-        let count_after_add_many = foo_count(handle);
+        let add_many = foo_point_add_many(handle, points.as_ptr(), points.len());
+        let count_after_add_many = foo_point_count(handle);
         let mut copied = [FooPoint::default(); 4];
-        let points_copied = foo_points(handle, copied.as_mut_ptr(), copied.len());
+        let points_copied = foo_point_copy(handle, copied.as_mut_ptr(), copied.len());
         let points_sum_x: i64 = copied.iter().map(|p| p.x as i64).sum();
         let mut done_count: usize = 0;
         let done = &mut done_count as *mut usize as *mut c_void;
-        let submit = foo_submit(handle, Some(count_done), done);
-        let submit_busy = foo_submit(handle, Some(count_done), done);
-        let poke = foo_poke(handle);
-        let poke_again = foo_poke(handle);
+        let submit = foo_count_submit(handle, Some(count_done), done);
+        let submit_busy = foo_count_submit(handle, Some(count_done), done);
+        let complete = foo_count_complete(handle);
+        let complete_again = foo_count_complete(handle);
         document(
             "calls",
             &[
@@ -124,21 +124,21 @@ fn main() -> io::Result<()> {
                 ("points_sum_x", Value::Int(points_sum_x)),
                 ("submit", Value::Int(submit.into())),
                 ("submit_busy", Value::Int(submit_busy.into())),
-                ("poke", Value::Int(poke as i64)),
+                ("complete", Value::Int(complete as i64)),
                 ("done_count", Value::Int(done_count as i64)),
-                ("poke_again", Value::Int(poke_again as i64)),
+                ("complete_again", Value::Int(complete_again as i64)),
             ],
             as_json,
         );
 
-        record("foo_point", FooPoint::fpr, foo_at(handle, 1).as_ref(), flags)?;
-        record("foo_point", FooPoint::fpr, foo_at(handle, 6).as_ref(), flags)?;
+        record("foo_point", FooPoint::fpr, foo_point_get(handle, 1).as_ref(), flags)?;
+        record("foo_point", FooPoint::fpr, foo_point_get(handle, 6).as_ref(), flags)?;
 
-        while foo_add(handle, &points[0]) == 0 {}
+        while foo_point_add(handle, &points[0]) == 0 {}
         let full = [
-            ("count", Value::Int(foo_count(handle) as i64)),
-            ("add", Value::Int(foo_add(handle, &points[0]).into())),
-            ("add_many", Value::Int(foo_add_many(handle, points.as_ptr(), 1) as i64)),
+            ("count", Value::Int(foo_point_count(handle) as i64)),
+            ("add", Value::Int(foo_point_add(handle, &points[0]).into())),
+            ("add_many", Value::Int(foo_point_add_many(handle, points.as_ptr(), 1) as i64)),
         ];
         document("full", &full, as_json);
         let mut status = FooStatus::default();
@@ -162,9 +162,9 @@ fn main() -> io::Result<()> {
         foo_value_set(&mut value, -1);
         record("foo_value", FooValue::fpr, Some(&value), flags)?;
 
-        let mut packed = FooPacked::default();
-        foo_packed_fill(&mut packed);
-        record("foo_packed", FooPacked::fpr, Some(&packed), flags)?;
+        let mut wire = FooWire::default();
+        foo_wire_fill(&mut wire);
+        record("foo_wire", FooWire::fpr, Some(&wire), flags)?;
     }
 
     Ok(())

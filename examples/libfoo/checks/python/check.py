@@ -105,44 +105,46 @@ def main():
     calls["open_without_name"] = foo.foo_open(None, ctypes.byref(handle))
     calls["name"] = foo.foo_name(handle)
     points = [foo.FooPoint(1, 2), foo.FooPoint(3, 4), foo.FooPoint(5, 6)]
-    calls["added"] = sum(not foo.foo_add(handle, point) for point in points)
-    calls["count"] = foo.foo_count(handle)
+    calls["added"] = sum(not foo.foo_point_add(handle, point) for point in points)
+    calls["count"] = foo.foo_point_count(handle)
     every, first_two, with_visitor = Sum(), Sum(stop_after=2), Sum()
-    calls["visit"] = foo.foo_visit(handle, every.callback, None)
+    calls["visit"] = foo.foo_point_visit(handle, every.callback, None)
     calls["visit_sum_x"] = every.x
     calls["visit_sum_y"] = every.y
-    calls["visit_stopped"] = foo.foo_visit(handle, first_two.callback, None)
-    calls["visit_without_callback"] = foo.foo_visit(handle, foo.FooVisitCb(), None)
+    calls["visit_stopped"] = foo.foo_point_visit(handle, first_two.callback, None)
+    calls["visit_without_callback"] = foo.foo_point_visit(
+        handle, foo.FooVisitCb(), None
+    )
     visitor = foo.FooVisitor(visit=with_visitor.callback)
-    calls["visit_with"] = foo.foo_visit_with(handle, visitor)
+    calls["visit_with"] = foo.foo_point_visit_with(handle, visitor)
     calls["visit_with_sum_x"] = with_visitor.x
     calls["figure_of_unknown_shape"] = foo.foo_figure_fill(foo.FooFigure(), 3)
     many = (foo.FooPoint * len(points))(*points)
-    calls["add_many"] = foo.foo_add_many(handle, many, len(points))
-    calls["count_after_add_many"] = foo.foo_count(handle)
+    calls["add_many"] = foo.foo_point_add_many(handle, many, len(points))
+    calls["count_after_add_many"] = foo.foo_point_count(handle)
     copied = (foo.FooPoint * 4)()
-    calls["points_copied"] = foo.foo_points(handle, copied, 4)
+    calls["points_copied"] = foo.foo_point_copy(handle, copied, 4)
     calls["points_sum_x"] = sum(point.x for point in copied)
     counted = []
     done = foo.FooDoneCb(lambda arg, count: counted.append(count))
-    calls["submit"] = foo.foo_submit(handle, done, None)
-    calls["submit_busy"] = foo.foo_submit(handle, done, None)
-    calls["poke"] = foo.foo_poke(handle)
+    calls["submit"] = foo.foo_count_submit(handle, done, None)
+    calls["submit_busy"] = foo.foo_count_submit(handle, done, None)
+    calls["complete"] = foo.foo_count_complete(handle)
     calls["done_count"] = counted[0]
-    calls["poke_again"] = foo.foo_poke(handle)
+    calls["complete_again"] = foo.foo_count_complete(handle)
     document("calls", calls, as_json)
 
-    record(foo.FooPoint, foo.foo_at(handle, 1), flags)
-    record(foo.FooPoint, foo.foo_at(handle, 6), flags)
+    record(foo.FooPoint, foo.foo_point_get(handle, 1), flags)
+    record(foo.FooPoint, foo.foo_point_get(handle, 6), flags)
 
-    while not foo.foo_add(handle, points[0]):
+    while not foo.foo_point_add(handle, points[0]):
         pass
     document(
         "full",
         {
-            "count": foo.foo_count(handle),
-            "add": foo.foo_add(handle, points[0]),
-            "add_many": foo.foo_add_many(handle, many, 1),
+            "count": foo.foo_point_count(handle),
+            "add": foo.foo_point_add(handle, points[0]),
+            "add_many": foo.foo_point_add_many(handle, many, 1),
         },
         as_json,
     )
@@ -166,9 +168,9 @@ def main():
     foo.foo_value_set(value, -1)
     record(foo.FooValue, value, flags)
 
-    packed = foo.FooPacked()
-    foo.foo_packed_fill(packed)
-    record(foo.FooPacked, packed, flags)
+    wire = foo.FooWire()
+    foo.foo_wire_fill(wire)
+    record(foo.FooWire, wire, flags)
 
     return 0
 

@@ -59,7 +59,7 @@ foo_name(const struct foo_handle *handle)
 }
 
 int
-foo_add(struct foo_handle *handle, const struct foo_point *point)
+foo_point_add(struct foo_handle *handle, const struct foo_point *point)
 {
 	if (handle->npoints == FOO_POINTS_MAX) {
 		return -ENOSPC;
@@ -70,11 +70,11 @@ foo_add(struct foo_handle *handle, const struct foo_point *point)
 }
 
 ssize_t
-foo_add_many(struct foo_handle *handle, const struct foo_point *points, size_t npoints)
+foo_point_add_many(struct foo_handle *handle, const struct foo_point *points, size_t npoints)
 {
 	size_t added = 0;
 
-	while (added < npoints && !foo_add(handle, &points[added])) {
+	while (added < npoints && !foo_point_add(handle, &points[added])) {
 		added += 1;
 	}
 
@@ -82,19 +82,19 @@ foo_add_many(struct foo_handle *handle, const struct foo_point *points, size_t n
 }
 
 size_t
-foo_count(const struct foo_handle *handle)
+foo_point_count(const struct foo_handle *handle)
 {
 	return handle->npoints;
 }
 
 const struct foo_point *
-foo_at(const struct foo_handle *handle, size_t idx)
+foo_point_get(const struct foo_handle *handle, size_t idx)
 {
 	return idx < handle->npoints ? &handle->points[idx] : NULL;
 }
 
 ssize_t
-foo_points(const struct foo_handle *handle, struct foo_point *points, size_t npoints)
+foo_point_copy(const struct foo_handle *handle, struct foo_point *points, size_t npoints)
 {
 	size_t copied = npoints < handle->npoints ? npoints : handle->npoints;
 
@@ -104,7 +104,7 @@ foo_points(const struct foo_handle *handle, struct foo_point *points, size_t npo
 }
 
 ssize_t
-foo_visit(struct foo_handle *handle, foo_visit_cb visit, void *arg)
+foo_point_visit(struct foo_handle *handle, foo_visit_cb visit, void *arg)
 {
 	ssize_t visited = 0;
 
@@ -123,13 +123,13 @@ foo_visit(struct foo_handle *handle, foo_visit_cb visit, void *arg)
 }
 
 ssize_t
-foo_visit_with(struct foo_handle *handle, const struct foo_visitor *visitor)
+foo_point_visit_with(struct foo_handle *handle, const struct foo_visitor *visitor)
 {
-	return foo_visit(handle, visitor->visit, visitor->arg);
+	return foo_point_visit(handle, visitor->visit, visitor->arg);
 }
 
 int
-foo_submit(struct foo_handle *handle, foo_done_cb done, void *arg)
+foo_count_submit(struct foo_handle *handle, foo_done_cb done, void *arg)
 {
 	if (handle->done) {
 		return -EBUSY;
@@ -141,7 +141,7 @@ foo_submit(struct foo_handle *handle, foo_done_cb done, void *arg)
 }
 
 size_t
-foo_poke(struct foo_handle *handle)
+foo_count_complete(struct foo_handle *handle)
 {
 	foo_done_cb done = handle->done;
 
@@ -246,13 +246,13 @@ foo_value_set(union foo_value *value, int32_t i)
 }
 
 void
-foo_packed_fill(struct foo_packed *packed)
+foo_wire_fill(struct foo_wire *wire)
 {
-	memset(packed, 0, sizeof(*packed));
-	packed->kind = FOO_SHAPE_LINE;
-	packed->length = 4000000000u;
-	packed->at.x = -3;
-	packed->at.y = 4;
-	packed->pair[0] = 1;
-	packed->pair[1] = UINT16_MAX;
+	memset(wire, 0, sizeof(*wire));
+	wire->kind = FOO_SHAPE_LINE;
+	wire->length = 4000000000u;
+	wire->at.x = -3;
+	wire->at.y = 4;
+	wire->pair[0] = 1;
+	wire->pair[1] = UINT16_MAX;
 }

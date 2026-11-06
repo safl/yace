@@ -17,17 +17,17 @@ cdef extern from *:
     int64_t bench_sum(const c.foo_handle *handle, size_t rounds) nogil
 
 
-def at(uintptr_t addr, size_t rounds):
-    """foo_at() in a loop of Cython"""
+def point_get(uintptr_t addr, size_t rounds):
+    """foo_point_get() in a loop of Cython"""
 
     cdef const c.foo_handle *handle = <const c.foo_handle *>addr
-    cdef size_t count = c.foo_count(handle)
+    cdef size_t count = c.foo_point_count(handle)
     cdef int64_t total = 0
     cdef size_t round, idx
     with nogil:
         for round in range(rounds):
             for idx in range(count):
-                total += c.foo_at(handle, idx).x
+                total += c.foo_point_get(handle, idx).x
     return total
 
 
@@ -36,20 +36,20 @@ cdef int add_x(void *arg, const c.foo_point *point) noexcept nogil:
     return 0
 
 
-def visit(uintptr_t addr, size_t rounds):
-    """foo_visit() with a callback of Cython"""
+def point_visit(uintptr_t addr, size_t rounds):
+    """foo_point_visit() with a callback of Cython"""
 
     cdef c.foo_handle *handle = <c.foo_handle *>addr
     cdef int64_t total = 0
     cdef size_t round
     with nogil:
         for round in range(rounds):
-            c.foo_visit(handle, add_x, &total)
+            c.foo_point_visit(handle, add_x, &total)
     return total
 
 
 def plain(uintptr_t addr, size_t rounds):
-    """The loop of foo_at() in C"""
+    """The loop of foo_point_get() in C"""
 
     cdef int64_t total
     with nogil:

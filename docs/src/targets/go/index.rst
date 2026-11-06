@@ -123,7 +123,8 @@ Results
   passed. An ``[out]`` array is written to a slice the caller gives, as
   ``io.Reader`` does, and the part written is returned. A returned string is a
   Go ``string``, copied. A returned pointer to a record is a copy of it, with
-  whether there was one where ``@nullable``, ``point, ok := handle.At(1)``.
+  whether there was one where ``@nullable``,
+  ``point, ok := handle.PointGet(1)``.
 
 Arguments
   A string is a ``string``, a ``*string`` where ``@nullable``, nil passing NULL;
