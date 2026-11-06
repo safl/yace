@@ -100,6 +100,16 @@ const Sum = struct {
     }
 };
 
+const Watched = struct {
+    count: usize = 0,
+    x: i64 = 0,
+
+    fn added(self: *Watched, point: *const foo.FooPoint) void {
+        self.count += 1;
+        self.x += point.x;
+    }
+};
+
 const Done = struct {
     count: usize = 0,
 
@@ -143,6 +153,10 @@ pub fn main(init: std.process.Init) !void {
     defer handle.deinit();
     var unopened: ?*foo.FooHandle = null;
     const open_without_name = foo.foo_open(null, &unopened);
+    var watched = Watched{};
+    const watch = errno(handle.pointWatch(&watched, Watched.added));
+    var busy = Watched{};
+    const watch_busy = errno(handle.pointWatch(&busy, Watched.added));
     var added: i64 = 0;
     for (&points) |*point| added += @intFromBool(errno(handle.pointAdd(point)) == 0);
     const count = handle.pointCount();
@@ -158,6 +172,7 @@ pub fn main(init: std.process.Init) !void {
     const unknown = errno(foo.figureFill(3));
     const add_many = errno(handle.pointAddMany(&points));
     const count_after = handle.pointCount();
+    const watched_after = watched;
     var copied_buf: [4]foo.FooPoint = undefined;
     const copied = try handle.pointCopy(&copied_buf);
     var copied_x: i64 = 0;
@@ -173,6 +188,8 @@ pub fn main(init: std.process.Init) !void {
         .{ "open", .{ .int = 0 } },
         .{ "open_without_name", .{ .int = open_without_name } },
         .{ "name", .{ .str = handle.name() } },
+        .{ "watch", .{ .int = watch } },
+        .{ "watch_busy", .{ .int = watch_busy } },
         .{ "added", .{ .int = added } },
         .{ "count", .{ .int = @intCast(count) } },
         .{ "visit", .{ .int = visit } },
@@ -185,6 +202,8 @@ pub fn main(init: std.process.Init) !void {
         .{ "figure_of_unknown_shape", .{ .int = unknown } },
         .{ "add_many", .{ .int = add_many } },
         .{ "count_after_add_many", .{ .int = @intCast(count_after) } },
+        .{ "watched", .{ .int = @intCast(watched_after.count) } },
+        .{ "watched_sum_x", .{ .int = watched_after.x } },
         .{ "points_copied", .{ .int = @intCast(copied.len) } },
         .{ "points_sum_x", .{ .int = copied_x } },
         .{ "submit", .{ .int = submit } },
@@ -202,6 +221,7 @@ pub fn main(init: std.process.Init) !void {
         .{ "count", .{ .int = @intCast(handle.pointCount()) } },
         .{ "add", .{ .int = errno(handle.pointAdd(&points[0])) } },
         .{ "add_many", .{ .int = errno(handle.pointAddMany(points[0..1])) } },
+        .{ "watched", .{ .int = @intCast(watched.count) } },
     });
 
     const status = handle.statusGet();
