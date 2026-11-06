@@ -1,0 +1,25 @@
+libfoo: 8 points summed 200000 times, best of 5 runs, ns per point
+
+target                   calls     x C    callback     x C
+----------------------------------------------------------
+c                          2.7     1.0         2.5     1.0
+cpp                        2.5     0.9         2.6     1.0
+rust-raw                   2.5     0.9         2.5     1.0
+rust-safe                  3.2     1.2         3.6     1.4
+zig                        5.7     2.1         2.5     1.0
+go                        26.6     9.9        75.8    29.9
+python-raw               597.6   223.2       348.1   137.2
+python-idiomatic         993.1   370.8       576.2   227.0
+cython                     1.8     0.7         1.5     0.6
+
+cpu: AMD Ryzen 7 7840U w/ Radeon 780M Graphics, 16 CPUs, 30 GiB
+os: Ubuntu 24.04.5 LTS, Linux 6.6.87.2-microsoft-standard-WSL2 x86_64
+yace: yace 0.8.0
+cc: cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+cxx: c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+rustc: rustc 1.96.0 (ac68faa20 2026-05-25)
+cargo: cargo 1.96.0 (30a34c682 2026-05-25)
+zig: 0.16.0
+go: go version go1.27.3 linux/amd64
+python: Python 3.12.3
+cython: Cython 3.3.1
