@@ -18,11 +18,26 @@ The Zig target, ``zig``, generates a module binding the API, into
   What has all of the module compiled, as Zig compiles only what is
   referenced.
 
+``<prefix>_signatures.zig``
+  The check of the signatures, not part of the API: it imports the headers
+  the IR was parsed from, by Zig's own translation of C, and asserts at compile
+  time that each extern function of the bindings takes and returns what the
+  header's does, as the C ABI sees it: as many parameters, and each one, and
+  the return, of the same class, pointer, float or other, size and alignment,
+  field by field for a record passed by value. A function the headers do not
+  declare fails.
+
 The module needs Zig 0.16, as Zig's standard library changes between releases,
 and libc, as the C API does. **yace** compiles all of the module, with
 ``$ZIG``, by default ``zig``, then builds and runs the check, and parses what it
 printed, as YAML and as JSON. As for the C API, the layout is asserted only on
 the platform it was recorded on.
+
+The check of the signatures is compiled with the include directories, as for
+the C API, and where a header is not found, **yace** warns that the signatures
+are not checked. It warns the same where Zig cannot import the headers, as
+where a header asserts the size of a record of bit-fields, which Zig
+translates as opaque.
 
 The raw layer
 -------------
