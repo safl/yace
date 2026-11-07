@@ -6,6 +6,7 @@ Given C headers, parses them as one API into the IR, writing '<stem>.yaml' and
 the diagnostics to '<stem>.status', named by the first header, and reports every
 place the headers step outside the C subset. Given IR files, '.yaml', reads them.
 Either way, '--emit' then generates the code of the given targets and checks it.
+A generator, '--generate', writes headers that are parsed with the headers given.
 With '--toolchains', prints what those checks build with instead.
 """
 
@@ -18,6 +19,7 @@ from pathlib import Path
 import yaml
 
 from yace import __version__ as version
+from yace import generators as gen
 from yace.compiler import process
 from yace.ir import model as ir
 from yace.ir.cparser import c_to_yace
@@ -41,6 +43,21 @@ def parse_args():
         default=[],
         metavar="TARGET",
         help=f"targets to generate code for; installed: {', '.join(sorted(targets()))}",
+    )
+    parser.add_argument(
+        "--generate",
+        action="append",
+        default=[],
+        metavar="GENERATOR",
+        help="generator to write headers with, which are then parsed with the"
+        " headers given; installed: " + (", ".join(sorted(gen.generators())) or "none"),
+    )
+    parser.add_argument(
+        "--generator-option",
+        action="append",
+        default=[],
+        metavar="GENERATOR.KEY=VALUE",
+        help="an option of a generator",
     )
     parser.add_argument(
         "--output",
@@ -124,8 +141,24 @@ def main():
         print(json.dumps(found, indent=2))
         return 0
 
+    if args.generate:
+        try:
+            generated = gen.generate(args.generate, args.output, args.generator_option)
+        except (KeyError, ValueError) as error:
+            log.error("%s", error.args[0])
+            return 1
+        for path in generated.headers + generated.sources:
+            log.info("generated %s", path)
+        if any(path.suffix == ".yaml" for path in args.filepath):
+            log.error("generated headers are parsed with headers, not IR files")
+            return 1
+        args.filepath = list(args.filepath) + generated.headers
+        args.include = list(args.include) + sorted(
+            {str(path.parent) for path in generated.headers}
+        )
+
     if not args.filepath:
-        log.error("give C headers (.h) or IR files (.yaml)")
+        log.error("give C headers (.h) or IR files (.yaml), or a generator")
         return 1
 
     missing = [str(path) for path in args.filepath if not path.exists()]
