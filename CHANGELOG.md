@@ -10,6 +10,45 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## 0.9.0
+
+Go is a target. Its bindings call the C API through cgo: a raw layer declares
+each record as a Go struct of the C layout, a union as its bytes read and
+written through a method per member, and each function as a Go function
+calling it, and the check does not compile unless the layout is the IR's. The
+idiomatic layer over it has handles as structs with their methods and a
+destructor to defer, errors returned last as a `syscall.Errno`, results
+returned, slices and strings, and a Go function as a callback, kept as its
+`@lifetime` says; records print without the C printers.
+
+The Python target also emits `<prefix>.pxd`, the `cdef extern` declarations of
+the C API, for Cython code to `cimport` and call in its own loops; its check
+compiles a `.pyx` against it where Cython is installed. A record repr's as its
+constructor is called, Rust records are `Debug` by their C fields, and C++
+prints records and names enums, none of them through the C printers.
+
+A record declared `__attribute__((packed))` is bound packed in every target,
+where it was declared unpacked and read the wrong bytes: C and C++ keep the
+attribute, Python sets `_pack_`, Rust uses `repr(C, packed)`, Zig aligns each
+field to 1, and Go keeps the bytes behind a getter and setter per field.
+
+The checks cover the functions, not only the records. The C target compiles an
+assertion per function that the IR's type of it is the header's, which covers
+C++, Go and the `.pxd` too, and the Zig target compares its extern functions
+with Zig's own import of the headers. `--toolchains` prints what each target's
+check builds with, its command, path and version, for a run to record.
+
+A generator writes headers for yace to take as headers written by hand: found
+by the `yace.generators` entry point group, or named by its file or module and
+class, as `--generate toolbox/spec.py:SpecHeaders`, so a project that is no
+Python package needs nothing installed. What it writes is parsed, emitted and
+checked under the same rules, its options given as
+`--generator-option <name>.<key>=<value>`.
+
+What uses a `volatile` type, or an enum defined nowhere, is skipped and
+reported rather than emitted wrong, and a record with a flexible array member
+where ISO C allows none is reported.
+
 ## 0.8.0
 
 The headers given are the API, parsed together into one IR in the order given,
