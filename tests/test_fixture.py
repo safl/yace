@@ -3,6 +3,7 @@ The fixture library, examples/libfoo, called through the bindings of each
 target: its check must print what examples/libfoo/expected.yaml says
 """
 
+import importlib.util
 import json
 import os
 import platform
@@ -159,31 +160,61 @@ def test_cython(model, library, tmp_path, fmt):
     assert documents(proc.stdout, fmt) == expected
 
 
+# Each target of the benchmark, the toolchain it is built with, and the results
+# its program prints
+BENCH = {
+    "c": ("cc", ["c"]),
+    "cpp": (os.environ.get("CXX", "c++"), ["cpp"]),
+    "rust": ("cargo", ["rust-raw", "rust-safe"]),
+    "zig": ("zig", ["zig"]),
+    "go": ("go", ["go"]),
+    "python": (sys.executable, ["python-raw", "python-idiomatic"]),
+    "cython": ("cython", ["cython"]),
+}
+
+
+def has_toolchain(target):
+    """Whether this machine has every tool the benchmark builds 'target' with"""
+
+    if target == "cython":
+        return all(importlib.util.find_spec(m) for m in ["Cython", "setuptools"])
+    if target == "rust":
+        return all(shutil.which(tool) for tool in ["cargo", "rustc"])
+    return shutil.which(BENCH[target][0]) is not None
+
+
 @needs_cc
-@needs_cython
-def test_the_benchmark_of_the_pxd_runs_every_way_alike(model, library, tmp_path):
-    assert process(model, ["python"], tmp_path) == []
+@pytest.mark.skipif(not shutil.which("cijoe"), reason="no cijoe")
+@pytest.mark.parametrize("target", list(BENCH))
+def test_the_benchmark_runs_every_target_alike(tmp_path, target):
+    if not has_toolchain(target):
+        pytest.skip(f"no toolchain for the {target} benchmark")
 
-    lib = next(path for path in library.iterdir() if path.stem == "libfoo")
-    bench = tmp_path / "bench"
-    shutil.copytree(FIXTURE / "bench", bench)
-    env = {**os.environ, "FOO_BINDINGS": str(tmp_path / "python")}
-    env["FOO_LIBRARY"] = str(lib)
-    run_in(bench, [sys.executable, "setup.py", "-q", "build_ext", "--inplace"], env)
-    env["PYTHONPATH"] = f"{tmp_path / 'python'}{os.pathsep}{bench}"
-    out = run_in(
-        bench, [sys.executable, "bench.py", "3", "--repeat", "1", "--json"], env
+    python = f'"{sys.executable}"'
+    (tmp_path / "test.toml").write_text(
+        f"[bench]\nrounds = 3\nrepeat = 1\ntargets = {json.dumps(['c', target])}\n"
+        f"workdir = {json.dumps(str(tmp_path / 'work'))}\n"
+        f"python = {json.dumps(python)}\nyace = {json.dumps(f'{python} -m yace')}\n"
+        f"cc = {json.dumps(cc())}\ncxx = {json.dumps(BENCH['cpp'][0])}\n"
     )
+    out = tmp_path / "out"
+    proc = subprocess.run(
+        ["cijoe", "bench.yaml", "-c", "bench.toml", "-c", tmp_path / "test.toml"]
+        + ["-o", out, "--report-skip"],
+        cwd=FIXTURE / "bench",
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, f"{proc.stderr}\nsee {out}"
 
-    rows = [json.loads(line) for line in out.splitlines()]
-    assert len(rows) == 6 and all(row["ns"] > 0 for row in rows)
+    results = BENCH["c"][1] + BENCH[target][1]
+    rows = json.loads((out / "artifacts" / "results.json").read_text())["rows"]
+    printed = {(row["target"], row["way"]) for row in rows}
+    assert printed == {(r, way) for r in results for way in ["calls", "callback"]}
     assert {row["sum"] for row in rows} == {3 * sum(range(8))}
-
-
-def run_in(cwd, cmd, env) -> str:
-    proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env=env)
-    assert proc.returncode == 0, proc.stderr
-    return proc.stdout
+    report = (out / "artifacts" / "report.txt").read_text()
+    assert all(result in report for result in results)
+    assert (out / "artifacts" / "results.csv").exists()
 
 
 def check_rust(model, library, tmp_path, fmt, program):
@@ -304,3 +335,42 @@ def test_go(model, library, tmp_path, fmt):
     expected = list(yaml.safe_load_all((FIXTURE / "expected.yaml").read_text()))
 
     assert documents(run([binary, fmt]), fmt) == expected
+
+
+def test_a_c_time_below_the_clock_s_resolution_gives_no_ratio(tmp_path, monkeypatch):
+    """A run of few rounds can take less than a tick of the clock, as on macOS,
+    and C's time is then 0; a ratio to it says nothing, so there is none"""
+
+    import importlib
+    import types
+
+    # The report needs nothing of cijoe but what benchlib imports from it
+    if importlib.util.find_spec("cijoe") is None:
+        tools = types.ModuleType("cijoe.core.tools")
+        tools.family = lambda *args, **kwargs: None
+        for name, module in [
+            ("cijoe", types.ModuleType("cijoe")),
+            ("cijoe.core", types.ModuleType("cijoe.core")),
+            ("cijoe.core.tools", tools),
+        ]:
+            monkeypatch.setitem(sys.modules, name, module)
+    monkeypatch.syspath_prepend(str(FIXTURE / "bench" / "scripts"))
+    import bench_report
+
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    rows = [
+        {"target": "c", "way": "calls", "ns": 0.0, "sum": 84},
+        {"target": "python", "way": "calls", "ns": 5.0, "sum": 84},
+    ]
+    (artifacts / "results.json").write_text(
+        json.dumps({"rows": rows, "points": 8, "rounds": 3, "repeat": 1})
+    )
+    cijoe = types.SimpleNamespace(
+        output_path=str(tmp_path), facts=types.SimpleNamespace(target=lambda: {})
+    )
+    assert bench_report.main(None, cijoe) == 0
+    assert (artifacts / "results.csv").read_text().splitlines()[1:] == [
+        "c,calls,0.0,84,",
+        "python,calls,5.0,84,",
+    ]

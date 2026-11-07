@@ -56,6 +56,9 @@ def main():
         calls["open"] = 0
         calls["open_without_name"] = errno_of(foo.open, None)
         calls["name"] = handle.name()
+        watched = []
+        calls["watch"] = errno_of(handle.point_watch, lambda p: watched.append(p.x))
+        calls["watch_busy"] = errno_of(handle.point_watch, watched.append)
         calls["added"] = sum(errno_of(handle.point_add, p) == 0 for p in points)
         calls["count"] = handle.point_count()
 
@@ -74,6 +77,8 @@ def main():
         calls["figure_of_unknown_shape"] = errno_of(foo.figure_fill, 3)
         calls["add_many"] = handle.point_add_many(points)
         calls["count_after_add_many"] = handle.point_count()
+        calls["watched"] = len(watched)
+        calls["watched_sum_x"] = sum(watched)
         copied = handle.point_copy(4)
         calls["points_copied"] = len(copied)
         calls["points_sum_x"] = sum(point.x for point in copied)
@@ -96,6 +101,7 @@ def main():
                 "count": handle.point_count(),
                 "add": errno_of(handle.point_add, points[0]),
                 "add_many": errno_of(handle.point_add_many, points[:1]),
+                "watched": len(watched),
             },
             as_json,
         )

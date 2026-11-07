@@ -292,6 +292,12 @@ The rest is said in the Doxygen comment of the function:
   ``@lifetime`` breaks the callback-lifetime rule, and is bound only as a raw
   function pointer.
 
+  The example library has one of each: ``foo_point_visit()`` takes a ``call``
+  callback, ``foo_count_submit()`` a ``once`` callback, which
+  ``foo_count_complete()`` invokes, and ``foo_point_watch()`` a ``handle``
+  callback, invoked for each point added until the handle is closed. Every
+  target's check uses all three.
+
 For example::
 
   /**

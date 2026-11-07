@@ -138,6 +138,12 @@ func main() {
 	defer handle.Close()
 	var unopened *foo.FooHandle
 	openWithoutName := foo.Foo_open(nil, &unopened)
+	var watched, watchedX int64
+	watch := errno(handle.PointWatch(func(point *foo.FooPoint) {
+		watched++
+		watchedX += int64(point.X)
+	}))
+	watchBusy := errno(handle.PointWatch(func(point *foo.FooPoint) {}))
 	added := 0
 	for idx := range points {
 		if handle.PointAdd(&points[idx]) == nil {
@@ -170,6 +176,7 @@ func main() {
 	unknown := errno(err)
 	addMany := value(handle.PointAddMany(points))
 	countAfter := handle.PointCount()
+	watchedAfter, watchedXAfter := watched, watchedX
 	copied, err := handle.PointCopy(make([]foo.FooPoint, 4))
 	if err != nil {
 		panic(err)
@@ -189,6 +196,8 @@ func main() {
 		{"open", "0"},
 		{"open_without_name", num(openWithoutName)},
 		{"name", quoted(handle.Name())},
+		{"watch", num(watch)},
+		{"watch_busy", num(watchBusy)},
 		{"added", num(added)},
 		{"count", num(count)},
 		{"visit", num(visit)},
@@ -201,6 +210,8 @@ func main() {
 		{"figure_of_unknown_shape", num(unknown)},
 		{"add_many", num(addMany)},
 		{"count_after_add_many", num(countAfter)},
+		{"watched", num(watchedAfter)},
+		{"watched_sum_x", num(watchedXAfter)},
 		{"points_copied", num(len(copied))},
 		{"points_sum_x", num(copiedX)},
 		{"submit", num(submit)},
@@ -225,6 +236,7 @@ func main() {
 		{"count", num(handle.PointCount())},
 		{"add", num(errno(handle.PointAdd(&points[0])))},
 		{"add_many", num(value(handle.PointAddMany(points[:1])))},
+		{"watched", num(watched)},
 	})
 
 	status := handle.StatusGet()

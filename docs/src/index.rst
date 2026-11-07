@@ -46,5 +46,6 @@ plenty of things to do.
    usage/index.rst
    ir/index.rst
    targets/index.rst
+   bench/index.rst
    survey/index.rst
    codebase/index.rst

@@ -104,6 +104,10 @@ def main():
     calls["open"] = foo.foo_open("points", ctypes.byref(handle))
     calls["open_without_name"] = foo.foo_open(None, ctypes.byref(handle))
     calls["name"] = foo.foo_name(handle)
+    watched = []
+    added = foo.FooAddedCb(lambda arg, point: watched.append(point.contents.x))
+    calls["watch"] = foo.foo_point_watch(handle, added, None)
+    calls["watch_busy"] = foo.foo_point_watch(handle, added, None)
     points = [foo.FooPoint(1, 2), foo.FooPoint(3, 4), foo.FooPoint(5, 6)]
     calls["added"] = sum(not foo.foo_point_add(handle, point) for point in points)
     calls["count"] = foo.foo_point_count(handle)
@@ -122,6 +126,8 @@ def main():
     many = (foo.FooPoint * len(points))(*points)
     calls["add_many"] = foo.foo_point_add_many(handle, many, len(points))
     calls["count_after_add_many"] = foo.foo_point_count(handle)
+    calls["watched"] = len(watched)
+    calls["watched_sum_x"] = sum(watched)
     copied = (foo.FooPoint * 4)()
     calls["points_copied"] = foo.foo_point_copy(handle, copied, 4)
     calls["points_sum_x"] = sum(point.x for point in copied)
@@ -145,6 +151,7 @@ def main():
             "count": foo.foo_point_count(handle),
             "add": foo.foo_point_add(handle, points[0]),
             "add_many": foo.foo_point_add_many(handle, many, 1),
+            "watched": len(watched),
         },
         as_json,
     )

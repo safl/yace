@@ -93,6 +93,12 @@ summarize(void *arg, const struct foo_point *point)
 }
 
 static void
+watch_added(void *arg, const struct foo_point *point)
+{
+	summarize(arg, point);
+}
+
+static void
 count_done(void *arg, size_t count)
 {
 	*(size_t *)arg = count;
@@ -110,7 +116,7 @@ main(int argc, char **argv)
 	int64_t sum_x = 0;
 	size_t done_count = 0;
 	struct foo_point points[] = {{1, 2}, {3, 4}, {5, 6}};
-	struct sum all = {0}, first_two = {0, 0, 2, 0}, with = {0};
+	struct sum all = {0}, first_two = {0, 0, 2, 0}, with = {0}, watched = {0};
 	struct foo_visitor visitor = {summarize, &with};
 	struct foo_scalars scalars;
 	struct foo_figure figure;
@@ -147,6 +153,8 @@ main(int argc, char **argv)
 	}
 	int_value("open_without_name", foo_open(NULL, &handle));
 	str_value("name", foo_name(handle));
+	int_value("watch", foo_point_watch(handle, watch_added, &watched));
+	int_value("watch_busy", foo_point_watch(handle, watch_added, &watched));
 	for (size_t idx = 0; idx < sizeof(points) / sizeof(*points); ++idx) {
 		added += !foo_point_add(handle, &points[idx]);
 	}
@@ -162,6 +170,8 @@ main(int argc, char **argv)
 	int_value("figure_of_unknown_shape", foo_figure_fill(&figure, 3));
 	int_value("add_many", foo_point_add_many(handle, points, sizeof(points) / sizeof(*points)));
 	int_value("count_after_add_many", (intmax_t)foo_point_count(handle));
+	int_value("watched", (intmax_t)watched.visited);
+	int_value("watched_sum_x", watched.x);
 	int_value("points_copied", foo_point_copy(handle, copied, 4));
 	for (size_t idx = 0; idx < 4; ++idx) {
 		sum_x += copied[idx].x;
@@ -189,6 +199,7 @@ main(int argc, char **argv)
 	int_value("count", (intmax_t)foo_point_count(handle));
 	int_value("add", foo_point_add(handle, &points[0]));
 	int_value("add_many", foo_point_add_many(handle, points, 1));
+	int_value("watched", (intmax_t)watched.visited);
 	doc_end();
 
 	foo_status_get(handle, &status);
