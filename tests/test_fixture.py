@@ -335,3 +335,42 @@ def test_go(model, library, tmp_path, fmt):
     expected = list(yaml.safe_load_all((FIXTURE / "expected.yaml").read_text()))
 
     assert documents(run([binary, fmt]), fmt) == expected
+
+
+def test_a_c_time_below_the_clock_s_resolution_gives_no_ratio(tmp_path, monkeypatch):
+    """A run of few rounds can take less than a tick of the clock, as on macOS,
+    and C's time is then 0; a ratio to it says nothing, so there is none"""
+
+    import importlib
+    import types
+
+    # The report needs nothing of cijoe but what benchlib imports from it
+    if importlib.util.find_spec("cijoe") is None:
+        tools = types.ModuleType("cijoe.core.tools")
+        tools.family = lambda *args, **kwargs: None
+        for name, module in [
+            ("cijoe", types.ModuleType("cijoe")),
+            ("cijoe.core", types.ModuleType("cijoe.core")),
+            ("cijoe.core.tools", tools),
+        ]:
+            monkeypatch.setitem(sys.modules, name, module)
+    monkeypatch.syspath_prepend(str(FIXTURE / "bench" / "scripts"))
+    import bench_report
+
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    rows = [
+        {"target": "c", "way": "calls", "ns": 0.0, "sum": 84},
+        {"target": "python", "way": "calls", "ns": 5.0, "sum": 84},
+    ]
+    (artifacts / "results.json").write_text(
+        json.dumps({"rows": rows, "points": 8, "rounds": 3, "repeat": 1})
+    )
+    cijoe = types.SimpleNamespace(
+        output_path=str(tmp_path), facts=types.SimpleNamespace(target=lambda: {})
+    )
+    assert bench_report.main(None, cijoe) == 0
+    assert (artifacts / "results.csv").read_text().splitlines()[1:] == [
+        "c,calls,0.0,84,",
+        "python,calls,5.0,84,",
+    ]
