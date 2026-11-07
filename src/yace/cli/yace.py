@@ -50,7 +50,8 @@ def parse_args():
         default=[],
         metavar="GENERATOR",
         help="generator to write headers with, which are then parsed with the"
-        " headers given; installed: " + (", ".join(sorted(gen.generators())) or "none"),
+        " headers given, by its name or as <file.py or module>:<class>; installed: "
+        + (", ".join(sorted(gen.generators())) or "none"),
     )
     parser.add_argument(
         "--generator-option",
