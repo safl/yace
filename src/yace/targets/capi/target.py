@@ -241,21 +241,8 @@ class CAPI(Target):
         it warns that the signatures are not checked, and fails nothing"""
 
         log_path = self.output / "signatures.log"
-        if not model.meta.headers:
-            note = "the signatures are not checked: the IR records no headers"
-            log_path.write_text(f"{note}\n")
-            log.warning("capi: %s", note)
-            return []
-        missing = [
-            name
-            for name in model.meta.headers
-            if not any((path / name).is_file() for path in self.include)
-        ]
-        if missing:
-            note = (
-                f"the signatures are not checked: {', '.join(missing)} not found;"
-                " give its directory with -I"
-            )
+        note = self.headers_unchecked(model)
+        if note:
             log_path.write_text(f"{note}\n")
             log.warning("capi: %s", note)
             return []

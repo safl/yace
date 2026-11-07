@@ -14,6 +14,7 @@ from tests.conftest import (
     needs_cc,
     needs_zig,
 )
+from tests.test_capi import SIGNED
 from tests.test_rust import (
     BITS_PRINTED,
     BITS_UNION,
@@ -23,6 +24,7 @@ from tests.test_rust import (
     misindented_docs,
 )
 from yace.compiler import process
+from yace.ir import types
 
 pytestmark = needs_zig
 
@@ -492,3 +494,83 @@ def test_a_record_of_no_field_printed_but_as_null_builds(parse, tmp_path):
         '    try out.interface.print("{f}", .{e});\n',
     )
     assert printed == '{"self": null, "g": null}\napi_e:\n  self: null\n  g: null\n'
+
+
+# A record of bit-fields Zig translates as opaque, so its asserted size fails
+# the import of the header
+UNTRANSLATABLE = """
+/** Flags */
+struct api_flags {
+	/** The low */
+	unsigned lo : 3;
+	/** The high */
+	unsigned hi : 5;
+};
+_Static_assert(sizeof(struct api_flags) == 4, "api_flags");
+"""
+
+
+def test_the_signatures_are_checked_against_the_headers(parse, tmp_path):
+    model, _ = parse(SIGNED)
+    assert process(model, ["zig"], tmp_path / "out", include=[tmp_path]) == []
+
+    source = (tmp_path / "out" / "zig" / "api_signatures.zig").read_text()
+    assert '@cInclude("api.h");' in source
+    assert 'agree("api_sum");' in source
+
+
+def test_a_signature_the_header_does_not_have_fails(parse, tmp_path):
+    model, _ = parse(SIGNED)
+    model.find("api_sum").params[2].typ = types.Builtin(name="uint64_t")
+
+    failures = process(model, ["zig"], tmp_path / "out", include=[tmp_path])
+    assert len(failures) == 1
+    assert "the signatures disagree with the headers" in failures[0]
+    disagree = "the bindings and the headers disagree on parameter 2"
+    assert f"api_sum: {disagree}" in failures[0]
+
+
+def test_headers_zig_cannot_import_are_said_not_checked(parse, tmp_path, caplog):
+    model, _ = parse(SIGNED + UNTRANSLATABLE)
+    assert process(model, ["zig"], tmp_path / "out", include=[tmp_path]) == []
+
+    note = "the signatures are not checked: Zig cannot import the headers"
+    assert note in caplog.text
+
+
+def test_without_the_headers_the_signatures_are_said_not_checked(
+    parse, tmp_path, caplog
+):
+    model, _ = parse(SIGNED)
+    assert process(model, ["zig"], tmp_path / "out") == []
+
+    note = "the signatures are not checked: api.h not found; give its directory with -I"
+    assert note in caplog.text
+    assert (tmp_path / "out" / "zig" / "signatures.log").read_text() == f"{note}\n"
+
+
+def test_a_function_that_does_not_return_is_checked(parse, tmp_path, caplog):
+    model, _ = parse(SIGNED + "/** Exit */\n_Noreturn void api_die(int code);\n")
+    assert process(model, ["zig"], tmp_path / "out", include=[tmp_path]) == []
+
+    assert "not checked" not in caplog.text
+
+
+def test_a_float_where_the_header_has_an_integer_fails(parse, tmp_path):
+    model, _ = parse(SIGNED)
+    model.find("api_sum").params[1].typ = types.Builtin(name="float")
+
+    failures = process(model, ["zig"], tmp_path / "out", include=[tmp_path])
+    assert len(failures) == 1
+    disagree = "the bindings and the headers disagree on parameter 1"
+    assert f"api_sum: {disagree}" in failures[0]
+
+
+def test_a_function_the_headers_do_not_declare_fails(parse, tmp_path):
+    model, _ = parse(SIGNED)
+    model.find("api_sum").name = "api_other"
+
+    failures = process(model, ["zig"], tmp_path / "out", include=[tmp_path])
+    assert len(failures) == 1
+    disagree = "the bindings and the headers disagree on whether it is declared"
+    assert f"api_other: {disagree}" in failures[0]

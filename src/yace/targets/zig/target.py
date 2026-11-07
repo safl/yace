@@ -14,6 +14,7 @@ and the printers use its ``std.Io.Writer``, and libc, as the C API does.
 """
 
 import json
+import logging
 import subprocess
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 from yace import toolchain
 from yace.ir import decls
+from yace.ir.cparser import STANDARD_HEADERS
 from yace.ir.model import Model, host_abi
 from yace.targets.capi import cgen
 from yace.targets.idiom import Idioms, strip
@@ -35,6 +37,10 @@ def zigdoc(doc) -> str:
     if not lines:
         return ""
     return "\n" + "\n".join(f"/// {line}".rstrip() for line in lines)
+
+
+# What the check of the signatures says where they disagree
+DISAGREE = "the bindings and the headers disagree on"
 
 
 class Zig(Target):
@@ -93,6 +99,7 @@ class Zig(Target):
             "printable": printable,
             "typedefs": typedefs,
             "functions": functions,
+            "standard": list(STANDARD_HEADERS),
             "stubs": sorted(namer.stubs.items()),
             "params": lambda f: [
                 zgen.ident(p.name) if p.name else f"arg{i}"
@@ -126,6 +133,7 @@ class Zig(Target):
             (f"{prefix}.zig", "module.zig.template"),
             (f"{prefix}_check.zig", "check.zig.template"),
             (f"{prefix}_compile.zig", "compile.zig.template"),
+            (f"{prefix}_signatures.zig", "signatures.zig.template"),
         ]:
             path = self.output / filename
             path.write_text(env.get_template(template).render(**context))
@@ -159,7 +167,7 @@ class Zig(Target):
             if proc.returncode:
                 return [f"building the check failed:\n{proc.stderr}"]
 
-        failures = []
+        failures = self.signatures(model, zig, cache)
         for fmt in ("yaml", "json"):
             proc = subprocess.run([str(binary), fmt], capture_output=True, text=True)
             (self.output / f"check.{fmt}").write_text(proc.stdout)
@@ -175,3 +183,38 @@ class Zig(Target):
                 failures.append(f"the pretty-printers print invalid {fmt}: {exc}")
 
         return failures
+
+    def signatures(self, model: Model, zig: str, cache: list) -> list:
+        """Compile the check of the signatures with the headers the IR was
+        parsed from, found in the include directories, so that an extern
+        function the header does not declare alike fails; where a header is not
+        found, it warns that the signatures are not checked, and fails nothing"""
+
+        log_path = self.output / "signatures.log"
+        note = self.headers_unchecked(model)
+        if note:
+            log_path.write_text(f"{note}\n")
+            logging.warning("zig: %s", note)
+            return []
+
+        out = self.output.resolve()
+        source = out / f"{cgen.c_ident(model.meta.prefix)}_signatures.zig"
+        cmd = [zig, "build-obj", "-lc", str(source), "-fno-emit-bin", *cache]
+        cmd += [f"-I{Path(path).resolve()}" for path in self.include]
+        proc = subprocess.run(cmd, cwd=self.output, capture_output=True, text=True)
+        log_path.write_text(f"{' '.join(cmd)}\n{proc.stdout}{proc.stderr}")
+        if proc.returncode and DISAGREE not in proc.stderr:
+            # Zig's translation of the headers failed, not an assertion of the
+            # check, as where a record it cannot translate has its size asserted
+            first = next(
+                (line for line in proc.stderr.splitlines() if "error:" in line), ""
+            )
+            note = (
+                "the signatures are not checked: Zig cannot import the headers: "
+                + first
+            )
+            logging.warning("zig: %s", note)
+            return []
+        if proc.returncode:
+            return [f"the signatures disagree with the headers:\n{proc.stderr}"]
+        return []
