@@ -7,7 +7,7 @@ artifacts of the run's output: 'results.csv', a row per layer and way, its time
 per point, its sum and the ratio of its time to C's, and 'report.txt', a table
 of the time per point of each layer, in each way, and its ratio to C's, with
 the machine and the toolchains it ran on. A ratio is left out where C was not
-benchmarked.
+benchmarked, or ran in less than a tick of the clock.
 
 Retargetable: True
 ------------------
@@ -74,7 +74,10 @@ def main(args, cijoe):
     }
 
     def ratio(row):
-        return row["ns"] / baseline[row["way"]] if row["way"] in baseline else None
+        # A time of 0 is a run shorter than a tick of the clock, as few rounds
+        # can be on macOS, and no time to compare to
+        c = baseline.get(row["way"])
+        return row["ns"] / c if c else None
 
     with (artifacts / "results.csv").open("w", newline="") as handle:
         writer = csv.writer(handle)
