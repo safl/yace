@@ -574,3 +574,16 @@ def test_a_function_the_headers_do_not_declare_fails(parse, tmp_path):
     assert len(failures) == 1
     disagree = "the bindings and the headers disagree on whether it is declared"
     assert f"api_other: {disagree}" in failures[0]
+
+
+def test_a_layout_of_more_asserts_than_a_comptime_quota_is_checked(parse, tmp_path):
+    """The check asserts the layout of every record, beyond 1000 comptime
+    branches"""
+
+    records = "".join(
+        f"/** R */\nstruct api_r{i} {{\n"
+        "\t/** A */\n\tint a;\n\t/** B */\n\tint b;\n}};\n"
+        for i in range(300)
+    )
+    model, _ = parse(records)
+    assert process(model, ["zig"], tmp_path) == []

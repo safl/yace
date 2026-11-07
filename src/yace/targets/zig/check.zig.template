@@ -12,6 +12,7 @@ const api = @import("{{ prefix }}.zig");
 
 comptime {
 {%- if layout %}
+    @setEvalBranchQuota(1000 + 100 * {{ printable | length + printable | map(attribute="fields") | map("length") | sum }});
 {%- for record in printable if record.size %}
 {%- set name = namer(record.name) %}
     std.debug.assert(@sizeOf(api.{{ name }}) == {{ record.size }});
