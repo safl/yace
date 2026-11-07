@@ -99,3 +99,22 @@ def test_options_are_by_generator():
         "a": {"x": "1", "y": "2"},
         "b": {"x": "3"},
     }
+
+
+def test_a_generator_is_loaded_from_its_file_or_module_without_installing_it(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(yace.generators, "entry_points", lambda group: [])
+    source = tmp_path / "toolbox" / "gen.py"
+    source.parent.mkdir()
+    source.write_text(
+        "from tests.test_generators import Toy\n\nclass Spec(Toy):\n    pass\n"
+    )
+    args = ["--generate", f"{source}:Spec", "--generator-option", "toy.name=spec"]
+    assert run(monkeypatch, *args, "--output", tmp_path / "out") == 0
+    assert (tmp_path / "out" / "toy" / "spec.h").exists()
+
+    assert yace.generators.load("tests.test_generators:Toy") is Toy
+    for missing in (f"{tmp_path}/none.py:Spec", f"{source}:None", "nomodule:X"):
+        with pytest.raises(KeyError):
+            yace.generators.load(missing)

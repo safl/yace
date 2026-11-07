@@ -18,7 +18,7 @@ header can. Its sources are written for the project to build into its library;
 **yace** does not build them.
 
 A generator is run by its name, with options of the form
-``<generator>.<key>=<value>``:
+``<generator>.<key>=<value>``, the generator named by its ``NAME``:
 
 .. code-block:: bash
 
@@ -39,3 +39,11 @@ it wrote. It is installed under the entry point group:
 
    [project.entry-points."yace.generators"]
    spec = "mypackage.generator:Spec"
+
+A project that is no Python package, as a C library, keeps its generator in
+its tree and names it by the file, or by the module where it is importable,
+and the class, with nothing installed:
+
+.. code-block:: bash
+
+   yace --generate toolbox/spec.py:Spec --generator-option spec.prefix=foo
