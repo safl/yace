@@ -32,10 +32,18 @@ outside it reported.
 
 * Documentation is available at `safl.dk/yace`_
 
-**yace** is a new project, with a bunch of things it want to get done, why?
-Because there are some projects that need a better way to handle C headers and
-libraries bindings. If you want to help out, then don't be shy, there are
-plenty of things to do.
+Bindings are generated for C, C++, Python (ctypes, with a ``.pxd`` for
+Cython), Rust, Zig and Go. Each target builds and runs a check of what it
+generated against the layout the C compiler gives every record, and the C API
+and Zig check every function's signature against the header too.
+
+A header can also be written by a generator, from something other than C, and
+taken as one written by hand: ``yace --generate file.py:Class``, or a
+generator installed by name. A generator proposed to xNVMe writes its NVMe
+specification headers so, from the data model senfd makes of the
+specification documents.
+
+Contributions are welcome; the documentation says how the code is laid out.
 
 .. _GitHUB: https://github.com/safl/yace
 .. _safl.dk/yace: https://safl.dk/yace
