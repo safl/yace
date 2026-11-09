@@ -163,6 +163,7 @@ class Renderer(object):
                 passed.append(pname)
         alias = self.alias(name, "Fn")
         once = self.alias(name, "Once")
+        sent = self.alias(name, "OnceSend")
         head = f"({', '.join(params)}){self.namer.ret(func.ret)} {{"
         call = f"    f({', '.join(passed)})"
         lines = [
@@ -174,6 +175,14 @@ class Renderer(object):
                 "",
                 f"/// The closures given as {self.namer(name)}, called once",
                 f"pub type {once} = {self.closure_type(name, 'FnOnce')} + 'static;",
+            ]
+        if "once-send" in lifetimes:
+            lines += [
+                "",
+                f"/// The closures given as {self.namer(name)}, called once, from",
+                "/// whichever thread calls into the library next",
+                f"pub type {sent} = {self.closure_type(name, 'FnOnce')}"
+                " + Send + 'static;",
             ]
         if "call" in lifetimes:
             lines += [
@@ -225,7 +234,8 @@ class Renderer(object):
             if name is None:
                 return self.raw(typ, True)
             if arg.lifetime == "once":
-                return opt(f"Box<{self.alias(name, 'Once')}>")
+                once = "OnceSend" if self.sent(call, arg) else "Once"
+                return opt(f"Box<{self.alias(name, once)}>")
             if arg.lifetime == "handle":
                 return opt(f"Box<{self.alias(name, 'Fn')}<'static>>")
             return opt(f"&mut {self.alias(name, 'Fn')}")
@@ -358,7 +368,10 @@ class Renderer(object):
         ctx = self.local(call, arg.param, "ctx")
         if arg.lifetime == "once":
             tramp = f"Some({cb}_once_trampoline as _)"
-            into = "Box::into_raw(Box::new(f)) as *mut c_void"
+            boxed = (
+                f"f as Box<{self.alias(cb, 'Once')}>" if self.sent(call, arg) else "f"
+            )
+            into = f"Box::into_raw(Box::new({boxed})) as *mut c_void"
             lines = []
         else:
             tramp = f"Some({cb}_handle_trampoline as _)"
@@ -380,6 +393,15 @@ class Renderer(object):
             f"let {made} = {tramp};",
             f"let {ctx} = {{ let f = {name}; {into} }};",
         ]
+
+    @staticmethod
+    def sent(call: Call, arg: Arg) -> bool:
+        """Whether the closure of the callback 'arg' must be Send: given once to
+        a function of no handle, any later call into the library, from any
+        thread, may run it, where a method's runs in a call given its handle,
+        which stays on its thread"""
+
+        return arg.lifetime == "once" and call.kind != "method"
 
     def keeps(self, record: str) -> bool:
         """Whether the handle keeps closures, for its methods to give"""
@@ -707,6 +729,8 @@ class Renderer(object):
                 name = self.callback_typedef(arg.typ)
                 if arg.kind == "callback" and name and self.usable(call):
                     callbacks.setdefault(name, set()).add(arg.lifetime)
+                    if self.sent(call, arg):
+                        callbacks[name].add("once-send")
         for name in sorted(callbacks):
             text = self.trampolines(name, callbacks[name])
             lines += [""] + [f"    {ln}".rstrip() for ln in text.splitlines()]
