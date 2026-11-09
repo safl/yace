@@ -115,16 +115,17 @@ Results
 Arguments
   An array read through a pointer is given as a sequence, its ``@len`` count
   not given; sequences sharing one count must be as long, or ``ValueError`` is
-  raised. One that is ``[in,out]`` is a list, written back. A ``void *`` with a
-  ``@len`` is bytes, a ``bytearray`` written in place where ``[in,out]``. A
+  raised. One that is ``[in,out]`` is a list, written back. A ``void *`` with
+  a ``@len`` is bytes, a ``bytearray`` written in place where ``[in,out]``. A
   handle given is its class. A callback is given as any callable, without the
   ``void *`` context, which the layer gives C; pointers to records it receives
-  are the records, and strings ``str``. One of ``@lifetime once`` is kept until
-  called, or until the call fails; one of ``@lifetime handle``, unless the call
-  fails, until the handle is closed or collected, and for good where destroying
-  it fails or nothing destroys it, as C may still hold it; a handle the layer
-  only borrows keeps them, as nothing tells it when the handle is destroyed. A
-  ``@nullable`` parameter defaults to ``None`` where those after it do too.
+  are the records, and strings ``str``. One of ``@lifetime once`` (see
+  :ref:`sec-ir-lifetimes`) is kept until called, or until the call fails; one
+  of ``@lifetime handle``, unless the call fails, until the handle is closed or
+  collected, and for good where destroying it fails or nothing destroys it, as
+  C may still hold it; a handle the layer only borrows keeps them, as nothing
+  tells it when the handle is destroyed. A ``@nullable`` parameter defaults to
+  ``None`` where those after it do too.
 
 The idiomatic layer uses the raw functions and records, so the two mix: a record
 returned by one is given to the other. A name the idiomatic layer would take

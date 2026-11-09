@@ -277,33 +277,15 @@ The rest is said in the Doxygen comment of the function:
   function that destroys it.
 
 ``@lifetime callback call|once|handle ...``
-  How long the library may invoke the callback; pairs, one for every callback
-  parameter. ``call``: only during the call, as a visitor. ``once``: at most
-  once, after the call has returned, and not at all when it fails, as the
-  completion of a command submitted, invoked from a later call such as a poll.
-  ``handle``: any number of times, until the handle the function is a method of
-  is destroyed, and not at all when the call fails, as a handler registered;
-  the function's first parameter is then a pointer to an opaque record the
-  header declares. In every case the library invokes it during a call into
-  the library, on that call's thread: ``call``, during the call itself;
-  ``once`` and ``handle``, of a method, during a later call given the same
-  handle, or of a function, during any later call. A library invoking it from
-  a thread of its own, as when a command completes, has no ``@lifetime`` yet.
-  The ``void *`` after the callback, its context, has no ``@len``.
-
-  Nothing in C says which, and yace cannot tell, so ``@lifetime`` is a promise
-  the author of the header makes: the bindings keep the closure, and its
-  context, exactly as long as it says. A ``once`` callback the library never
-  invokes, as when its handle is destroyed first, is leaked rather than freed,
-  as nothing tells the bindings that it never will be. A callback without a
-  ``@lifetime`` breaks the callback-lifetime rule, and is bound only as a raw
-  function pointer.
-
-  The example library has one of each: ``foo_point_visit()`` takes a ``call``
-  callback, ``foo_count_submit()`` a ``once`` callback, which
-  ``foo_count_complete()`` invokes, and ``foo_point_watch()`` a ``handle``
-  callback, invoked for each point added until the handle is closed. Every
-  target's check uses all three.
+  How long the library may invoke the callback, one for every callback
+  parameter: ``call``, only during the call; ``once``, at most once, after it;
+  ``handle``, until the handle is destroyed. Nothing in C says which, so it is
+  a promise the author of the header makes, and the bindings keep the closure
+  exactly as long as it says. A callback without one breaks the
+  callback-lifetime rule, and is bound only as a raw function pointer. The
+  ``void *`` after the callback, its context, has no ``@len``. See
+  :ref:`sec-ir-lifetimes`, which describes each with the example library's
+  callbacks.
 
 For example::
 
