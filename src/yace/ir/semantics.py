@@ -41,8 +41,10 @@ comment of the function:
   the header can make: ``call``, only during the call; ``once``, at most once,
   after the call, and not at all when it fails; ``handle``, any number of times,
   until the handle the function is a method of is destroyed, and not at all
-  when the call fails. Pairs, one for every callback, invoked on the thread
-  that called into the library.
+  when the call fails. Pairs, one for every callback. A callback is invoked
+  during a call into the library, on its thread: ``call``, during the call
+  itself; the others, of a method, during a later call given the same handle,
+  or of a function, during any later call.
 
 A ``void *`` parameter right after a callback is the callback's context, as the
 callback-context rule requires; a returned ``const char *`` is borrowed, as the

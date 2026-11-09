@@ -30,10 +30,11 @@ def json_lines(text):
     return [json.loads(line) for line in text.splitlines()]
 
 
-def run_with_crate(tmp_path, main: str, env=None) -> str:
-    """Build and run 'main' against the crate generated into 'tmp_path'"""
+def run_with_crate(tmp_path, main: str, env=None, user="user", fails=False) -> str:
+    """Build and run 'main' against the crate generated into 'tmp_path', as the
+    package 'user'; its output, or, where it 'fails' to, the errors"""
 
-    project = tmp_path / "user"
+    project = tmp_path / user
     (project / "src").mkdir(parents=True)
     (project / "Cargo.toml").write_text(
         '[package]\nname = "user"\nversion = "0.0.0"\nedition = "2021"\n\n'
@@ -47,6 +48,9 @@ def run_with_crate(tmp_path, main: str, env=None) -> str:
         text=True,
         env={**os.environ, **(env or {})},
     )
+    if fails:
+        assert proc.returncode != 0, proc.stdout
+        return proc.stderr
     assert proc.returncode == 0, proc.stderr
     return proc.stdout
 
@@ -975,6 +979,57 @@ fn main() {
         },
     )
     assert out == "true true 3\n1\n705 2\n1\n"
+
+
+@needs_cc
+def test_a_closure_run_once_by_any_later_call_is_send(parse, tmp_path):
+    header = (
+        "typedef void (*api_cb)(void *arg, int v);\n"
+        + doc("Submit", "@lifetime cb once", "@errno")
+        + "int api_submit(api_cb cb, void *arg);\n"
+        + doc("Poll")
+        + "void api_poll(void);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["rust"], tmp_path) == []
+    (tmp_path / "api.c").write_text(
+        header + "static api_cb once;\nstatic void *once_arg;\n"
+        "int api_submit(api_cb cb, void *arg)\n"
+        "{ once = cb; once_arg = arg; return 0; }\n"
+        "void api_poll(void)\n"
+        "{ api_cb cb = once; once = 0; if (cb) cb(once_arg, 7); }\n"
+    )
+    subprocess.run(
+        ["cc", "-shared", "-fPIC", str(tmp_path / "api.c")]
+        + ["-o", str(tmp_path / "libapi.so")],
+        check=True,
+    )
+    env = {
+        "API_LIB_DIR": str(tmp_path),
+        "RUSTFLAGS": f"-C link-arg=-Wl,-rpath,{tmp_path}",
+    }
+    sent = """
+use std::sync::{Arc, atomic::{AtomicI32, Ordering}};
+fn main() {
+    let seen = Arc::new(AtomicI32::new(0));
+    let s = seen.clone();
+    api::safe::submit(Box::new(move |v| s.store(v, Ordering::SeqCst))).unwrap();
+    std::thread::spawn(api::safe::poll).join().unwrap();
+    println!("{} {}", seen.load(Ordering::SeqCst), Arc::strong_count(&seen));
+}
+"""
+    assert run_with_crate(tmp_path, sent, env) == "7 1\n"
+
+    kept = """
+use std::{cell::Cell, rc::Rc};
+fn main() {
+    let seen = Rc::new(Cell::new(0));
+    let s = seen.clone();
+    api::safe::submit(Box::new(move |v| s.set(v))).unwrap();
+}
+"""
+    errors = run_with_crate(tmp_path, kept, env, user="rc", fails=True)
+    assert "cannot be sent between threads safely" in errors
 
 
 def test_kept_closures_with_constructors_without_errno_and_inline_callbacks(

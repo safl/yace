@@ -98,7 +98,8 @@ Handles
   taking ``&self`` where the pointer is to const and it keeps no closure,
   ``&mut self`` otherwise. ``as_ptr()`` is the raw pointer, for the raw
   functions; a method named ``as_ptr`` is ``as_ptr_()``. It is neither ``Send``
-  nor ``Sync``: the header does not say it may be.
+  nor ``Sync``: the header does not say it may be, and the closures it keeps
+  run on the thread that calls it, so they need not be ``Send``.
 
 Errors
   A function documented ``@errno`` returns ``io::Result``, its error made by
@@ -120,7 +121,9 @@ Arguments
   handle given is a reference to its type. A callback is a ``&mut dyn FnMut``
   closure, called through a generated trampoline with the ``void *`` context;
   the pointers to records it receives are references. One of ``@lifetime once``
-  is a ``Box<dyn FnOnce>``, freed once called, or when the call fails; one of
+  is a ``Box<dyn FnOnce>``, freed once called, or when the call fails, and
+  ``Send`` where the function is not a method, as any later call, from any
+  thread, may run it; one of
   ``@lifetime handle`` a ``Box<dyn FnMut>``, which the handle keeps, unless
   the call fails, until it is dropped, and for good where destroying it fails
   or nothing destroys it, as C may still hold it. A ``@nullable`` pointer is an

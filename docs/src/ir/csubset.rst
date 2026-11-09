@@ -284,9 +284,12 @@ The rest is said in the Doxygen comment of the function:
   ``handle``: any number of times, until the handle the function is a method of
   is destroyed, and not at all when the call fails, as a handler registered;
   the function's first parameter is then a pointer to an opaque record the
-  header declares. In every case the library invokes it on the thread that
-  called into the library. The ``void *`` after the callback, its context, has
-  no ``@len``.
+  header declares. In every case the library invokes it during a call into
+  the library, on that call's thread: ``call``, during the call itself;
+  ``once`` and ``handle``, of a method, during a later call given the same
+  handle, or of a function, during any later call. A library invoking it from
+  a thread of its own, as when a command completes, has no ``@lifetime`` yet.
+  The ``void *`` after the callback, its context, has no ``@len``.
 
   Nothing in C says which, and yace cannot tell, so ``@lifetime`` is a promise
   the author of the header makes: the bindings keep the closure, and its
