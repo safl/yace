@@ -115,19 +115,19 @@ Results
   ``Option`` where ``@nullable``.
 
 Arguments
-  An array read through a pointer is a slice; slices sharing one ``@len`` count
-  must be as long, or the call panics; a ``@nullable`` one is an ``Option``,
-  ``None`` passing NULL. A ``void *`` with a ``@len`` is a slice of ``u8``. A
-  handle given is a reference to its type. A callback is a ``&mut dyn FnMut``
-  closure, called through a generated trampoline with the ``void *`` context;
-  the pointers to records it receives are references. One of ``@lifetime once``
-  is a ``Box<dyn FnOnce>``, freed once called, or when the call fails, and
-  ``Send`` where the function is not a method, as any later call, from any
-  thread, may run it; one of
-  ``@lifetime handle`` a ``Box<dyn FnMut>``, which the handle keeps, unless
-  the call fails, until it is dropped, and for good where destroying it fails
-  or nothing destroys it, as C may still hold it. A ``@nullable`` pointer is an
-  ``Option``.
+  An array read through a pointer is a slice; slices sharing one ``@len``
+  count must be as long, or the call panics; a ``@nullable`` one is an
+  ``Option``, ``None`` passing NULL. A ``void *`` with a ``@len`` is a slice
+  of ``u8``. A handle given is a reference to its type. A callback is a
+  ``&mut dyn FnMut`` closure, called through a generated trampoline with the
+  ``void *`` context; the pointers to records it receives are references. One
+  of ``@lifetime once`` (see :ref:`sec-ir-lifetimes`) is a
+  ``Box<dyn FnOnce>``, freed once called, or when the call fails, and ``Send``
+  where the function is not a method, as any later call, from any thread, may
+  run it; one of ``@lifetime handle`` a ``Box<dyn FnMut>``, which the handle
+  keeps, unless the call fails, until it is dropped, and for good where
+  destroying it fails or nothing destroys it, as C may still hold it. A
+  ``@nullable`` pointer is an ``Option``.
 
 A function is safe where everything a caller gives is checked by the types: a
 function taking a raw pointer, or a record holding one, is ``unsafe``, as safe

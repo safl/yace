@@ -105,12 +105,12 @@ Arguments
   through a pointer is a slice; slices sharing one ``@len`` count must be as
   long, or the call panics; a ``@nullable`` one is optional, ``null`` passing
   NULL. A ``void *`` with a ``@len`` is a slice of ``u8``. A pointer to a
-  record or value is a pointer to one, optional where ``@nullable``. A callback
-  is a context pointer and a comptime function taking it, called through a
-  generated trampoline with the ``void *``; the caller keeps the context as
-  long as the callback's ``@lifetime`` says, which its documentation repeats.
-  One that is ``@nullable`` is not optional here, the raw function passing
-  NULL.
+  record or value is a pointer to one, optional where ``@nullable``. A
+  callback is a context pointer and a comptime function taking it, called
+  through a generated trampoline with the ``void *``; the caller keeps the
+  context as long as the callback's ``@lifetime`` says (see
+  :ref:`sec-ir-lifetimes`), which its documentation repeats. One that is
+  ``@nullable`` is not optional here, the raw function passing NULL.
 
 A function named as a declaration of the module, such as ``std``, as a
 parameter of its own functions, such as ``flags``, or as a primitive type, such

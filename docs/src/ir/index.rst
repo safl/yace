@@ -25,6 +25,8 @@ it out, and every target checks what it generates against it.
 
 * :ref:`sec-ir-background`, the API, the ABI, and what yace does about each
 * :ref:`sec-ir-csubset`, the subset, and why
+* :ref:`sec-ir-lifetimes`, how long a library may call a callback, and what
+  the bindings do about it
 * :ref:`sec-ir-rules`, the rules, as **yace** reports them
 * :ref:`sec-ir-cparser`, parsing a header
 * :ref:`sec-ir-files`, the IR as stored
@@ -36,6 +38,7 @@ it out, and every target checks what it generates against it.
 
    background.rst
    csubset.rst
+   lifetimes.rst
    rules.rst
    cparser.rst
    files.rst

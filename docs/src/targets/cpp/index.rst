@@ -70,11 +70,11 @@ Arguments
   any callable, called through a ``noexcept`` trampoline with the ``void *``
   context, so an exception thrown by it terminates, as it cannot cross C; the
   pointers to records it receives are references. A ``@nullable`` callback has
-  an overload taking ``nullptr``. One of ``@lifetime once`` is moved to the
-  heap and deleted once called, or when the call fails; one of
-  ``@lifetime handle`` is kept by the handle, unless the call fails, until it
-  is closed, and for good where destroying it fails or nothing destroys it, as
-  C may still hold it.
+  an overload taking ``nullptr``. One of ``@lifetime once`` (see
+  :ref:`sec-ir-lifetimes`) is moved to the heap and deleted once called, or
+  when the call fails; one of ``@lifetime handle`` is kept by the handle,
+  unless the call fails, until it is closed, and for good where destroying it
+  fails or nothing destroys it, as C may still hold it.
 
 Records and enums
   The records are named without the prefix, ``foo::point``, the C records

@@ -140,15 +140,16 @@ Arguments
 Callbacks
   A callback is a Go function, of a type named for the callback typedef,
   ``FooVisitCbFunc``, without the ``void *`` context, its pointers to records
-  Go pointers to C memory valid during the call, its strings copied. cgo lets C
-  hold no Go pointer, so the function is kept in a ``runtime/cgo.Handle``, held
-  in C memory given as the context, which a C trampoline gives to the Go
+  Go pointers to C memory valid during the call, its strings copied. cgo lets
+  C hold no Go pointer, so the function is kept in a ``runtime/cgo.Handle``,
+  held in C memory given as the context, which a C trampoline gives to the Go
   function the package exports for the callback. It is released as its
-  ``@lifetime`` says: when the call returns, for ``call``; once it has been
-  called, for ``once``; when the handle is destroyed, for ``handle``, and never
-  where the destructor fails or nothing destroys the handle, as C may still
-  hold it. One the call fails to take, by its ``@errno``, is released at once.
-  A ``@nullable`` callback may be nil, passing NULL. A panic in the function
+  ``@lifetime`` says (see :ref:`sec-ir-lifetimes`): when the call returns, for
+  ``call``; once it has been called, for ``once``; when the handle is
+  destroyed, for ``handle``, and never where the destructor fails or nothing
+  destroys the handle, as C may still hold it. One the call fails to take, by
+  its ``@errno``, is released at once. A ``@nullable`` callback may be nil,
+  passing NULL. A panic in the function
   unwinds the C frames that called it, which C does not expect.
 
 A call that has no idiomatic form, as the raw layer does not bind it or what it

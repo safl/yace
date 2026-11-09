@@ -37,9 +37,9 @@ built from the original header. The example library, ``examples/libfoo``, uses
 every construct of the C subset, and is that library. Each target has a check
 program in ``examples/libfoo/checks/<target>/``, written in the target's
 language against the bindings it generates. The program calls the library,
-exercising callbacks of each ``@lifetime``, out-parameters, opaque handles,
-strings and records, and prints what it got back. Records are printed with the pretty-printers the target
-generates.
+exercising callbacks of each ``@lifetime`` (see :ref:`sec-ir-lifetimes`),
+out-parameters, opaque handles, strings and records, and prints what it got
+back. Records are printed with the pretty-printers the target generates.
 
 All checks print the same YAML documents, those in
 ``examples/libfoo/expected.yaml``, or the same as JSON objects when given the
