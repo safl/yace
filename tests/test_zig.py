@@ -591,3 +591,13 @@ def test_a_layout_of_more_asserts_than_a_comptime_quota_is_checked(parse, tmp_pa
     )
     model, _ = parse(records)
     assert process(model, ["zig"], tmp_path) == []
+
+
+def test_a_record_the_caller_may_write_is_not_copied(parse, tmp_path):
+    from tests.test_rust import POOL
+
+    model, _ = parse(POOL)
+    assert process(model, ["zig"], tmp_path) == []
+    source = (tmp_path / "zig" / "api.zig").read_text()
+    assert "pub fn get(self: Q) [*c]ApiCmd {" in source
+    assert "pub fn peek(self: Q) ApiCmd {" in source

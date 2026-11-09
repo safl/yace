@@ -250,6 +250,9 @@ Two rules settle what a convention can:
 
 * A returned string is ``const char *``, and borrowed: it belongs to the
   library, or to the handle it came from, and is never the caller's to free.
+* A returned ``const`` pointer to a record is a view: bindings may hand back a
+  copy. Without ``const`` it is an object the caller may write, and given to
+  other functions by its address, so bindings return the pointer.
 * A callback takes exactly one ``void *``, its context, and a function taking a
   callback takes its context as the next parameter, so that other languages can
   pass a closure.

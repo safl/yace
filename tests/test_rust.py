@@ -1032,6 +1032,81 @@ fn main() {
     assert "cannot be sent between threads safely" in errors
 
 
+@needs_cc
+def test_a_record_the_caller_may_write_is_not_copied(parse, tmp_path):
+    model, _ = parse(POOL)
+    assert process(model, ["rust"], tmp_path) == []
+    (tmp_path / "api.c").write_text(POOL + POOL_C)
+    subprocess.run(
+        ["cc", "-shared", "-fPIC", str(tmp_path / "api.c")]
+        + ["-o", str(tmp_path / "libapi.so")],
+        check=True,
+    )
+    main = """
+fn main() {
+    let mut q = api::safe::Q::open().unwrap();
+    let c = q.get();
+    unsafe {
+        (*c).opc = 7;
+        q.put(&mut *c).unwrap();
+    }
+    let peeked = q.peek();
+    let d = q.get();
+    println!("{} {} {}", d == c, unsafe { (*d).opc }, peeked.opc);
+}
+"""
+    out = run_with_crate(
+        tmp_path,
+        main,
+        {
+            "API_LIB_DIR": str(tmp_path),
+            "RUSTFLAGS": f"-C link-arg=-Wl,-rpath,{tmp_path}",
+        },
+    )
+    assert out == "true 7 7\n"
+
+
+POOL = (
+    "struct api_q;\nstruct api_cmd { int opc; struct api_cmd *next; };\n"
+    + doc("Open", "@param[out] q Q", "@errno")
+    + "int api_open(struct api_q **q);\n"
+    + doc("Close", "@destroys q")
+    + "void api_close(struct api_q *q);\n"
+    + doc("Get", "@nullable return")
+    + "struct api_cmd *api_get(struct api_q *q);\n"
+    + doc("Put", "@errno")
+    + "int api_put(struct api_q *q, struct api_cmd *cmd);\n"
+    + doc("Peek")
+    + "const struct api_cmd *api_peek(const struct api_q *q);\n"
+)
+
+POOL_C = """
+#include <stdlib.h>
+struct api_q { struct api_cmd pool[2]; struct api_cmd *head; };
+int api_open(struct api_q **q)
+{
+	*q = calloc(1, sizeof(**q));
+	(*q)->pool[0].next = &(*q)->pool[1];
+	(*q)->head = &(*q)->pool[0];
+	return 0;
+}
+void api_close(struct api_q *q) { free(q); }
+struct api_cmd *api_get(struct api_q *q)
+{
+	struct api_cmd *c = q->head;
+	if (c) q->head = c->next;
+	return c;
+}
+int api_put(struct api_q *q, struct api_cmd *c)
+{
+	c->next = q->head;
+	q->head = c;
+	return 0;
+}
+const struct api_cmd *api_peek(const struct api_q *q) { return q->head; }
+"""
+
+
 def test_kept_closures_with_constructors_without_errno_and_inline_callbacks(
     parse, tmp_path
 ):

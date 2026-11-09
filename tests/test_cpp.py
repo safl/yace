@@ -793,3 +793,37 @@ def test_a_packed_record_prints_through_copies(parse, tmp_path):
     )
     run = subprocess.run([str(program)], capture_output=True, text=True)
     assert run.stdout == PACKED_PRINTED
+
+
+def test_a_record_the_caller_may_write_is_not_copied(parse, tmp_path):
+    from tests.test_rust import POOL, POOL_C
+
+    model, _ = parse(POOL)
+    assert process(model, ["cpp"], tmp_path) == []
+    (tmp_path / "api.c").write_text(POOL + POOL_C)
+    (tmp_path / "main.cpp").write_text(
+        "#include <cstdio>\n#include <system_error>\n#include <api.hpp>\n"
+        "int main() {\n"
+        "\tauto q = api::open();\n"
+        "\tstruct ::api_cmd *c = q.get();\n"
+        "\tc->opc = 7;\n"
+        "\tq.put(*c);\n"
+        "\tauto peeked = q.peek();\n"
+        "\tstruct ::api_cmd *d = q.get();\n"
+        '\tstd::printf("%d %d %d\\n", d == c, d->opc, peeked.opc);\n'
+        "\treturn 0;\n}\n"
+    )
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    api_o = str(tmp_path / "api.o")
+    subprocess.run(
+        ["cc", *include, "-c", str(tmp_path / "api.c"), "-o", api_o], check=True
+    )
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, "-fsanitize=address", *include]
+        + [str(tmp_path / "main.cpp"), api_o, "-o", str(program)],
+        check=True,
+    )
+    run = subprocess.run([str(program)], capture_output=True, text=True)
+    assert run.returncode == 0, run.stderr
+    assert run.stdout == "1 7 7\n"
