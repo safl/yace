@@ -105,3 +105,12 @@ def test_an_inline_callback_is_given_raw(parse):
     assert "callback-typedef" in [d.rule for d in diagnostics]
     found = {c.function: c for c in Idioms(model).calls}
     assert kinds(found["api_each"]) == [("cb", "value"), ("arg", "value")]
+
+
+def test_a_returned_record_is_copied_only_when_the_caller_may_not_write_it(parse):
+    from tests.test_rust import POOL
+
+    model, _ = parse(POOL)
+    found = {c.function: c for c in Idioms(model).calls}
+    assert found["api_get"].returns == "handle"
+    assert found["api_peek"].returns == "pointer"

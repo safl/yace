@@ -747,3 +747,44 @@ def test_a_packed_record_is_its_bytes_read_and_written_by_methods(parse, tmp_pat
         strict=True,
     )
     assert out == PACKED_PRINTED + "3 10 true 35 1\n-2 10\n"
+
+
+@needs_cc
+def test_a_record_the_caller_may_write_is_not_copied(parse, tmp_path):
+    from tests.test_rust import POOL, POOL_C
+
+    model, _ = parse(POOL)
+    assert process(model, ["go"], tmp_path) == []
+    (tmp_path / "api.c").write_text(POOL + POOL_C)
+    subprocess.run(
+        ["cc", "-shared", "-fPIC", str(tmp_path / "api.c")]
+        + ["-o", str(tmp_path / "libapi.so")],
+        check=True,
+    )
+    (tmp_path / "go" / "pool_test.go").write_text(
+        'package api\n\nimport "testing"\n\n'
+        "func TestPool(t *testing.T) {\n"
+        "\tq, err := Open()\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n"
+        "\tc := q.Get()\n"
+        "\tc.Opc = 7\n"
+        "\tif err := q.Put(c); err != nil {\n\t\tt.Fatal(err)\n\t}\n"
+        "\td := q.Get()\n"
+        "\tif d != c || d.Opc != 7 {\n\t\tt.Fatal(d, c)\n\t}\n"
+        "\tq.Close()\n"
+        "}\n"
+    )
+    env = {
+        **os.environ,
+        "GOFLAGS": "-mod=mod",
+        "GOTOOLCHAIN": "local",
+        "GOEXPERIMENT": "cgocheck2",
+        "CGO_LDFLAGS": f"-L{tmp_path} -Wl,-rpath,{tmp_path}",
+    }
+    run = subprocess.run(
+        ["go", "test", "-buildvcs=false", "-run", "TestPool", "."],
+        cwd=tmp_path / "go",
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert run.returncode == 0, run.stdout + run.stderr

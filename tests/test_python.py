@@ -896,3 +896,27 @@ def test_the_check_of_the_pxd_takes_no_address_of_a_packed_field(parse, tmp_path
     assert "packed struct api_k:" in (tmp_path / "python" / "api.pxd").read_text()
     log = (tmp_path / "python" / "cython.log").read_text()
     assert "pxd_check.c" in log and "address-of-packed-member" not in log
+
+
+@needs_cc
+def test_a_record_the_caller_may_write_is_not_copied(parse, tmp_path, monkeypatch):
+    from tests.test_rust import POOL, POOL_C
+
+    model, _ = parse(POOL)
+    assert process(model, ["python"], tmp_path) == []
+    (tmp_path / "api.c").write_text(POOL + POOL_C)
+    library = tmp_path / "libapi.so"
+    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
+    subprocess.run(cmd, check=True)
+    monkeypatch.setenv("API_LIBRARY", str(library))
+
+    api = module(tmp_path)
+    queue = api["open"]()
+    cmd_ = queue.get()
+    cmd_.contents.opc = 7
+    queue.put(cmd_)
+    peeked = queue.peek()
+    again = queue.get()
+    assert ctypes.addressof(again.contents) == ctypes.addressof(cmd_.contents)
+    assert again.contents.opc == 7 and peeked.opc == 7
+    queue.close()

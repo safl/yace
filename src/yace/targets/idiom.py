@@ -39,6 +39,17 @@ from yace.ir import decls, types
 from yace.ir.model import Model
 
 
+def is_lent(ret) -> bool:
+    """Whether a returned pointer is to a record the caller may write: an object
+    the library keeps or hands over, of which a copy would be another object"""
+
+    return (
+        isinstance(ret, types.Pointer)
+        and isinstance(ret.to, types.Record)
+        and not ret.to.const
+    )
+
+
 class Arg(BaseModel):
     """How a parameter of the C function is given, when called idiomatically"""
 
@@ -294,7 +305,7 @@ class Idioms(object):
             returns = "nothing" if getattr(ret, "name", None) == "int" else "count"
         elif types.is_string(ret):
             returns = "string"
-        elif is_opaque_ptr(ret, self.handles):
+        elif is_opaque_ptr(ret, self.handles) or is_lent(ret):
             returns = "handle"
         elif isinstance(ret, types.Pointer):
             returns = "pointer"
