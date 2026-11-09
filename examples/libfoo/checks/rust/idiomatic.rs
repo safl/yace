@@ -29,6 +29,24 @@ fn errno<T: Into<i64>>(result: io::Result<T>) -> i64 {
     }
 }
 
+/// Compiles only while T is not Send: were it Send, both impls would apply
+/// and the call in main() would be ambiguous. A handle keeps the callbacks
+/// given to it, which need not be Send, and they run on the thread that
+/// polls it, so a handle must not leave its thread.
+trait NotSend<A> {
+    fn not_send() {}
+}
+impl<T: ?Sized> NotSend<()> for T {}
+impl<T: ?Sized + Send> NotSend<u8> for T {}
+
+/// As NotSend, for Sync: a handle shared between threads would let two of
+/// them call it, and run its callbacks, at once
+trait NotSync<A> {
+    fn not_sync() {}
+}
+impl<T: ?Sized> NotSync<()> for T {}
+impl<T: ?Sized + Sync> NotSync<u8> for T {}
+
 fn status(result: io::Result<()>) -> i64 {
     errno(result.map(|()| 0i64))
 }
@@ -39,6 +57,8 @@ fn count(result: io::Result<usize>) -> i64 {
 
 fn main() -> io::Result<()> {
     let as_json = std::env::args().nth(1).as_deref() == Some("json");
+    <Handle as NotSend<_>>::not_send();
+    <Handle as NotSync<_>>::not_sync();
     let flags = if as_json { FOO_PR_JSON } else { FOO_PR_YAML };
 
     document(
