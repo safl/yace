@@ -93,6 +93,9 @@ breaking one is still parsed; ``--strict`` makes any diagnostic an error.
 ``doc-comment``
   A declaration has one doc comment; adjacent ones are joined into one.
 
+``printer-name``
+  The pretty-printers that yace generates declare the enum '<prefix>_pr' and the output formats '<PREFIX>_PR_DEF', '<PREFIX>_PR_YAML' and '<PREFIX>_PR_JSON' in every target. In the C API they also declare '<record>_pr' and '<record>_fpr' for each record and '<enum>_str' for each enum. yace skips a declaration of the headers that has one of these names, and every declaration that uses it. Such declarations come from the API's own printers, as in xNVMe's libxnvme_pp.h; leave that header out, because the generated printers replace it.
+
 ``parse-error``
   The compiler could not parse the headers, together in the order given; the result is incomplete. Every error is reported, each once.
 

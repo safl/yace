@@ -743,6 +743,48 @@ def test_a_header_yace_includes_not_found_stops_the_parse(parser, tmp_path):
         parser.parse(paths, prelude=["yace_nowhere.h"])
 
 
+# An API's own printers, as xNVMe's libxnvme_pp.h declares them
+OWN_PRINTERS = (
+    "/** Formats */\nenum api_pr {\n\tAPI_PR_DEF = 0, ///< D\n"
+    "\tAPI_PR_YAML = 1, ///< Y\n\tAPI_PR_TERSE = 2, ///< T\n};\n"
+    "/**\n * List\n *\n * @param f F\n * @return N\n */\n"
+    "int api_list_pr(enum api_pr f);\n"
+    "/** JSON */\n#define API_PR_JSON 4\n"
+    "/** S */\nstruct api_s {\n\tint v; ///< V\n};\n"
+    "/**\n * Print\n *\n * @param s S\n * @param limit L\n * @param opts O\n"
+    " * @return N\n */\nint api_s_pr(const struct api_s *s, int limit, int opts);\n"
+    "/** K */\nenum api_k {\n\tAPI_K_A = 0, ///< A\n};\n"
+    "/**\n * Name\n *\n * @param k K\n * @return N\n */\n"
+    "const char *api_k_str(enum api_k k);\n"
+    "/**\n * Q\n *\n * @param x X\n * @return N\n */\nint api_q(int x);\n"
+)
+
+
+def test_what_is_named_as_the_printers_output_formats_is_skipped(parse):
+    model, diagnostics = parse(OWN_PRINTERS)
+
+    skipped = "so yace skips"
+    assert [str(d) for d in diagnostics] == [
+        "api.h:13:5: enum-in-signature: 'api_list_pr' parameter 'f' enum api_pr",
+        "api.h:39:13: enum-in-signature: 'api_k_str' parameter 'k' enum api_k",
+        "api.h:15:9: printer-name: 'API_PR_JSON' defines API_PR_JSON. The"
+        " pretty-printers that yace generates declare the same names,"
+        f" {skipped} 'API_PR_JSON' and uses the generated printers",
+        "api.h:2:6: printer-name: 'api_pr' declares enum api_pr, API_PR_DEF,"
+        " API_PR_YAML. The pretty-printers that yace generates declare the same"
+        f" names, {skipped} 'api_pr' and uses the generated printers",
+        "api.h:28:5: printer-name: 'api_s_pr' has the name of the printer that"
+        f" yace generates for 'api_s', {skipped} 'api_s_pr' and uses the"
+        " generated printer",
+        "api.h:39:13: printer-name: 'api_k_str' has the name of the printer that"
+        f" yace generates for 'api_k', {skipped} 'api_k_str' and uses the"
+        " generated printer",
+        "<header>: unsupported-type: 'api_list_pr' uses 'api_pr', which is"
+        " skipped; it is skipped",
+    ]
+    assert [e.name for e in model.entities] == ["api_s", "api_k", "api_q"]
+
+
 def test_an_include_not_found_is_kept(parse):
     model, diagnostics = parse('#include "api_missing.h"\n/** F */\nint f(void);\n')
 

@@ -211,8 +211,11 @@ def test_the_header_generated_is_in_the_subset(parser, tmp_path):
     emit(model, tmp_path)
 
     # The pretty-printers take the FILE of stdio.h, which the subset does not
+    # define. They also have the names of the printers that yace generates, so
+    # yace skips them when it reads its own C API, and generates them again.
     _, diagnostics = parser.parse(tmp_path / "capi" / "libvalid.h")
-    assert [d.message for d in diagnostics if d.rule != "external-type"] == []
+    allowed = ("external-type", "printer-name")
+    assert [d.message for d in diagnostics if d.rule not in allowed] == []
 
 
 @needs_cc

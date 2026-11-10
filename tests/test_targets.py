@@ -102,3 +102,13 @@ def test_every_target_documents_the_call_it_generates(parse, tmp_path):
         )
         for text in wanted:
             assert text in generated, name
+
+
+def test_an_apis_own_printer_formats_leave_every_target_building(parse, tmp_path):
+    from tests.test_cparser import OWN_PRINTERS
+
+    model, _ = parse(OWN_PRINTERS)
+    failures = process(model, sorted(targets.targets()), tmp_path)
+    assert [
+        f for f in failures if "toolchain" not in f and "no compiler" not in f
+    ] == []
