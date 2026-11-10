@@ -115,6 +115,37 @@ def test_the_crate_builds_without_warnings(parse, tmp_path, header):
     assert "warning" not in (tmp_path / "rust" / "cargo.log").read_text()
 
 
+def test_a_crate_named_in_the_meta_and_bindings_included_by_another(parser, tmp_path):
+    """As xNVMe names its crate 'xnvme-sys', and as a crate generating the
+    bindings in its build script includes them"""
+
+    header = tmp_path / "api.h"
+    header.write_text(EDGES)
+    model, _ = parser.parse(header, {"prefix": "api", "crate": "api-sys"})
+    assert process(model, ["rust"], tmp_path) == []
+    assert 'name = "api-sys"' in (tmp_path / "rust" / "Cargo.toml").read_text()
+
+    project = tmp_path / "own"
+    (project / "src").mkdir(parents=True)
+    (project / "Cargo.toml").write_text(
+        '[package]\nname = "own"\nversion = "0.0.0"\nedition = "2021"\n'
+    )
+    bindings = json.dumps(str(tmp_path / "rust" / "bindings.rs"))
+    (project / "src" / "lib.rs").write_text(
+        "#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]\n"
+        "#![allow(clippy::all)]\n"
+        f"include!({bindings});\n"
+    )
+    proc = subprocess.run(
+        ["cargo", "build", "--quiet", "--offline"],
+        cwd=project,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "warning" not in proc.stderr
+
+
 def test_headers_outside_the_subset_still_bind(parse, tmp_path):
     model, diagnostics = parse(
         "#include <stdint.h>\n"
@@ -135,7 +166,7 @@ def test_headers_outside_the_subset_still_bind(parse, tmp_path):
     assert diagnostics
     assert process(model, ["rust"], tmp_path) == []
 
-    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "pub struct FILE {" in lib
     assert "pub fn log_it(fmt: *const c_char, ...) -> c_int;" in lib
     assert "pub _bits: [u32; 4]," in lib
@@ -150,7 +181,7 @@ def test_names_are_made_usable(parse, tmp_path):
     )
     assert process(model, ["rust"], tmp_path) == []
 
-    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "pub struct foo_bar {" in lib
     assert "pub r#type: c_int," in lib
     assert "pub self_: c_int," in lib
@@ -169,7 +200,7 @@ def test_debug_names_the_c_fields_and_reads_no_union(parse, tmp_path):
         "struct api_k { int type; };\n"
     )
     assert process(model, ["rust"], tmp_path) == []
-    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "#[derive(Clone, Copy, Debug)]\npub struct ApiP {" in lib
 
     out = run_with_crate(
@@ -202,7 +233,7 @@ def test_a_typedef_of_its_own_record_or_enum_is_that_type(parse, tmp_path):
     )
     assert process(model, ["rust"], tmp_path) == []
 
-    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "pub struct ApiBuf {" in lib and "pub type ApiBuf" not in lib
     assert "b: *const ApiBuf, k: ApiKind" in lib
 
@@ -319,7 +350,7 @@ def test_a_handle_named_as_the_prefix_and_out_pointers_build(parse, tmp_path):
     model, _ = parse(HANDLE_NAMED_AS_PREFIX)
     assert process(model, ["rust"], tmp_path) == []
 
-    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "pub struct ApiHandle {" in lib
     assert "vec![std::ptr::null_mut(); n as usize]" in lib
 
@@ -382,7 +413,7 @@ def test_shared_counts_handles_given_and_constructors_without_errno(parse, tmp_p
     model, _ = parse(MORE)
     assert process(model, ["rust"], tmp_path) == []
 
-    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "pub fn copy(&mut self, src: &H) -> io::Result<()>" in lib
     assert "pub fn make() -> Option<H>" in lib
     assert "assert_eq!(b.len(), a.len()," in lib
@@ -443,7 +474,7 @@ def test_bytes_out_arrays_sharing_a_count_and_clones_build(parse, tmp_path):
     model, _ = parse(IO)
     assert process(model, ["rust"], tmp_path) == []
 
-    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "pub fn write(buf: &[u8]) -> usize" in lib
     assert "pub fn read(n: usize) -> io::Result<Vec<u8>>" in lib
     assert "pub fn clone(&self) -> io::Result<H>" in lib
@@ -453,7 +484,7 @@ def test_the_idiomatic_layer_builds_for_every_kind_of_parameter(parse, tmp_path)
     model, _ = parse(EDGES)
     assert process(model, ["rust"], tmp_path) == []
 
-    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "pub fn open(name: Option<&CStr>) -> io::Result<H>" in lib
     assert (
         "pub fn each(&mut self, cb: Option<&mut ApiCbFn>) -> io::Result<usize>" in lib
@@ -803,7 +834,7 @@ def test_parameters_named_as_what_the_body_uses_build(parse, tmp_path):
     model, _ = parse(HIDDEN)
     assert process(model, ["rust"], tmp_path) == []
 
-    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "pub fn msg(&mut self) -> *mut ApiMsg {" in lib  # not a copy
 
 
@@ -834,7 +865,7 @@ def test_functions_sharing_a_name_keep_their_c_names(parse, tmp_path):
     model, _ = parse(SHARED)
     assert process(model, ["rust"], tmp_path) == []
 
-    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "pub fn api_bar(x: c_int) -> c_int" in lib
 
 
@@ -846,7 +877,7 @@ def test_a_function_named_as_a_record_has_its_own_doc(parse, tmp_path):
     )
     assert process(model, ["rust"], tmp_path) == []
 
-    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "    /// The function\n    ///\n    /// Calls [`super::api_tag`]." in lib
 
 
@@ -888,7 +919,7 @@ def test_handles_named_as_std_types(parse, tmp_path):
     )
     assert process(model, ["rust"], tmp_path) == []
 
-    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "pub struct OptionHandle" in lib and "pub struct VecHandle" in lib
 
 
@@ -1121,7 +1152,7 @@ def test_kept_closures_with_constructors_without_errno_and_inline_callbacks(
     )
     assert process(model, ["rust"], tmp_path) == []
 
-    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "map(|ptr| H { ptr, keep: Vec::new() })" in lib
     assert "pub unsafe fn each(r#fn: Option<unsafe extern" in lib
 
@@ -1223,7 +1254,7 @@ def test_closures_kept_by_a_handle_nothing_destroys_are_kept(parse, tmp_path):
     )
     assert process(model, ["rust"], tmp_path) == []
 
-    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "std::mem::forget(std::mem::take(&mut self.keep));" in lib
 
 
@@ -1284,7 +1315,7 @@ def test_the_parts_of_a_field_of_bits_are_methods(parse, tmp_path):
     assert run_with_crate(tmp_path, main, {"API_NO_LINK": "1"}) == (
         "5 10 1 2 1\n0x305 5\ntrue\n0xabcd0000 0xabcd\n"
     )
-    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "/// Kind; bits 2:0 of 'code'\n    pub fn code_type(&self) -> u16 {" in lib
 
 
@@ -1296,7 +1327,7 @@ def test_a_packed_record_is_read_by_copies(parse, tmp_path):
     )
     assert process(model, ["rust"], tmp_path) == []
     assert "warning" not in (tmp_path / "rust" / "cargo.log").read_text()
-    lib = (tmp_path / "rust" / "lib.rs").read_text()
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "#[repr(C, packed)]\n#[derive(Clone, Copy, Debug)]\npub struct ApiK {" in lib
 
     main = (

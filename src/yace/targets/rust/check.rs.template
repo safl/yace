@@ -11,7 +11,7 @@
 
 use std::mem::{align_of, offset_of, size_of};
 
-use {{ crate }}::*;
+use {{ crate | replace("-", "_") }}::*;
 {%- if layout %}
 {%- for record in complete if record.size %}
 {%- set name = namer(record.name) %}
