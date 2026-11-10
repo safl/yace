@@ -16,6 +16,33 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## 0.9.2
+
+Every binding now documents a function by the parameters that its caller
+passes. For a function documented with `@errno`, each binding shows the C
+`@return` text where it documents errors, because the binding returns the value
+and reports a failure as an error. Before, the bindings showed that text as the
+return value. Every target now carries `@note`, `@see` and `@deprecated`.
+
+In Python, a record field named as a keyword, such as `async`, is reached as a
+property with a trailing underscore, `async_`. Before, assigning `async_` set a
+new attribute that the C library never saw.
+
+yace stops with an error when it cannot find a header that it includes itself,
+such as `stdbool.h`. Before, yace reported the missing header and generated
+bindings with wrong layouts. When no clang is installed, yace now uses gcc's
+headers.
+
+yace skips a declaration of the headers that has the name of a printer that
+yace generates, such as `enum <prefix>_pr`, `<PREFIX>_PR_JSON`, `<record>_pr` or
+`<enum>_str`, and reports it with the rule `printer-name`. Before, an API with
+printers of its own, such as xNVMe with `libxnvme_pp.h`, gave a Rust crate and a
+C API that did not compile.
+
+The field `crate` in the meta names the Rust crate, such as `xnvme-sys`. The
+Rust bindings are in `bindings.rs`, which `lib.rs` includes, so another crate
+can include them with `include!()`.
+
 ## 0.9.1
 
 A function returning a pointer to a record without `const`, an object the
