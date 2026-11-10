@@ -351,6 +351,8 @@ class _HeaderParser(object):
         self.typedefs: set = set()  # typedef names declared in the header
         self.defined: set = set()  # records defined in the header, by name
         self.cursors: dict = {}  # functions and typedefs, by name
+        self.enum_cursors: dict = {}  # enums, by name
+        self.skipped_enums: set = set()  # enums skipped, by name, as records
         self.included: set = set()  # the includes in the model, (name, system)
 
     def report(self, rule: str, message: str, cursor=None):
@@ -556,8 +558,9 @@ class _HeaderParser(object):
         return typ
 
     def drop_uses(self, entities: list) -> list:
-        """'entities' without those using a record or typedef that is skipped,
-        each reported; one declared before the skip got through the parse"""
+        """'entities' without those using a record, enum or typedef that is
+        skipped, each reported; one declared before the skip got through the
+        parse"""
 
         def used(node, kind):
             if isinstance(node, kind):
@@ -573,6 +576,7 @@ class _HeaderParser(object):
             kept = []
             for entity in entities:
                 records = set(used(entity, types.Record)) & self.skipped_records
+                records |= set(used(entity, types.EnumRef)) & self.skipped_enums
                 aliases = set(used(entity, types.TypedefRef)) & typedefs
                 if isinstance(entity, decls.RECORDS) and entity.name in records:
                     records.discard(entity.name)
@@ -591,6 +595,62 @@ class _HeaderParser(object):
             if len(kept) == len(entities):
                 return kept
             entities = kept
+
+    def drop_printer_names(self, entities: list) -> list:
+        """'entities' without the enums and defines named as the output formats
+        of the pretty-printers every target generates, and the functions named
+        as a printer of a record or an enum, each reported, as an API's own
+        printers name theirs; the generated ones serve instead"""
+
+        prefix = re.sub(r"[^0-9A-Za-z_]", "_", self.meta.get("prefix", self.path.stem))
+        flags = {f"{prefix.upper()}_PR_{fmt}" for fmt in ("DEF", "YAML", "JSON")}
+        printers = {
+            f"{entity.name}{suffix}": entity.name
+            for entity in entities
+            if isinstance(entity, decls.RECORDS) and entity.fields
+            for suffix in ("_pr", "_fpr")
+        }
+        printers.update(
+            {
+                f"{entity.name}_str": entity.name
+                for entity in entities
+                if isinstance(entity, decls.Enum)
+            }
+        )
+        kept = []
+        for entity in entities:
+            if isinstance(entity, decls.Function) and entity.name in printers:
+                self.report(
+                    "printer-name",
+                    f"'{entity.name}' has the name of the printer that yace"
+                    f" generates for '{printers[entity.name]}', so yace skips"
+                    f" '{entity.name}' and uses the generated printer",
+                    self.cursors.get(entity.name),
+                )
+                continue
+            if isinstance(entity, decls.Enum):
+                names = sorted(flags & {member.name for member in entity.members})
+                if entity.name.lower() == f"{prefix.lower()}_pr":
+                    names.insert(0, f"enum {entity.name}")
+                verb, cursor = "declares", self.enum_cursors.get(entity.name)
+            elif isinstance(entity, decls.Define) and entity.name in flags:
+                names = [entity.name]
+                verb, cursor = "defines", self.cursors.get(entity.name)
+            else:
+                names = []
+            if not names:
+                kept.append(entity)
+                continue
+            self.report(
+                "printer-name",
+                f"'{entity.name}' {verb} {', '.join(names)}. The pretty-printers"
+                " that yace generates declare the same names, so yace skips"
+                f" '{entity.name}' and uses the generated printers",
+                cursor,
+            )
+            if isinstance(entity, decls.Enum):
+                self.skipped_enums.add(entity.name)
+        return kept
 
     def check_doc(self, entity, what: str, cursor):
         if entity.doc.is_empty():
@@ -832,6 +892,7 @@ class _HeaderParser(object):
         return True
 
     def enum(self, cursor, name: str) -> decls.Enum:
+        self.enum_cursors[name] = cursor
         underlying = None
         try:
             found = self.typ(cursor.enum_type, cursor)
@@ -1229,6 +1290,7 @@ class _HeaderParser(object):
             for e in resolved
             if not (isinstance(e, decls.RECORDS) and not e.fields and e.name in nested)
         ]
+        resolved = self.drop_printer_names(resolved)
         resolved = self.drop_uses(resolved)
         self.share_docs(resolved)
         Semantics(resolved, self.report).run(self.cursors)
