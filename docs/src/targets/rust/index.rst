@@ -15,8 +15,14 @@ a ``-sys`` crate, into ``<output>/rust``:
   the ``lib`` prefix, searching the directory in ``<PREFIX>_LIB_DIR`` when set.
   With ``<PREFIX>_NO_LINK`` set it links nothing, for what uses only the types.
 
-``lib.rs``
-  The bindings, using nothing outside the standard library.
+``lib.rs`` and ``bindings.rs``
+  ``bindings.rs`` holds the bindings and uses nothing outside the standard
+  library. ``lib.rs`` is the root of the crate: it sets the attributes of the
+  crate and includes ``bindings.rs``. Another crate can include ``bindings.rs``
+  with ``include!()``, for example from a build script. That crate must allow
+  ``non_camel_case_types``, ``non_snake_case``, ``non_upper_case_globals`` and
+  ``clippy::all``, as ``lib.rs`` does. The crate takes its name from the
+  prefix, or from ``crate`` in the IR's meta, such as ``foo-sys``.
 
 ``check.rs``
   The check, an example of the crate rather than part of it: it asserts at
@@ -163,7 +169,7 @@ The fixture library is called through the raw layer by
 Bindings
 ~~~~~~~~
 
-.. literalinclude:: ../../../../output/rust/lib.rs
+.. literalinclude:: ../../../../output/rust/bindings.rs
    :language: rust
    :caption:
    :lines: 1-

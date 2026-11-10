@@ -1,0 +1,266 @@
+// yace generated these bindings of {{ meta.name }} from {{ meta.source() }}; do not
+// edit them. lib.rs includes this file. Another crate can include it with
+// include!() if that crate allows non_camel_case_types, non_snake_case,
+// non_upper_case_globals and clippy::all, because the bindings use the C names.
+
+#[allow(unused_imports)]
+use std::ffi::{
+    c_char, c_double, c_float, c_int, c_long, c_longlong, c_schar, c_short, c_uchar, c_uint,
+    c_ulong, c_ulonglong, c_ushort, c_void, CStr,
+};
+#[allow(unused_imports)]
+use std::fmt;
+#[allow(unused_imports)]
+use std::io::{self, Write};
+
+/// Output formats of the pretty-printers
+pub const {{ PREFIX }}_PR_DEF: c_int = 0x0;
+/// YAML
+pub const {{ PREFIX }}_PR_YAML: c_int = 0x1;
+/// JSON, on one line
+pub const {{ PREFIX }}_PR_JSON: c_int = 0x2;
+
+#[allow(dead_code)]
+mod yace_pp {
+    use std::ffi::{c_char, CStr};
+    use std::io::{self, Write};
+
+    pub fn strn(w: &mut dyn Write, chars: &[c_char]) -> io::Result<()> {
+        w.write_all(b"\"")?;
+        for &chr in chars.iter().take_while(|&&c| c != 0) {
+            let chr = chr as u8;
+            match chr {
+                b'"' | b'\\' => w.write_all(&[b'\\', chr])?,
+                0..=0x1f | 0x7f => write!(w, "\\u{:04x}", chr)?,
+                _ => w.write_all(&[chr])?,
+            }
+        }
+        w.write_all(b"\"")
+    }
+
+    pub fn str(w: &mut dyn Write, ptr: *const c_char) -> io::Result<()> {
+        if ptr.is_null() {
+            return w.write_all(b"null");
+        }
+        let bytes = unsafe { CStr::from_ptr(ptr) }.to_bytes();
+        let chars: Vec<c_char> = bytes.iter().map(|&b| b as c_char).collect();
+        strn(w, &chars)
+    }
+
+    pub fn ptr(w: &mut dyn Write, addr: usize) -> io::Result<()> {
+        if addr == 0 {
+            return w.write_all(b"null");
+        }
+        write!(w, "\"{:#x}\"", addr)
+    }
+
+    /// 'value' as C's printf() prints it with "%g"
+    pub fn g(value: f64) -> String {
+        if value.is_nan() {
+            return if value.is_sign_negative() { "-nan" } else { "nan" }.into();
+        }
+        if value.is_infinite() {
+            return if value < 0.0 { "-inf" } else { "inf" }.into();
+        }
+        if value == 0.0 {
+            return if value.is_sign_negative() { "-0" } else { "0" }.into();
+        }
+        let sci = format!("{:.5e}", value);
+        let (mantissa, exp) = sci.split_once('e').unwrap();
+        let exp: i32 = exp.parse().unwrap();
+        let trim = |text: &str| -> String {
+            if text.contains('.') {
+                text.trim_end_matches('0').trim_end_matches('.').into()
+            } else {
+                text.into()
+            }
+        };
+        if exp < -4 || exp >= 6 {
+            let sign = if exp < 0 { '-' } else { '+' };
+            format!("{}e{}{:02}", trim(mantissa), sign, exp.abs())
+        } else {
+            trim(&format!("{:.*}", (5 - exp) as usize, value))
+        }
+    }
+}
+{%- for entity in defines %}
+{{ entity.doc | rustdoc }}
+pub const {{ entity.name | ident }}: {{ entity.value | define_type }} = {{ entity.value | define_value }};
+{%- endfor %}
+{%- for entity in enums %}
+{%- set name = namer(entity.name) %}
+{{ entity.doc | rustdoc }}
+///
+/// An integer, not a Rust enum: C gives no guarantee that a value is one of
+/// those named.
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct {{ name }}(pub {{ namer.underlying(entity) }});
+
+impl {{ name }} {
+{%- for member in entity.members %}
+{%- if member.doc.brief %}
+    /// {{ member.doc.brief | oneline }}
+{%- endif %}
+    pub const {{ member.name | ident }}: Self = Self({{ member.value }});
+{%- endfor %}
+
+    /// The name of the value, None when it is none of those named
+    pub fn name(self) -> Option<&'static str> {
+        match self.0 {
+{%- for member in entity.members | unique(attribute="value") %}
+            {{ member.value }} => Some("{{ member.name }}"),
+{%- endfor %}
+            _ => None,
+        }
+    }
+}
+{% for member in entity.members %}
+pub const {{ member.name | ident }}: {{ name }} = {{ name }}::{{ member.name | ident }};
+{%- endfor %}
+{%- endfor %}
+{%- for record in records %}
+{%- set name = namer(record.name) %}
+{{ record.doc | rustdoc }}
+{%- if not record.fields and record not in blobs %}
+#[repr(C)]
+pub struct {{ name }} {
+    _private: [u8; 0],
+    _marker: std::marker::PhantomData<(*mut u8, std::marker::PhantomPinned)>,
+}
+{%- elif record in blobs %}
+///
+/// Its bit-fields have no counterpart in Rust: only its size and alignment are
+/// kept.
+{#- Aligned by its unit, as a packed record may hold no type of repr(align) #}
+{%- set unit = {1: "u8", 2: "u16", 4: "u32", 8: "u64"}.get(record.align) %}
+#[repr(C{% if not unit %}, align({{ record.align }}){% endif %})]
+#[derive(Clone, Copy)]
+pub {{ "union" if record | is_union else "struct" }} {{ name }} {
+{%- if unit %}
+    pub _bits: [{{ unit }}; {{ record.size // record.align }}],
+{%- else %}
+    pub _bits: [u8; {{ record.size }}],
+{%- endif %}
+}
+{%- else %}
+#[repr(C{{ ", packed" if record.packed }})]
+#[derive(Clone, Copy{{ ", Debug" if not debug(record) }})]
+pub {{ "union" if record | is_union else "struct" }} {{ name }} {
+{%- for field in record.fields %}
+{%- if field.doc.brief %}
+    /// {{ field.doc.brief | oneline }}
+{%- endif %}
+    pub {{ field.name | ident }}: {{ namer.rtype(field.typ) }},
+{%- endfor %}
+}
+{%- endif %}
+{%- if record.fields %}
+{%- for line in debug(record) %}
+{{ "\n" if loop.first }}{{ line }}
+{%- endfor %}
+
+impl Default for {{ name }} {
+    /// All zero: no field has a type for which zero is not a value
+    fn default() -> Self {
+        unsafe { std::mem::zeroed() }
+    }
+}
+{%- endif %}
+{%- if record.fields and record not in blobs and record.fields | selectattr("masks") | list %}
+
+/// The parts of its fields of bits, by name
+impl {{ name }} {
+{%- for line in accessors(record) %}
+{{ line }}
+{%- endfor %}
+}
+{%- endif %}
+{%- endfor %}
+{%- for name, rust in stubs %}
+
+/// '{{ name }}', declared outside the headers; usable only through pointers
+#[repr(C)]
+pub struct {{ rust }} {
+    _private: [u8; 0],
+    _marker: std::marker::PhantomData<(*mut u8, std::marker::PhantomPinned)>,
+}
+{%- endfor %}
+{%- for entity in typedefs %}
+{{ entity.doc | rustdoc }}
+pub type {{ namer(entity.name) }} = {{ namer.rtype(entity.typ) }};
+{%- endfor %}
+{%- for record in printable %}
+{%- set name = namer(record.name) %}
+
+impl {{ name }} {
+    #[allow(unused_unsafe)]
+    fn yace_json(&self, w: &mut dyn Write) -> io::Result<()> {
+        unsafe {
+{%- for line in printer.json_body(record) %}
+            {{ line }}
+{%- endfor %}
+        }
+        Ok(())
+    }
+
+    #[allow(unused_unsafe)]
+    fn yace_yaml(&self, w: &mut dyn Write, indent: usize) -> io::Result<()> {
+        unsafe {
+{%- for line in printer.yaml_body(record) %}
+            {{ line }}
+{%- endfor %}
+        }
+        Ok(())
+    }
+
+    /// Print 'obj', or null when None, to 'w', as YAML or as JSON on one line
+    ///
+    /// # Parameters
+    ///
+    /// * `flags`: one of {{ PREFIX }}_PR_DEF, {{ PREFIX }}_PR_YAML and {{ PREFIX }}_PR_JSON
+    pub fn fpr(w: &mut dyn Write, obj: Option<&Self>, flags: c_int) -> io::Result<()> {
+        if flags & {{ PREFIX }}_PR_JSON != 0 {
+            match obj {
+                Some(obj) => obj.yace_json(w)?,
+                None => w.write_all(b"null")?,
+            }
+            return w.write_all(b"\n");
+        }
+        match obj {
+            Some(obj) => {
+                w.write_all(b"{{ record.name }}:\n")?;
+                obj.yace_yaml(w, 2)
+            }
+            None => w.write_all(b"{{ record.name }}: ~\n"),
+        }
+    }
+
+    /// Print 'obj' to stdout, as fpr()
+    pub fn pr(obj: Option<&Self>, flags: c_int) -> io::Result<()> {
+        Self::fpr(&mut io::stdout().lock(), obj, flags)
+    }
+}
+
+impl fmt::Display for {{ name }} {
+    /// The YAML of the pretty-printers
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut out = Vec::new();
+        Self::fpr(&mut out, Some(self), {{ PREFIX }}_PR_YAML).map_err(|_| fmt::Error)?;
+        f.write_str(&String::from_utf8_lossy(&out))
+    }
+}
+{%- endfor %}
+{%- if functions %}
+
+extern "C" {
+{%- for function in functions %}
+{%- for line in function.doc | rustdoc_lines %}
+    ///{{ " " ~ line if line }}
+{%- endfor %}
+    pub fn {{ function.name | ident }}({% for param in function.params %}{{ params(function)[loop.index0] }}: {{ namer.rtype(param.typ, True) }}{% if not loop.last or function.variadic %}, {% endif %}{% endfor %}{% if function.variadic %}...{% endif %}){{ namer.ret(function.ret) }};
+{%- endfor %}
+}
+{%- endif %}
+
+{{ idiomatic }}

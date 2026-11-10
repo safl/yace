@@ -10,7 +10,8 @@ generated
 Emits, into ``<output>/rust``:
 
 * ``Cargo.toml`` and ``build.rs``, the crate, linking the library
-* ``lib.rs``, the bindings
+* ``lib.rs``, the crate of the bindings, which includes them
+* ``bindings.rs``, the bindings, which another crate may ``include!()``
 * ``check.rs``, the check program, an example of the crate
 
 Functions, constants and enum members keep their C names, so the documentation
@@ -114,7 +115,7 @@ class Rust(Target):
 
         return {
             "meta": model.meta,
-            "crate": prefix,
+            "crate": model.meta.crate or prefix,
             "PREFIX": prefix.upper(),
             "library": library,
             "namer": namer,
@@ -147,6 +148,7 @@ class Rust(Target):
             ("Cargo.toml", "Cargo.toml.template"),
             ("build.rs", "build.rs.template"),
             ("lib.rs", "lib.rs.template"),
+            ("bindings.rs", "bindings.rs.template"),
             ("check.rs", "check.rs.template"),
         ]:
             path = self.output / filename
