@@ -75,6 +75,9 @@ EVAL_BATCH = 200  # macros evaluated per generated translation unit
 # include what else it uses
 STANDARD_HEADERS = ("stdbool.h", "stddef.h", "stdint.h")
 
+# Where Debian's and Ubuntu's LLVM packages are, each with clang's own headers
+LLVM_LIB = Path("/usr/lib")
+
 
 class Unsupported(Exception):
     """A type that the IR cannot represent; the message says which"""
@@ -284,11 +287,28 @@ class CParser(object):
             if proc.returncode == 0 and (include / "stddef.h").exists():
                 return str(include)
 
-        for ver in sorted(
-            Path("/usr/lib").glob("llvm-*/lib/clang/*/include"), reverse=True
-        ):
+        for ver in sorted(LLVM_LIB.glob("llvm-*/lib/clang/*/include"), reverse=True):
             if (ver / "stddef.h").exists():
                 return str(ver)
+
+        return CParser._gcc_include()
+
+    @staticmethod
+    def _gcc_include() -> Optional[str]:
+        """gcc's own include directory, where no clang is: its stddef.h and
+        stdbool.h define the same types from what clang predefines"""
+
+        for cc in (os.environ.get("CC", ""), "gcc", "cc"):
+            if not cc or not shutil.which(cc):
+                continue
+            proc = subprocess.run(
+                [cc, "-print-file-name=include"], capture_output=True, text=True
+            )
+            include = Path(proc.stdout.strip())
+            if proc.returncode == 0 and all(
+                (include / name).exists() for name in STANDARD_HEADERS
+            ):
+                return str(include)
 
         return None
 
@@ -1098,9 +1118,11 @@ class _HeaderParser(object):
             located = diag.location.file and diag.location.file.name == name
             if located and diag.severity >= 4:
                 raise MissingHeader(
-                    f"{diag.spelling}, a header the C subset needs; install the"
-                    " headers of the C library, and clang, whose own headers"
-                    " (clang -print-resource-dir) the libclang package lacks"
+                    f"{diag.spelling}. yace includes this header itself, and the"
+                    " layout of every record depends on it. Install the headers"
+                    " of the C library, and clang or gcc, because the libclang"
+                    " package does not include the compiler's own headers, such"
+                    " as stddef.h"
                 )
         # A header without an include guard, included twice, errs twice alike
         errors = dict.fromkeys(

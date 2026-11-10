@@ -2,6 +2,9 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
+import shutil
+import subprocess
+
 import pytest
 
 from tests.conftest import (
@@ -12,8 +15,8 @@ from tests.conftest import (
     PACKED,
     SKIPPED,
 )
-from yace.ir import decls, types
-from yace.ir.cparser import MissingHeader
+from yace.ir import cparser, decls, types
+from yace.ir.cparser import CParser, MissingHeader
 
 
 def rules(diagnostics):
@@ -626,6 +629,45 @@ def test_a_header_using_a_type_before_its_header_is_given_is_reported(parser, tm
     assert [d.rule for d in diagnostics] == ["parse-error"]
     assert diagnostics[0].file == "api_n.h"
     assert diagnostics[0].message == "unknown type name 'api_m'"
+
+
+def test_gccs_headers_serve_where_clang_has_none(tmp_path, monkeypatch):
+    """The libclang package ships no stddef.h; with no clang installed, gcc's
+    give the same layouts"""
+
+    gcc = CParser._gcc_include()
+    if gcc is None:
+        pytest.skip("no gcc")
+    header = tmp_path / "api_l.h"
+    header.write_text(
+        "/** L */\nstruct api_l {\n\tbool b; ///< B\n\tsize_t n; ///< N\n"
+        "\tuint16_t u; ///< U\n};\n"
+    )
+    found = CParser().parse(header)
+    monkeypatch.setattr(CParser, "_clang_builtin_include", staticmethod(lambda: gcc))
+    model, diagnostics = CParser().parse(header)
+
+    assert [str(d) for d in diagnostics] == []
+    assert model.model_dump() == found[0].model_dump()
+    assert model.find("api_l").size == 24
+
+
+def test_gccs_headers_are_found_last(tmp_path, monkeypatch):
+    gcc = CParser._gcc_include()
+    resource = subprocess.run(["cc", "-print-resource-dir"], capture_output=True)
+    if gcc is None or resource.returncode == 0:
+        pytest.skip("no gcc, or cc is clang")
+    which = shutil.which
+    monkeypatch.setattr(
+        cparser.shutil, "which", lambda n: None if n == "clang" else which(n)
+    )
+    monkeypatch.setattr(cparser, "LLVM_LIB", tmp_path)
+    monkeypatch.setenv(
+        "YACE_SEARCHPATH_LIBCLANG", str(tmp_path / "lib" / "libclang.so")
+    )
+    monkeypatch.delenv("CC", raising=False)
+
+    assert CParser._clang_builtin_include() == gcc
 
 
 def test_the_standard_types_need_no_include(parse):

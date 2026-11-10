@@ -142,5 +142,5 @@ def test_a_header_the_subset_needs_missing_stops_before_anything_is_written(tmp_
     )
 
     assert proc.returncode == 1
-    assert "'yace_nowhere.h' file not found, a header the C subset needs" in proc.stderr
+    assert "'yace_nowhere.h' file not found. yace includes this header" in proc.stderr
     assert not (out / "capi").exists()
