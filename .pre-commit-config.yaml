@@ -51,3 +51,10 @@ repos:
     - jinja2
     - pydantic>=2.0,<3.0
     - types-PyYAML
+
+# Every file says its copyright and license, see REUSE.toml
+- repo: https://github.com/fsfe/reuse-tool
+  rev: v6.2.0
+  hooks:
+  - id: reuse
+    name: REUSE-compliance
