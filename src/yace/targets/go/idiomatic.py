@@ -23,7 +23,7 @@ from typing import Dict, List, Optional, Tuple
 from yace.ir import decls, types
 from yace.ir.semantics import is_void_ptr
 from yace.targets.capi import cgen
-from yace.targets.idiom import Call, Idioms, copyable, is_opaque_ptr, local
+from yace.targets.idiom import Call, Idioms, call_doc, copyable, is_opaque_ptr, local
 from yace.targets.python.pygen import camel
 
 from . import ggen
@@ -486,7 +486,9 @@ class Renderer(object):
         if rexprs:
             body.append(f"return {', '.join(rexprs)}")
 
-        lines = doc(doc_lines(func.doc), f"{name} calls {call.function}.")
+        pnames = self.pnames(call)
+        shown, errors = call_doc(call, func.doc, lambda p: pnames[p])
+        lines = doc(doc_lines(shown, errors), f"{name} calls {call.function}.")
         for arg in call.args:
             if arg.kind == "callback" and arg.lifetime != "call":
                 until = (

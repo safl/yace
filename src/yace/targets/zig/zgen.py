@@ -70,14 +70,24 @@ def lower_camel(name: str) -> str:
     return ident(text[:1].lower() + text[1:]) if text else name
 
 
-def doc_lines(doc) -> List[str]:
+def doc_lines(doc, errors: str = "") -> List[str]:
+    """'doc' as the lines of a doc comment, without the '///'; 'errors' says
+    when it returns an error"""
+
     lines = []
     if doc.brief:
         lines.append(doc.brief)
     for para in [p for p in doc.description.split("\n\n") if p]:
         lines += [""] + para.splitlines()
+    for line in doc.prose():
+        lines += ["", line]
+    if doc.params:
+        lines += ["", "Parameters:", ""]
+        lines += [f"* `{name}`: {text}" for name, text in doc.params.items()]
     if doc.returns:
         lines += ["", f"Returns {doc.returns}"]
+    if errors:
+        lines += ["", f"Errors: {errors}"]
     return lines
 
 

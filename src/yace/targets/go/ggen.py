@@ -111,10 +111,10 @@ def ident(name: str) -> str:
     return f"{name}_" if name in KEYWORDS or name in PREDECLARED else name
 
 
-def doc_lines(doc) -> List[str]:
+def doc_lines(doc, errors: str = "") -> List[str]:
     """The lines of a doc comment, unindented, which Go would read as code, and
     a paragraph of one line ending in a full stop, which Go would read as a
-    heading otherwise"""
+    heading otherwise; 'errors' says when it returns an error"""
 
     def para(lines: List[str]) -> List[str]:
         if len(lines) == 1 and not lines[0].endswith((".", "!", "?", ":", ";")):
@@ -126,8 +126,15 @@ def doc_lines(doc) -> List[str]:
         lines.append(doc.brief)
     for text in [p for p in doc.description.split("\n\n") if p]:
         lines += [""] + para([line.strip() for line in text.splitlines()])
+    for line in doc.prose():
+        lines += [""] + para([line])
+    if doc.params:
+        lines += ["", "Parameters:", ""]
+        lines += [f"  - {name}: {text}" for name, text in doc.params.items()]
     if doc.returns:
         lines += [""] + para([f"Returns {doc.returns}"])
+    if errors:
+        lines += [""] + para([f"Errors: {errors}"])
     return lines
 
 

@@ -42,3 +42,63 @@ def test_a_packed_record_holding_bit_fields_checks_in_every_target(parse, tmp_pa
     assert [
         f for f in failures if "toolchain" not in f and "no compiler" not in f
     ] == []
+
+
+DOCUMENTED = (
+    "#include <stddef.h>\nstruct api_h;\n"
+    "/**\n * Open\n *\n * @param[in] name The name\n * @param[out] h Set to it\n"
+    " *\n * @return 0 on success, -EINVAL when 'name' is NULL\n *\n"
+    " * @note Not thread-safe\n * @see api_close()\n * @errno\n */\n"
+    "int api_open(const char *name, struct api_h **h);\n"
+    "/**\n * Close\n *\n * @param h The handle\n *\n * @destroys h\n */\n"
+    "void api_close(struct api_h *h);\n"
+    "/**\n * Count\n *\n * @param h The handle\n *\n * @return How many\n"
+    " *\n * @deprecated\n */\n"
+    "size_t api_count(const struct api_h *h);\n"
+)
+
+# What each target's idiomatic layer says of api_open() and api_count(): the
+# parameter given, how it fails, as C says it returns, and the prose tags
+DOCUMENTED_AS = {
+    "cpp": [
+        " * @note Not thread-safe\n * @see api_close()\n * @param name The name\n"
+        " * @throws std::system_error api_open() returns: 0 on success, -EINVAL",
+        "\t * @deprecated\n\t * @return How many\n",
+    ],
+    "python": [
+        "Note: Not thread-safe\n\n    See also: api_close()\n\n    Args:\n"
+        "        name: The name\n\n    Raises:\n        OSError: api_open() returns:",
+        "Deprecated\n\n        Returns:\n            How many\n",
+    ],
+    "rust": [
+        "/// Note: Not thread-safe\n        ///\n        /// See also: api_close()\n"
+        "        ///\n        /// Calls [`super::api_open`].\n        ///\n"
+        "        /// # Parameters\n        ///\n        /// * `name`: The name\n"
+        "        ///\n        /// # Errors\n        ///\n"
+        "        /// api_open() returns:",
+        "/// Deprecated\n        ///\n        /// Calls [`super::api_count`].\n"
+        "        ///\n        /// # Returns\n        ///\n        /// How many\n",
+    ],
+    "zig": [
+        "/// Note: Not thread-safe\n    ///\n    /// See also: api_close()\n    ///\n"
+        "    /// Parameters:\n    ///\n    /// * `name`: The name\n    ///\n"
+        "    /// Errors: api_open() returns:",
+        "/// Deprecated\n    ///\n    /// Returns How many\n",
+    ],
+    "go": [
+        "// Note: Not thread-safe.\n//\n// See also: api_close().\n//\n// Parameters:\n"
+        "//\n//   - name: The name\n//\n// Errors: api_open() returns:",
+        "// Deprecated.\n//\n// Returns How many.\n",
+    ],
+}
+
+
+def test_every_target_documents_the_call_it_generates(parse, tmp_path):
+    model, _ = parse(DOCUMENTED)
+    for name, wanted in DOCUMENTED_AS.items():
+        assert process(model, [name], tmp_path, check=False) == []
+        generated = "\n".join(
+            path.read_text() for path in (tmp_path / name).iterdir() if path.is_file()
+        )
+        for text in wanted:
+            assert text in generated, name

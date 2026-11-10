@@ -57,8 +57,9 @@ def camel(name: str) -> str:
     return "".join(part[:1].upper() + part[1:] for part in name.split("_") if part)
 
 
-def docstring(doc, indent: str = "", params: bool = True) -> str:
-    """'doc' as the body of a docstring, or empty when there is none"""
+def docstring(doc, indent: str = "", errors: str = "") -> str:
+    """'doc' as the body of a docstring, or empty when there is none; 'errors'
+    says when what is documented raises OSError"""
 
     def safe(text: str) -> str:
         return text.replace("\\", "\\\\").replace('"""', '\\"\\"\\"')
@@ -67,12 +68,15 @@ def docstring(doc, indent: str = "", params: bool = True) -> str:
     if doc.brief:
         parts.append(safe(doc.brief))
     parts += [safe(p) for p in doc.description.split("\n\n") if p]
-    if params and doc.params:
+    parts += [safe(line) for line in doc.prose()]
+    if doc.params:
         lines = ["Args:"]
         lines += [f"    {name}: {safe(text)}" for name, text in doc.params.items()]
         parts.append(f"\n{indent}".join(lines))
     if doc.returns:
         parts.append(f"Returns:\n{indent}    {safe(doc.returns)}")
+    if errors:
+        parts.append(f"Raises:\n{indent}    OSError: {safe(errors)}")
     return f"\n\n{indent}".join(parts)
 
 

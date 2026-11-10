@@ -7,14 +7,17 @@ from pathlib import Path
 import yaml
 
 from yace.ir.cparser import CParser
-from yace.targets.idiom import Idioms
+from yace.targets.idiom import Idioms, call_doc
 
 FIXTURE = Path(__file__).parent.parent / "examples" / "libfoo"
 
 
+def meta():
+    return yaml.safe_load((FIXTURE / "meta.yaml").read_text())
+
+
 def calls():
-    meta = yaml.safe_load((FIXTURE / "meta.yaml").read_text())
-    model, _ = CParser().parse(FIXTURE / "include" / "foo.h", meta)
+    model, _ = CParser().parse(FIXTURE / "include" / "foo.h", meta())
     return {c.function: c for c in Idioms(model).calls}
 
 
@@ -114,3 +117,22 @@ def test_a_returned_record_is_copied_only_when_the_caller_may_not_write_it(parse
     found = {c.function: c for c in Idioms(model).calls}
     assert found["api_get"].returns == "handle"
     assert found["api_peek"].returns == "pointer"
+
+
+def test_a_call_documents_what_is_given_and_with_errno_how_it_fails():
+    idioms = Idioms(CParser().parse(FIXTURE / "include" / "foo.h", meta())[0])
+    found = {c.function: c for c in idioms.calls}
+
+    def documented(name):
+        return call_doc(found[name], idioms.decl(name).doc, lambda p: f"{p}_")
+
+    shown, errors = documented("foo_open")
+    assert shown.params == {"name_": "Name of the handle, copied"}
+    assert shown.returns == ""
+    assert errors.startswith("foo_open() returns: 0 on success, -EINVAL when")
+
+    shown, errors = documented("foo_point_add_many")
+    assert list(shown.params) == ["points_"]
+
+    shown, errors = documented("foo_point_count")
+    assert (shown.params, shown.returns, errors) == ({}, "The number of points", "")
