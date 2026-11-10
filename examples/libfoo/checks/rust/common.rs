@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+//
+// SPDX-License-Identifier: GPL-2.0-only
+
 //! What the checks of the Rust bindings of libfoo share: printing documents
 
 use std::ffi::c_int;

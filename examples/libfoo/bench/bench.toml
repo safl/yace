@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 # What bench.yaml runs: each way sums the points 'rounds' times, and is run
 # 'repeat' times, the best kept, for each of 'targets'
 [bench]

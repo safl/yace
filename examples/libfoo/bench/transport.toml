@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 # Runs the benchmark on another machine, over ssh; the only file here naming
 # it. Fill in its address and your key. The machine needs yace and the
 # toolchains bench.toml names, on the PATH of a command run over ssh.

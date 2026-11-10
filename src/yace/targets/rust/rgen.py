@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 Rust code for the IR: names, the Rust type of each IR type, and the statements
 of the pretty-printers. The Rust target's templates lay out the crate; this

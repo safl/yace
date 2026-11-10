@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 The C++ target: the idiomatic C++ layer of the API, over the C API, which is
 its raw layer, as C++ includes C headers

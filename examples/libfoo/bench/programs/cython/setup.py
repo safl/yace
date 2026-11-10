@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 Builds fast, the Cython benchmark, against the Python bindings of libfoo in
 FOO_BINDINGS, where foo.pxd and libfoo.h are, linked to the library at

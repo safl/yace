@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 The interface of a **yace** target: what generates the bindings of an API for
 one language from its IR. Targets are found through the ``yace.targets`` entry

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 The benchmark through the ctypes bindings, as the C one: through the raw
 layer, by foo.foo_point_get() and by foo.foo_point_visit() with a FooVisitCb,

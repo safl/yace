@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 Zig code for the IR: names, the Zig type of each IR type, and the statements of
 the pretty-printers. The raw layer uses the types C has, as Zig's own

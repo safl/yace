@@ -1,4 +1,8 @@
 ---
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 doc: |
   The cost of calling libfoo from each target: a handle filled with
   FOO_POINTS_MAX points, the x of every point summed 'bench.rounds' times, by a

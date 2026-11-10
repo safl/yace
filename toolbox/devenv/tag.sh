@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 # The image's tag: a digest of what it is built from, as it is on disk
 set -euo pipefail
 cd "$(dirname "$0")/../.."

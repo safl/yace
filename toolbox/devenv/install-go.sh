@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 # Install Go from go.dev, the download checked against the checksum pinned for
 # the platform, so a release that changed under its name is not installed.
 # usage: install-go.sh <version> <prefix> <sha256 of x86_64> <sha256 of aarch64>

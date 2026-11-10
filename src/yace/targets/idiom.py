@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 How the functions of an API are called idiomatically, in any language, from
 what the IR knows of them; each target renders it in its own language.

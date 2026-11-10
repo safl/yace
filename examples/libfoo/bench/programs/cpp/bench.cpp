@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+//
+// SPDX-License-Identifier: GPL-2.0-only
+
 /**
  * The benchmark through the idiomatic layer of the C++ bindings: as the C one,
  * by handle.point_get() and by handle.point_visit() with a lambda

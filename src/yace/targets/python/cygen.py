@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 Cython code for the IR: the names of the C API in a ``.pxd``, and the Cython
 spelling of each IR type. The ``.pxd`` declares the C API as the C target's

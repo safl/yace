@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 The idiomatic Go layer of the package, over the C functions: handles as
 structs with their methods, errors as the last of the values returned, a

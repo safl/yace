@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
 /**
  * The benchmark in plain C, the baseline the targets are compared to
  *

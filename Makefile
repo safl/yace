@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 PROJECT=yace
 AUX_PATH=toolbox
 PIPX_LOCAL_VENVS=$(shell pipx environment --value PIPX_LOCAL_VENVS)

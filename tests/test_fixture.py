@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 The fixture library, examples/libfoo, called through the bindings of each
 target: its check must print what examples/libfoo/expected.yaml says

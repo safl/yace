@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 The Rust target: a crate binding the API, in the manner of a ``-sys`` crate,
 with pretty-printers for every struct and union, and a check of what it

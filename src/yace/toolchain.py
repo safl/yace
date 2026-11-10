@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 The toolchains the checks of the targets build with: for each, the variable of
 the environment naming its command, the command used where it is unset, and how

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 What the steps of the benchmark share: the targets, how each is built and run,
 and where, on the target cijoe runs the steps on.

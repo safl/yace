@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 Documentation attached to an entity in the **yace** IR, parsed from the Doxygen
 style comment above, or trailing ('///<'), the declaration in the header
