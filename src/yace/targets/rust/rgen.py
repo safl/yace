@@ -8,7 +8,7 @@ of the pretty-printers. The Rust target's templates lay out the crate; this
 produces what goes in it that depends on the types.
 """
 
-from typing import Dict, List
+from typing import Dict, List, Sequence
 
 from yace.ir import decls, types
 from yace.ir.masks import VALUE_KEY
@@ -63,19 +63,26 @@ def ident(name: str) -> str:
     return f"r#{name}" if name in KEYWORDS else name
 
 
-def doc_lines(doc) -> List[str]:
-    """'doc' as the lines of a Rust doc comment, without the '///'"""
+def doc_lines(doc, errors: str = "", lead: Sequence[str] = ()) -> List[str]:
+    """'doc' as the lines of a Rust doc comment, without the '///'; 'lead' is a
+    paragraph before its sections, and 'errors' says when it returns an error"""
 
     lines = []
     if doc.brief:
         lines.append(doc.brief)
     for para in [p for p in doc.description.split("\n\n") if p]:
         lines += [""] + para.splitlines()
+    for line in doc.prose():
+        lines += ["", line]
+    if lead:
+        lines += ([""] if lines else []) + list(lead)
     if doc.params:
         lines += ["", "# Parameters", ""]
         lines += [f"* `{name}`: {text}" for name, text in doc.params.items()]
     if doc.returns:
         lines += ["", "# Returns", "", doc.returns]
+    if errors:
+        lines += ["", "# Errors", "", errors]
     return lines
 
 

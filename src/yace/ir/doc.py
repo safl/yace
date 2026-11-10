@@ -28,6 +28,10 @@ DIRECTIONS: Dict[str, Direction] = {
 # Doxygen's commands naming what is documented; the declaration says that itself
 STRUCTURAL_TAGS = ("enum", "struct", "union", "typedef", "fn", "def", "var", "file")
 
+# Doxygen's commands telling whoever uses what is documented something, carried
+# to every binding, by the label each is shown with
+PROSE_TAGS = {"note": "Note", "see": "See also", "deprecated": "Deprecated"}
+
 
 class Doc(BaseModel):
     """
@@ -44,6 +48,16 @@ class Doc(BaseModel):
     directions: Dict[str, str] = {}
     returns: str = ""
     tags: Dict[str, str] = {}
+
+    def prose(self) -> List[str]:
+        """The tags of :data:`PROSE_TAGS` it has, each as its label and text, or
+        its label alone, as a bare '@deprecated' says"""
+
+        return [
+            f"{label}: {self.tags[tag]}" if self.tags[tag] else label
+            for tag, label in PROSE_TAGS.items()
+            if tag in self.tags
+        ]
 
     def is_empty(self) -> bool:
         return not (
@@ -63,6 +77,16 @@ def strip_markers(raw: str) -> str:
         lines = [re.sub(r"^\s*//+[!<]*<? ?", "", line) for line in text.splitlines()]
 
     return "\n".join(line.rstrip() for line in lines).strip()
+
+
+def joint(tag: str, text: str) -> str:
+    """What joins another of the repeated prose 'tag' to its 'text': references
+    are listed, and the rest are sentences; yace's own tags are joined by a
+    space, as their text is read word by word"""
+
+    if tag == "see":
+        return ", "
+    return " " if text.endswith((".", "!", "?", ":", ";")) else ". "
 
 
 def parse(raw) -> Doc:
@@ -115,6 +139,8 @@ def parse(raw) -> Doc:
             doc.params[name] = text
         elif tag in ("return", "returns"):
             doc.returns = text
+        elif tag in doc.tags and tag in PROSE_TAGS and doc.tags[tag] and text:
+            doc.tags[tag] = f"{doc.tags[tag]}{joint(tag, doc.tags[tag])}{text}"
         elif tag in doc.tags:
             doc.tags[tag] = f"{doc.tags[tag]} {text}".strip()
         else:

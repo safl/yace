@@ -328,3 +328,14 @@ Every declaration on the boundary must be documented, with a Doxygen comment
 before it, or a ``///<`` after it, so the bindings generated are documented
 too. A declaration has one such comment: two adjacent ones would be read as
 one, so they are reported.
+
+Each binding carries the doc comment into the documentation format of its
+language. It carries the brief, the paragraphs after the brief, ``@note``,
+``@see`` and ``@deprecated``, the ``@param`` text of each parameter that the
+caller passes, and ``@return``. A function documented with ``@errno`` behaves
+differently in every binding except the C API: the binding returns the value
+and reports a failure as an error. The ``@return`` text of such a function
+describes both, and yace cannot separate the two. Each binding therefore shows
+that text where it documents errors: under ``# Errors`` in Rust, ``Raises:`` in
+Python, ``@throws`` in C++, and ``Errors:`` in Zig and Go. The text starts with
+the name of the C function, as in ``foo_open() returns: 0 on success, ...``.

@@ -31,11 +31,22 @@ Names lose the prefix of the API, and methods also the name of their handle:
 """
 
 from collections import Counter
-from typing import Any, Dict, Iterable, Iterator, List, Literal, Optional
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+)
 
 from pydantic import BaseModel
 
 from yace.ir import decls, types
+from yace.ir.doc import Doc
 from yace.ir.model import Model
 
 
@@ -99,6 +110,32 @@ class Call(BaseModel):
     returns: Returns
     nullable: bool = False  # whether what is returned may be nothing
     ret: types.Type
+
+    def given(self) -> List[Arg]:
+        """The arguments the caller gives; the binding passes or returns the rest"""
+
+        return [a for a in self.args if a.kind in GIVEN]
+
+
+# The kinds of argument the caller gives
+GIVEN = ("value", "string", "sequence", "callback", "capacity")
+
+
+def call_doc(call: Call, doc: Doc, pname: Callable[[str], str]) -> Tuple[Doc, str]:
+    """The doc of 'call', and what it fails with: the parameters given, by their
+    names in the binding, and with @errno, what the C function says it returns,
+    as how it fails, since the binding returns the value and fails with the
+    error; the text says both, and cannot be split"""
+
+    params = {
+        pname(a.param): doc.params[a.param]
+        for a in call.given()
+        if a.param in doc.params
+    }
+    if not call.errno:
+        return doc.model_copy(update={"params": params}), ""
+    errors = f"{call.function}() returns: {doc.returns}" if doc.returns else ""
+    return doc.model_copy(update={"params": params, "returns": ""}), errors
 
 
 def is_opaque_ptr(typ, handles) -> Optional[str]:

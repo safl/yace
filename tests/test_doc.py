@@ -59,3 +59,28 @@ def test_brief_tag():
 def test_empty():
     assert doc.parse(None).is_empty()
     assert doc.parse("/** */").is_empty()
+
+
+def test_prose_is_the_note_see_and_deprecation_in_that_order():
+    parsed = doc.parse(
+        "/**\n * Old\n *\n * @deprecated\n * @see api_new()\n"
+        " * @note Not thread-safe\n * @todo Ours\n */"
+    )
+    assert parsed.prose() == [
+        "Note: Not thread-safe",
+        "See also: api_new()",
+        "Deprecated",
+    ]
+
+
+def test_a_repeated_tag_keeps_its_sentences_and_lists_its_references():
+    parsed = doc.parse(
+        "/**\n * Get\n *\n * @note Return it with put()\n * @note Not thread-safe\n"
+        " * @note Fast.\n * @note Simple\n * @see put()\n * @see reap()\n"
+        " * @nullable a\n * @nullable b\n */"
+    )
+    assert parsed.tags == {
+        "note": "Return it with put(). Not thread-safe. Fast. Simple",
+        "see": "put(), reap()",
+        "nullable": "a b",
+    }

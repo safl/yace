@@ -17,7 +17,15 @@ from typing import Dict, List, Optional
 
 from yace.ir import decls, types
 from yace.ir.semantics import is_void_ptr
-from yace.targets.idiom import Arg, Call, Idioms, copyable, is_opaque_ptr, local
+from yace.targets.idiom import (
+    Arg,
+    Call,
+    Idioms,
+    call_doc,
+    copyable,
+    is_opaque_ptr,
+    local,
+)
 from yace.targets.python.pygen import camel
 
 from . import zgen
@@ -365,7 +373,8 @@ class Renderer(object):
         if rexpr is not None:
             body.append(f"return {rexpr};")
 
-        lines = [f"/// {line}".rstrip() for line in zgen.doc_lines(func.doc)]
+        shown, errors = call_doc(call, func.doc, self.pname)
+        lines = [f"/// {line}".rstrip() for line in zgen.doc_lines(shown, errors)]
         lines += ["///", f"/// Calls `{call.function}`."]
         for arg in call.args:
             if arg.kind != "callback" or arg.lifetime == "call":

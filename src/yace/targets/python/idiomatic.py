@@ -19,6 +19,7 @@ from yace.ir.semantics import is_void_ptr
 from yace.targets.idiom import (
     Call,
     Idioms,
+    call_doc,
     copyable,
     is_opaque_ptr,
     local,
@@ -80,13 +81,8 @@ class Renderer(object):
 
     def doc(self, call: Call, indent: str) -> str:
         func = self.idioms.decl(call.function)
-        visible = {a.param for a in self.visible(call)}
-        shown = func.doc.model_copy(
-            update={
-                "params": {k: v for k, v in func.doc.params.items() if k in visible}
-            }
-        )
-        body = pygen.docstring(shown, indent)
+        shown, errors = call_doc(call, func.doc, self.pname)
+        body = pygen.docstring(shown, indent, errors)
         body = body or call.function
         return pygen.quoted(f"{body}\n\n{indent}Calls {call.function}().", indent)
 
@@ -360,11 +356,7 @@ class Renderer(object):
         return f"{expr}.contents.value"
 
     def visible(self, call: Call) -> list:
-        return [
-            a
-            for a in call.args
-            if a.kind in ("value", "string", "sequence", "callback", "capacity")
-        ]
+        return call.given()
 
     def params(self, call: Call) -> List[str]:
         """The parameter list; nullable ones default to None, where all after

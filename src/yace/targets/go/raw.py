@@ -230,16 +230,26 @@ class Raw(object):
 
     def function(self, function) -> List[str]:
         name = self.fn_names[function.name]
-        reason = self.unbindable(function)
-        if reason:
-            return [""] + doc(
-                doc_lines(function.doc),
-                f"{name} is not bound: {function.name}() {reason}.",
-            )
-        lines = [""] + doc(doc_lines(function.doc), f"{name} calls {function.name}.")
         names = param_names(
             [p.name for p in function.params], self.reserved() | {"ret"}
         )
+        renamed = dict(zip([p.name for p in function.params], names))
+        shown = function.doc.model_copy(
+            update={
+                "params": {
+                    renamed[k]: v
+                    for k, v in function.doc.params.items()
+                    if k in renamed
+                }
+            }
+        )
+        reason = self.unbindable(function)
+        if reason:
+            return [""] + doc(
+                doc_lines(shown),
+                f"{name} is not bound: {function.name}() {reason}.",
+            )
+        lines = [""] + doc(doc_lines(shown), f"{name} calls {function.name}.")
         sig = ", ".join(
             f"{n} {self.namer.gotype(p.typ, True)}"
             for n, p in zip(names, function.params)

@@ -21,7 +21,15 @@ from typing import List, Optional
 
 from yace.ir import decls, types
 from yace.ir.semantics import is_void_ptr
-from yace.targets.idiom import Arg, Call, Idioms, copyable, is_opaque_ptr, local
+from yace.targets.idiom import (
+    Arg,
+    Call,
+    Idioms,
+    call_doc,
+    copyable,
+    is_opaque_ptr,
+    local,
+)
 from yace.targets.python.pygen import camel
 
 from . import rgen
@@ -618,9 +626,11 @@ class Renderer(object):
         if rexpr != "()":
             body.append(rexpr)
 
-        doc = rgen.doc_lines(func.doc.model_copy(update={"params": {}}))
-        lines = [f"/// {line}".rstrip() for line in doc]
-        lines += ["///", f"/// Calls [`super::{rgen.ident(call.function)}`]."]
+        shown, errors = call_doc(call, func.doc, self.pname)
+        calls = f"Calls [`super::{rgen.ident(call.function)}`]."
+        lines = [
+            f"/// {line}".rstrip() for line in rgen.doc_lines(shown, errors, [calls])
+        ]
         name = rgen.ident(call.name)
         if call.name == "as_ptr" and call.kind != "function":
             name = "as_ptr_"

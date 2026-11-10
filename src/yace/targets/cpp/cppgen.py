@@ -21,6 +21,7 @@ from functools import cached_property
 from typing import Dict, List, Optional, Tuple
 
 from yace.ir import decls, types
+from yace.ir.doc import PROSE_TAGS
 from yace.ir.masks import VALUE_KEY
 from yace.ir.semantics import is_void_ptr
 from yace.targets.capi import cgen
@@ -29,6 +30,7 @@ from yace.targets.idiom import (
     Arg,
     Call,
     Idioms,
+    call_doc,
     copyable,
     is_opaque_ptr,
     local,
@@ -59,16 +61,20 @@ def ident(name: str) -> str:
     return f"{name}_" if name in KEYWORDS or name == "ret" else name
 
 
-def comment(doc, indent: str = "") -> List[str]:
-    """'doc', without its parameters, as a Doxygen comment"""
+def comment(doc, indent: str = "", errors: str = "") -> List[str]:
+    """'doc' as a Doxygen comment; 'errors' says when it throws"""
 
     lines = []
     if doc.brief:
         lines.append(doc.brief)
     for para in [p for p in doc.description.split("\n\n") if p]:
         lines += ["", para]
-    if doc.returns:
-        lines += ["", f"@return {doc.returns}"]
+    tags = [f"@{tag} {doc.tags[tag]}".rstrip() for tag in PROSE_TAGS if tag in doc.tags]
+    tags += [f"@param {name} {text}" for name, text in doc.params.items()]
+    tags += [f"@return {doc.returns}"] if doc.returns else []
+    tags += [f"@throws std::system_error {errors}"] if errors else []
+    if tags:
+        lines += [""] + tags
     if not lines:
         return []
     body = [f"{indent} * {uncommented(line)}".rstrip() for line in lines]
@@ -799,9 +805,18 @@ class Renderer(object):
             lines.append("}")
         return lines
 
+    def call_comment(self, call: Call, indent: str = "") -> List[str]:
+        """The comment of 'call'; a destructor returns nothing and never throws, as
+        the pointer it releases is reset"""
+
+        shown, errors = call_doc(call, self.idioms.decl(call.function).doc, self.pname)
+        if call.kind == "destructor":
+            shown, errors = shown.model_copy(update={"returns": ""}), ""
+        return comment(shown, indent, errors)
+
     def declaration(self, call: Call, owner: str) -> List[str]:
         template, rtype, name, params, const = self.signature(call, owner)
-        lines = comment(self.idioms.decl(call.function).doc, "\t")
+        lines = self.call_comment(call, "\t")
         if template:
             lines.append(f"\t{template}")
         lines.append(
@@ -864,7 +879,7 @@ class Renderer(object):
             if self.usable(call):
                 lines += [""] + self.declaration(call, record)
         if destructor:
-            lines += [""] + comment(self.idioms.decl(destructor.function).doc, "\t")
+            lines += [""] + self.call_comment(destructor, "\t")
             close_rtype = "void"
             lines.append(f"\t{close_rtype} {self.method_name(destructor)}();")
         lines += [
@@ -1088,10 +1103,10 @@ class Renderer(object):
             out += self.destructor(record) + [""]
         for call in self.idioms.calls:
             if call.kind == "constructor" and self.usable(call):
-                out += comment(self.idioms.decl(call.function).doc)
+                out += self.call_comment(call)
                 out += self.definition(call) + [""]
         for call in self.idioms.functions():
             if self.usable(call):
-                out += comment(self.idioms.decl(call.function).doc)
+                out += self.call_comment(call)
                 out += self.definition(call) + [""]
         return "\n".join(out).rstrip() + "\n"
