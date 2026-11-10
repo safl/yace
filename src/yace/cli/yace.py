@@ -27,7 +27,7 @@ from yace import __version__ as version
 from yace import generators as gen
 from yace.compiler import process
 from yace.ir import model as ir
-from yace.ir.cparser import c_to_yace
+from yace.ir.cparser import MissingHeader, c_to_yace
 from yace.targets.target import load, targets
 
 
@@ -180,9 +180,13 @@ def main():
     if ".h" in suffixes:
         meta = yaml.safe_load(args.meta.read_text()) if args.meta else None
         args_clang = [f"-I{path}" for path in args.include]
-        model, diagnostics = c_to_yace(
-            args.filepath, args.output, meta, args_clang, args.prelude
-        )
+        try:
+            model, diagnostics = c_to_yace(
+                args.filepath, args.output, meta, args_clang, args.prelude
+            )
+        except MissingHeader as error:
+            log.error("%s", error.args[0])
+            return 1
         for diagnostic in diagnostics:
             print(diagnostic, file=sys.stderr)
         log.info("%d entities, %d diagnostics", len(model.entities), len(diagnostics))
