@@ -16,6 +16,24 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## 0.9.1
+
+A function returning a pointer to a record without `const`, an object the
+caller may write and give back by its address, such as a command context taken
+from a queue's pool, is bound as returning that pointer in every target. It was
+bound as returning a copy, so handing it back gave the library the caller's
+copy in place of its own, and a NULL return was dereferenced. A `const` pointer
+to a record is a view, and is still returned as a copy.
+
+In Rust, a `once` closure given to a function that is not a method of a handle
+must be `Send`, as any later call into the library, from any thread, may run
+it; one holding an `Rc` raced with its own thread. The closure given to a
+method runs during a later call given its handle, which stays on its thread,
+and need not be `Send`.
+
+The callback lifetimes have a page of their own in the documentation, and every
+file states its copyright and license, as the REUSE specification lays out.
+
 ## 0.9.0
 
 Go is a target. Its bindings call the C API through cgo: a raw layer declares
