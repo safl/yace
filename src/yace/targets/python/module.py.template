@@ -236,7 +236,7 @@ class {{ namer(record.name) }}(ctypes.{{ "Union" if record | is_union else "Stru
 
     Attributes:
 {%- for field in record.fields %}
-        {{ field.name }}: {{ field.doc.brief | oneline or field.name }}
+        {{ field.name | ident }}: {{ field.doc.brief | oneline or field.name }}
 {%- endfor %}
     """
 {%- else %}
@@ -286,6 +286,19 @@ class {{ namer(record.name) }}(ctypes.{{ "Union" if record | is_union else "Stru
 {%- endfor %}
 {%- endfor %}
 {%- endif %}
+{%- set names = record.fields | map(attribute="name") | list %}
+{%- for field in record.fields if field.name | ident != field.name and field.name | ident not in names %}
+
+    @property
+    def {{ field.name | ident }}(self):
+        """The field '{{ field.name }}', which Python cannot spell as an attribute"""
+
+        return {{ attribute(field.name) }}
+
+    @{{ field.name | ident }}.setter
+    def {{ field.name | ident }}(self, value):
+        {{ attribute(field.name, "value") }}
+{%- endfor %}
 {%- endif %}
 {%- endfor %}
 {%- for name, pyname in stubs %}

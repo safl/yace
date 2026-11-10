@@ -118,6 +118,26 @@ def test_names_are_made_usable(parse, tmp_path):
     assert str(ns["foo__bar"]()) == "foo__bar:\n  x: 0\n"
 
 
+def test_a_field_named_as_a_keyword_is_reached_by_its_escaped_name(parse, tmp_path):
+    """As 'async' of xNVMe's options, which 'opts.async_ = ...' would otherwise
+    set as a new attribute, silently, and C would never see"""
+
+    model, _ = parse(
+        "/** R */\nstruct api_r {\n\tint async; ///< A\n"
+        "\tint class; ///< C\n\tint class_; ///< Taken\n};\n"
+    )
+    assert process(model, ["python"], tmp_path) == []
+
+    ns = module(tmp_path)
+    record = ns["ApiR"]()
+    record.async_ = 3
+    assert (getattr(record, "async"), record.async_) == (3, 3)
+    record.class_ = 4
+    assert (getattr(record, "class"), record.class_) == (0, 4)
+    assert record.to_dict() == {"async": 3, "class": 0, "class_": 4}
+    assert "async_: A" in ns["ApiR"].__doc__
+
+
 def test_records_repr_as_their_constructor_is_called(parse, tmp_path):
     model, _ = parse(
         "#include <stdbool.h>\n#include <stdint.h>\n"
