@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 # cython: language_level=3
 """
 The benchmark in Cython through the generated foo.pxd, as the C one: by

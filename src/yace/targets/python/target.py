@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 The Python target: a module binding the API through ctypes, with the records
 as ctypes structures and unions that print themselves as YAML or JSON, the

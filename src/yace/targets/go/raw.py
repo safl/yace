@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 The raw layer of the Go package: the constants, enums, types and functions of
 the C API, by their C names, exported. A function is a Go function calling it

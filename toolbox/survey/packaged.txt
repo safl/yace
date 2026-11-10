@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 # Libraries installable via apt on Debian Trixie
 # These can be parsed, compiled, linked, and run via yace's full pipeline.
 # Format: name<TAB>debian_pkg<TAB>header_path<TAB>pkg_config_name

@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
 /**
  * Every construct of the C subset, each documented; parsing it must give no
  * diagnostics

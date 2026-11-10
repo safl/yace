@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 Go code for the IR: names, the Go type of each IR type and the type cgo gives
 it, the conversions between the two, and the methods of the records. The raw

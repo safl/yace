@@ -1,4 +1,9 @@
 #!/bin/sh
+
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 # Install -dev packages for the yace parser coverage survey.
 # These are the C libraries listed in toolbox/survey/packaged.txt,
 # all available on Debian Trixie.

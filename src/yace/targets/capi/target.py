@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 The C target: an idiomatic C header for the API, pretty-printers for every
 struct, union and enum, and a check program asserting the layout recorded in

@@ -1,0 +1,36 @@
+version = 1
+SPDX-PackageName = "yace"
+SPDX-PackageSupplier = "Simon A. F. Lund <os@safl.dk>"
+SPDX-PackageDownloadLocation = "https://github.com/safl/yace"
+
+# The templates write the license of the API they generate code for, so a
+# header of their own would end up in the generated code, and their
+# placeholders are not SPDX expressions
+[[annotations]]
+path = "src/yace/targets/**/*.template"
+precedence = "override"
+SPDX-FileCopyrightText = "Simon A. F. Lund <os@safl.dk>"
+SPDX-License-Identifier = "GPL-2.0-only"
+
+# Written by the documentation's tooling, shown verbatim in the documentation,
+# or compared verbatim by the checks
+[[annotations]]
+path = [
+    "docs/src/**/*.cmd",
+    "docs/src/ir/list.rst",
+    "docs/src/ir/rules.rst",
+    "docs/src/**/*.png",
+    "docs/src/bench/report.txt",
+    "docs/src/codebase/900_make.txt",
+    "docs/src/ir/pad.h",
+    "examples/libfoo/include/foo.h",
+    "examples/libfoo/expected.yaml",
+    "examples/libfoo/checks/cpp/check.cpp",
+    "examples/libfoo/checks/go/main.go",
+    "examples/libfoo/checks/python/idiomatic.py",
+    "examples/libfoo/checks/rust/idiomatic.rs",
+    "examples/libfoo/checks/zig/check.zig",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Simon A. F. Lund <os@safl.dk>"
+SPDX-License-Identifier = "GPL-2.0-only"

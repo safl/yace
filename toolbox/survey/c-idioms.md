@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+
+SPDX-License-Identifier: GPL-2.0-only
+-->
+
 # C Idioms Not Yet Handled by yace
 
 Summary of C language patterns that yace's parser does not yet fully support,

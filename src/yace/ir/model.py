@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 The root of the **yace** IR: the :class:`.Meta` describing the API and the
 declarations, its entities, in the order the header declares them

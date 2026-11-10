@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 The idiomatic Zig layer of the bindings, over the raw externs: handles as
 structs with their methods and a ``deinit``, errors as Zig errors named for the

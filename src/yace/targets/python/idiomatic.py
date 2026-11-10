@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 The idiomatic Python layer of the bindings, over the raw functions: handles as
 classes that are context managers, errors as :py:class:`OSError`, what is

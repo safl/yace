@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 The Zig target: a module binding the API, in two layers, the raw one declaring
 the C API as C has it and the idiomatic one over it, with pretty-printers for

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 The idiomatic C++ layer of the API, over the C API the C target generates,
 which is its raw layer, as C++ includes C headers: handles as move-only RAII

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 What C cannot say about an FFI boundary, taken from the documentation of its
 functions, and checked: which way each pointer goes, which may be NULL, which

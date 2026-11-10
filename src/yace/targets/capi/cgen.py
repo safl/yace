@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 C code for the IR: declarations of its types, and the statements of the pretty-
 printers. The C target's templates lay out the files; this produces what goes in

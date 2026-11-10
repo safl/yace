@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 The interface of a **yace** generator: what writes C headers, and the C
 sources implementing what they declare, from something other than C, as the

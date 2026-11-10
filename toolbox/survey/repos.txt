@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 # Non-packaged repos to clone and survey (multi-header libraries)
 # Format: name<TAB>git_url<TAB>include_glob<TAB>exclude_glob (optional)
 # Globs are relative to the cloned repo root.

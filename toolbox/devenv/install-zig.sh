@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 # Install Zig as the Zig Software Foundation asks of automation: from a
 # community mirror, with the signature verified, and the file it is for checked,
 # since minisign does not. usage: install-zig.sh <version> <prefix>

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 # cython: language_level=3
 """
 The check of the .pxd of libfoo: Cython code cimporting the C API through the

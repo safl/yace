@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+
+SPDX-License-Identifier: GPL-2.0-only
+-->
+
 # Changelog
 
 Each release of yace has a section here, named by its version, such as

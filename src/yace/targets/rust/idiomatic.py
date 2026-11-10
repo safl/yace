@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 The idiomatic Rust layer of the crate, the module ``safe``, over the raw
 functions: handles that release themselves when dropped, ``io::Result`` for

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 Python code for the IR: names, and the ctypes type of each IR type. The Python
 target's templates lay out the module; this produces what goes in it that

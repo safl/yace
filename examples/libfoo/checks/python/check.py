@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 """
 The check of the Python bindings of libfoo: calls the library through the
 generated module and prints what it got back, as YAML documents, or with
