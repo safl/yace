@@ -13,6 +13,7 @@ from tests.conftest import (
     SKIPPED,
 )
 from yace.ir import decls, types
+from yace.ir.cparser import MissingHeader
 
 
 def rules(diagnostics):
@@ -691,6 +692,13 @@ def test_every_error_of_the_headers_is_reported(parse):
 
     assert len(errors) == 30
     assert errors[-1].message == "unknown type name 'api_t29'"
+
+
+def test_a_header_yace_includes_not_found_stops_the_parse(parser, tmp_path):
+    paths = headers(tmp_path, api_q=API_Q)
+
+    with pytest.raises(MissingHeader, match="'yace_nowhere.h' file not found"):
+        parser.parse(paths, prelude=["yace_nowhere.h"])
 
 
 def test_an_include_not_found_is_kept(parse):

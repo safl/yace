@@ -128,3 +128,19 @@ def test_a_check_without_its_toolchain_fails_naming_it(tmp_path, monkeypatch):
     proc = yace(header, "--meta", meta, "--output", tmp_path, "--emit", "cpp")
     assert proc.returncode == 1
     assert "cpp: no C++ compiler ('/nonexistent/c++'); set CXX" in proc.stderr
+
+
+def test_a_header_the_subset_needs_missing_stops_before_anything_is_written(tmp_path):
+    """As 'stdbool.h' where clang's own headers are not found: every layout
+    would be guessed, and the bindings would build with them wrong"""
+
+    header = tmp_path / "api_m.h"
+    header.write_text("/** M */\nstruct api_m { bool b; };\n")
+    out = tmp_path / "out"
+    proc = yace(
+        header, "--output", out, "--prelude", "yace_nowhere.h", "--emit", "capi"
+    )
+
+    assert proc.returncode == 1
+    assert "'yace_nowhere.h' file not found, a header the C subset needs" in proc.stderr
+    assert not (out / "capi").exists()

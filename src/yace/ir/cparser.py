@@ -80,6 +80,11 @@ class Unsupported(Exception):
     """A type that the IR cannot represent; the message says which"""
 
 
+class MissingHeader(Exception):
+    """A header yace includes itself, of the C library or of the compiler, is
+    not found; every layout would then be guessed, so nothing is parsed"""
+
+
 ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "a": "\a", "b": "\b", "f": "\f"}
 ESCAPES.update({"v": "\v", "\\": "\\", '"': '"', "'": "'", "?": "?"})
 
@@ -1089,6 +1094,14 @@ class _HeaderParser(object):
             unsaved_files=[(name, self.includes())],
             options=TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
         )
+        for diag in tu.diagnostics:
+            located = diag.location.file and diag.location.file.name == name
+            if located and diag.severity >= 4:
+                raise MissingHeader(
+                    f"{diag.spelling}, a header the C subset needs; install the"
+                    " headers of the C library, and clang, whose own headers"
+                    " (clang -print-resource-dir) the libclang package lacks"
+                )
         # A header without an include guard, included twice, errs twice alike
         errors = dict.fromkeys(
             (
