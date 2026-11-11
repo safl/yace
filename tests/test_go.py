@@ -118,7 +118,11 @@ VALUES_C = r"""#include <stdio.h>
 void cb(void *arg) { (void)arg; }
 void print_all(const void *v, const void *u, const void *s, const void *g)
 {
-	for (int flags = API_PR_YAML; flags <= API_PR_JSON; flags++) {
+	const int formats[] = {API_PR_YAML, API_PR_JSON};
+
+	for (size_t i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
+		int flags = formats[i];
+
 		api_v_fpr(stdout, v, flags);
 		api_u_fpr(stdout, u, flags);
 		api_status_fpr(stdout, s, flags);

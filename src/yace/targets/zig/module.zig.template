@@ -15,8 +15,10 @@ const std = @import("std");
 pub const {{ PREFIX }}_PR_DEF: c_int = 0x0;
 /// YAML
 pub const {{ PREFIX }}_PR_YAML: c_int = 0x1;
+/// Terse; the generated printers print YAML
+pub const {{ PREFIX }}_PR_TERSE: c_int = 0x2;
 /// JSON, on one line
-pub const {{ PREFIX }}_PR_JSON: c_int = 0x2;
+pub const {{ PREFIX }}_PR_JSON: c_int = 0x4;
 
 {% filter locals("helpers") -%}
 // Its names are qualified, as a declaration of the C API may share them

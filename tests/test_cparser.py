@@ -771,8 +771,9 @@ def test_what_is_named_as_the_printers_output_formats_is_skipped(parse):
         " pretty-printers that yace generates declare the same names,"
         f" {skipped} 'API_PR_JSON' and uses the generated printers",
         "api.h:2:6: printer-name: 'api_pr' declares enum api_pr, API_PR_DEF,"
-        " API_PR_YAML. The pretty-printers that yace generates declare the same"
-        f" names, {skipped} 'api_pr' and uses the generated printers",
+        " API_PR_TERSE, API_PR_YAML. The pretty-printers that yace generates"
+        f" declare the same names, {skipped} 'api_pr' and uses the generated"
+        " printers",
         "api.h:28:5: printer-name: 'api_s_pr' has the name of the printer that"
         f" yace generates for 'api_s', {skipped} 'api_s_pr' and uses the"
         " generated printer",

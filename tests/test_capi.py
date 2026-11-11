@@ -279,6 +279,33 @@ def test_a_packed_record_is_declared_packed_and_prints(parse, tmp_path):
     assert run.stdout == PACKED_PRINTED
 
 
+@needs_cc
+def test_the_printers_print_yaml_when_terse_and_json_by_its_own_bit(parse, tmp_path):
+    model, _ = parse("/** S */\nstruct api_s {\n\tint v; ///< V\n\tint w; ///< W\n};\n")
+    assert process(model, ["capi"], tmp_path) == []
+
+    program = tmp_path / "t.c"
+    program.write_text(
+        '#include <stdlib.h>\n#include "libapi.h"\n'
+        "int main(int argc, char **argv) {\n"
+        "\tstruct api_s s = {7, 8};\n\n\t(void)argc;\n"
+        "\treturn api_s_pr(&s, atoi(argv[1])) < 0;\n}\n"
+    )
+    cmd = ["cc", *CFLAGS, "-I", str(tmp_path / "capi"), str(program)]
+    cmd += [str(tmp_path / "capi" / "api_pp.c"), "-o", str(tmp_path / "t")]
+    subprocess.run(cmd, check=True)
+
+    def run(flags):
+        proc = subprocess.run(
+            [str(tmp_path / "t"), str(flags)], capture_output=True, text=True
+        )
+        assert proc.returncode == 0
+        return proc.stdout
+
+    assert run(0x2) == run(0x1) == "api_s:\n  v: 7\n  w: 8\n"
+    assert json.loads(run(0x4)) == {"v": 7, "w": 8}
+
+
 SIGNED = """#include <stdint.h>
 /** A pair */
 typedef struct { int a; } api_pair_t;

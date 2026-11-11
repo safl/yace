@@ -137,11 +137,13 @@ class {{ Prefix }}Pr(enum.IntFlag):
 
     {{ PREFIX }}_PR_DEF = 0x0  #: The default, YAML
     {{ PREFIX }}_PR_YAML = 0x1  #: YAML
-    {{ PREFIX }}_PR_JSON = 0x2  #: JSON, on one line
+    {{ PREFIX }}_PR_TERSE = 0x2  #: Terse; the generated printers print YAML
+    {{ PREFIX }}_PR_JSON = 0x4  #: JSON, on one line
 
 
 {{ PREFIX }}_PR_DEF = {{ Prefix }}Pr.{{ PREFIX }}_PR_DEF
 {{ PREFIX }}_PR_YAML = {{ Prefix }}Pr.{{ PREFIX }}_PR_YAML
+{{ PREFIX }}_PR_TERSE = {{ Prefix }}Pr.{{ PREFIX }}_PR_TERSE
 {{ PREFIX }}_PR_JSON = {{ Prefix }}Pr.{{ PREFIX }}_PR_JSON
 
 

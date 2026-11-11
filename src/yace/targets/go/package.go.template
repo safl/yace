@@ -46,8 +46,10 @@ const (
 	{{ PREFIX }}_PR_DEF = 0x0
 	// YAML
 	{{ PREFIX }}_PR_YAML = 0x1
+	// Terse; the generated printers print YAML
+	{{ PREFIX }}_PR_TERSE = 0x2
 	// JSON, on one line
-	{{ PREFIX }}_PR_JSON = 0x2
+	{{ PREFIX }}_PR_JSON = 0x4
 )
 {%- for line in body %}
 {{ line }}

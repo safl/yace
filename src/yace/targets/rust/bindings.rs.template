@@ -17,8 +17,10 @@ use std::io::{self, Write};
 pub const {{ PREFIX }}_PR_DEF: c_int = 0x0;
 /// YAML
 pub const {{ PREFIX }}_PR_YAML: c_int = 0x1;
+/// Terse; the generated printers print YAML
+pub const {{ PREFIX }}_PR_TERSE: c_int = 0x2;
 /// JSON, on one line
-pub const {{ PREFIX }}_PR_JSON: c_int = 0x2;
+pub const {{ PREFIX }}_PR_JSON: c_int = 0x4;
 
 #[allow(dead_code)]
 mod yace_pp {
@@ -218,7 +220,8 @@ impl {{ name }} {
     ///
     /// # Parameters
     ///
-    /// * `flags`: one of {{ PREFIX }}_PR_DEF, {{ PREFIX }}_PR_YAML and {{ PREFIX }}_PR_JSON
+    /// * `flags`: one of {{ PREFIX }}_PR_DEF, {{ PREFIX }}_PR_YAML,
+    ///   {{ PREFIX }}_PR_TERSE and {{ PREFIX }}_PR_JSON
     pub fn fpr(w: &mut dyn Write, obj: Option<&Self>, flags: c_int) -> io::Result<()> {
         if flags & {{ PREFIX }}_PR_JSON != 0 {
             match obj {
