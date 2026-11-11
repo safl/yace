@@ -39,7 +39,7 @@ def test_meta_is_applied(tmp_path):
     meta.write_text("name: Valid\nprefix: val\nlicense: MIT\n")
     proc = yace(HEADERS / "valid.h", "--output", tmp_path, "--meta", meta)
     assert proc.returncode == 0, proc.stderr
-    assert "prefix: val" in (tmp_path / "valid.yaml").read_text()
+    assert "prefix: val" in (tmp_path / "val.yaml").read_text()
 
 
 def test_schema(tmp_path):
@@ -68,6 +68,20 @@ def test_the_headers_given_are_parsed_as_one_ir(tmp_path):
     assert proc.returncode == 0, proc.stderr
     assert sorted(p.name for p in out.iterdir()) == ["api_a.status", "api_a.yaml"]
     assert "api_b" in (out / "api_a.yaml").read_text()
+
+
+def test_the_ir_and_status_are_named_by_the_prefix_of_the_meta(tmp_path):
+    a = tmp_path / "api_a.h"
+    a.write_text("/** A */\nstruct api_a {\n\tint n; ///< N\n};\n")
+    b = tmp_path / "api_b.h"
+    b.write_text("/** B */\nstruct api_b {\n\tint n; ///< N\n};\n")
+    meta = tmp_path / "meta.yaml"
+    meta.write_text("name: libapi\nprefix: api\n")
+    out = tmp_path / "out"
+    proc = yace(a, b, "--meta", meta, "--output", out, "--strict")
+
+    assert proc.returncode == 0, proc.stderr
+    assert sorted(p.name for p in out.iterdir()) == ["api.status", "api.yaml"]
 
 
 def test_headers_including_nothing_pass_strict_and_build(tmp_path):

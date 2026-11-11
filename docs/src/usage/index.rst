@@ -25,8 +25,9 @@ Command-Line Interface
    :lines: 1-
 
 Given C headers, **yace** parses them as one API, see
-:ref:`sec-ir-csubset`, writes the IR to ``<stem>.yaml`` and the diagnostics to
-``<stem>.status``, named by the first header, and prints the diagnostics. A diagnostic is a
+:ref:`sec-ir-csubset`, writes the IR to ``<prefix>.yaml`` and the diagnostics to
+``<prefix>.status``, and prints the diagnostics. The prefix is the one that
+``--meta`` gives, or else the name of the first header. A diagnostic is a
 place where the header steps outside the C subset; the header is still parsed,
 and its code still generated, but what the diagnostics point at will likely not
 bind well, or at all. With ``--strict``, any diagnostic is an error.

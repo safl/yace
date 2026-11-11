@@ -7,9 +7,10 @@
 """
 The command-line interface of **yace**
 
-Given C headers, parses them as one API into the IR, writing '<stem>.yaml' and
-the diagnostics to '<stem>.status', named by the first header, and reports every
-place the headers step outside the C subset. Given IR files, '.yaml', reads them.
+Given C headers, parses them as one API into the IR, writing '<prefix>.yaml'
+and the diagnostics to '<prefix>.status', and reports every place the headers
+step outside the C subset. The prefix is that of the meta, or else the name of
+the first header. Given IR files, '.yaml', reads them.
 Either way, '--emit' then generates the code of the given targets and checks it.
 A generator, '--generate', writes headers that are parsed with the headers given.
 With '--toolchains', prints what those checks build with instead.
@@ -193,7 +194,7 @@ def main():
         if diagnostics:
             print(
                 f"yace: {len(diagnostics)} diagnostics; the headers step outside the"
-                f" C subset, see {args.filepath[0].stem}.status",
+                f" C subset, see {model.meta.prefix}.status",
                 file=sys.stderr,
             )
             if args.strict:

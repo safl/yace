@@ -1449,13 +1449,14 @@ def c_to_yace(
 ) -> Tuple[Model, List[Diagnostic]]:
     """
     Parse the headers in 'paths' as one API, after the system headers named in
-    'prelude', writing its IR to '<output>/<stem>.yaml' and its diagnostics to
-    '<output>/<stem>.status', where '<stem>' is that of the first header
+    'prelude', writing its IR to '<output>/<prefix>.yaml' and its diagnostics
+    to '<output>/<prefix>.status'. The prefix is that of the meta, or else the
+    name of the first header.
     """
 
     output.mkdir(parents=True, exist_ok=True)
     model, diagnostics = CParser(args).parse(paths, meta, prelude)
-    stem = Path(paths[0]).stem
+    stem = model.meta.prefix
     model.save(output / f"{stem}.yaml")
 
     lines = [f"Parsed {len(model.entities)} entities, {len(diagnostics)} diagnostics"]
