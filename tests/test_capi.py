@@ -565,3 +565,51 @@ def test_the_printers_print_the_value_of_every_kind_of_field(parse, tmp_path):
         },
         None,
     ]
+
+
+# A header that uses bool without including stdbool.h, as xNVMe's do; the parser
+# includes it ahead of the headers, and so must lib<prefix>_pp.h
+OWN_HEADER = (
+    "/** S */\nstruct api_s {\n\tint v; ///< V\n\tbool on; ///< On\n};\n"
+    "/** K */\nenum api_k {\n\tAPI_K_A = 0, ///< A\n};\n"
+)
+
+
+@needs_cc
+def test_capi_pp_declares_the_printers_over_the_apis_own_headers(parse, tmp_path):
+    model, _ = parse(OWN_HEADER)
+    out = tmp_path / "out"
+    assert process(model, ["capi", "capi_pp"], out, include=[tmp_path]) == []
+
+    header = (out / "capi_pp" / "libapi_pp.h").read_text()
+    assert "#include <stdbool.h>\n#include <stddef.h>\n#include <stdint.h>\n" in header
+    assert "#include <stdio.h>\n#include <api.h>\n" in header
+    assert "\tAPI_PR_TERSE = 0x2," in header and "\tAPI_PR_JSON  = 0x4," in header
+    assert "enum api_pr {" in header
+    assert "api_s_fpr(FILE *stream, const struct api_s *obj, int flags);" in header
+    assert "api_k_str(int value);" in header
+    assert "struct api_s {" not in header
+
+    # The printers are the C target's, over the other header
+    capi = (out / "capi" / "api_pp.c").read_text()
+    pp = (out / "capi_pp" / "api_pp.c").read_text()
+    assert pp == capi.replace("#include <libapi.h>", "#include <libapi_pp.h>")
+
+
+@needs_cc
+def test_capi_pp_without_the_headers_is_not_checked(parse, tmp_path):
+    model, _ = parse(OWN_HEADER)
+    assert process(model, ["capi_pp"], tmp_path / "out") == [
+        "capi_pp: the printers are not checked: api.h not found; give its"
+        " directory with -I"
+    ]
+
+
+@needs_cc
+def test_capi_pp_over_headers_with_their_own_printers_fails(parse, tmp_path):
+    from tests.test_cparser import OWN_PRINTERS
+
+    model, _ = parse(OWN_PRINTERS)
+    failures = process(model, ["capi_pp"], tmp_path / "out", include=[tmp_path])
+    assert len(failures) == 1
+    assert failures[0].startswith("capi_pp: compiling the check failed")

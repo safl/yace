@@ -12,6 +12,14 @@ Emits, into ``<output>/capi``:
 * ``lib<prefix>.h``, the C API
 * ``<prefix>_pp.c``, the pretty-printers
 * ``<prefix>_check.c``, the check program
+
+The ``capi_pp`` target emits the pretty-printers alone, into ``<output>/capi_pp``,
+for an API to compile into its own library:
+
+* ``lib<prefix>_pp.h``, the declarations of the printers, including the headers
+  the IR was parsed from
+* ``<prefix>_pp.c``, the pretty-printers
+* ``<prefix>_check.c``, the check program
 """
 
 import json
@@ -127,6 +135,7 @@ def header(model: Model) -> str:
 class CAPI(Target):
     NAME = "capi"
     TOOLCHAINS = (toolchain.CC,)
+    CFLAGS = CFLAGS
 
     @staticmethod
     def environment() -> Environment:
@@ -159,6 +168,7 @@ class CAPI(Target):
             "PREFIX": prefix,
             "prefix": cgen.c_ident(model.meta.prefix),
             "guard": f"LIB{prefix}_H",
+            "api_header": f"lib{model.meta.prefix}.h",
             "includes": [
                 f"<{name}>" for name in model.meta.prelude if name not in defaults
             ]
@@ -182,16 +192,22 @@ class CAPI(Target):
         }
 
     def emit(self, model: Model) -> list:
+        prefix = model.meta.prefix
+        return self.render(
+            model,
+            [
+                (f"lib{prefix}.h", "header.h.template"),
+                (f"{prefix}_pp.c", "pp.c.template"),
+                (f"{prefix}_check.c", "check.c.template"),
+                (f"{prefix}_signatures.c", "signatures.c.template"),
+            ],
+        )
+
+    def render(self, model: Model, files: list) -> list:
+        """Write each (filename, template) of 'files'; returns the paths"""
+
         env = self.environment()
         context = self.context(model)
-        prefix = model.meta.prefix
-
-        files = [
-            (f"lib{prefix}.h", "header.h.template"),
-            (f"{prefix}_pp.c", "pp.c.template"),
-            (f"{prefix}_check.c", "check.c.template"),
-            (f"{prefix}_signatures.c", "signatures.c.template"),
-        ]
         paths = []
         for filename, template in files:
             path = self.output / filename
@@ -203,14 +219,24 @@ class CAPI(Target):
     def check(self, model: Model) -> list:
         """Build and run the check program; returns what failed, if anything"""
 
-        prefix = model.meta.prefix
         failures = toolchain.missing(self.TOOLCHAINS)
         if failures:
             return failures
         cc = toolchain.CC.command()
 
+        binary, failures = self.build(model, cc)
+        if failures:
+            return failures
+
+        return self.signatures(model, cc) + self.run(binary)
+
+    def build(self, model: Model, cc: str):
+        """Compile the printers and the check program; returns the program, and
+        what failed"""
+
+        prefix = model.meta.prefix
         binary = self.output / f"{prefix}_check"
-        cmd = [cc, *CFLAGS, "-I", str(self.output)]
+        cmd = [cc, *self.CFLAGS, "-I", str(self.output)]
         cmd += [f"-I{path}" for path in self.include]
         cmd += [
             str(self.output / f"{prefix}_pp.c"),
@@ -222,9 +248,14 @@ class CAPI(Target):
             f"{' '.join(cmd)}\n{proc.stdout}{proc.stderr}"
         )
         if proc.returncode:
-            return [f"compiling the check failed:\n{proc.stderr}"]
+            return binary, [f"compiling the check failed:\n{proc.stderr}"]
+        return binary, []
 
-        failures = self.signatures(model, cc)
+    def run(self, binary: Path) -> list:
+        """Run the check program, printing YAML and JSON, and parse what it
+        prints; returns what failed"""
+
+        failures = []
         for fmt in ("yaml", "json"):
             proc = subprocess.run([str(binary), fmt], capture_output=True, text=True)
             (self.output / f"check.{fmt}").write_text(proc.stdout)
@@ -262,3 +293,49 @@ class CAPI(Target):
         if proc.returncode:
             return [f"the signatures disagree with the headers:\n{proc.stderr}"]
         return []
+
+
+class CAPIPP(CAPI):
+    """The C target's pretty-printers alone, for an API to compile into its own
+    library: ``lib<prefix>_pp.h`` declares them and includes the headers the IR
+    was parsed from, rather than the C target's ``lib<prefix>.h``. The check
+    compiles them with those headers, found in the include directories"""
+
+    NAME = "capi_pp"
+    # GNU C11, as the check of the signatures compiles the API's own headers
+    CFLAGS = ["-std=gnu11", "-Wall", "-Wextra", "-Werror"]
+
+    @staticmethod
+    def context(model: Model) -> dict:
+        context = CAPI.context(model)
+        prefix = context["PREFIX"]
+        context.update(
+            guard=f"LIB{prefix}_PP_H", api_header=f"lib{model.meta.prefix}_pp.h"
+        )
+        return context
+
+    def emit(self, model: Model) -> list:
+        prefix = model.meta.prefix
+        return self.render(
+            model,
+            [
+                (f"lib{prefix}_pp.h", "pp.h.template"),
+                (f"{prefix}_pp.c", "pp.c.template"),
+                (f"{prefix}_check.c", "check.c.template"),
+            ],
+        )
+
+    def check(self, model: Model) -> list:
+        """Build and run the check program with the headers the IR was parsed
+        from; returns what failed, also that a header is not found"""
+
+        missing = self.headers_missing(model)
+        if missing:
+            return [f"the printers are not checked: {missing}"]
+
+        failures = toolchain.missing(self.TOOLCHAINS)
+        if failures:
+            return failures
+
+        binary, failures = self.build(model, toolchain.CC.command())
+        return failures or self.run(binary)

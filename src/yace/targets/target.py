@@ -26,24 +26,27 @@ class Target(ABC):
         self.output.mkdir(parents=True, exist_ok=True)
         self.include = [Path(path) for path in include or []]
 
-    def headers_unchecked(self, model) -> Optional[str]:
-        """Why the signatures cannot be checked against the headers the IR was
-        parsed from, or None where every one of them is found in the include
-        directories"""
+    def headers_missing(self, model) -> Optional[str]:
+        """Why the headers the IR was parsed from cannot be compiled with, or
+        None where every one of them is found in the include directories"""
 
         if not model.meta.headers:
-            return "the signatures are not checked: the IR records no headers"
+            return "the IR records no headers"
         missing = [
             name
             for name in model.meta.headers
             if not any((path / name).is_file() for path in self.include)
         ]
         if missing:
-            return (
-                f"the signatures are not checked: {', '.join(missing)} not found;"
-                " give its directory with -I"
-            )
+            return f"{', '.join(missing)} not found; give its directory with -I"
         return None
+
+    def headers_unchecked(self, model) -> Optional[str]:
+        """Why the signatures cannot be checked against the headers the IR was
+        parsed from, or None where every one of them is found"""
+
+        missing = self.headers_missing(model)
+        return f"the signatures are not checked: {missing}" if missing else None
 
     @abstractmethod
     def emit(self, model) -> list:
