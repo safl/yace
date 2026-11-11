@@ -68,7 +68,7 @@ typedef {{ entity.typ | decl(entity.name) }};
 /**
  * Output formats of the pretty-printers
  */
-enum {{ PREFIX }}_pr {
+enum {{ prefix }}_pr {
 	{{ PREFIX }}_PR_DEF = 0x0,  ///< The default, YAML
 	{{ PREFIX }}_PR_YAML = 0x1, ///< YAML
 	{{ PREFIX }}_PR_JSON = 0x2, ///< JSON, on one line
@@ -80,7 +80,7 @@ enum {{ PREFIX }}_pr {
  *
  * @param stream The stream to print to
  * @param obj The {{ record | tag }} to print, NULL prints as null
- * @param flags The output format, one of enum {{ PREFIX }}_pr
+ * @param flags The output format, one of enum {{ prefix }}_pr
  *
  * @return The number of characters written
  */
@@ -91,7 +91,7 @@ int
  * Print the given {{ record | tag }} {{ record.name }} to stdout
  *
  * @param obj The {{ record | tag }} to print, NULL prints as null
- * @param flags The output format, one of enum {{ PREFIX }}_pr
+ * @param flags The output format, one of enum {{ prefix }}_pr
  *
  * @return The number of characters written
  */

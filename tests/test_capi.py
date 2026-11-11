@@ -260,6 +260,7 @@ def test_a_packed_record_is_declared_packed_and_prints(parse, tmp_path):
     model, _ = parse(PACKED)
     assert process(model, ["capi"], tmp_path) == []
     header = (tmp_path / "capi" / "libapi.h").read_text()
+    assert "enum api_pr {" in header
     assert "struct __attribute__((packed)) api_k {" in header
     assert "union __attribute__((packed)) api_ku {" in header
 
