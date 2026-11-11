@@ -603,7 +603,9 @@ class _HeaderParser(object):
         printers name theirs; the generated ones serve instead"""
 
         prefix = re.sub(r"[^0-9A-Za-z_]", "_", self.meta.get("prefix", self.path.stem))
-        flags = {f"{prefix.upper()}_PR_{fmt}" for fmt in ("DEF", "YAML", "JSON")}
+        flags = {
+            f"{prefix.upper()}_PR_{fmt}" for fmt in ("DEF", "YAML", "TERSE", "JSON")
+        }
         printers = {
             f"{entity.name}{suffix}": entity.name
             for entity in entities
