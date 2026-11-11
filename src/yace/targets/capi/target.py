@@ -157,6 +157,7 @@ class CAPI(Target):
         return {
             "meta": model.meta,
             "PREFIX": prefix,
+            "prefix": cgen.c_ident(model.meta.prefix),
             "guard": f"LIB{prefix}_H",
             "includes": [
                 f"<{name}>" for name in model.meta.prelude if name not in defaults
