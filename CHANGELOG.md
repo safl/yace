@@ -16,6 +16,26 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## 0.9.3
+
+The pretty-printers of the C target are smaller. Each record has one function
+for both formats, and it prints each field by a call to a helper for the
+field's kind, such as `yace_pp_int()`. Before, each record had a function for
+JSON and one for YAML, with several `fprintf()` calls for every field. On the
+107 records of xNVMe's headers, the printers compile to 92 KB with gcc at -O2,
+down from 234 KB. The printed text is unchanged.
+
+A raw call in Python costs less. Where a function has no `const char *`
+parameter, the module calls the ctypes function itself once the library is
+loaded, rather than a Python wrapper around it. A returned string is still
+decoded, and a NULL pointer is still `None`. The ctypes function keeps the
+docstring, and `inspect.signature()` still shows its parameters. The arguments
+of these functions are now passed by position only.
+
+yace names the IR and the status file by the prefix that the meta gives.
+Before, yace named them after the first header, such as
+`libxnvme_util.yaml` for all of xNVMe's headers.
+
 ## 0.9.2
 
 Every binding now documents a function by the parameters that its caller
