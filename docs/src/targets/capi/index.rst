@@ -55,6 +55,30 @@ checked, and fails nothing. It does not say whether a library was built from
 these headers; that is for a tool comparing the library's ABI with them, such as
 ``abidiff``.
 
+capi_pp
+-------
+
+The ``capi_pp`` target generates the pretty-printers alone, for an API to
+compile into its own library, into ``<output>/capi_pp``:
+
+``lib<prefix>_pp.h``
+  The declarations of the pretty-printers and of ``enum <prefix>_pr``. It
+  includes the headers the IR was parsed from, after the standard headers and
+  the prelude the parser includes ahead of them, rather than the generated C
+  API.
+
+``<prefix>_pp.c``
+  The pretty-printers, as the C target generates them, including
+  ``lib<prefix>_pp.h``.
+
+``<prefix>_check.c``
+  The check, as the C target's, over the headers the IR was parsed from.
+
+The check is compiled, as GNU C11 with all warnings as errors, with the include
+directories, and fails where a header is not found in them. The headers must not
+declare printers of their own, as the rule ``printer-name`` says; they would
+conflict with the generated ones.
+
 Example
 -------
 

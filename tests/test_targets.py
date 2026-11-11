@@ -15,7 +15,7 @@ def test_every_target_checks_with_a_relative_output(parser, tmp_path, monkeypatc
     model, _ = parser.parse(HEADERS / "valid.h")
     monkeypatch.chdir(tmp_path)
     installed = sorted(targets.targets())
-    failures = process(model, installed, "out")
+    failures = process(model, installed, "out", include=[HEADERS])
     assert [
         f for f in failures if "toolchain" not in f and "no compiler" not in f
     ] == []
@@ -38,7 +38,9 @@ def test_a_packed_record_holding_bit_fields_checks_in_every_target(parse, tmp_pa
         "\tstruct api_f f; ///< F\n\tunion api_u u; ///< U\n\tuint32_t v; ///< V\n"
         "\tstruct api_w w; ///< W\n};\n"
     )
-    failures = process(model, sorted(targets.targets()), tmp_path)
+    failures = process(
+        model, sorted(targets.targets()), tmp_path / "out", include=[tmp_path]
+    )
     assert [
         f for f in failures if "toolchain" not in f and "no compiler" not in f
     ] == []
@@ -108,7 +110,9 @@ def test_an_apis_own_printer_formats_leave_every_target_building(parse, tmp_path
     from tests.test_cparser import OWN_PRINTERS
 
     model, _ = parse(OWN_PRINTERS)
-    failures = process(model, sorted(targets.targets()), tmp_path)
+    # capi_pp includes the headers, so their own printers must be left out
+    names = [name for name in sorted(targets.targets()) if name != "capi_pp"]
+    failures = process(model, names, tmp_path)
     assert [
         f for f in failures if "toolchain" not in f and "no compiler" not in f
     ] == []

@@ -121,7 +121,7 @@ def test_toolchains_are_those_the_checks_build_with(monkeypatch):
     proc = yace("--toolchains")
     assert proc.returncode == 0, proc.stderr
     found = json.loads(proc.stdout)
-    assert set(found) == {"capi", "cpp", "go", "python", "rust", "zig"}
+    assert set(found) == {"capi", "capi_pp", "cpp", "go", "python", "rust", "zig"}
     assert all(found[name] for name in found)
     go = found["go"][0]
     assert (go["env"], go["command"], go["present"]) == ("GO", "/nonexistent/go", False)

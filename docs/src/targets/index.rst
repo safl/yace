@@ -27,7 +27,9 @@ the same for every language.
 
 The targets are C, :ref:`sec-targets-capi`, Python, :ref:`sec-targets-python`,
 Rust, :ref:`sec-targets-rust`, C++, :ref:`sec-targets-cpp`, Zig,
-:ref:`sec-targets-zig`, and Go, :ref:`sec-targets-go`.
+:ref:`sec-targets-zig`, and Go, :ref:`sec-targets-go`. The C target has a
+narrower sibling, ``capi_pp``, which generates only its pretty-printers, for
+an API to compile into its own library.
 
 The fixture
 ===========
