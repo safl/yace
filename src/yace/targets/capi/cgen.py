@@ -13,7 +13,6 @@ from typing import Dict, List, Optional
 
 from yace.ir import decls, types
 from yace.ir.cparser import CXX_KEYWORDS
-from yace.ir.masks import VALUE_KEY
 from yace.ir.model import Model
 
 
@@ -156,20 +155,27 @@ def tag(record) -> str:
     return "union" if isinstance(record, decls.Union) else "struct"
 
 
-def copied(typ: types.Record, expr: str, local: str, call: str) -> List[str]:
-    """The statements calling 'call', formatted with the name of the record and
-    a local, on a copy of 'expr' in that local"""
-
-    return [
-        "{",
-        f"\tconst {typ.tag} {typ.name} {local} = {expr};",
-        f"\twrtn += {call.format(typ.name, local)};",
-        "}",
-    ]
+# The helpers that each helper calls, so that only the helpers used are generated
+HELPER_DEPS = {
+    "null": ("key", "eol"),
+    "bool": ("key", "eol"),
+    "int": ("key", "eol"),
+    "uint": ("key", "eol"),
+    "float": ("key", "eol"),
+    "ptr": ("key", "eol"),
+    "str": ("strn",),
+    "strn": ("key", "eol"),
+    "nest": ("key",),
+    "list": ("key",),
+    "list_end": ("eol",),
+    "bits": ("key",),
+    "bits_end": ("eol",),
+}
 
 
 class Printer(object):
-    """The C statements printing a value of a type as JSON, one per line"""
+    """The C statements printing the fields of a record, one call of a helper of
+    the pretty-printers for each value, to the printing context ``pp``"""
 
     def __init__(self, model: Model):
         self.typedefs = model.typedefs()
@@ -182,140 +188,124 @@ class Printer(object):
             typ = self.typedefs[typ.name].typ
         return typ
 
-    def record_of(self, typ) -> Optional[decls.Struct | decls.Union]:
-        typ = self.resolve(typ)
-        if isinstance(typ, types.Record):
-            return self.records.get(typ.name)
-        return None
+    def value(
+        self,
+        typ,
+        key: str,
+        expr: str,
+        pp: str = "pp",
+        depth: int = 0,
+        packed: bool = False,
+    ) -> List[str]:
+        """Statements printing 'expr' by 'key', a string literal, or NULL for an
+        element of a list; of a field of a 'packed' record, a record is printed
+        through a copy, as its address may not be aligned"""
 
-    def value(self, typ, expr: str, depth: int = 0, packed: bool = False) -> List[str]:
-        """Statements printing 'expr'; of a field of a 'packed' record, a record
-        is printed through a copy, as its address may not be aligned"""
-
         typ = self.resolve(typ)
-        out = 'wrtn += fprintf(stream, "{fmt}"{args});'
+
+        def call(helper: str, *args: str) -> List[str]:
+            return [f"wrtn += yace_pp_{helper}(&{pp}, {', '.join((key,) + args)});"]
 
         if isinstance(typ, types.Builtin):
             name = typ.name
             if name == "bool":
-                return [out.format(fmt="%s", args=f', {expr} ? "true" : "false"')]
+                return call("bool", expr)
             if name in ("float", "double"):
-                return [out.format(fmt="%g", args=f", (double){expr}")]
+                return call("float", f"(double){expr}")
             if (
                 name.startswith("unsigned")
                 or name.startswith("uint")
                 or name == "size_t"
             ):
-                return [out.format(fmt="%ju", args=f", (uintmax_t){expr}")]
+                return call("uint", f"(uintmax_t){expr}")
             if name == "void":
-                return [out.format(fmt="null", args="")]
-            return [out.format(fmt="%jd", args=f", (intmax_t){expr}")]
+                return call("null")
+            return call("int", f"(intmax_t){expr}")
 
         if isinstance(typ, types.EnumRef):
-            return [out.format(fmt="%jd", args=f", (intmax_t){expr}")]
+            return call("int", f"(intmax_t){expr}")
 
         if isinstance(typ, types.Pointer):
             if types.is_string(typ):
-                return [f"wrtn += yace_pp_str(stream, {expr});"]
+                return call("str", expr)
             # Straight to an integer: going through 'void *' is not allowed for a
             # function pointer, which a pointer to an external typedef may be
-            return [f"wrtn += yace_pp_ptr(stream, (uintptr_t){expr});"]
+            return call("ptr", f"(uintptr_t){expr}")
 
         if isinstance(typ, types.Array):
             if typ.length is None:
-                return [out.format(fmt="null", args="")]
+                return call("null")
             elem = self.resolve(typ.of)
             if isinstance(elem, types.Builtin) and elem.name == "char":
-                return [f"wrtn += yace_pp_strn(stream, {expr}, {typ.length});"]
-            idx = f"i{depth}"
+                return call("strn", expr, str(typ.length))
+            lst, idx = f"l{depth}", f"i{depth}"
             lines = [
-                out.format(fmt="[", args=""),
-                f"for (size_t {idx} = 0; {idx} < {typ.length}; ++{idx}) {{",
-                f'\twrtn += fprintf(stream, "%s", {idx} ? ", " : "");',
+                "{",
+                f"\tstruct yace_pp {lst};",
+                "",
+                f"\twrtn += yace_pp_list(&{pp}, &{lst}, {key});",
+                f"\tfor (size_t {idx} = 0; {idx} < {typ.length}; ++{idx}) {{",
             ]
             lines += [
-                "\t" + line
-                for line in self.value(elem, f"{expr}[{idx}]", depth + 1, packed)
+                "\t\t" + line if line else line
+                for line in self.value(
+                    elem, "NULL", f"{expr}[{idx}]", lst, depth + 1, packed
+                )
             ]
-            lines += ["}", out.format(fmt="]", args="")]
+            lines += ["\t}", f"\twrtn += yace_pp_list_end(&{pp});", "}"]
+            if depth:  # in the body of a loop, which is a block already
+                return [line[1:] for line in lines[1:-1]]
             return lines
 
         if isinstance(typ, types.Record):
             if typ.name not in self.records:
-                return [out.format(fmt="null", args="")]
+                return call("null")
+            nest = call("nest")
             if packed:
-                return copied(typ, expr, f"v{depth}", "yace_pp_json_{}(stream, &{})")
-            return [f"wrtn += yace_pp_json_{typ.name}(stream, &{expr});"]
+                local = f"v{depth}"
+                return [
+                    "{",
+                    f"\tconst {typ.tag} {typ.name} {local} = {expr};",
+                    "",
+                    "\t" + nest[0],
+                    f"\twrtn += yace_pp_rec_{typ.name}({pp}, &{local});",
+                    "}",
+                ]
+            return nest + [f"wrtn += yace_pp_rec_{typ.name}({pp}, &{expr});"]
 
-        return [out.format(fmt="null", args="")]
+        return call("null")
+
+    def body(self, record) -> List[str]:
+        """The statements printing the named fields of 'record', at 'obj'"""
+
+        named = [f for f in record.fields if f.name]  # not padding bit-fields
+        if not named:
+            return ["(void)obj;"]
+
+        lines: List[str] = []
+        for field in named:
+            key, expr = f'"{field.name}"', f"obj->{field.name}"
+            if not field.masks:
+                lines += self.value(field.typ, key, expr, packed=record.packed)
+                continue
+            lines.append(f"wrtn += yace_pp_bits(&pp, {key}, (uintmax_t){expr});")
+            for mask in field.masks:
+                part = f"((uintmax_t){expr} & {mask.define}) >> {mask.lo}"
+                lines.append(f'wrtn += yace_pp_part(&pp, "{mask.name}", {part});')
+            lines.append("wrtn += yace_pp_bits_end(&pp);")
+        return lines
 
     def helpers(self, records) -> set:
-        """The ``yace_pp_`` helpers the printers of 'records' call; clang warns of
-        an unused static function, also an inline one"""
+        """The helpers the printers of 'records' call; clang warns of an unused
+        static function, also an inline one"""
 
-        text = "\n".join(
-            "\n".join(self.json_body(r) + self.yaml_body(r)) for r in records
-        )
-        used = {name for name in ("str", "strn", "ptr") if f"yace_pp_{name}(" in text}
-        if "str" in used:
-            used.add("strn")
+        text = "\n".join("\n".join(self.body(r)) for r in records)
+        found = set(re.findall(r"\byace_pp_(\w+)\(", text))
+        used: set = set()
+        todo = [name for name in found if not name.startswith("rec_")]
+        while todo:
+            name = todo.pop()
+            if name not in used:
+                used.add(name)
+                todo += HELPER_DEPS.get(name, ())
         return used
-
-    def parts(self, field, expr: str, fmt: str, quote: str) -> List[str]:
-        """The value of a field of bits and of each of its parts, as a mapping
-        on one line, with the keys quoted by 'quote', the values by 'fmt'"""
-
-        def key(name: str) -> str:
-            return f"{quote}{name}{quote}"
-
-        lines = [
-            f'wrtn += fprintf(stream, "{{{key(VALUE_KEY)}: {fmt}", (uintmax_t){expr});'
-        ]
-        for mask in field.masks:
-            part = f"(((uintmax_t){expr} & {mask.define}) >> {mask.lo})"
-            lines.append(
-                f'wrtn += fprintf(stream, ", {key(mask.name)}: {fmt}", {part});'
-            )
-        lines.append('wrtn += fprintf(stream, "}");')
-        return lines
-
-    def json_body(self, record) -> List[str]:
-        lines = ["if (!obj) {", '\treturn fprintf(stream, "null");', "}", ""]
-        lines.append('wrtn += fprintf(stream, "{");')
-        named = [f for f in record.fields if f.name]  # not padding bit-fields
-        for idx, field in enumerate(named):
-            sep = ", " if idx else ""
-            lines.append(f'wrtn += fprintf(stream, "{sep}\\"{field.name}\\": ");')
-            if field.masks:
-                lines += self.parts(field, f"obj->{field.name}", "%ju", '\\"')
-                continue
-            lines += self.value(field.typ, f"obj->{field.name}", packed=record.packed)
-        lines.append('wrtn += fprintf(stream, "}");')
-        return lines
-
-    def yaml_body(self, record) -> List[str]:
-        lines = []
-        for field in (f for f in record.fields if f.name):
-            nested = self.record_of(field.typ) if field.bits is None else None
-            if nested is not None:
-                lines.append(
-                    f'wrtn += fprintf(stream, "%*s{field.name}:\\n", indent, "");'
-                )
-                call = "yace_pp_yaml_{}(stream, &{}, indent + 2)"
-                if record.packed:
-                    typ = types.Record(tag=tag(nested), name=nested.name)
-                    lines += copied(typ, f"obj->{field.name}", "v0", call)
-                else:
-                    lines.append(
-                        f"wrtn += {call.format(nested.name, 'obj->' + field.name)};"
-                    )
-                continue
-            lines.append(f'wrtn += fprintf(stream, "%*s{field.name}: ", indent, "");')
-            if field.masks:
-                lines += self.parts(field, f"obj->{field.name}", "0x%jx", "")
-            else:
-                lines += self.value(
-                    field.typ, f"obj->{field.name}", packed=record.packed
-                )
-            lines.append('wrtn += fprintf(stream, "\\n");')
-        return lines

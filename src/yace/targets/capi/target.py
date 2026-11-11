@@ -26,6 +26,7 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from yace import toolchain
 from yace.ir import decls
 from yace.ir.cparser import STANDARD_HEADERS
+from yace.ir.masks import VALUE_KEY
 from yace.ir.model import Model, host_abi
 from yace.targets.target import Target
 
@@ -173,6 +174,7 @@ class CAPI(Target):
             "functions": [e for e in entities if isinstance(e, decls.Function)],
             "printer": printer,
             "helpers": printer.helpers(cgen.ordered_records(model)),
+            "value_key": VALUE_KEY,
             "layout": model.meta.abi == host_abi(),
             "spelled": cgen.spellings(model),
             "standard": list(STANDARD_HEADERS),
