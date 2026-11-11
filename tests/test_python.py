@@ -5,6 +5,7 @@
 import ctypes
 import gc
 import importlib.util
+import inspect
 import io
 import json
 import subprocess
@@ -940,3 +941,46 @@ def test_a_record_the_caller_may_write_is_not_copied(parse, tmp_path, monkeypatc
     assert ctypes.addressof(again.contents) == ctypes.addressof(cmd_.contents)
     assert again.contents.opc == 7 and peeked.opc == 7
     queue.close()
+
+
+@needs_cc
+def test_functions_converting_no_argument_are_the_ctypes_functions(
+    parse, tmp_path, monkeypatch
+):
+    header = (
+        "/** P */\nstruct api_p {\n\tint x; ///< X\n};\n"
+        "/**\n * Add\n */\nint api_add(int a, int b);\n"
+        "/**\n * Find\n * @nullable\n */\nstruct api_p *api_find(int x);\n"
+        "/**\n * Name\n */\nconst char *api_name(void);\n"
+        "/**\n * Len\n */\nint api_len(const char *s);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["python"], tmp_path) == []
+    (tmp_path / "api.c").write_text(
+        header + "#include <string.h>\nstatic struct api_p p = {7};\n"
+        "int api_add(int a, int b) { return a + b; }\n"
+        "struct api_p *api_find(int x) { return x == 7 ? &p : NULL; }\n"
+        'const char *api_name(void) { return "api"; }\n'
+        "int api_len(const char *s) { return (int)strlen(s); }\n"
+    )
+    library = tmp_path / "libapi.so"
+    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
+    subprocess.run(cmd, check=True)
+    monkeypatch.setenv("API_LIBRARY", str(library))
+
+    api = module(tmp_path)
+    stub = api["api_add"]
+    assert stub(1, 2) == 3
+    for name in ("api_add", "api_find", "api_name"):
+        assert isinstance(api[name], ctypes._CFuncPtr), name
+        assert api[name].__doc__.startswith(name.split("_")[1].capitalize())
+    assert str(inspect.signature(api["api_add"])) == "(a, b, /)"
+    assert api["api_find"](7).contents.x == 7
+    assert api["api_find"](1) is None
+    assert api["api_name"]() == "api"
+    with pytest.raises(TypeError):
+        stub(a=1, b=2)
+
+    assert not isinstance(api["api_len"], ctypes._CFuncPtr)
+    assert api["api_len"]("four") == 4
+    assert api["api_len"](s="four") == 4

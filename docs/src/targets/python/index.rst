@@ -85,7 +85,13 @@ Functions
   a ``const char *`` returned is a :py:class:`str`. A pointer returned is
   ``None`` when NULL. Out-parameters are passed with :py:func:`ctypes.byref`, as
   in C; a record passed where a pointer to it is expected is passed by
-  reference.
+  reference. A function without a ``const char *`` parameter is the ctypes
+  function itself, once the library is loaded, so a call through the module
+  reaches ctypes directly. It keeps the docstring, and
+  :py:func:`inspect.signature` still gives its parameters. It takes its
+  arguments by position only, as C does. A name imported with ``from ...
+  import`` before the library is loaded stays a Python wrapper, which is
+  slower.
 
 The idiomatic layer
 -------------------
