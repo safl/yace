@@ -79,9 +79,10 @@ For example, of a library whose headers are in ``include/``::
 
   yace --emit python rust -I include include/libfoo.h include/libfoo_*.h
 
-The IR and the status are named by the first header given, ``libfoo.yaml``
-and ``libfoo.status``. A header left out, such as one of internal helpers, is
-not part of the API; a type from it is external.
+Without ``--meta``, the IR and the status are named by the first header given,
+``libfoo.yaml`` and ``libfoo.status``. With a meta that gives the prefix
+``foo``, they are ``foo.yaml`` and ``foo.status``. A header left out, such as
+one of internal helpers, is not part of the API; a type from it is external.
 
 Records
 -------
