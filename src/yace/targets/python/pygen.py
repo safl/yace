@@ -258,14 +258,15 @@ class Namer(object):
         return found
 
 
-def returns(function: decls.Function, namer: Namer) -> str:
-    """The helper converting what the wrapper of 'function' returns, if any"""
+def errcheck(function: decls.Function, namer: Namer) -> str:
+    """The errcheck of the ctypes function of 'function', converting what it
+    returns, or None"""
 
     if types.is_string(function.ret):
-        return "_str_out"
+        return "_str_check"
     if namer.ctype(function.ret).startswith("ctypes.POINTER("):
-        return "_ptr_out"
-    return ""
+        return "_ptr_check"
+    return "None"
 
 
 # What the records have of their own, which no accessor may hide
@@ -294,6 +295,13 @@ def argument(param: decls.Param, name: str) -> str:
     """The expression passing the wrapper's argument 'name' on to C"""
 
     return f"_str_in({name})" if types.is_string(param.typ) else name
+
+
+def direct(function: decls.Function) -> bool:
+    """Whether the ctypes function itself can stand for 'function' in the module,
+    as it converts none of its arguments; what it returns, its errcheck does"""
+
+    return not any(types.is_string(p.typ) for p in function.params)
 
 
 def params(function: decls.Function) -> List[str]:
