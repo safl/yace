@@ -328,3 +328,212 @@ def test_an_ir_of_no_headers_is_said_not_checked(parse, tmp_path, caplog):
     assert process(model, ["capi"], tmp_path / "out", include=[tmp_path]) == []
 
     assert "the signatures are not checked: the IR records no headers" in caplog.text
+
+
+# A record with a field of every kind that the printers print, a record of
+# bit-fields, signed ones too, and a packed record holding both at offsets not
+# aligned for them
+KINDS = (
+    "#include <stdbool.h>\n"
+    "#include <stddef.h>\n"
+    "#include <stdint.h>\n"
+    "#include <sys/types.h>\n"
+    "/** E */\n"
+    "enum api_e {\n"
+    "\tAPI_E_NEG = -3, ///< Negative\n"
+    "\tAPI_E_POS = 7,  ///< Positive\n"
+    "};\n"
+    "/** Callback */\n"
+    "typedef int (*api_cb)(void *arg);\n"
+    "/** Inner */\n"
+    "struct api_in {\n"
+    "\tint16_t a; ///< A\n"
+    "\tuint8_t b; ///< B\n"
+    "};\n"
+    "/** Bits */\n"
+    "struct api_bits {\n"
+    "\tint s : 5;           ///< Signed\n"
+    "\tunsigned int u : 11; ///< Unsigned\n"
+    "\tbool f : 1;          ///< Flag\n"
+    "\tenum api_e e : 4;    ///< Enum\n"
+    "};\n"
+    "/** V */\n"
+    "union api_v {\n"
+    "\tuint32_t w; ///< W\n"
+    "\tuint8_t b;  ///< B\n"
+    "};\n"
+    "/** All */\n"
+    "struct api_all {\n"
+    "\tint8_t i8;            ///< I8\n"
+    "\tint16_t i16;          ///< I16\n"
+    "\tint32_t i32;          ///< I32\n"
+    "\tint64_t i64;          ///< I64\n"
+    "\tuint8_t u8;           ///< U8\n"
+    "\tuint16_t u16;         ///< U16\n"
+    "\tuint32_t u32;         ///< U32\n"
+    "\tuint64_t u64;         ///< U64\n"
+    "\tchar c;               ///< C\n"
+    "\tbool t;               ///< T\n"
+    "\tfloat f;              ///< F\n"
+    "\tdouble d;             ///< D\n"
+    "\tsize_t sz;            ///< Size\n"
+    "\tssize_t ss;           ///< Signed size\n"
+    "\tenum api_e e;         ///< E\n"
+    "\tchar name[6];         ///< Name\n"
+    "\tconst char *str;      ///< Str\n"
+    "\tconst char *none;     ///< None\n"
+    "\tvoid *ptr;            ///< Ptr\n"
+    "\tapi_cb cb;            ///< Cb\n"
+    "\tint16_t m[2][3];      ///< Matrix\n"
+    "\tstruct api_in ins[2]; ///< Records\n"
+    "\tstruct api_in in;     ///< Record\n"
+    "\tstruct api_bits bits; ///< Bits\n"
+    "\tunion api_v v;        ///< Union\n"
+    "};\n"
+    "/** Packed */\n"
+    "struct __attribute__((packed)) api_pk {\n"
+    "\tuint8_t t;            ///< T\n"
+    "\tstruct api_in in;     ///< In\n"
+    "\tstruct api_bits bits; ///< Bits\n"
+    "\tint64_t n;            ///< N\n"
+    "};\n"
+    "int api_use(struct api_all *a, struct api_pk *p, struct api_bits *b);\n"
+)
+
+KINDS_C = (
+    "#include <string.h>\n"
+    '#include "libapi.h"\n'
+    "int main(int argc, char **argv) {\n"
+    "\tstruct api_all a;\n"
+    "\tstruct api_pk p;\n"
+    '\tint flags = argc > 1 && !strcmp(argv[1], "json") ? API_PR_JSON : API_PR_YAML;\n'
+    "\n"
+    "\tmemset(&a, 0, sizeof(a));\n"
+    "\ta.i8 = -8; a.i16 = -1600; a.i32 = -320000; a.i64 = -6400000000LL;\n"
+    "\ta.u8 = 250; a.u16 = 65000; a.u32 = 4000000000u;\n"
+    "\ta.u64 = 18000000000000000000ULL;\n"
+    "\ta.c = 'x'; a.t = true; a.f = 1.5f; a.d = -2.25; a.sz = 123456789; a.ss = -42;\n"
+    "\ta.e = API_E_NEG;\n"
+    '\tmemcpy(a.name, "ab\\"c\\\\d", 6);\n'
+    '\ta.str = "s\\tr"; a.none = NULL; a.ptr = (void *)0x1234; a.cb = NULL;\n'
+    "\tfor (int i = 0; i < 2; ++i)\n"
+    "\t\tfor (int j = 0; j < 3; ++j)\n"
+    "\t\t\ta.m[i][j] = (int16_t)(-10 * i - j);\n"
+    "\ta.ins[0].a = -1; a.ins[0].b = 2; a.ins[1].a = 3; a.ins[1].b = 254;\n"
+    "\ta.in.a = -32768; a.in.b = 9;\n"
+    "\ta.bits.s = -11; a.bits.u = 2047; a.bits.f = true; a.bits.e = API_E_NEG;\n"
+    "\ta.v.w = 0x01020304;\n"
+    "\n"
+    "\tmemset(&p, 0, sizeof(p));\n"
+    "\tp.t = 7; p.in.a = -5; p.in.b = 200;\n"
+    "\tp.bits.s = 15; p.bits.u = 1; p.bits.f = false;\n"
+    "\tp.bits.e = API_E_POS; p.n = -9;\n"
+    "\n"
+    "\treturn api_all_pr(&a, flags) < 0 || api_pk_pr(&p, flags) < 0\n"
+    "\t       || api_bits_pr(NULL, flags) < 0;\n"
+    "}\n"
+)
+
+
+@needs_cc
+def test_the_printers_print_the_value_of_every_kind_of_field(parse, tmp_path):
+    model, _ = parse(KINDS)
+    assert process(model, ["capi"], tmp_path) == []
+
+    program = tmp_path / "kinds.c"
+    program.write_text(KINDS_C)
+    cmd = ["cc", *CFLAGS, "-I", str(tmp_path / "capi"), str(program)]
+    cmd += [str(tmp_path / "capi" / "api_pp.c"), "-o", str(tmp_path / "kinds")]
+    subprocess.run(cmd, check=True)
+
+    def run(fmt):
+        proc = subprocess.run(
+            [str(tmp_path / "kinds"), fmt], capture_output=True, text=True
+        )
+        assert proc.returncode == 0
+        return proc.stdout
+
+    assert run("yaml") == (
+        "api_all:\n"
+        "  i8: -8\n"
+        "  i16: -1600\n"
+        "  i32: -320000\n"
+        "  i64: -6400000000\n"
+        "  u8: 250\n"
+        "  u16: 65000\n"
+        "  u32: 4000000000\n"
+        "  u64: 18000000000000000000\n"
+        "  c: 120\n"
+        "  t: true\n"
+        "  f: 1.5\n"
+        "  d: -2.25\n"
+        "  sz: 123456789\n"
+        "  ss: -42\n"
+        "  e: -3\n"
+        '  name: "ab\\"c\\\\d"\n'
+        '  str: "s\\u0009r"\n'
+        "  none: null\n"
+        '  ptr: "0x1234"\n'
+        "  cb: null\n"
+        "  m: [[0, -1, -2], [-10, -11, -12]]\n"
+        '  ins: [{"a": -1, "b": 2}, {"a": 3, "b": 254}]\n'
+        "  in:\n"
+        "    a: -32768\n"
+        "    b: 9\n"
+        "  bits:\n"
+        "    s: -11\n"
+        "    u: 2047\n"
+        "    f: true\n"
+        "    e: -3\n"
+        "  v:\n"
+        "    w: 16909060\n"
+        "    b: 4\n"
+        "api_pk:\n"
+        "  t: 7\n"
+        "  in:\n"
+        "    a: -5\n"
+        "    b: 200\n"
+        "  bits:\n"
+        "    s: 15\n"
+        "    u: 1\n"
+        "    f: false\n"
+        "    e: 7\n"
+        "  n: -9\n"
+        "api_bits: ~\n"
+    )
+    assert [json.loads(line) for line in run("json").splitlines()] == [
+        {
+            "i8": -8,
+            "i16": -1600,
+            "i32": -320000,
+            "i64": -6400000000,
+            "u8": 250,
+            "u16": 65000,
+            "u32": 4000000000,
+            "u64": 18000000000000000000,
+            "c": 120,
+            "t": True,
+            "f": 1.5,
+            "d": -2.25,
+            "sz": 123456789,
+            "ss": -42,
+            "e": -3,
+            "name": 'ab"c\\d',
+            "str": "s\tr",
+            "none": None,
+            "ptr": "0x1234",
+            "cb": None,
+            "m": [[0, -1, -2], [-10, -11, -12]],
+            "ins": [{"a": -1, "b": 2}, {"a": 3, "b": 254}],
+            "in": {"a": -32768, "b": 9},
+            "bits": {"s": -11, "u": 2047, "f": True, "e": -3},
+            "v": {"w": 16909060, "b": 4},
+        },
+        {
+            "t": 7,
+            "in": {"a": -5, "b": 200},
+            "bits": {"s": 15, "u": 1, "f": False, "e": 7},
+            "n": -9,
+        },
+        None,
+    ]
