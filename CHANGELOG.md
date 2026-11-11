@@ -16,6 +16,21 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## 0.9.4
+
+The new target `capi_pp` generates the pretty-printers of the C target for an
+API to compile into its own library. It writes `lib<prefix>_pp.h`, which
+declares the printers and includes the API's own headers rather than the
+generated `lib<prefix>.h`, and `<prefix>_pp.c`. Its check compiles both, with
+the layout assertions, against the API's headers. xNVMe uses it to generate
+`libxnvme_pp.h` and `xnvme_pp.c`.
+
+The printers take `<PREFIX>_PR_TERSE` at 0x2, as xNVMe's do, and print YAML for
+it. `<PREFIX>_PR_JSON` moves from 0x2 to 0x4 in every target, so a caller that
+passes the value 2 rather than the name now gets YAML. In the C target, the
+enum of these flags is now `enum <prefix>_pr`, as an API names it, rather than
+with the prefix in upper case.
+
 ## 0.9.3
 
 The pretty-printers of the C target are smaller. Each record has one function
