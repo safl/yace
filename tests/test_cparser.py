@@ -786,6 +786,38 @@ def test_what_is_named_as_the_printers_output_formats_is_skipped(parse):
     assert [e.name for e in model.entities] == ["api_s", "api_k", "api_q"]
 
 
+# An API's own printers, tagged as not bound, and one not named as a printer
+NOBIND = (
+    "#include <stdio.h>\n"
+    "/** A */\nstruct api_a {\n\tint x; ///< X\n};\n"
+    "/**\n * Print\n *\n * @param obj A\n * @param opts O\n * @return N\n"
+    " *\n * @nobind\n */\nint api_a_pr(const struct api_a *obj, int opts);\n"
+    "/**\n * Print to\n *\n * @param stream S\n * @param obj A\n"
+    " * @param opts O\n * @return N\n *\n * @nobind\n */\n"
+    "int api_a_fpr(FILE *stream, const struct api_a *obj, int opts);\n"
+    "/**\n * Dump\n *\n * @param stream S\n * @param obj A\n *\n * @nobind\n */\n"
+    "void api_a_dump(FILE *stream, const struct api_a *obj);\n"
+)
+
+
+def test_a_function_tagged_nobind_is_left_out_unreported(parse):
+    model, diagnostics = parse(NOBIND)
+
+    assert diagnostics == []
+    assert [e.name for e in model.entities] == ["stdio.h", "api_a"]
+
+
+def test_nobind_with_text_is_reported_and_still_left_out(parse):
+    model, diagnostics = parse(
+        "/**\n * F\n *\n * @return N\n *\n * @nobind f\n */\nint f(void);\n"
+    )
+
+    assert [str(d) for d in diagnostics] == [
+        "api.h:8:5: annotation: 'f': @nobind takes nothing"
+    ]
+    assert model.entities == []
+
+
 def test_an_include_not_found_is_kept(parse):
     model, diagnostics = parse('#include "api_missing.h"\n/** F */\nint f(void);\n')
 

@@ -291,6 +291,11 @@ The rest is said in the Doxygen comment of the function:
   :ref:`sec-ir-lifetimes`, which describes each with the example library's
   callbacks.
 
+``@nobind``
+  The function is not bound in any language. yace leaves it out before reading
+  its types, so they may be outside the subset, such as the ``FILE *`` of a
+  printer of the library's own, which C callers use and the bindings replace.
+
 For example::
 
   /**
