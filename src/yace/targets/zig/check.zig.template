@@ -12,7 +12,7 @@ const api = @import("{{ prefix }}.zig");
 
 comptime {
 {%- if layout %}
-    @setEvalBranchQuota(1000 + 100 * {{ printable | length + printable | map(attribute="fields") | map("length") | sum }});
+    @setEvalBranchQuota(1000 + 100 * {{ printable | length + blobs | length + printable | map(attribute="fields") | map("length") | sum }});
 {%- for record in printable if record.size %}
 {%- set name = namer(record.name) %}
     std.debug.assert(@sizeOf(api.{{ name }}) == {{ record.size }});
@@ -20,6 +20,11 @@ comptime {
 {%- for field in record.fields if field.offset is not none and not record | is_union %}
     std.debug.assert(@offsetOf(api.{{ name }}, "{{ field.name }}") == {{ field.offset // 8 }});
 {%- endfor %}
+{%- endfor %}
+{%- for record in blobs %}
+{%- set name = namer(record.name) %}
+    std.debug.assert(@sizeOf(api.{{ name }}) == {{ record.size }});
+    std.debug.assert(@alignOf(api.{{ name }}) == {{ record.align }});
 {%- endfor %}
 {%- endif %}
 }
