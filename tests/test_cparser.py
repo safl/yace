@@ -958,3 +958,17 @@ def test_an_enumerator_beyond_int_is_left_out(parse, tmp_path):
     ]
     assert [m.name for m in model.find("api_e").members] == ["API_E_A"]
     assert process(model, ["capi"], tmp_path / "out") == []
+
+
+def test_an_enum_with_no_enumerator_that_fits_an_int_is_skipped(parse):
+    model, diagnostics = parse(
+        "#include <stdint.h>\n/** E */\nenum api_e {\n"
+        "\tAPI_E_BIG = 0xffffffff, ///< B\n};\n"
+        "/** S */\nstruct api_s {\n\tenum api_e e; ///< E\n};\n"
+    )
+    assert [str(d).split(": ", 1)[1] for d in diagnostics] == [
+        "enum-value: 'API_E_BIG' of enum 'api_e' does not fit an int; it is left out",
+        "enum-value: enum 'api_e' has no enumerator that fits an int; it is skipped",
+        "unsupported-type: 'api_s' uses 'api_e', which is skipped; it is skipped",
+    ]
+    assert model.find("api_e") is None and model.find("api_s") is None

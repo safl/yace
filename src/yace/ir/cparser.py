@@ -780,7 +780,8 @@ class _HeaderParser(object):
                 self.names[decl_key(child)] = nested
 
                 if child.kind == CursorKind.ENUM_DECL:
-                    hoisted.append(self.enum(child, nested))
+                    found_enum = self.enum(child, nested)
+                    hoisted += [found_enum] if found_enum else []
                 else:
                     hoisted += self.record(child, nested)
                 found = hoisted[-1] if hoisted else None
@@ -1006,7 +1007,7 @@ class _HeaderParser(object):
         self.skipped_records.add(name)
         return True
 
-    def enum(self, cursor, name: str) -> decls.Enum:
+    def enum(self, cursor, name: str) -> Optional[decls.Enum]:
         self.enum_cursors[name] = cursor
         underlying = None
         try:
@@ -1035,6 +1036,15 @@ class _HeaderParser(object):
                     name=child.spelling, value=child.enum_value, doc=self.doc_of(child)
                 )
             )
+        if not members:
+            # ISO C has no enum without an enumerator
+            self.report(
+                "enum-value",
+                f"enum '{name}' has no enumerator that fits an int; it is skipped",
+                cursor,
+            )
+            self.skipped_enums.add(name)
+            return None
         return decls.Enum(
             name=name,
             members=members,
@@ -1514,6 +1524,8 @@ class _HeaderParser(object):
             declared.add(name)
             if kind == CursorKind.ENUM_DECL:
                 enum = self.enum(cursor, name)
+                if enum is None:
+                    return []
                 self.check_doc(enum, "enum", cursor)
                 return [enum]
             found = self.record(cursor, name)
