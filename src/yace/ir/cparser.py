@@ -124,6 +124,38 @@ CXX_KEYWORDS = set(
 )
 
 
+def actual_layout(cursor) -> tuple:
+    """The size, alignment and field offsets, in bytes, of the record"""
+
+    offsets = [f.get_field_offsetof() // 8 for f in cursor.type.get_fields()]
+    return cursor.type.get_size(), cursor.type.get_align(), offsets
+
+
+def natural_layout(cursor) -> Optional[tuple]:
+    """The layout that the types of the record's fields give it, as C lays them
+    out without attributes or '#pragma pack', as actual_layout() gives one; None
+    where it is not computed: of a record of bit-fields"""
+
+    fields = list(cursor.type.get_fields())
+    if any(f.is_bitfield() for f in fields):
+        return None
+    union = cursor.kind == CursorKind.UNION_DECL
+    end, align, offsets = 0, 1, []
+    for field in fields:
+        ctype = field.type.get_canonical()
+        if ctype.kind == TypeKind.INCOMPLETEARRAY:
+            size, falign = 0, ctype.element_type.get_align()
+        else:
+            size, falign = ctype.get_size(), ctype.get_align()
+        if size < 0 or falign <= 0:
+            return None
+        align = max(align, falign)
+        offset = 0 if union else -(-end // falign) * falign
+        offsets.append(offset)
+        end = max(end, offset + size)
+    return -(-end // align) * align, align, offsets
+
+
 # CXCallingConv_Default and CXCallingConv_C of libclang's Index.h
 CALLING_CONVENTION_C = (0, 1)
 
@@ -693,6 +725,7 @@ class _HeaderParser(object):
         children = list(cursor.get_children())
         anon_count = 0
         member = ""
+        ignored: list = []  # the attributes reported once the layout is known
 
         for idx, child in enumerate(children):
             if child.kind in RECORD_KINDS + (CursorKind.ENUM_DECL,):
@@ -789,11 +822,12 @@ class _HeaderParser(object):
                 self.keyword(child.spelling, f"a field of '{name}'", child)
                 for attr in child.get_children():
                     if attr.kind.is_attribute():
-                        self.report(
-                            "attribute",
-                            f"field '{child.spelling}' of '{name}' has the attribute"
-                            f" '{attribute(attr)}'; it is ignored",
-                            attr,
+                        ignored.append(
+                            (
+                                f"field '{child.spelling}' of '{name}' has the"
+                                f" attribute '{attribute(attr)}'; it is ignored",
+                                attr,
+                            )
                         )
                 try:
                     typ = self.by_value(self.typ(child.type, child))
@@ -848,10 +882,12 @@ class _HeaderParser(object):
             if child.kind == CursorKind.PACKED_ATTR:
                 continue
             if child.kind.is_attribute():
-                self.report(
-                    "attribute",
-                    f"'{name}' has the attribute '{attribute(child)}'; it is ignored",
-                    child,
+                ignored.append(
+                    (
+                        f"'{name}' has the attribute '{attribute(child)}';"
+                        " it is ignored",
+                        child,
+                    )
                 )
                 continue
 
@@ -870,19 +906,15 @@ class _HeaderParser(object):
             )
             self.skipped_records.add(name)
         packed = any(c.kind == CursorKind.PACKED_ATTR for c in children)
-        natural = max((f.type.get_align() for f in cursor.type.get_fields()), default=1)
         align = cursor.type.get_align()
-        if not packed and 1 < align < natural and name not in self.skipped_records:
-            self.report(
-                "attribute",
-                f"'{name}' is aligned to {align} bytes where its fields need"
-                f" {natural}, as by '#pragma pack({align})', which the targets"
-                " cannot all express; it is skipped",
-                cursor,
-            )
-            self.skipped_records.add(name)
-        # Of '#pragma pack(1)', which libclang shows only in the layout
-        packed = packed or 0 < align < natural
+        laid = self.laid_out(cursor, name, packed)
+        if laid is None:
+            ignored = [
+                (text, c) for text, c in ignored if c.kind != CursorKind.ALIGNED_ATTR
+            ]
+        for text, attr in ignored:
+            self.report("attribute", text, attr)
+        packed = bool(laid)
         if name in self.skipped_records:
             return hoisted
         size = cursor.type.get_size()
@@ -898,6 +930,39 @@ class _HeaderParser(object):
                 doc=self.doc_of(cursor),
             )
         ]
+
+    def laid_out(self, cursor, name: str, packed: bool) -> Optional[bool]:
+        """Whether the record is packed, also by '#pragma pack(1)', which
+        libclang shows only in the layout; None, reported and skipped, where an
+        attribute or '#pragma pack' gives it a layout that its fields' types do
+        not, and that the targets cannot all express"""
+
+        if packed or name in self.skipped_records:
+            return packed
+        align = cursor.type.get_align()
+        fields = list(cursor.type.get_fields())
+        need = max((f.type.get_align() for f in fields), default=1)
+        if align == 1 and need > 1:
+            return True
+        if 1 < align < need:
+            found = (
+                f"'{name}' is aligned to {align} bytes where its fields need"
+                f" {need}, as by '#pragma pack({align})'"
+            )
+        elif natural_layout(cursor) not in (None, actual_layout(cursor)):
+            found = (
+                f"'{name}' has a layout that the types of its fields do not give,"
+                " as by the attribute 'aligned'"
+            )
+        else:
+            return False
+        self.report(
+            "attribute",
+            f"{found}, which the targets cannot all express; it is skipped",
+            cursor,
+        )
+        self.skipped_records.add(name)
+        return None
 
     def nests_flexible(self, cursor, child, name: str) -> bool:
         """Whether the field 'child' of the record 'name' holds a record with a

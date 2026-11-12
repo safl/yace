@@ -350,8 +350,11 @@ def test_a_packed_record_is_recorded_as_packed(parse):
         "/** S */\nstruct __attribute__((aligned(8))) api_s {\n\tint i; ///< I\n};\n"
     )
     assert [str(d).split(": ", 1)[1] for d in diagnostics] == [
-        "attribute: 'api_s' has the attribute 'aligned'; it is ignored"
+        "attribute: 'api_s' has a layout that the types of its fields do not give,"
+        " as by the attribute 'aligned', which the targets cannot all express; it is"
+        " skipped"
     ]
+    assert model.find("api_s") is None
 
     k = model.find("api_k")
     assert (k.packed, k.size, k.align) == (True, 35, 1)
@@ -926,14 +929,22 @@ def test_a_record_of_pragma_pack_beyond_1_is_reported_and_skipped(parse):
     assert model.find("api_p") is None
 
 
-def test_an_attribute_of_a_field_is_reported(parse):
-    _, diagnostics = parse(
+@needs_cc
+def test_an_aligned_field_skips_its_record_where_it_changes_the_layout(parse, tmp_path):
+    model, diagnostics = parse(
         "#include <stdint.h>\n/** Q */\nstruct api_q {\n\tuint8_t a; ///< A\n"
         "\tuint32_t b __attribute__((aligned(8))); ///< B\n};\n"
+        "/** R */\nstruct api_r {\n\tuint8_t a; ///< A\n"
+        "\tuint32_t b __attribute__((aligned(4))); ///< B\n};\n"
     )
     assert [str(d).split(": ", 1)[1] for d in diagnostics] == [
-        "attribute: field 'b' of 'api_q' has the attribute 'aligned'; it is ignored"
+        "attribute: 'api_q' has a layout that the types of its fields do not give,"
+        " as by the attribute 'aligned', which the targets cannot all express; it is"
+        " skipped",
+        "attribute: field 'b' of 'api_r' has the attribute 'aligned'; it is ignored",
     ]
+    assert model.find("api_q") is None and model.find("api_r") is not None
+    assert process(model, ["capi"], tmp_path / "out") == []
 
 
 @needs_cc

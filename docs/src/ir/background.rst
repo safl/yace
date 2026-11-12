@@ -106,13 +106,13 @@ packed record may not be aligned for its type, so a reference to it, or its
 address, may not be used as one to an aligned value: the printers of every
 target read such a field by a copy. A packed record is in the subset.
 
-The aligned attribute is not carried to any target. On a record and on a
-field, it is reported by the attribute rule. Where the layout is not checked,
-see :ref:`sec-ir-background-checked`, the bindings of such a record are wrong,
-and only the diagnostic of the attribute says so. ``#pragma pack`` with more
-than one byte lowers the alignment of each field to at most that many bytes,
-which a packed record does not express; a record that it changes is reported
-by the attribute rule and skipped.
+The aligned attribute is not carried to any target. The parser compares the
+layout of each record with the one that the types of its fields give it. A
+record whose layout ``aligned`` changes, on the record or on a field, is
+reported by the attribute rule and skipped. An ``aligned`` that changes nothing
+is reported, and ignored. ``#pragma pack`` with more than one byte lowers the
+alignment of each field to at most that many bytes, which a packed record does
+not express; a record that it changes is reported and skipped too.
 
 Ctypes packs bit-fields only as MSVC does, which is not as GCC packs them, so
 in Python a packed record with bit-fields keeps only its size and alignment, as
