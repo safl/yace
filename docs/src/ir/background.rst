@@ -96,8 +96,8 @@ fields, with ``__attribute__((packed))`` or ``#pragma pack``. Its counterpart,
 of these is C99. Each compiler spells them its own way, and not every target
 language can express each of them.
 
-A record declared with ``__attribute__((packed))`` is recorded as ``packed``
-in the IR, with the layout the compiler chose, and every target declares it
+A record declared with ``__attribute__((packed))``, or under
+``#pragma pack(1)``, is recorded as ``packed`` in the IR, with the layout the compiler chose, and every target declares it
 packed: the C API with the attribute, and so C++; Python with ``_pack_ = 1``;
 Rust with ``#[repr(C, packed)]``; Zig as an ``extern struct`` whose fields are
 each ``align(1)``. Go aligns every field, so a packed record is its bytes, each
@@ -106,12 +106,13 @@ packed record may not be aligned for its type, so a reference to it, or its
 address, may not be used as one to an aligned value: the printers of every
 target read such a field by a copy. A packed record is in the subset.
 
-The aligned attribute is not carried to any target. On a record, it is
-reported by the attribute rule; ``#pragma pack``, and an attribute on a field,
-are not reported. Where the layout is not checked, see
-:ref:`sec-ir-background-checked`, the bindings of such a record are wrong.
-Only the diagnostic of the attribute says so, and for ``#pragma pack`` there is
-none.
+The aligned attribute is not carried to any target. On a record and on a
+field, it is reported by the attribute rule. Where the layout is not checked,
+see :ref:`sec-ir-background-checked`, the bindings of such a record are wrong,
+and only the diagnostic of the attribute says so. ``#pragma pack`` with more
+than one byte lowers the alignment of each field to at most that many bytes,
+which a packed record does not express; a record that it changes is reported
+by the attribute rule and skipped.
 
 Ctypes packs bit-fields only as MSVC does, which is not as GCC packs them, so
 in Python a packed record with bit-fields keeps only its size and alignment, as

@@ -44,9 +44,10 @@ RULES = {
         " layout, and otherwise the record holding it is skipped"
     ),
     "attribute": (
-        "Attributes other than packed, such as aligned, change the layout, and"
-        " others the calling, in ways the targets cannot all express; they are"
-        " ignored"
+        "Attributes other than packed, such as aligned, change the layout in"
+        " ways the targets cannot all express; they are ignored. A record that"
+        " '#pragma pack' aligns to more than one byte and less than its fields"
+        " need is skipped"
     ),
     "cxx-keyword": (
         "A name must not be a keyword of C++, which includes the generated C API"

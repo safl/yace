@@ -22,7 +22,7 @@ breaking one is still parsed; ``--strict`` makes any diagnostic an error.
   A flexible array member has no length to bind; use a pointer and a length. A record with one is allowed in no array and no struct, as ISO C requires; a flexible array of them is left out where that keeps the layout, and otherwise the record holding it is skipped.
 
 ``attribute``
-  Attributes other than packed, such as aligned, change the layout, and others the calling, in ways the targets cannot all express; they are ignored.
+  Attributes other than packed, such as aligned, change the layout in ways the targets cannot all express; they are ignored. A record that '#pragma pack' aligns to more than one byte and less than its fields need is skipped.
 
 ``cxx-keyword``
   A name must not be a keyword of C++, which includes the generated C API as it is; parameters are renamed, other names cannot be.
@@ -82,7 +82,7 @@ breaking one is still parsed; ``--strict`` makes any diagnostic an error.
   A callback takes exactly one void \* context, and a function taking a callback takes its context as the next parameter, so other languages can pass a closure.
 
 ``annotation``
-  The documentation says what C cannot: @param[in], [out] or [in,out], @nullable, @len, @errno, @destroys and @lifetime; each must name what exists and fits.
+  The documentation says what C cannot: @param[in], [out] or [in,out], @nullable, @len, @errno, @destroys, @lifetime and @nobind; each must name what exists and fits.
 
 ``handle-lifecycle``
   An opaque record a function creates through an [out] pointer must have a function that @destroys it, so other languages can release it.
@@ -94,7 +94,7 @@ breaking one is still parsed; ``--strict`` makes any diagnostic an error.
   A declaration has one doc comment; adjacent ones are joined into one.
 
 ``printer-name``
-  The pretty-printers that yace generates declare the enum '<prefix>_pr' and the output formats '<PREFIX>_PR_DEF', '<PREFIX>_PR_YAML', '<PREFIX>_PR_TERSE' and '<PREFIX>_PR_JSON' in every target. In the C API they also declare '<record>_pr' and '<record>_fpr' for each record and '<enum>_str' for each enum. yace skips a declaration of the headers that has one of these names, and every declaration that uses it. Such declarations come from the API's own printers, as in xNVMe's libxnvme_pp.h; leave that header out, because the generated printers replace it.
+  The pretty-printers that yace generates declare the enum '<prefix>_pr' and the output formats '<PREFIX>_PR_DEF', '<PREFIX>_PR_YAML', '<PREFIX>_PR_TERSE' and '<PREFIX>_PR_JSON' in every target. In the C API they also declare '<record>_pr' and '<record>_fpr' for each record and '<enum>_str' for each enum. yace skips a declaration of the headers that has one of these names, and every declaration that uses it. Such declarations come from the API's own printers, as in xNVMe's libxnvme_pp.h; tag such functions @nobind, or leave their header out, because the generated printers replace them.
 
 ``parse-error``
   The compiler could not parse the headers, together in the order given; the result is incomplete. Every error is reported, each once.
