@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
+import platform
 import shutil
 import subprocess
 
@@ -871,3 +872,29 @@ def test_what_uses_a_volatile_type_is_skipped(parse):
         " is volatile; 'pair' is skipped",
     ]
     assert [getattr(e, "name", None) for e in model.entities] == []
+
+
+X86_64 = pytest.mark.skipif(
+    platform.machine().lower() not in ("x86_64", "amd64"),
+    reason="ms_abi is a calling convention of x86-64",
+)
+
+
+@X86_64
+def test_a_calling_convention_other_than_c_is_reported_and_skipped(parse):
+    model, diagnostics = parse(
+        "/**\n * F\n *\n * @param a A\n * @return R\n */\n"
+        "int __attribute__((ms_abi)) api_f(int a);\n"
+        "/** C */\ntypedef int (*api_cb)(int x) __attribute__((ms_abi));\n"
+        "/**\n * G\n *\n * @param a A\n * @return R\n */\n"
+        "int __attribute__((sysv_abi)) api_g(int a);\n"
+    )
+    assert [str(d).split(": ", 1)[1] for d in diagnostics] == [
+        "unsupported-type: 'api_f' uses the type 'int (int) __attribute__((ms_abi))',"
+        " whose calling convention is not the C one; it is skipped",
+        "unsupported-type: typedef 'api_cb' is of the type 'int (int)"
+        " __attribute__((ms_abi))', whose calling convention is not the C one; it is"
+        " skipped",
+    ]
+    assert model.find("api_f") is None and model.find("api_cb") is None
+    assert model.find("api_g") is not None
