@@ -206,9 +206,14 @@ and document the enum it takes its values from::
 The enum names and documents the values, and gives other languages a place to
 put them.
 
-Variadic functions are left out: calling them is not portable across
-languages, see :ref:`sec-ir-background`. Neither are inline or static
-functions, which are code, not part of the boundary, nor variables.
+Variadic functions are outside the subset: calling them is not portable across
+languages, see :ref:`sec-ir-background`. A variadic function is reported, and
+recorded in the IR as ``variadic``. The C API, the Cython ``.pxd`` of the
+Python target, and the raw layers of Rust and Zig declare it. The Python module
+and the Go package do not bind it, and no idiomatic layer wraps it.
+
+Inline and static functions, which are code, not part of the boundary, are
+skipped, and so are variables: none of them is in the IR.
 
 typedef
 -------

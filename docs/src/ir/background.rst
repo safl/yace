@@ -164,9 +164,10 @@ platform's rules for it.
 A variadic function passes its variable arguments by other rules again, with
 promotions the caller must apply, and on some platforms in other registers
 than a fixed parameter. It is reported by the variadic-function rule, and
-recorded in the IR as ``variadic``. The C API declares it, and the raw layers
-of Rust and Zig declare it as variadic. The Python bindings do not bind it, and
-no idiomatic layer wraps it.
+recorded in the IR as ``variadic``. The C API and the Cython ``.pxd`` declare
+it, and the raw layers of Rust and Zig declare it as variadic. The Python module
+and the Go package do not bind it, because ctypes and cgo cannot call it, and no
+idiomatic layer wraps it.
 
 An enum passed by value is an integer of a type the compiler chooses. The IR
 records it as ``underlying`` of the enum; passing one is reported by the
