@@ -16,6 +16,23 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## 0.9.6
+
+`--target-option TARGET.KEY=VALUE` passes an option to a target, as
+`--generator-option` does to a generator. yace reports an option that the
+target does not take, a value that the option does not accept, and an option
+of a target not given to `--emit`, before it parses a header.
+
+The `capi_pp` target takes the option `form`. `form=library`, the default,
+emits the printers as before. `form=header` defines the printers and the
+`_str()` functions as `static inline` in `lib<prefix>_pp.h`, and the helpers as
+`static`, and emits no `<prefix>_pp.c`. An optimizing build then compiles only
+the printers that a file calls. The helpers are under the include guard
+`YACE_PP_HELPERS`, so one file can include the printer headers of several
+runs, each with its own prefix.
+
+The documentation has a contributor guide.
+
 ## 0.9.5
 
 A function whose doc comment carries `@nobind` is left out of every binding.
