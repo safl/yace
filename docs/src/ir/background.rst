@@ -174,8 +174,8 @@ records it as ``underlying`` of the enum; passing one is reported by the
 enum-in-signature rule.
 
 **yace** binds every function with the default calling convention of the
-platform. An attribute selecting another one, such as ``ms_abi``, is not
-carried to any target.
+platform. A function, or a function pointer, declared with another one, such as
+``ms_abi``, is reported by the unsupported-type rule and skipped.
 
 .. _sec-ir-background-checked:
 

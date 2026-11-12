@@ -16,6 +16,7 @@ what to change for it to be within.
 * :func:`.c_to_yace` writes the IR and the diagnostics of headers to files
 """
 
+import ctypes
 import logging as log
 import os
 import platform
@@ -121,6 +122,20 @@ CXX_KEYWORDS = set(
     " static_cast template this thread_local throw true try typeid typename using"
     " virtual wchar_t xor xor_eq".split()
 )
+
+
+# CXCallingConv_Default and CXCallingConv_C of libclang's Index.h
+CALLING_CONVENTION_C = (0, 1)
+
+
+def calling_convention(ctype) -> int:
+    """The calling convention of the function type 'ctype', by libclang's
+    clang_getFunctionTypeCallingConv(), which its Python bindings do not wrap"""
+
+    func = clang.cindex.conf.lib.clang_getFunctionTypeCallingConv
+    func.argtypes = [clang.cindex.Type]
+    func.restype = ctypes.c_uint
+    return func(ctype)
 
 
 def attribute(cursor) -> str:
@@ -473,6 +488,7 @@ class _HeaderParser(object):
             return types.Array(of=self.typ(ctype.element_type, cursor), length=None)
 
         if kind == TypeKind.FUNCTIONPROTO:
+            self.check_calling_convention(ctype)
             args = list(ctype.argument_types())
             parms = [c for c in cursor.get_children() if c.kind == CursorKind.PARM_DECL]
             if len(parms) != len(args):
@@ -490,6 +506,16 @@ class _HeaderParser(object):
             return self.typ(canonical, cursor)
 
         raise Unsupported(f"'{ctype.spelling}' ({kind.spelling})")
+
+    @staticmethod
+    def check_calling_convention(ctype):
+        """Raise Unsupported where the function type 'ctype' has a calling
+        convention other than the platform's C one, which no target declares"""
+
+        if calling_convention(ctype) not in CALLING_CONVENTION_C:
+            raise Unsupported(
+                f"'{ctype.spelling}', whose calling convention is not the C one"
+            )
 
     def doc_of(self, cursor) -> doc.Doc:
         """The doc of a declaration; libclang joins adjacent comments into one,
@@ -1008,6 +1034,7 @@ class _HeaderParser(object):
                 )
             ret = self.by_value(self.typ(cursor.result_type, cursor))
             self.inline_callback(ret, f"the return of '{name}'", cursor)
+            self.check_calling_convention(cursor.type)
         except Unsupported as exc:
             self.report(
                 "unsupported-type",
