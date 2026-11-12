@@ -58,8 +58,10 @@ these headers; that is for a tool comparing the library's ABI with them, such as
 capi_pp
 -------
 
-The ``capi_pp`` target generates the pretty-printers alone, for an API to
-compile into its own library, into ``<output>/capi_pp``:
+The ``capi_pp`` target generates the pretty-printers alone, into
+``<output>/capi_pp``. The option ``form`` chooses how they are compiled:
+``library``, the default, for an API to compile into its own library, or
+``header``, for a program to include. The library form writes:
 
 ``lib<prefix>_pp.h``
   The declarations of the pretty-printers and of ``enum <prefix>_pr``. It
@@ -78,6 +80,16 @@ The check is compiled, as GNU C11 with all warnings as errors, with the include
 directories, and fails where a header is not found in them. The headers must not
 declare printers of their own, as the rule ``printer-name`` says; they would
 conflict with the generated ones.
+
+The header form, ``--target-option capi_pp.form=header``, writes no
+``<prefix>_pp.c``. ``lib<prefix>_pp.h`` then defines every printer and every
+``_str()`` function as ``static inline``, and the helpers they call as
+``static``, so a file that calls no printer gets no code of them, and a file
+that calls one printer gets that printer and the helpers it calls. GCC
+compiles the helpers into every file that includes the header when it does not
+optimize, at ``-O0``. The helpers are under the include guard
+``YACE_PP_HELPERS``, so a file can include the printer headers of several runs
+of yace, as long as each run has a prefix of its own.
 
 Example
 -------

@@ -24,6 +24,9 @@ extern "C" {
 {%- if "stdio.h" not in meta.prelude %}
 #include <stdio.h>
 {%- endif %}
+{%- if header_form %}
+#include <inttypes.h>
+{%- endif %}
 {%- for name in meta.prelude %}
 #include <{{ name }}>
 {%- endfor %}
@@ -32,6 +35,9 @@ extern "C" {
 {%- endfor %}
 
 {% include "printers.h.template" %}
+{%- if header_form %}
+{% include "printers.c.template" %}
+{%- endif %}
 #ifdef __cplusplus
 }
 #endif

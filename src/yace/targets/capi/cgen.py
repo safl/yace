@@ -155,6 +155,13 @@ def tag(record) -> str:
     return "union" if isinstance(record, decls.Union) else "struct"
 
 
+# Every helper of the printers, which the header form of capi_pp defines in
+# full, as the first printer header included defines them for the others
+HELPERS = frozenset(
+    "key eol null bool int uint float ptr strn str nest list list_end bits part"
+    " bits_end".split()
+)
+
 # The helpers that each helper calls, so that only the helpers used are generated
 HELPER_DEPS = {
     "null": ("key", "eol"),

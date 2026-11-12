@@ -187,6 +187,11 @@ class CAPI(Target):
             "functions": [e for e in entities if isinstance(e, decls.Function)],
             "printer": printer,
             "helpers": printer.helpers(cgen.ordered_records(model)),
+            # The printers as library functions; the header form of capi_pp
+            # makes them static inline
+            "header_form": False,
+            "storage": "",
+            "static": "static",
             "value_key": VALUE_KEY,
             "layout": model.meta.abi == host_abi(),
             "spelled": cgen.spellings(model),
@@ -205,11 +210,22 @@ class CAPI(Target):
             ],
         )
 
+    def context_of(self, model: Model) -> dict:
+        """The context the templates are rendered in, by the target's options"""
+
+        return self.context(model)
+
+    def sources(self, model: Model) -> list:
+        """The C files the check program is compiled from"""
+
+        prefix = model.meta.prefix
+        return [self.output / f"{prefix}_pp.c", self.output / f"{prefix}_check.c"]
+
     def render(self, model: Model, files: list) -> list:
         """Write each (filename, template) of 'files'; returns the paths"""
 
         env = self.environment()
-        context = self.context(model)
+        context = self.context_of(model)
         paths = []
         for filename, template in files:
             path = self.output / filename
@@ -240,10 +256,7 @@ class CAPI(Target):
         binary = self.output / f"{prefix}_check"
         cmd = [cc, *self.CFLAGS, "-I", str(self.output)]
         cmd += [f"-I{path}" for path in self.include]
-        cmd += [
-            str(self.output / f"{prefix}_pp.c"),
-            str(self.output / f"{prefix}_check.c"),
-        ]
+        cmd += [str(path) for path in self.sources(model)]
         cmd += ["-o", str(binary)]
         proc = subprocess.run(cmd, capture_output=True, text=True)
         (self.output / "cc.log").write_text(
@@ -298,34 +311,56 @@ class CAPI(Target):
 
 
 class CAPIPP(CAPI):
-    """The C target's pretty-printers alone, for an API to compile into its own
-    library: ``lib<prefix>_pp.h`` declares them and includes the headers the IR
-    was parsed from, rather than the C target's ``lib<prefix>.h``. The check
-    compiles them with those headers, found in the include directories"""
+    """The C target's pretty-printers alone: ``lib<prefix>_pp.h`` includes the
+    headers the IR was parsed from, rather than the C target's ``lib<prefix>.h``.
+    The check compiles them with those headers, found in the include
+    directories.
+
+    The option ``form`` chooses how the printers are compiled. ``library``, the
+    default, declares them in the header and defines them in ``<prefix>_pp.c``,
+    for an API to compile into its own library. ``header`` defines the
+    printers in the header, static inline, and the helpers they call, static,
+    and emits no ``<prefix>_pp.c``: a program includes the header of what it
+    prints, and a file that calls no printer gets no code of them. The helpers
+    are under one include guard, so that the headers of several runs can be
+    included together; each run needs a prefix of its own"""
 
     NAME = "capi_pp"
+    OPTIONS = {"form": ("library", "header")}
     # GNU C11, as the check of the signatures compiles the API's own headers
     CFLAGS = ["-std=gnu11", "-O2", "-Wall", "-Wextra", "-Werror"]
 
     @staticmethod
-    def context(model: Model) -> dict:
+    def context(model: Model, form: str = "library") -> dict:
         context = CAPI.context(model)
         prefix = context["PREFIX"]
         context.update(
             guard=f"LIB{prefix}_PP_H", api_header=f"lib{model.meta.prefix}_pp.h"
         )
+        if form == "header":
+            context.update(
+                header_form=True,
+                storage="static inline ",
+                static="static inline",
+                helpers=set(cgen.HELPERS) if context["complete"] else set(),
+            )
         return context
+
+    def context_of(self, model: Model) -> dict:
+        return self.context(model, self.options["form"])
+
+    def sources(self, model: Model) -> list:
+        if self.options["form"] == "header":
+            return [self.output / f"{model.meta.prefix}_check.c"]
+        return super().sources(model)
 
     def emit(self, model: Model) -> list:
         prefix = model.meta.prefix
-        return self.render(
-            model,
-            [
-                (f"lib{prefix}_pp.h", "pp.h.template"),
-                (f"{prefix}_pp.c", "pp.c.template"),
-                (f"{prefix}_check.c", "check.c.template"),
-            ],
-        )
+        files = [(f"lib{prefix}_pp.h", "pp.h.template")]
+        if self.options["form"] == "library":
+            files.append((f"{prefix}_pp.c", "pp.c.template"))
+        files.append((f"{prefix}_check.c", "check.c.template"))
+        return self.render(model, files)
 
     def check(self, model: Model) -> list:
         """Build and run the check program with the headers the IR was parsed

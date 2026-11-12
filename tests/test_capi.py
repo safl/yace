@@ -633,3 +633,84 @@ def test_capi_pp_over_headers_with_their_own_printers_fails(parse, tmp_path):
     failures = process(model, ["capi_pp"], tmp_path / "out", include=[tmp_path])
     assert len(failures) == 1
     assert failures[0].startswith("capi_pp: compiling the check failed")
+
+
+HEADER_FORM = {"capi_pp": {"form": "header"}}
+
+
+@needs_cc
+def test_capi_pp_header_form_defines_the_printers_static_inline(parse, tmp_path):
+    model, _ = parse(OWN_HEADER)
+    out = tmp_path / "out"
+    assert process(model, ["capi_pp"], out, include=[tmp_path]) == []
+    form = tmp_path / "form"
+    assert (
+        process(model, ["capi_pp"], form, include=[tmp_path], options=HEADER_FORM) == []
+    )
+
+    assert not (form / "capi_pp" / "api_pp.c").exists()
+    header = (form / "capi_pp" / "libapi_pp.h").read_text()
+    assert "static inline int\napi_s_fpr(FILE *stream" in header
+    assert "static inline int\napi_s_pr(const struct api_s" in header
+    assert "static inline const char *\napi_k_str(int value)\n{" in header
+    assert "#ifndef YACE_PP_HELPERS\n#define YACE_PP_HELPERS\n" in header
+
+    # The printers print as those of the library form
+    for fmt in ("yaml", "json"):
+        printed = (form / "capi_pp" / f"check.{fmt}").read_text()
+        assert printed == (out / "capi_pp" / f"check.{fmt}").read_text()
+
+
+def header_form_of(parse, tmp_path, name: str):
+    """The header form of the printers of a record '<name>_s', in a run of its
+    own, with the prefix <name>; returns the directory of the printer header"""
+
+    text = f"/** S */\nstruct {name}_s {{\n\tint v; ///< V\n\tchar t[4]; ///< T\n}};\n"
+    model, _ = parse(text, f"{name}.h")
+    out = tmp_path / f"out_{name}"
+    assert (
+        process(model, ["capi_pp"], out, include=[tmp_path], options=HEADER_FORM) == []
+    )
+    return out / "capi_pp"
+
+
+def compile_with_headers(tmp_path, dirs, body: str):
+    """Compile a program of 'body' that includes the printer headers of runs
+    'a' and 'b'; returns the program and the functions defined in it"""
+
+    source = tmp_path / "main.c"
+    source.write_text(
+        "#include <liba_pp.h>\n#include <libb_pp.h>\n"
+        f"int\nmain(void)\n{{\n{body}\n}}\n"
+    )
+    program = tmp_path / "main"
+    cmd = ["cc", "-std=gnu11", "-O2", "-Wall", "-Wextra", "-Werror"]
+    cmd += [f"-I{path}" for path in [tmp_path, *dirs]]
+    proc = subprocess.run(
+        [*cmd, str(source), "-o", str(program)], capture_output=True, text=True
+    )
+    assert proc.returncode == 0, proc.stderr
+    nm = subprocess.run(
+        ["nm", "--defined-only", str(program)], capture_output=True, text=True
+    )
+    functions = {
+        line.split()[2]
+        for line in nm.stdout.splitlines()
+        if line.split()[1] in "tT" and not line.split()[2].startswith("_")
+    }
+    return program, functions
+
+
+@needs_cc
+def test_the_printer_headers_of_two_runs_are_included_together(parse, tmp_path):
+    dirs = [header_form_of(parse, tmp_path, name) for name in ("a", "b")]
+
+    _, functions = compile_with_headers(tmp_path, dirs, "\treturn 0;")
+    assert not [name for name in functions if "yace_pp" in name or "_s_" in name]
+
+    body = '\tstruct a_s obj = {7, "x"};\n\n\treturn a_s_pr(&obj, A_PR_DEF) < 0;'
+    program, functions = compile_with_headers(tmp_path, dirs, body)
+    assert not [name for name in functions if name.startswith(("b_", "yace_pp_rec_b"))]
+    printed = subprocess.run([str(program)], capture_output=True, text=True)
+    assert printed.returncode == 0
+    assert yaml.safe_load(printed.stdout) == {"a_s": {"v": 7, "t": "x"}}
