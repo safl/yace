@@ -22,7 +22,7 @@ breaking one is still parsed; ``--strict`` makes any diagnostic an error.
   A flexible array member has no length to bind; use a pointer and a length. A record with one is allowed in no array and no struct, as ISO C requires; a flexible array of them is left out where that keeps the layout, and otherwise the record holding it is skipped.
 
 ``attribute``
-  Attributes other than packed, such as aligned, change the layout in ways the targets cannot all express; they are ignored. A record that '#pragma pack' aligns to more than one byte and less than its fields need is skipped.
+  Attributes other than packed, such as aligned, change the layout in ways the targets cannot all express. A record whose layout an attribute or '#pragma pack' changes, other than by packing it to one byte, is skipped; other attributes are ignored.
 
 ``cxx-keyword``
   A name must not be a keyword of C++, which includes the generated C API as it is; parameters are renamed, other names cannot be.
