@@ -105,6 +105,11 @@ def test_options_are_by_generator():
     }
 
 
+def test_an_option_not_of_the_form_names_what_it_is_an_option_of():
+    with pytest.raises(ValueError, match="target option 't.k' is not <target>"):
+        yace.generators.options_of(["t.k"], "target")
+
+
 def test_a_generator_is_loaded_from_its_file_or_module_without_installing_it(
     monkeypatch, tmp_path
 ):
