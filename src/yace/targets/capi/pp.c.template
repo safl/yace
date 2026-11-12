@@ -31,15 +31,16 @@ struct yace_pp {
 
 {%- if "key" in helpers %}
 
-/* A key, or of an element of a list, a NULL key, only the separator */
+/* A key, or of an element of a list, a NULL key, only the separator; a list is
+ * printed as JSON, also in YAML, so a NULL key is never printed as YAML */
 YACE_PP_HELPER int
 yace_pp_key(struct yace_pp *pp, const char *key)
 {
-	if (!pp->json) {
-		return fprintf(pp->stream, "%*s%s: ", pp->indent, "", key);
-	}
 	if (!key) {
 		return fprintf(pp->stream, "%s", pp->count++ ? ", " : "");
+	}
+	if (!pp->json) {
+		return fprintf(pp->stream, "%*s%s: ", pp->indent, "", key);
 	}
 
 	return fprintf(pp->stream, "%s\"%s\": ", pp->count++ ? ", " : "", key);
@@ -183,7 +184,7 @@ yace_pp_str(struct yace_pp *pp, const char *key, const char *str)
 YACE_PP_HELPER int
 yace_pp_nest(struct yace_pp *pp, const char *key)
 {
-	if (!pp->json) {
+	if (key && !pp->json) {
 		return fprintf(pp->stream, "%*s%s:\n", pp->indent, "", key);
 	}
 

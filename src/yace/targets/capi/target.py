@@ -40,11 +40,13 @@ from yace.targets.target import Target
 
 from . import cgen
 
-# ISO C, strictly; with what glibc declares by default, as the parser saw it
+# ISO C, strictly; with what glibc declares by default, as the parser saw it;
+# optimized, as some warnings, of format arguments among them, need it
 CFLAGS = [
     "-std=c11",
     "-D_DEFAULT_SOURCE",
     "-pedantic-errors",
+    "-O2",
     "-Wall",
     "-Wextra",
     "-Werror",
@@ -303,7 +305,7 @@ class CAPIPP(CAPI):
 
     NAME = "capi_pp"
     # GNU C11, as the check of the signatures compiles the API's own headers
-    CFLAGS = ["-std=gnu11", "-Wall", "-Wextra", "-Werror"]
+    CFLAGS = ["-std=gnu11", "-O2", "-Wall", "-Wextra", "-Werror"]
 
     @staticmethod
     def context(model: Model) -> dict:
