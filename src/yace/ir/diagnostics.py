@@ -118,8 +118,8 @@ RULES = {
     ),
     "annotation": (
         "The documentation says what C cannot: @param[in], [out] or [in,out],"
-        " @nullable, @len, @errno, @destroys and @lifetime; each must name what"
-        " exists and fits"
+        " @nullable, @len, @errno, @destroys, @lifetime and @nobind; each must"
+        " name what exists and fits"
     ),
     "handle-lifecycle": (
         "An opaque record a function creates through an [out] pointer must have"
@@ -137,8 +137,8 @@ RULES = {
         " and '<enum>_str' for each enum. yace skips a declaration of the"
         " headers that has one of these names, and every declaration that uses"
         " it. Such declarations come from the API's own printers, as in xNVMe's"
-        " libxnvme_pp.h; leave that header out, because the generated printers"
-        " replace it"
+        " libxnvme_pp.h; tag such functions @nobind, or leave their header out,"
+        " because the generated printers replace them"
     ),
     "parse-error": (
         "The compiler could not parse the headers, together in the order given;"

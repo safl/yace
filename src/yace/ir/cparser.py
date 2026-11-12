@@ -965,6 +965,13 @@ class _HeaderParser(object):
             )
             return None
 
+        # Before its types, which may be beyond the subset, such as FILE *
+        nobind = doc.parse(cursor.raw_comment).tags.get("nobind")
+        if nobind is not None:
+            if nobind:
+                self.report("annotation", f"'{name}': @nobind takes nothing", cursor)
+            return None
+
         for child in cursor.get_children():
             if child.kind.is_attribute():
                 self.report(

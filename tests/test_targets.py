@@ -6,6 +6,7 @@ import os
 
 from tests.conftest import HEADERS
 from yace.compiler import process
+from yace.ir import decls
 from yace.targets import target as targets
 
 
@@ -113,6 +114,21 @@ def test_an_apis_own_printer_formats_leave_every_target_building(parse, tmp_path
     # capi_pp includes the headers, so their own printers must be left out
     names = [name for name in sorted(targets.targets()) if name != "capi_pp"]
     failures = process(model, names, tmp_path)
+    assert [
+        f for f in failures if "toolchain" not in f and "no compiler" not in f
+    ] == []
+
+
+def test_functions_tagged_nobind_leave_every_target_building(parse, tmp_path):
+    """Functions taking a FILE *, two named as the generated printers, are
+    neither bound nor in the way of the generated printers"""
+    from tests.test_cparser import NOBIND
+
+    model, _ = parse(NOBIND)
+    assert not [e for e in model.entities if isinstance(e, decls.Function)]
+    failures = process(
+        model, sorted(targets.targets()), tmp_path / "out", include=[tmp_path]
+    )
     assert [
         f for f in failures if "toolchain" not in f and "no compiler" not in f
     ] == []

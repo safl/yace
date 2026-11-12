@@ -46,6 +46,11 @@ comment of the function:
   itself; the others, of a method, during a later call given the same handle,
   or of a function, during any later call.
 
+``@nobind``
+  The function is not bound: the parser leaves it out of the IR, before reading
+  its types, which may be outside the C subset, such as the ``FILE *`` of a
+  printer. It takes nothing.
+
 A ``void *`` parameter right after a callback is the callback's context, as the
 callback-context rule requires; a returned ``const char *`` is borrowed, as the
 string-return rule requires.
