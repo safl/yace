@@ -23,6 +23,13 @@ def test_every_target_checks_with_a_relative_output(parser, tmp_path, monkeypatc
     assert os.path.isdir(tmp_path / "out")
 
 
+def test_the_go_target_writes_only_its_own_directory(parser, tmp_path):
+    model, _ = parser.parse(HEADERS / "valid.h")
+    assert process(model, ["go"], tmp_path, check=False) == []
+    assert [path.name for path in tmp_path.iterdir()] == ["go"]
+    assert (tmp_path / "go" / "libvalid.h").is_file()
+
+
 def test_a_packed_record_holding_bit_fields_checks_in_every_target(parse, tmp_path):
     """A packed record holding a record of bit-fields, which most targets keep
     as its bytes, directly and in a union, as xNVMe's do"""
