@@ -62,3 +62,4 @@ Contributions are welcome; the documentation says how the code is laid out.
    bench/index.rst
    survey/index.rst
    codebase/index.rst
+   contributors/index.rst
