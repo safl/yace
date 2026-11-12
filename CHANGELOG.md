@@ -16,6 +16,19 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## 0.9.5
+
+A function whose doc comment carries `@nobind` is left out of every binding.
+The parser drops it before reading its types, so a type outside the C subset,
+such as the `FILE *` of a printer, reports nothing, and a static or inline
+function is not reported as one. An API can then keep its own printers beside
+the types they print rather than in a header left out of the bindings.
+
+The printers of the C target, in `capi` and `capi_pp`, no longer pass the NULL
+key of a list element to a `%s`. gcc at `-O2` warned of it where a record
+appears only as an array element, which fails a build with `-Werror`. The
+checks of both targets now compile at `-O2`, where such warnings show.
+
 ## 0.9.4
 
 The new target `capi_pp` generates the pretty-printers of the C target for an
