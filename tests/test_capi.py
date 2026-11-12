@@ -596,6 +596,26 @@ def test_capi_pp_declares_the_printers_over_the_apis_own_headers(parse, tmp_path
     assert pp == capi.replace("#include <libapi.h>", "#include <libapi_pp.h>")
 
 
+# Of a record only in an array, yace_pp_nest() is called with the NULL key of an
+# element alone, and gcc at -O2 sees it reach a '%s' of the YAML branch
+ELEMENTS = (
+    "/** A */\nstruct api_a {\n\tint x; ///< X\n};\n"
+    "/** B */\nstruct api_b {\n\tstruct api_a e[2]; ///< E\n};\n"
+)
+
+
+@needs_cc
+def test_a_record_only_in_an_array_builds_optimized(parse, tmp_path):
+    model, _ = parse(ELEMENTS)
+    out = tmp_path / "out"
+    assert process(model, ["capi", "capi_pp"], out, include=[tmp_path]) == []
+
+    for target in ("capi", "capi_pp"):
+        assert " -O2 " in (out / target / "cc.log").read_text()
+        printed = list(yaml.safe_load_all((out / target / "check.yaml").read_text()))
+        assert printed[-1] == {"api_b": {"e": [{"x": 0}, {"x": 0}]}}
+
+
 @needs_cc
 def test_capi_pp_without_the_headers_is_not_checked(parse, tmp_path):
     model, _ = parse(OWN_HEADER)
