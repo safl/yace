@@ -37,7 +37,7 @@ from yace import toolchain
 from yace.ir import decls
 from yace.ir.model import Model, host_abi
 from yace.targets.capi import cgen
-from yace.targets.capi.target import CAPI
+from yace.targets.capi.target import header
 from yace.targets.idiom import Idioms
 from yace.targets.target import Target
 
@@ -163,10 +163,6 @@ class Go(Target):
     NAME = "go"
     TOOLCHAINS = (toolchain.GO,)
 
-    def __init__(self, output: Path, include=None):
-        super().__init__(output, include)
-        self.capi = CAPI(output, include)
-
     def context(self, model: Model) -> dict:
         prefix = cgen.c_ident(model.meta.prefix)
         package = f"{prefix}_" if prefix in ggen.KEYWORDS else prefix
@@ -260,14 +256,9 @@ class Go(Target):
             paths.append(path)
 
         # The C API, as the C target emits it, in the package
-        capi = self.capi.environment()
-        capi_context = self.capi.context(model)
-        for filename, template in [
-            (f"lib{model.meta.prefix}.h", "header.h.template"),
-        ]:
-            path = self.output / filename
-            path.write_text(capi.get_template(template).render(**capi_context))
-            paths.append(path)
+        path = self.output / f"lib{model.meta.prefix}.h"
+        path.write_text(header(model))
+        paths.append(path)
 
         return paths
 
