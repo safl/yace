@@ -295,6 +295,7 @@ The rest is said in the Doxygen comment of the function:
   The function is not bound in any language. yace leaves it out before reading
   its types, so they may be outside the subset, such as the ``FILE *`` of a
   printer of the library's own, which C callers use and the bindings replace.
+  A static or inline function with the tag is left out without being reported.
 
 For example::
 
