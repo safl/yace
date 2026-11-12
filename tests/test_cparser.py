@@ -15,7 +15,9 @@ from tests.conftest import (
     HEADERS,
     PACKED,
     SKIPPED,
+    needs_cc,
 )
+from yace.compiler import process
 from yace.ir import cparser, decls, types
 from yace.ir.cparser import CParser, MissingHeader
 
@@ -898,3 +900,37 @@ def test_a_calling_convention_other_than_c_is_reported_and_skipped(parse):
     ]
     assert model.find("api_f") is None and model.find("api_cb") is None
     assert model.find("api_g") is not None
+
+
+PRAGMA_PACK = (
+    "#include <stdint.h>\n#pragma pack(push, {n})\n/** P */\nstruct api_p {{\n"
+    "\tuint8_t a; ///< A\n\tuint32_t b; ///< B\n}};\n#pragma pack(pop)\n"
+)
+
+
+@needs_cc
+def test_a_record_of_pragma_pack_1_is_recorded_as_packed(parse, tmp_path):
+    model, diagnostics = parse(PRAGMA_PACK.format(n=1))
+    assert diagnostics == []
+    record = model.find("api_p")
+    assert (record.packed, record.size, record.align) == (True, 5, 1)
+    assert process(model, ["capi"], tmp_path / "out") == []
+
+
+def test_a_record_of_pragma_pack_beyond_1_is_reported_and_skipped(parse):
+    model, diagnostics = parse(PRAGMA_PACK.format(n=2))
+    assert [str(d).split(": ", 1)[1] for d in diagnostics] == [
+        "attribute: 'api_p' is aligned to 2 bytes where its fields need 4, as by"
+        " '#pragma pack(2)', which the targets cannot all express; it is skipped"
+    ]
+    assert model.find("api_p") is None
+
+
+def test_an_attribute_of_a_field_is_reported(parse):
+    _, diagnostics = parse(
+        "#include <stdint.h>\n/** Q */\nstruct api_q {\n\tuint8_t a; ///< A\n"
+        "\tuint32_t b __attribute__((aligned(8))); ///< B\n};\n"
+    )
+    assert [str(d).split(": ", 1)[1] for d in diagnostics] == [
+        "attribute: field 'b' of 'api_q' has the attribute 'aligned'; it is ignored"
+    ]

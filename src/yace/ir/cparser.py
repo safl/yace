@@ -787,6 +787,14 @@ class _HeaderParser(object):
 
             if child.kind == CursorKind.FIELD_DECL:
                 self.keyword(child.spelling, f"a field of '{name}'", child)
+                for attr in child.get_children():
+                    if attr.kind.is_attribute():
+                        self.report(
+                            "attribute",
+                            f"field '{child.spelling}' of '{name}' has the attribute"
+                            f" '{attribute(attr)}'; it is ignored",
+                            attr,
+                        )
                 try:
                     typ = self.by_value(self.typ(child.type, child))
                 except Unsupported as exc:
@@ -861,9 +869,23 @@ class _HeaderParser(object):
                 cursor,
             )
             self.skipped_records.add(name)
+        packed = any(c.kind == CursorKind.PACKED_ATTR for c in children)
+        natural = max((f.type.get_align() for f in cursor.type.get_fields()), default=1)
+        align = cursor.type.get_align()
+        if not packed and 1 < align < natural and name not in self.skipped_records:
+            self.report(
+                "attribute",
+                f"'{name}' is aligned to {align} bytes where its fields need"
+                f" {natural}, as by '#pragma pack({align})', which the targets"
+                " cannot all express; it is skipped",
+                cursor,
+            )
+            self.skipped_records.add(name)
+        # Of '#pragma pack(1)', which libclang shows only in the layout
+        packed = packed or 0 < align < natural
         if name in self.skipped_records:
             return hoisted
-        size, align = cursor.type.get_size(), cursor.type.get_align()
+        size = cursor.type.get_size()
         cls = decls.Union if cursor.kind == CursorKind.UNION_DECL else decls.Struct
         return hoisted + [
             cls(
@@ -871,7 +893,7 @@ class _HeaderParser(object):
                 fields=fields,
                 size=size if size > 0 else None,
                 align=align if align > 0 else None,
-                packed=any(c.kind == CursorKind.PACKED_ATTR for c in children),
+                packed=packed,
                 spelled=self.spelled(cursor, name),
                 doc=self.doc_of(cursor),
             )
