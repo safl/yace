@@ -934,3 +934,16 @@ def test_an_attribute_of_a_field_is_reported(parse):
     assert [str(d).split(": ", 1)[1] for d in diagnostics] == [
         "attribute: field 'b' of 'api_q' has the attribute 'aligned'; it is ignored"
     ]
+
+
+@needs_cc
+def test_an_enumerator_beyond_int_is_left_out(parse, tmp_path):
+    model, diagnostics = parse(
+        "/** E */\nenum api_e {\n\tAPI_E_A = 0, ///< A\n"
+        "\tAPI_E_BIG = 0xffffffff, ///< Big\n};\n"
+    )
+    assert [str(d).split(": ", 1)[1] for d in diagnostics] == [
+        "enum-value: 'API_E_BIG' of enum 'api_e' does not fit an int; it is left out"
+    ]
+    assert [m.name for m in model.find("api_e").members] == ["API_E_A"]
+    assert process(model, ["capi"], tmp_path / "out") == []

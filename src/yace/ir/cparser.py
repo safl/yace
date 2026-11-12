@@ -952,26 +952,27 @@ class _HeaderParser(object):
             pass
 
         self.keyword(name, "an enum", cursor)
+        members = []
         for child in cursor.get_children():
-            if child.kind == CursorKind.ENUM_CONSTANT_DECL:
-                self.keyword(child.spelling, f"a member of '{name}'", child)
-            if child.kind == CursorKind.ENUM_CONSTANT_DECL and not (
-                -(2**31) <= child.enum_value < 2**31
-            ):
+            if child.kind != CursorKind.ENUM_CONSTANT_DECL:
+                continue
+            self.keyword(child.spelling, f"a member of '{name}'", child)
+            if not -(2**31) <= child.enum_value < 2**31:
                 self.report(
                     "enum-value",
-                    f"'{child.spelling}' of enum '{name}' does not fit an int",
+                    f"'{child.spelling}' of enum '{name}' does not fit an int;"
+                    " it is left out",
                     child,
                 )
-        return decls.Enum(
-            name=name,
-            members=[
+                continue
+            members.append(
                 decls.EnumMember(
                     name=child.spelling, value=child.enum_value, doc=self.doc_of(child)
                 )
-                for child in cursor.get_children()
-                if child.kind == CursorKind.ENUM_CONSTANT_DECL
-            ],
+            )
+        return decls.Enum(
+            name=name,
+            members=members,
             underlying=underlying,
             spelled=self.spelled(cursor, name),
             doc=self.doc_of(cursor),

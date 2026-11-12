@@ -28,7 +28,7 @@ breaking one is still parsed; ``--strict`` makes any diagnostic an error.
   A name must not be a keyword of C++, which includes the generated C API as it is; parameters are renamed, other names cannot be.
 
 ``enum-value``
-  An enumerator must fit an int, as C99 requires; compilers that allow more disagree on the type of the enum.
+  An enumerator must fit an int, as C99 requires; compilers that allow more disagree on the type of the enum. The enumerator is left out.
 
 ``array-parameter``
   An array parameter is a pointer in C; declare it as one.
