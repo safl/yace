@@ -55,7 +55,7 @@ RULES = {
     ),
     "enum-value": (
         "An enumerator must fit an int, as C99 requires; compilers that allow"
-        " more disagree on the type of the enum"
+        " more disagree on the type of the enum. The enumerator is left out"
     ),
     "array-parameter": ("An array parameter is a pointer in C; declare it as one"),
     "variadic-function": (
