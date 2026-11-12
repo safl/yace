@@ -130,6 +130,24 @@ def test_a_layout_other_than_recorded_fails_the_check(parser, tmp_path):
     assert failures and "building the check failed" in failures[0]
 
 
+def test_a_layout_of_bit_fields_other_than_recorded_fails_the_check(parse, tmp_path):
+    """A record of bit-fields is declared as bytes of the alignment recorded,
+    which Zig pads to a multiple of it"""
+
+    model, _ = parse(
+        "#include <stdint.h>\n/** W */\nstruct api_w {\n"
+        "\tuint32_t a : 4; ///< A\n\tuint32_t b : 28; ///< B\n};\n"
+    )
+    assert process(model, ["zig"], tmp_path / "recorded") == []
+    check = (tmp_path / "recorded" / "zig" / "api_check.zig").read_text()
+    assert "std.debug.assert(@sizeOf(api.ApiW) == 4);" in check
+    assert "std.debug.assert(@alignOf(api.ApiW) == 4);" in check
+
+    model.find("api_w").size = 6
+    failures = process(model, ["zig"], tmp_path / "other")
+    assert failures and "building the check failed" in failures[0]
+
+
 def test_string_defines_keep_their_value(parse, tmp_path):
     model, _ = parse(ESCAPED)
     assert process(model, ["zig"], tmp_path) == []
