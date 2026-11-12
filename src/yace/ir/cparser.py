@@ -957,19 +957,20 @@ class _HeaderParser(object):
     def function(self, cursor) -> Optional[decls.Function]:
         name = cursor.spelling
         self.keyword(name, "a function", cursor)
+        # The author says it is not bound: so before the rule against static and
+        # inline functions, and before its types, which may be beyond the subset
+        nobind = doc.parse(cursor.raw_comment).tags.get("nobind")
+        if nobind is not None:
+            if nobind:
+                self.report("annotation", f"'{name}': @nobind takes nothing", cursor)
+            return None
+
         if cursor.storage_class == StorageClass.STATIC or cursor.is_definition():
             self.report(
                 "unsupported-declaration",
                 f"'{name}' is a static or inline function; it is skipped",
                 cursor,
             )
-            return None
-
-        # Before its types, which may be beyond the subset, such as FILE *
-        nobind = doc.parse(cursor.raw_comment).tags.get("nobind")
-        if nobind is not None:
-            if nobind:
-                self.report("annotation", f"'{name}': @nobind takes nothing", cursor)
             return None
 
         for child in cursor.get_children():

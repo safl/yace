@@ -818,6 +818,26 @@ def test_nobind_with_text_is_reported_and_still_left_out(parse):
     assert model.entities == []
 
 
+STATIC_PR = (
+    "/** T */\nstruct t {\n\tint x; ///< X\n};\n"
+    "/**\n * Print\n *\n * @param x T\n *\n * @nobind\n */\n"
+    "static inline void t_pr(struct t *x)\n{\n\t(void)x;\n}\n"
+)
+
+
+def test_a_static_inline_function_tagged_nobind_is_left_out_unreported(parse):
+    model, diagnostics = parse(STATIC_PR)
+    assert diagnostics == []
+    assert [e.name for e in model.entities] == ["t"]
+
+    model, diagnostics = parse(STATIC_PR.replace(" *\n * @nobind\n", ""))
+    assert [str(d) for d in diagnostics] == [
+        "api.h:10:20: unsupported-declaration: 't_pr' is a static or inline"
+        " function; it is skipped"
+    ]
+    assert [e.name for e in model.entities] == ["t"]
+
+
 def test_an_include_not_found_is_kept(parse):
     model, diagnostics = parse('#include "api_missing.h"\n/** F */\nint f(void);\n')
 
