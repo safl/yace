@@ -67,6 +67,13 @@ def parse_args():
         help="an option of a generator",
     )
     parser.add_argument(
+        "--target-option",
+        action="append",
+        default=[],
+        metavar="TARGET.KEY=VALUE",
+        help="an option of a target given with '--emit'",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path.cwd(),
@@ -142,6 +149,19 @@ def main():
         log.error("no target %s; installed: %s", unknown, ", ".join(sorted(targets())))
         return 1
 
+    try:
+        target_options = gen.options_of(args.target_option, "target")
+        not_emitted = sorted(set(target_options) - set(args.emit))
+        if not_emitted:
+            raise ValueError(
+                f"options of targets not emitted: {', '.join(not_emitted)}"
+            )
+        for name, given in target_options.items():
+            load(name).options_of(given)
+    except ValueError as error:
+        log.error("%s", error.args[0])
+        return 1
+
     if args.toolchains:
         names = args.emit or sorted(targets())
         found = {name: [tc.find() for tc in load(name).TOOLCHAINS] for name in names}
@@ -211,7 +231,12 @@ def main():
     failures = []
     for model in models:
         failures += process(
-            model, args.emit, args.output, check=not args.no_check, include=include
+            model,
+            args.emit,
+            args.output,
+            check=not args.no_check,
+            include=include,
+            options=target_options,
         )
     for failure in failures:
         print(f"yace: {failure}", file=sys.stderr)

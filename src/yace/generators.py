@@ -93,17 +93,16 @@ def load(name: str) -> Any:
     return generator
 
 
-def options_of(given: List[str]) -> Dict[str, Dict[str, str]]:
-    """The options of each generator, from '<generator>.<key>=<value>' each"""
+def options_of(given: List[str], kind: str = "generator") -> Dict[str, Dict[str, str]]:
+    """The options by name, from '<name>.<key>=<value>' each; 'kind' names what
+    they are options of, a generator or a target, in the error"""
 
     options: Dict[str, Dict[str, str]] = {}
     for option in given:
         name, _, setting = option.partition(".")
         key, equals, value = setting.partition("=")
         if not name or not key or not equals:
-            raise ValueError(
-                f"generator option '{option}' is not <generator>.<key>=<value>"
-            )
+            raise ValueError(f"{kind} option '{option}' is not <{kind}>.<key>=<value>")
         options.setdefault(name, {})[key] = value
     return options
 
