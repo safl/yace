@@ -18,7 +18,7 @@ enum {{ prefix }}_pr {
  *
  * @return The number of characters written
  */
-int
+{{ storage }}int
 {{ record.name }}_fpr(FILE *stream, const {{ record | tag }} {{ record.name }} *obj, int flags);
 
 /**
@@ -29,7 +29,7 @@ int
  *
  * @return The number of characters written
  */
-int
+{{ storage }}int
 {{ record.name }}_pr(const {{ record | tag }} {{ record.name }} *obj, int flags);
 {%- endfor %}
 {%- for entity in enums %}
@@ -37,6 +37,6 @@ int
 /**
  * The name of the given enum {{ entity.name }} value, "UNKNOWN" when it is none of them
  */
-const char *
+{{ storage }}const char *
 {{ entity.name }}_str(int value);
 {%- endfor %}

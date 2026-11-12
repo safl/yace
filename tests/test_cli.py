@@ -158,3 +158,34 @@ def test_a_header_the_subset_needs_missing_stops_before_anything_is_written(tmp_
     assert proc.returncode == 1
     assert "'yace_nowhere.h' file not found. yace includes this header" in proc.stderr
     assert not (out / "capi").exists()
+
+
+def test_a_target_option_reaches_its_target(tmp_path):
+    proc = yace(
+        HEADERS / "valid.h",
+        "--output",
+        tmp_path,
+        "--emit",
+        "capi_pp",
+        "--target-option",
+        "capi_pp.form=header",
+        "--no-check",
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert not (tmp_path / "capi_pp" / "valid_pp.c").exists()
+    assert "static inline" in (tmp_path / "capi_pp" / "libvalid_pp.h").read_text()
+
+
+def test_a_target_option_not_taken_is_an_error_before_parsing(tmp_path):
+    for option, error in [
+        ("capi_pp.form", "is not <target>.<key>=<value>"),
+        ("capi_pp.shape=header", "capi_pp takes no option 'shape'; takes: form"),
+        ("capi_pp.form=both", "capi_pp.form is one of library, header, not 'both'"),
+        ("capi.form=header", "capi takes no option 'form'; takes: none"),
+        ("rust.form=header", "options of targets not emitted: rust"),
+    ]:
+        args = ["--emit", "capi_pp", "capi", "--target-option", option]
+        proc = yace(HEADERS / "valid.h", "--output", tmp_path, *args)
+        assert proc.returncode == 1, option
+        assert error in proc.stderr, proc.stderr
+    assert not (tmp_path / "valid.yaml").exists()
