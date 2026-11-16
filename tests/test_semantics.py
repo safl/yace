@@ -139,3 +139,96 @@ def test_the_c_api_says_what_the_header_says(parse, tmp_path):
             other.destroys,
             other.nullable,
         )
+
+
+REAP = """
+#include <stdint.h>
+
+struct q;
+
+/**
+ * Reap
+ *
+ * @param[out] done Done
+ * @param[out] n How many
+ *
+ * @len done max
+ * @len done n
+ * @errno partial
+ */
+int q_reap(struct q *queue, int *done, uint32_t max, uint32_t *n);
+"""
+
+
+def test_an_out_count_and_a_partial_errno_are_in_the_ir(parse):
+    model, diagnostics = parse(REAP)
+    assert [d for d in diagnostics if d.rule == "annotation"] == []
+
+    reap = functions(model)["q_reap"]
+    params = {p.name: p for p in reap.params}
+    assert (params["done"].length, params["done"].count) == ("max", "n")
+    assert reap.errno and reap.partial
+
+
+WRONG = [
+    (
+        "/**\n * @param[out] n N\n * @len v n\n */\nvoid f(int *v, uint32_t *n);",
+        "@len gives 'v' an [out] count, but it is not [out]",
+        {},
+    ),
+    (
+        "/**\n * @param[out] v V\n * @param[out] n N\n * @len v n\n */\n"
+        "void f(int *v, uint32_t *n);",
+        "@len gives 'v' the [out] count 'n', but no capacity",
+        {},
+    ),
+    (
+        "/**\n * @param[out] v V\n * @len v n\n */\nvoid f(int *v, uint32_t *n);",
+        "@len names 'n', which is not an integer, nor an [out] pointer to one",
+        {},
+    ),
+    (
+        "/**\n * @param[out] v V\n * @param[out] n N\n * @param[out] m M\n"
+        " * @len v c\n * @len v n\n * @len v m\n */\n"
+        "void f(int *v, uint32_t c, uint32_t *n, uint32_t *m);",
+        "@len names 'v' with two [out] counts",
+        {"v": "n"},
+    ),
+    (
+        "/**\n * @param[out] a A\n * @param[out] b B\n * @param[out] n N\n"
+        " * @len a c\n * @len b c\n * @len a n\n * @len b n\n */\n"
+        "void f(int *a, int *b, uint32_t c, uint32_t *n);",
+        "@len names 'n' as the count of two arrays",
+        {"a": "n"},
+    ),
+    (
+        "/**\n * @errno always\n */\nint f(void);",
+        "@errno takes nothing, or 'partial'",
+        {},
+    ),
+    ("/**\n * @errno partial\n */\nint f(int x);", "but no parameter is [out]", {}),
+    (
+        "struct h;\n/**\n * @param[out] h H\n * @errno partial\n */\n"
+        "int f(struct h **h);",
+        "@errno partial, but 'h' is an [out] handle",
+        {},
+    ),
+    (
+        "#include <sys/types.h>\n/**\n * @param[out] v V\n * @len v c\n"
+        " * @errno partial\n */\nssize_t f(int *v, uint32_t c);",
+        "@errno partial, but it returns a count, which a failure does not give",
+        {},
+    ),
+]
+
+
+def test_a_wrong_out_count_or_partial_errno_is_reported(parse):
+    """Each is reported, and not applied; the first of two counts is kept"""
+
+    for source, message, kept in WRONG:
+        model, diagnostics = parse("#include <stdint.h>\n" + source)
+        found = [d.message for d in diagnostics if d.rule == "annotation"]
+        assert any(message in m for m in found), (source, found)
+        func = functions(model)["f"]
+        assert not func.partial
+        assert {p.name: p.count for p in func.params if p.count} == kept

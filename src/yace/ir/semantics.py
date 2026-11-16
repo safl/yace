@@ -25,11 +25,16 @@ comment of the function:
 
 ``@len pointer count ...``
   The parameter ``count`` holds the number of elements ``pointer`` points to;
-  pairs, any number of them.
+  pairs, any number of them. For an [out] array, a second pair may name an
+  [out] pointer to an integer, to which the function writes the number of
+  elements it wrote; the integer is then the capacity of the array.
 
 ``@errno``
   The function returns a negative errno on failure, and zero or more on
-  success. It returns a signed integer.
+  success. It returns a signed integer. ``@errno partial`` says that the
+  function writes its [out] parameters also when it fails, so that what it
+  wrote is not lost. It returns ``int``, has an [out] parameter, and none is a
+  handle.
 
 ``@destroys name``
   The function releases the handle given as ``name``, its only parameter; after
@@ -158,6 +163,42 @@ class Semantics(object):
         )
         return declared and self.opaque(typ.to)
 
+    def is_out_count(self, param: decls.Param) -> bool:
+        """Whether 'param' is an [out] pointer to an integer"""
+
+        typ = param.typ
+        return (
+            param.direction == "out"
+            and isinstance(typ, types.Pointer)
+            and is_integer(typ.to)
+        )
+
+    def partial(self, func: decls.Function, annotation) -> bool:
+        """Whether 'func' can write its [out] parameters when it fails: it has
+        one, none is a handle, whose owner after a failure nobody knows, and it
+        returns int, as a count returned is not given by a failure"""
+
+        outs = [p for p in func.params if p.direction == "out"]
+        if not outs:
+            annotation("@errno partial, but no parameter is [out]")
+            return False
+        if getattr(func.ret, "name", None) != "int":
+            annotation(
+                "@errno partial, but it returns a count, which a failure does not"
+                " give; return int, and write the count through an [out] pointer"
+            )
+            return False
+        for param in outs:
+            to = param.typ.to if isinstance(param.typ, types.Pointer) else None
+            if (
+                isinstance(to, types.Pointer)
+                and isinstance(to.to, types.Record)
+                and self.opaque(to.to)
+            ):
+                annotation(f"@errno partial, but '{param.name}' is an [out] handle")
+                return False
+        return True
+
     def is_pointer(self, typ) -> bool:
         """Whether 'typ' is a pointer, also one by a typedef of a callback"""
 
@@ -245,25 +286,53 @@ class Semantics(object):
         pairs = names("len")
         if len(pairs) % 2:
             annotation("@len takes pairs of a pointer and its count")
+        counted: Dict[str, str] = {}  # the [out] counts, and the array of each
         for pointer, count in zip(pairs[::2], pairs[1::2]):
-            if pointer in params and params[pointer].length is not None:
-                annotation(f"@len names '{pointer}' twice")
-            elif pointer not in params or count not in params:
+            if pointer not in params or count not in params:
                 annotation(f"@len names '{pointer} {count}', not parameters")
             elif self.callback(params[pointer].typ) is not None:
                 annotation(f"@len names '{pointer}', which is a callback")
             elif not isinstance(params[pointer].typ, types.Pointer):
                 annotation(f"@len names '{pointer}', which is not a pointer")
-            elif not is_integer(params[count].typ):
-                annotation(f"@len names '{count}', which is not an integer")
+            elif is_integer(params[count].typ):
+                if params[pointer].length is not None:
+                    annotation(f"@len names '{pointer}' twice")
+                else:
+                    params[pointer].length = count
+            elif not self.is_out_count(params[count]):
+                annotation(
+                    f"@len names '{count}', which is not an integer, nor an [out]"
+                    " pointer to one"
+                )
+            elif params[pointer].count is not None:
+                annotation(f"@len names '{pointer}' with two [out] counts")
+            elif count in counted:
+                annotation(f"@len names '{count}' as the count of two arrays")
             else:
-                params[pointer].length = count
+                params[pointer].count = count
+                counted[count] = pointer
+        for count, pointer in counted.items():
+            param = params[pointer]
+            if param.direction != "out":
+                annotation(
+                    f"@len gives '{pointer}' an [out] count, but it is not [out]"
+                )
+                param.count = None
+            elif param.length is None:
+                annotation(
+                    f"@len gives '{pointer}' the [out] count '{count}', but no"
+                    " capacity"
+                )
+                param.count = None
 
         if "errno" in tags:
-            if tags["errno"]:
-                annotation("@errno takes nothing")
+            if tags["errno"] not in ("", "partial"):
+                annotation("@errno takes nothing, or 'partial'")
             if is_integer(func.ret, SIGNED):
                 func.errno = True
+                func.partial = tags["errno"] == "partial" and self.partial(
+                    func, annotation
+                )
             else:
                 annotation("@errno, but it does not return a signed integer")
 

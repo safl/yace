@@ -14,7 +14,8 @@ From the semantics of the C subset, see :py:mod:`yace.ir.semantics`:
   taking it as their first parameter are its methods. The rest are functions.
 * What a function writes through an ``[out]`` pointer is returned, not passed:
   a record, a value, a handle, or the elements of an array, as many as the
-  function says it wrote.
+  function says it wrote: its ``[out]`` count, or else the count it returns,
+  or else the capacity.
 * An array read through a pointer is given as a sequence, its ``@len`` count
   then known from the sequence, and not given.
 * A callback is given as a closure, kept for as long as its ``@lifetime`` says;
@@ -22,7 +23,8 @@ From the semantics of the C subset, see :py:mod:`yace.ir.semantics`:
   a ``@lifetime`` is given as the raw function pointer, with its context.
 * With ``@errno``, a negative return is an error. A function returning ``int``
   returns only that status, so nothing when it succeeds; any other integer is
-  a value, such as a count, and returned.
+  a value, such as a count, and returned. With ``@errno partial``, the error
+  carries what the call returns when it succeeds.
 * A returned ``const char *`` is a string, and a returned pointer that is
   ``@nullable`` is nothing when NULL.
 
@@ -75,11 +77,12 @@ class Arg(BaseModel):
         "length",  # the count of a sequence; not given
         "context",  # the void * context of a callback; not given
         "capacity",  # the count of an [out] array; given, as how many to get
+        "count",  # the [out] count of an [out] array; its length, not returned
         "out",  # written by the function; returned, not given
     ]
     typ: types.Type
     nullable: bool = False
-    of: Optional[str] = None  # the param a length, context or capacity belongs to
+    of: Optional[str] = None  # the param a length, context, capacity or count is of
     shared: List[str] = []  # the other sequences a length or capacity is of
     lifetime: Optional[str] = None  # of a callback
 
@@ -91,6 +94,7 @@ class Out(BaseModel):
     kind: Literal["record", "value", "handle", "array"]
     typ: types.Type  # the type written: the record, value, handle or element
     capacity: Optional[str] = None  # for an array, the parameter of its count
+    count: Optional[str] = None  # for an array, the [out] parameter of its length
 
 
 CallKind = Literal["constructor", "destructor", "method", "function"]
@@ -107,6 +111,7 @@ class Call(BaseModel):
     args: List[Arg]
     outs: List[Out]
     errno: bool = False
+    partial: bool = False  # whether the error carries what is returned
     returns: Returns
     nullable: bool = False  # whether what is returned may be nothing
     ret: types.Type
@@ -121,11 +126,14 @@ class Call(BaseModel):
 GIVEN = ("value", "string", "sequence", "callback", "capacity")
 
 
-def call_doc(call: Call, doc: Doc, pname: Callable[[str], str]) -> Tuple[Doc, str]:
+def call_doc(
+    call: Call, doc: Doc, pname: Callable[[str], str], partial: str = ""
+) -> Tuple[Doc, str]:
     """The doc of 'call', and what it fails with: the parameters given, by their
     names in the binding, and with @errno, what the C function says it returns,
     as how it fails, since the binding returns the value and fails with the
-    error; the text says both, and cannot be split"""
+    error; the text says both, and cannot be split. With @errno partial, the
+    sentence 'partial' says where the error holds what the call wrote"""
 
     params = {
         pname(a.param): doc.params[a.param]
@@ -135,6 +143,8 @@ def call_doc(call: Call, doc: Doc, pname: Callable[[str], str]) -> Tuple[Doc, st
     if not call.errno:
         return doc.model_copy(update={"params": params}), ""
     errors = f"{call.function}() returns: {doc.returns}" if doc.returns else ""
+    if call.partial:
+        errors = f"{errors.rstrip('.')}. {partial}" if errors else partial
     return doc.model_copy(update={"params": params, "returns": ""}), errors
 
 
@@ -262,6 +272,7 @@ class Idioms(object):
         for p in params:
             if p.length:
                 lengths.setdefault(p.length, []).append(p)
+        counts = {p.count: p.name for p in params if p.count}
         bound = {p.name for p in params if self.closure(p, params)}
         contexts = {p.name for p in params if p.context in bound}
 
@@ -292,6 +303,9 @@ class Idioms(object):
             if param.name in contexts:
                 args.append(Arg(kind="context", of=param.context, **arg))
                 continue
+            if param.name in counts:
+                args.append(Arg(kind="count", of=counts[param.name], **arg))
+                continue
 
             if param.direction == "out" and isinstance(typ, types.Pointer):
                 made = is_opaque_ptr(typ.to, self.handles)
@@ -306,6 +320,7 @@ class Idioms(object):
                             kind="array",
                             typ=typ.to,
                             capacity=param.length,
+                            count=param.count,
                         )
                     )
                 elif isinstance(self.resolve(typ.to), types.Record):
@@ -362,6 +377,7 @@ class Idioms(object):
             args=args,
             outs=outs,
             errno=func.errno,
+            partial=func.partial,
             returns=returns,
             nullable=func.nullable,
             ret=ret,
