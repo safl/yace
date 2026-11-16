@@ -142,7 +142,7 @@ def gen_entities():
         "=====",
         "",
         "The rules of the C subset, by the name a diagnostic gives. A header",
-        "breaking one is still parsed; ``--strict`` makes any diagnostic an error.",
+        "breaking one is still parsed, and the run fails, unless ``--lenient``.",
         "",
     ]
     for rule, text in RULES.items():

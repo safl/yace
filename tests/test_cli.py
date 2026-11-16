@@ -15,23 +15,30 @@ def yace(*args):
     )
 
 
-def test_a_header_in_the_subset_passes_strict(tmp_path):
-    proc = yace(HEADERS / "valid.h", "--output", tmp_path, "--strict")
+def test_a_header_in_the_subset_passes(tmp_path):
+    proc = yace(HEADERS / "valid.h", "--output", tmp_path)
     assert proc.returncode == 0, proc.stderr
     assert (tmp_path / "valid.yaml").exists()
     assert (tmp_path / "valid.status").read_text().startswith("Parsed ")
 
 
-def test_strict_fails_outside_the_subset(tmp_path):
+def test_a_diagnostic_fails_unless_lenient(tmp_path):
     header = tmp_path / "bad.h"
     header.write_text("struct s { unsigned int a : 3; };\n")
 
-    lenient = yace(header, "--output", tmp_path)
-    assert lenient.returncode == 0
-    assert "bitfield" in lenient.stderr
+    failed = yace(header, "--output", tmp_path / "failed", "--emit", "capi")
+    assert failed.returncode == 1
+    assert "bitfield" in failed.stderr
+    assert "--lenient" in failed.stderr
+    assert (tmp_path / "failed" / "bad.status").exists()
+    assert not (tmp_path / "failed" / "capi").exists()
 
-    strict = yace(header, "--output", tmp_path, "--strict")
-    assert strict.returncode == 1
+    lenient = yace(
+        header, "--output", tmp_path / "lenient", "--emit", "capi", "--lenient"
+    )
+    assert lenient.returncode == 0, lenient.stderr
+    assert "bitfield" in lenient.stderr
+    assert (tmp_path / "lenient" / "capi").exists()
 
 
 def test_meta_is_applied(tmp_path):
@@ -63,7 +70,7 @@ def test_the_headers_given_are_parsed_as_one_ir(tmp_path):
         "int api_b(struct api_a *a);\n"
     )
     out = tmp_path / "out"
-    proc = yace(a, b, "--output", out, "--strict")
+    proc = yace(a, b, "--output", out)
 
     assert proc.returncode == 0, proc.stderr
     assert sorted(p.name for p in out.iterdir()) == ["api_a.status", "api_a.yaml"]
@@ -78,13 +85,13 @@ def test_the_ir_and_status_are_named_by_the_prefix_of_the_meta(tmp_path):
     meta = tmp_path / "meta.yaml"
     meta.write_text("name: libapi\nprefix: api\n")
     out = tmp_path / "out"
-    proc = yace(a, b, "--meta", meta, "--output", out, "--strict")
+    proc = yace(a, b, "--meta", meta, "--output", out)
 
     assert proc.returncode == 0, proc.stderr
     assert sorted(p.name for p in out.iterdir()) == ["api.status", "api.yaml"]
 
 
-def test_headers_including_nothing_pass_strict_and_build(tmp_path):
+def test_headers_including_nothing_pass_and_build(tmp_path):
     a = tmp_path / "api_a.h"
     a.write_text("/** A */\nstruct api_a {\n\tuint64_t n; ///< N\n};\n")
     b = tmp_path / "api_b.h"
@@ -93,7 +100,7 @@ def test_headers_including_nothing_pass_strict_and_build(tmp_path):
         "size_t api_b(struct api_a *a);\n"
     )
     out = tmp_path / "out"
-    proc = yace(a, b, "--output", out, "--strict", "--emit", "capi")
+    proc = yace(a, b, "--output", out, "--emit", "capi")
 
     assert proc.returncode == 0, proc.stderr
 
@@ -106,7 +113,7 @@ def test_a_prelude_supplies_what_the_headers_do_not_include(tmp_path):
     )
     out = tmp_path / "out"
     preludes = ["--prelude", "stdio.h", "--prelude", "sys/uio.h"]
-    proc = yace(header, "--output", out, *preludes, "--emit", "capi")
+    proc = yace(header, "--output", out, *preludes, "--emit", "capi", "--lenient")
 
     assert proc.returncode == 0, proc.stderr
     assert "parse-error" not in proc.stderr

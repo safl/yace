@@ -59,7 +59,7 @@ def main(args, cijoe):
     yace = benchlib.command(cijoe, "yace")
     cmd = (
         f"{yace} include/foo.h --meta meta.yaml --output {p['gen']}"
-        f" --emit {' '.join(emit)} --strict --no-check"
+        f" --emit {' '.join(emit)} --no-check"
     )
     if not benchlib.run(cijoe, cmd, p["src"]):
         return errno.EIO

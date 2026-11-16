@@ -43,7 +43,7 @@ Check a change
 ``make format-all`` runs pre-commit on every file: black formats the Python,
 ruff lints it, mypy checks the types, yamlfmt and actionlint check the YAML
 and the workflows, and REUSE checks every file's license. ``make test`` runs
-the tests with coverage. ``make example`` parses ``examples/libfoo`` strictly,
+the tests with coverage. ``make example`` parses ``examples/libfoo``, failing on any diagnostic,
 and emits and checks every target. CI runs all three, the tests in the devenv
 with Python 3.12 and 3.13, and on macOS.
 

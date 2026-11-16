@@ -162,7 +162,7 @@ jobs:
       run: |
         echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-    - name: Parse libfoo strictly, emit its bindings, and build and run their checks, in the devenv
+    - name: Parse libfoo, emit its bindings, and build and run their checks, in the devenv
       run: |
         make devenv-run CMD="make install example"
 
