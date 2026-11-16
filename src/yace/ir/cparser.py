@@ -72,8 +72,8 @@ DOCUMENTED = ("struct", "union", "enum", "typedef")
 
 EVAL_BATCH = 200  # macros evaluated per generated translation unit
 
-# Included before the headers, so that the set of them, not each one, has to
-# include what else it uses
+# Included ahead of the headers, which are parsed as one translation unit, so
+# that the set of headers, not each header, has to include what else it uses
 STANDARD_HEADERS = ("stdbool.h", "stddef.h", "stdint.h")
 
 # Where Debian's and Ubuntu's LLVM packages are, each with clang's own headers
@@ -134,7 +134,8 @@ def actual_layout(cursor) -> tuple:
 def natural_layout(cursor) -> Optional[tuple]:
     """The layout that the types of the record's fields give it, as C lays them
     out without attributes or '#pragma pack', as actual_layout() gives one; None
-    where it is not computed: of a record of bit-fields"""
+    where it is not computed: of a record of bit-fields, or with a field whose
+    size or alignment libclang does not give"""
 
     fields = list(cursor.type.get_fields())
     if any(f.is_bitfield() for f in fields):
@@ -313,7 +314,8 @@ class CParser(object):
 
     @staticmethod
     def _clang_builtin_include() -> Optional[str]:
-        """clang's own include directory, with stddef.h and friends"""
+        """clang's own include directory, with stddef.h and the other headers
+        clang provides"""
 
         searchpath = os.environ.get("YACE_SEARCHPATH_LIBCLANG")
         base = (
@@ -435,7 +437,8 @@ class _HeaderParser(object):
     def typ(self, ctype, cursor) -> types.Type:
         """The IR type of the libclang 'ctype'; raises Unsupported"""
 
-        # The IR has no volatile, and the bindings could not keep its promise
+        # The IR has no volatile qualifier, and the bindings could not make
+        # their accesses volatile
         if ctype.is_volatile_qualified():
             raise Unsupported(f"'{ctype.spelling}', which is volatile")
         found = self._typ(ctype, cursor)
@@ -473,8 +476,9 @@ class _HeaderParser(object):
                 f" {Path(location(decl)[0]).name or 'the compiler'}",
                 cursor,
             )
-            # Of a record, a type of its own the bindings declare opaque; of
-            # anything else, an integer, a pointer, an array, that type
+            # An external record is a type of its own, which the bindings
+            # declare opaque; any other external type, such as an integer, a
+            # pointer or an array, is replaced by its canonical type
             canonical = ctype.get_canonical()
             if canonical.kind == TypeKind.RECORD:
                 self.external.add(name)
@@ -551,7 +555,7 @@ class _HeaderParser(object):
 
     def doc_of(self, cursor) -> doc.Doc:
         """The doc of a declaration; libclang joins adjacent comments into one,
-        which is reported rather than read as one doc"""
+        which is reported, and read as one doc"""
 
         raw = cursor.raw_comment or ""
         lines = [line.lstrip() for line in raw.splitlines()]
@@ -587,7 +591,7 @@ class _HeaderParser(object):
             else:
                 continue
             shared |= {f"{w} '{typedef.name}' has no doc" for w in DOCUMENTED}
-        seen: set = set()  # a record declared, then defined, lacks one doc
+        seen: set = set()  # a record declared, then defined, is reported once
         kept = []
         for d in self.diagnostics:
             if d.rule == "missing-doc" and (d.message in shared or d.message in seen):
@@ -617,8 +621,8 @@ class _HeaderParser(object):
 
     def drop_uses(self, entities: list) -> list:
         """'entities' without those using a record, enum or typedef that is
-        skipped, each reported; one declared before the skip got through the
-        parse"""
+        skipped, each reported; an entity declared before the one skipped was
+        parsed before the skip was known"""
 
         def used(node, kind):
             if isinstance(node, kind):
@@ -1089,8 +1093,8 @@ class _HeaderParser(object):
     def function(self, cursor) -> Optional[decls.Function]:
         name = cursor.spelling
         self.keyword(name, "a function", cursor)
-        # The author says it is not bound: so before the rule against static and
-        # inline functions, and before its types, which may be beyond the subset
+        # @nobind is read before the note on static and inline functions, and
+        # before the types of the function, which may be outside the subset
         nobind = doc.parse(cursor.raw_comment).tags.get("nobind")
         if nobind is not None:
             if nobind:
@@ -1268,7 +1272,8 @@ class _HeaderParser(object):
         """
         The integer value of each macro clang can evaluate as a constant; each is
         made the value of an enumerator in a translation unit including the
-        header, as a long long, or else, where it does not fit one, an unsigned
+        headers, as a long long, or else, where it does not fit one, as an
+        unsigned long long
         """
 
         found: Dict[str, int] = {}
@@ -1328,7 +1333,8 @@ class _HeaderParser(object):
                     " package does not include the compiler's own headers, such"
                     " as stddef.h"
                 )
-        # A header without an include guard, included twice, errs twice alike
+        # A header without an include guard, included twice, gives each of its
+        # errors twice
         errors = dict.fromkeys(
             (
                 Path(diag.location.file.name).name if diag.location.file else "",
@@ -1375,7 +1381,7 @@ class _HeaderParser(object):
             if c.kind in RECORD_KINDS + (CursorKind.ENUM_DECL,) and c.is_definition()
         }
 
-        entities: list = []  # entities, and names of macros to evaluate
+        entities: list = []  # entities, and (name, cursor) of macros to evaluate
         declared: set = set()
         for cursor in cursors:
             try:
@@ -1522,7 +1528,8 @@ class _HeaderParser(object):
 
             if not cursor.is_definition():
                 if name in defined or name in declared or kind == CursorKind.ENUM_DECL:
-                    return []  # a forward declaration of what the header defines
+                    return []  # a forward declaration of a record that the headers
+                    # define or declared before, or of an enum
                 declared.add(name)
                 cls = decls.Union if kind == CursorKind.UNION_DECL else decls.Struct
                 opaque = cls(name=name, fields=[], doc=self.doc_of(cursor))
