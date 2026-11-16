@@ -9,8 +9,9 @@ The command-line interface of **yace**
 
 Given C headers, parses them as one API into the IR, writing '<prefix>.yaml'
 and the diagnostics to '<prefix>.status', and reports every place the headers
-step outside the C subset. The prefix is that of the meta, or else the name of
-the first header. Given IR files, '.yaml', reads them.
+step outside the C subset; such a place fails the run, unless '--lenient'. The
+prefix is that of the meta, or else the name of the first header. Given IR
+files, '.yaml', reads them.
 Either way, '--emit' then generates the code of the given targets and checks it.
 A generator, '--generate', writes headers that are parsed with the headers given.
 With '--toolchains', prints what those checks build with instead.
@@ -101,9 +102,10 @@ def parse_args():
         " external",
     )
     parser.add_argument(
-        "--strict",
+        "--lenient",
         action="store_true",
-        help="fail when a header steps outside the C subset",
+        help="generate the code when a header steps outside the C subset, instead"
+        " of failing; the diagnostics are reported either way",
     )
     parser.add_argument(
         "--no-check",
@@ -217,7 +219,11 @@ def main():
                 f" C subset, see {model.meta.prefix}.status",
                 file=sys.stderr,
             )
-            if args.strict:
+            if not args.lenient:
+                print(
+                    "yace: no code is generated; '--lenient' generates it anyway",
+                    file=sys.stderr,
+                )
                 return 1
         models = [model]
     else:

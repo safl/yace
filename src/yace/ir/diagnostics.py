@@ -9,7 +9,7 @@ FFI boundary with
 A header outside the subset is still parsed, and everything that can be
 represented is; every place it steps outside is reported as a
 :class:`.Diagnostic`, naming the rule it breaks. Nothing is dropped or changed
-without one. With ``--strict``, any diagnostic fails the conversion.
+without one. A diagnostic fails the run, unless ``--lenient``.
 
 The rules, by name, with why each exists, are :data:`.RULES`.
 """

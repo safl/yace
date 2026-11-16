@@ -28,9 +28,10 @@ Given C headers, **yace** parses them as one API, see
 :ref:`sec-ir-csubset`, writes the IR to ``<prefix>.yaml`` and the diagnostics to
 ``<prefix>.status``, and prints the diagnostics. The prefix is the one that
 ``--meta`` gives, or else the name of the first header. A diagnostic is a
-place where the header steps outside the C subset; the header is still parsed,
-and its code still generated, but what the diagnostics point at will likely not
-bind well, or at all. With ``--strict``, any diagnostic is an error.
+place where the header steps outside the C subset. The header is still parsed
+and the IR written, but a diagnostic fails the run before any code is
+generated. With ``--lenient``, the code is generated anyway, and what the
+diagnostics point at will likely not bind well, or at all.
 
 Given IR files, ``.yaml``, **yace** reads them instead. Either way, ``--emit``
 generates the code of the given targets, and checks it, unless ``--no-check``.
@@ -62,7 +63,7 @@ Its meta, ``examples/libfoo/meta.yaml``:
    :caption:
    :lines: 1-
 
-Parse it, strictly, and generate and check its bindings for every target:
+Parse it, and generate and check its bindings for every target:
 
 .. literalinclude:: 200_example.cmd
    :language: bash

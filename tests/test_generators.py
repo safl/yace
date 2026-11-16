@@ -66,7 +66,7 @@ def run(monkeypatch, *args):
 def test_a_generated_header_is_parsed_as_a_header_written_by_hand(
     toy, monkeypatch, tmp_path
 ):
-    assert run(monkeypatch, "--generate", "toy", "--output", tmp_path, "--strict") == 0
+    assert run(monkeypatch, "--generate", "toy", "--output", tmp_path) == 0
 
     assert (tmp_path / "toy" / "toy.h").exists()
     assert (tmp_path / "toy" / "toy.c").exists()

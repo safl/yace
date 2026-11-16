@@ -4,7 +4,7 @@ Rules
 =====
 
 The rules of the C subset, by the name a diagnostic gives. A header
-breaking one is still parsed; ``--strict`` makes any diagnostic an error.
+breaking one is still parsed, and the run fails, unless ``--lenient``.
 
 ``anonymous-record``
   A struct, union or enum must have a tag. Anonymous ones have no name to refer to them by in other languages; a record is given a generated name, and the members of an anonymous enum are made constants.
