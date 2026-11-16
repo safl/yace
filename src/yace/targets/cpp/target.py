@@ -12,7 +12,8 @@ Emits, into ``<output>/cpp``:
 * ``<prefix>_check.cpp``, the check program
 
 and the C API into ``<output>/capi``, as the C target does, which the layer
-includes; its printers are its own, printing what the C API's print.
+includes; the layer has printers of its own, printing what the C API's
+pretty-printers print.
 """
 
 import json
