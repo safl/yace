@@ -4,7 +4,7 @@
 
 """
 Rust code for the IR: names, the Rust type of each IR type, and the statements
-of the pretty-printers. The Rust target's templates lay out the crate; this
+of the pretty-printers. The Rust target's templates lay out the crate; rgen
 produces what goes in it that depends on the types.
 """
 
@@ -65,7 +65,8 @@ def ident(name: str) -> str:
 
 def doc_lines(doc, errors: str = "", lead: Sequence[str] = ()) -> List[str]:
     """'doc' as the lines of a Rust doc comment, without the '///'; 'lead' is a
-    paragraph before its sections, and 'errors' says when it returns an error"""
+    paragraph before its sections, and 'errors' says when the function
+    documented returns an error"""
 
     lines = []
     if doc.brief:
@@ -300,7 +301,9 @@ class Printer(object):
 
         if isinstance(typ, types.Pointer):
             if types.is_string(typ):
-                # Passed by value, which copies without the braces
+                # yace_pp::str() takes the pointer by value, which copies the
+                # field, so the braces copying a field of a packed record are
+                # not needed
                 bare = expr[2:-2] if expr.startswith("{ ") else expr
                 return [f"yace_pp::str(w, {bare})?;"]
             if self.namer.rtype(typ).startswith("Option<"):

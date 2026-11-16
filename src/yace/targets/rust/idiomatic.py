@@ -120,7 +120,7 @@ class Renderer(object):
     def pname(self, name: str) -> str:
         """A parameter's name in Rust, other than a name the body uses, such as
         the local 'ret', a trampoline or a type; one ending in '_' gets
-        another, so no two parameters share a name"""
+        another '_' appended, so no two parameters share a name"""
 
         if name in self.reserved or name.endswith(("_", "_trampoline")):
             return f"{name}_"
@@ -440,8 +440,9 @@ class Renderer(object):
         return self.raw(typ)
 
     def boxed(self, call: Call, arg: Arg, cb: str) -> List[str]:
-        """Statements boxing the closure of a callback the library keeps: given
-        once, its box is the trampoline's to free; else the handle keeps it"""
+        """Statements boxing the closure of a callback the library keeps: for a
+        callback of @lifetime once, the trampoline frees the box; else the
+        handle keeps it"""
 
         name = self.pname(arg.param)
         made = self.local(call, arg.param, "cb")
@@ -476,10 +477,10 @@ class Renderer(object):
 
     @staticmethod
     def sent(call: Call, arg: Arg) -> bool:
-        """Whether the closure of the callback 'arg' must be Send: given once to
-        a function of no handle, any later call into the library, from any
-        thread, may run it, where a method's runs in a call given its handle,
-        which stays on its thread"""
+        """Whether the closure of the callback 'arg' must be Send: a closure
+        given once to a function of no handle may be run by any later call into
+        the library, from any thread, where a method's closure runs in a call
+        given its handle, which stays on its thread"""
 
         return arg.lifetime == "once" and call.kind != "method"
 
@@ -731,7 +732,7 @@ class Renderer(object):
             if out.kind == "record":
                 record = self.model.find(out.typ.name, decls.RECORDS)
                 if record is None or not record.fields:
-                    return False  # nothing to make one of
+                    return False  # no fields to make the record of
         return True
 
     def handle(self, record: str) -> List[str]:
