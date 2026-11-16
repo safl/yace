@@ -41,7 +41,7 @@ def bit_masks(diagnostics) -> list:
     return [d.message for d in diagnostics if d.rule == "bit-mask"]
 
 
-def test_masks_are_linked_to_their_field_by_bit(parse):
+def test_documented_masks_are_linked_to_their_field(parse):
     model, diagnostics = parse(RECORD + LINKED)
     assert bit_masks(diagnostics) == []
 
@@ -65,7 +65,9 @@ def test_masks_are_kept_in_the_stored_ir(parse, tmp_path):
     assert masks_of(load(tmp_path / "api.yaml")) == masks_of(model)
 
 
-def test_masks_of_a_multi_line_doc_and_a_longer_prefix(parse):
+def test_a_mask_with_a_multi_line_doc_is_linked_to_the_field_of_the_longer_prefix(
+    parse,
+):
     model, diagnostics = parse(
         RECORD + "/**\n * Phase\n *\n * Flips on each pass; bit 1 of 'code_more'\n */\n"
         "#define API_STATUS_CODE_MORE_PHASE 0x2\n"
@@ -166,7 +168,7 @@ def test_a_prefix_not_ending_in_the_field_name_is_reported(parse):
     assert masks_of(model, "api_a")["val"] == []
 
 
-def test_a_prefix_two_fields_name_is_ambiguous(parse):
+def test_a_prefix_that_two_fields_name_is_reported_as_ambiguous(parse):
     model, diagnostics = parse(
         "#include <stdint.h>\n/** A */\nstruct api_a {\n"
         "\tuint8_t flags; ///< Flags, see API_FLAGS_*\n};\n"
@@ -180,7 +182,7 @@ def test_a_prefix_two_fields_name_is_ambiguous(parse):
     assert masks_of(model, "api_a")["flags"] == []
 
 
-def test_a_part_read_as_another_field_is_reported(parse):
+def test_a_mask_whose_name_reads_as_another_field_is_reported(parse):
     model, diagnostics = parse(
         "#include <stdint.h>\n/** A */\nstruct api_a {\n"
         "\tuint8_t mode; ///< Mode, see API_A_MODE_*\n"
@@ -195,8 +197,9 @@ def test_a_part_read_as_another_field_is_reported(parse):
 
 
 def test_a_mask_defined_twice_is_one_mask(parse):
-    """C allows a macro to be defined again as it was; it is one mask, not one
-    overlapping itself"""
+    """C allows a macro to be defined again with the same replacement list. The
+    parser links such a macro as one mask and does not report it as
+    overlapping itself."""
 
     twice = "/** Kind; bits 2:0 of 'code' */\n#define API_STATUS_CODE_TYPE 0x7\n"
     model, diagnostics = parse(RECORD + twice + twice)
@@ -206,9 +209,9 @@ def test_a_mask_defined_twice_is_one_mask(parse):
     assert masks_of(model)["code"] == [("type", "API_STATUS_CODE_TYPE", 0, 3)]
 
 
-def test_constants_of_the_values_of_a_field_are_no_masks(parse):
-    """A field naming the constants of its values, and none says which bits it
-    is, has no masks, and is not reported"""
+def test_constants_for_the_values_of_a_field_are_not_masks(parse):
+    """A field whose doc names the constants of its values, none of which says
+    which bits it masks, has no masks and gives no diagnostic"""
 
     _, diagnostics = parse(
         "#include <stdint.h>\n/** A */\nstruct api_a {\n"
