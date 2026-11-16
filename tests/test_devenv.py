@@ -25,7 +25,7 @@ def tagged(tmp_path):
     return tag
 
 
-def test_the_tag_follows_what_the_image_is_built_from(tmp_path):
+def test_the_tag_changes_with_each_change_to_the_files_of_the_image(tmp_path):
     tag = tagged(tmp_path)
 
     first = tag()
@@ -36,7 +36,7 @@ def test_the_tag_follows_what_the_image_is_built_from(tmp_path):
     assert len({first, second, tag()}) == 3
 
 
-def test_the_tag_fails_rather_than_hash_nothing(tmp_path):
+def test_the_tag_fails_when_the_containerfile_is_missing(tmp_path):
     tag = tagged(tmp_path)
 
     (tmp_path / "toolbox" / "devenv" / "Containerfile").unlink()
@@ -47,7 +47,7 @@ def test_the_tag_fails_rather_than_hash_nothing(tmp_path):
     raise AssertionError("tag.sh gave a tag without its Containerfile")
 
 
-def test_the_versions_are_those_ci_and_the_crate_name():
+def test_the_containerfile_versions_match_the_ci_workflow_and_the_crate():
     containerfile = (ROOT / "toolbox" / "devenv" / "Containerfile").read_text()
     args = dict(re.findall(r"^ARG (\w+)=(\S+)$", containerfile, re.M))
 
