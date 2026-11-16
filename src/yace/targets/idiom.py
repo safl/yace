@@ -178,9 +178,10 @@ def is_opaque_ptr(typ, handles) -> Optional[str]:
 
 
 def local(name: str, suffix: str, taken: Iterable[str]) -> str:
-    """The name of a local made for the parameter 'name': 'name_suffix', unless
-    'taken', by another parameter say, then with '_' until it is not; so long
-    as no suffix ends in '_' and another, no two locals share a name"""
+    """The name of a local made for the parameter 'name': 'name_suffix', with
+    '_' appended while that name is in 'taken', such as by another parameter.
+    So long as no suffix is another suffix followed by '_', no two locals
+    share a name"""
 
     found = f"{name}_{suffix}"
     while found in taken:
@@ -242,7 +243,7 @@ class Idioms(object):
     def distinct(self, raw: set):
         """Keep the C name for calls whose idiomatic one is shared, within the
         module or a handle, or is the C name of another function; a constructor
-        is of both, as some targets place it in the handle"""
+        is in the scope of both, as some targets place it in the handle"""
 
         def scopes(call: Call) -> List[Optional[str]]:
             if call.kind in ("method", "destructor"):
