@@ -73,8 +73,8 @@ def test_tags_are_in_the_ir(parse):
     assert params["visit"].lifetime == "call"
 
 
-def test_a_returned_pointer_is_not_an_errno(parse):
-    """h_read returns a pointer, so its @errno is reported, and not applied"""
+def test_errno_on_a_function_returning_a_pointer_is_reported_and_not_applied(parse):
+    """h_read returns a pointer, so its @errno is reported and not applied"""
 
     model, diagnostics = parse(HEADER)
     (annotation,) = [d for d in diagnostics if d.rule == "annotation"]
@@ -82,7 +82,7 @@ def test_a_returned_pointer_is_not_an_errno(parse):
     assert not functions(model)["h_read"].errno
 
 
-def test_tags_survive_the_stored_ir(parse, tmp_path):
+def test_tags_are_kept_in_the_stored_ir(parse, tmp_path):
     from yace.ir.model import load
 
     model, _ = parse(HEADER)
@@ -90,7 +90,7 @@ def test_tags_survive_the_stored_ir(parse, tmp_path):
     assert load(tmp_path / "api.yaml") == model
 
 
-def test_a_borrowed_record_written_through_out_is_no_handle(parse):
+def test_a_borrowed_record_written_through_out_is_not_a_handle(parse):
     _, diagnostics = parse(
         "/** P */\nstruct p { int x; };\n"
         "/**\n * Get\n * @param[out] p P\n */\nint get(const struct p **p);\n"
@@ -98,7 +98,7 @@ def test_a_borrowed_record_written_through_out_is_no_handle(parse):
     assert "handle-lifecycle" not in [d.rule for d in diagnostics]
 
 
-def test_a_handle_by_a_typedef_of_its_own_name_is_destroyed(parse):
+def test_destroys_applies_to_a_handle_typed_by_a_typedef_of_its_own_name(parse):
     model, diagnostics = parse(
         "typedef struct h h;\n"
         "/**\n * Open\n * @param[out] p P\n * @errno\n */\nint h_open(h **p);\n"
@@ -108,7 +108,7 @@ def test_a_handle_by_a_typedef_of_its_own_name_is_destroyed(parse):
     assert "annotation" not in [d.rule for d in diagnostics]
 
 
-def test_destroying_through_a_typedef_of_another_name_says_so(parse):
+def test_destroys_through_a_typedef_of_another_name_is_reported_and_not_applied(parse):
     model, diagnostics = parse(
         "typedef struct h_s h_t;\n"
         "/**\n * Close\n * @destroys p\n */\nvoid h_close(h_t *p);\n"
@@ -118,7 +118,7 @@ def test_destroying_through_a_typedef_of_another_name_says_so(parse):
     assert "typedef of another name" in annotation.message
 
 
-def test_the_c_api_says_what_the_header_says(parse, tmp_path):
+def test_the_c_api_header_carries_the_tags_of_the_parsed_header(parse, tmp_path):
     from yace.targets.capi.target import CAPI
 
     model, _ = parse(HEADER)
@@ -223,7 +223,8 @@ WRONG = [
 
 
 def test_a_wrong_out_count_or_partial_errno_is_reported(parse):
-    """Each is reported, and not applied; the first of two counts is kept"""
+    """Each wrong @len or @errno is reported and not applied, except that of two
+    [out] counts the first is kept"""
 
     for source, message, kept in WRONG:
         model, diagnostics = parse("#include <stdint.h>\n" + source)
