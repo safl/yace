@@ -15,9 +15,10 @@ HEADERS = Path(__file__).parent / "headers"
 ESCAPED = '/** S */\n#define API_S "a\\n\\"b\\"\\x41\\t\\\\" "c\\xc3\\xa9"\n'
 ESCAPED_VALUE = 'a\n"b"A\t\\cé'
 
-# Records with a flexible array member, and records holding them, which ISO C
-# allows in no array and no struct: a flexible array of one is left out where
-# that keeps the alignment, the others are skipped, and so what uses them
+# Records with a flexible array member, and records that hold such a record,
+# which ISO C allows neither in an array nor in a struct. The parser leaves out
+# an array field of such records where leaving it out keeps the alignment of the
+# struct, and skips the other structs that hold one and the functions using them
 FLEXIBLE = (
     "#include <stdint.h>\n"
     "struct api_fin { uint32_t n; uint8_t d[]; };\n"
@@ -30,8 +31,9 @@ FLEXIBLE = (
     "int api_fuse(struct api_fout *o, struct api_fmember *m);\n"
 )
 
-# Records the bindings cannot hold, and those that use them, all skipped, and a
-# record with padding bits, kept
+# Records that the bindings cannot represent, which the parser skips together
+# with what uses them, among records that the parser keeps, such as records
+# with padding bits
 SKIPPED = (
     "#include <sys/time.h>\n"
     "struct api_r;\nint api_before(struct api_r *v);\n"
@@ -68,7 +70,8 @@ SKIPPED = (
 ) + FLEXIBLE
 
 
-# A record with fields of bits, and the masks of their parts
+# A record of two integer fields, and the defines that mask bit ranges of those
+# fields
 BITS = (
     "#include <stdint.h>\n"
     "/** A status */\nstruct api_status {\n"
@@ -82,8 +85,8 @@ BITS = (
 )
 
 
-# A packed record, no field after the first aligned, one of them a field of
-# bits, and a packed union
+# A packed record, in which no field after the first is aligned and the field
+# 'type' has a mask, and a packed union
 PACKED = (
     "#include <stdint.h>\n"
     "/** P */\nstruct api_p {\n\tint32_t x; ///< X\n\tint32_t y; ///< Y\n};\n"
@@ -96,7 +99,9 @@ PACKED = (
     "\tuint64_t n; ///< N\n\tstruct api_p p; ///< P\n};\n"
 )
 
-# An api_k of a value in every field, as each target fills it in, and printed
+# PACKED_C is a C initializer of an api_k with a value in every field, the
+# values that the test of each target fills in. PACKED_PRINTED is what the
+# printers print for that api_k, as YAML and then as JSON.
 PACKED_C = (
     "{.tag = 1, .value = 0xdeadbeef, .at = {-2, 3}, .path = {{4, 5}, {6, 7}},"
     " .pair = {8, 9}, .type = 0x1a}"
@@ -118,7 +123,8 @@ def parser():
 
 @pytest.fixture
 def parse(parser, tmp_path):
-    """Parse the C source text as a header; returns the (Model, [Diagnostic])"""
+    """Return a function that parses C source text as a header and returns the
+    (Model, [Diagnostic])"""
 
     def parse(text: str, name: str = "api.h"):
         path = tmp_path / name
