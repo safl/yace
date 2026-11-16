@@ -72,7 +72,7 @@ def lower_camel(name: str) -> str:
 
 def doc_lines(doc, errors: str = "") -> List[str]:
     """'doc' as the lines of a doc comment, without the '///'; 'errors' says
-    when it returns an error"""
+    when the function documented returns an error"""
 
     lines = []
     if doc.brief:
@@ -254,7 +254,7 @@ class Locals(object):
 
 def used(lines: List[str]) -> List[str]:
     """The body of a printer, 'lines', discarding 'self' where they print none
-    of its fields, as Zig rejects an unused parameter"""
+    of its fields, as Zig reports an unused parameter as an error"""
 
     code = [re.sub(r'"(?:[^"\\]|\\.)*"', '""', line) for line in lines]
     if any(re.search(r"\bself\b", line) for line in code):
@@ -335,8 +335,8 @@ class Printer(object):
 
     def accessors(self, record) -> List[str]:
         """The methods reading and writing the parts of the fields of bits of
-        'record', each part an integer of its own width, so a value that does
-        not fit is not one Zig lets be passed"""
+        'record', each part an integer of its own width, so Zig does not
+        compile passing a value that does not fit without a cast"""
 
         taken = {ident(f.name) for f in record.fields} | {"format", "cName"}
         taken |= {self.method(record, name) for name in ("json", "yaml", "fpr")}

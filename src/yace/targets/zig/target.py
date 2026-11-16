@@ -12,6 +12,7 @@ Emits, into ``<output>/zig``:
 * ``<prefix>.zig``, the bindings
 * ``<prefix>_check.zig``, the check program
 * ``<prefix>_compile.zig``, what has all of the module compiled
+* ``<prefix>_signatures.zig``, the check of the signatures against the headers
 
 The module needs Zig 0.16, as Zig's standard library changes between releases
 and the printers use its ``std.Io.Writer``, and libc, as the C API does.
@@ -209,7 +210,8 @@ class Zig(Target):
         log_path.write_text(f"{' '.join(cmd)}\n{proc.stdout}{proc.stderr}")
         if proc.returncode and DISAGREE not in proc.stderr:
             # Zig's translation of the headers failed, not an assertion of the
-            # check, as where a record it cannot translate has its size asserted
+            # check, such as where shape() takes the size of a record Zig cannot
+            # translate
             first = next(
                 (line for line in proc.stderr.splitlines() if "error:" in line), ""
             )

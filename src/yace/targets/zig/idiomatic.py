@@ -62,7 +62,8 @@ class Renderer(object):
         self.declared |= {m.name for e in enums for m in e.members}
         self.declared |= set(namer.names.values()) | set(namer.stubs.values())
         # The names of the functions, each other than those before it in the
-        # same struct, as C names a trailing '_' may tell apart are one here
+        # same struct, as two C names that differ by a trailing '_' have the
+        # same camelCase name
         self.fn_names: Dict[str, str] = {}
         handed: Dict[Optional[str], set] = {}
         for call in idioms.calls:
@@ -80,9 +81,10 @@ class Renderer(object):
         self.taken = module | {"self", "ret", "deinit"} | self.locals.renamed()
 
     def base(self, name: str) -> str:
-        """A parameter's name, one not taken by a declaration, unescaped: else
-        with '_arg', and '_' until it is not taken; one already so ending gets
-        it too, so no two parameters share a name"""
+        """A parameter's name, unescaped and not taken by a declaration: a name
+        that is taken, a capture or a primitive type gets '_arg' appended, then
+        '_' until it is not taken. A name already ending in '_arg', or in '_arg'
+        and '_', gets '_arg' appended too, so no two parameters share a name"""
 
         captured = name in CAPTURES or name == "_" or re.fullmatch(r"a\d+", name)
         primitive = PRIMITIVE.fullmatch(name)
@@ -131,7 +133,8 @@ class Renderer(object):
         return self.local(call, param, "out")
 
     def partial_name(self, call: Call) -> str:
-        """The parameter a partial call writes what it wrote to when it fails"""
+        """The parameter through which a partial call that fails returns what
+        it wrote"""
 
         taken = {self.pname(a.param) for a in call.args}
         name = "partial"
