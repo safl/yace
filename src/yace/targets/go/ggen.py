@@ -115,7 +115,8 @@ def ident(name: str) -> str:
 def doc_lines(doc, errors: str = "") -> List[str]:
     """The lines of a doc comment, unindented, which Go would read as code, and
     a paragraph of one line ending in a full stop, which Go would read as a
-    heading otherwise; 'errors' says when it returns an error"""
+    heading otherwise; 'errors' says when the function documented returns an
+    error"""
 
     def para(lines: List[str]) -> List[str]:
         if len(lines) == 1 and not lines[0].endswith((".", "!", "?", ":", ";")):
@@ -473,10 +474,14 @@ class Records(object):
         for field in record.fields:
             if self.is_flexible(record, field):
                 notes.append(
-                    f"// '{field.name}', a flexible array, follows it in memory: Go"
+                    f"// '{field.name}', a flexible array, follows the struct in"
+                    " memory and is"
                 )
-                notes.append("// cannot declare it, as a struct may not end in one.")
-                # Its alignment is the struct's, which pads it as in C
+                notes.append(
+                    "// not declared, as a zero-sized last field would pad the struct."
+                )
+                # The zero-sized first field has the record's alignment, so that
+                # Go pads the struct as C does
                 aligned = ALIGNED.get(record.align or 1, "uint64")
                 rows.insert(0, ([], ["_", f"[0]{aligned}"]))
                 continue

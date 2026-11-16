@@ -443,7 +443,7 @@ def test_a_struct_ending_in_a_flexible_array_has_its_layout(parse, tmp_path):
     assert process(model, ["go"], tmp_path) == []
 
     module = (tmp_path / "go" / "api.go").read_text()
-    assert "// 'data', a flexible array, follows it in memory: Go" in module
+    assert "// 'data', a flexible array, follows the struct in memory" in module
 
 
 @needs_cc

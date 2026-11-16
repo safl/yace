@@ -12,10 +12,10 @@ nil where NULL is allowed, and Go functions for callbacks. See
 CamelCase, exported, without the prefix.
 
 A closure given to C is kept in a ``runtime/cgo.Handle``, held in C memory, as
-cgo forbids C to keep a Go pointer: its value is what the C trampoline of the
-callback gives back to the Go function it exports. It is released as the
-callback's ``@lifetime`` says: when the call returns, once it has been called,
-or when the handle is destroyed.
+cgo forbids C to keep a Go pointer: that C memory is the context the C
+trampoline of the callback gives to the Go function exported for it. The
+closure is released as the callback's ``@lifetime`` says: when the call
+returns, once it has been called, or when the handle is destroyed.
 """
 
 from typing import Dict, List, Optional, Tuple
@@ -58,7 +58,7 @@ func yaceKeep(fn any, once bool) unsafe.Pointer {
 	return ctx
 }
 
-// yaceRelease releases what yaceKeep made; nil is none
+// yaceRelease releases what yaceKeep made, and nothing for a nil ctx
 func yaceRelease(ctx unsafe.Pointer) {
 	if ctx != nil {
 		cgo.Handle(*(*C.uintptr_t)(ctx)).Delete()
@@ -66,7 +66,8 @@ func yaceRelease(ctx unsafe.Pointer) {
 	}
 }
 
-// yaceCalled is the function of ctx, released when it is called once
+// yaceCalled is the function of ctx; for a function given to be called once,
+// yaceCalled also releases ctx
 func yaceCalled(ctx unsafe.Pointer) any {
 	closure := cgo.Handle(*(*C.uintptr_t)(ctx)).Value().(yaceClosure)
 	if closure.once {
@@ -220,8 +221,8 @@ class Renderer(object):
         return found
 
     def size(self, call: Call, param: str) -> str:
-        """The count of the slice or string given as 'param': of a string that
-        may be nil, a local, 0 when it is nil"""
+        """The count of the slice or string given as 'param': for a string that
+        may be nil, a local that is 0 when the string is nil"""
 
         arg = next(a for a in call.args if a.param == param)
         if arg.kind == "string" and arg.nullable:
