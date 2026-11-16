@@ -132,8 +132,9 @@ def test_a_layout_other_than_recorded_fails_the_check(parser, tmp_path):
 
 
 def test_a_layout_of_bit_fields_other_than_recorded_fails_the_check(parse, tmp_path):
-    """A record of bit-fields is declared as bytes of the alignment recorded,
-    which Zig pads to a multiple of it"""
+    """The module declares a record of bit-fields as an array of its recorded
+    size in bytes, aligned to its recorded alignment. Zig pads the size to a
+    multiple of the alignment, so a recorded size of 6 at alignment 4 fails."""
 
     model, _ = parse(
         "#include <stdint.h>\n/** W */\nstruct api_w {\n"
@@ -172,7 +173,9 @@ def test_string_defines_keep_their_value(parse, tmp_path):
 
 
 @needs_cc
-def test_shared_counts_handles_given_and_constructors_without_errno(parse, tmp_path):
+def test_shared_counts_handles_as_arguments_and_constructors_without_errno_work(
+    parse, tmp_path
+):
     from tests.test_rust import MORE, MORE_C
 
     model, _ = parse(MORE)
@@ -220,7 +223,9 @@ def test_typedefs_of_handles_and_methods_named_deinit_build(parse, tmp_path):
 
 
 @needs_cc
-def test_an_out_count_and_an_error_holding_what_was_written(parse, tmp_path):
+def test_an_out_count_bounds_the_result_and_the_error_holds_what_was_written(
+    parse, tmp_path
+):
     from tests.test_rust import REAP, REAP_C
 
     model, _ = parse(REAP)
@@ -253,7 +258,7 @@ def test_an_out_count_and_an_error_holding_what_was_written(parse, tmp_path):
 
 
 @needs_cc
-def test_bytes_clones_and_outs_named_like_ret(parse, tmp_path):
+def test_byte_slices_clones_and_an_out_named_retval_work(parse, tmp_path):
     from tests.test_rust import IO, IO_C, doc
 
     header = IO + doc("Get", "@param[out] retval R") + "void api_get(int *retval);\n"
@@ -287,7 +292,9 @@ def test_bytes_clones_and_outs_named_like_ret(parse, tmp_path):
 
 
 @needs_cc
-def test_internal_names_nullable_slices_and_callback_strings(parse, tmp_path):
+def test_functions_named_as_internals_nullable_slices_and_callback_strings_work(
+    parse, tmp_path
+):
     from tests.test_rust import doc
 
     header = (
@@ -363,7 +370,8 @@ def test_names_of_the_module_and_of_its_locals_are_made_distinct(parse, tmp_path
 
 
 def test_a_module_of_more_declarations_than_a_comptime_quota_builds(parse, tmp_path):
-    """Compiling refers to every declaration, beyond 1000 comptime branches"""
+    """api_compile.zig refers to every declaration at comptime, and 1200
+    declarations take more than the default quota of 1000 branches"""
 
     model, _ = parse("".join(f"/** F */\nint api_f{i}(int x);\n" for i in range(1200)))
     assert process(model, ["zig"], tmp_path) == []
@@ -383,7 +391,7 @@ def test_parameters_named_as_locals_of_the_layer_build(parse, tmp_path):
     assert process(model, ["zig"], tmp_path) == []
 
 
-def test_a_method_named_as_the_pointer_of_its_handle(parse, tmp_path):
+def test_a_method_named_as_the_pointer_of_its_handle_builds(parse, tmp_path):
     from tests.test_rust import doc
 
     model, _ = parse(
@@ -448,8 +456,9 @@ def test_skipped_records_and_padding_bits_build(parse, tmp_path):
 
 
 def run_zig(tmp_path, body: str) -> str:
-    """Run 'body', in a main() with 'out' the writer of stdout, against the
-    module generated into 'tmp_path'; returns what it printed"""
+    """Run a Zig main() of 'body' against the module generated into
+    'tmp_path' and return what it printed. 'body' writes to stdout through the
+    writer 'out'."""
 
     main = tmp_path / "main.zig"
     main.write_text(
@@ -534,7 +543,7 @@ def test_a_packed_record_is_an_extern_struct_of_fields_aligned_to_1(parse, tmp_p
     assert printed == PACKED_PRINTED + "8 1\n"
 
 
-def test_a_record_of_no_field_printed_but_as_null_builds(parse, tmp_path):
+def test_a_union_whose_fields_all_print_as_null_builds(parse, tmp_path):
     model, _ = parse(
         "/** F, kept as its bytes */\nstruct api_f {\n"
         "\tunsigned int a : 4; ///< A\n\tunsigned int b : 4; ///< B\n};\n"
@@ -552,8 +561,8 @@ def test_a_record_of_no_field_printed_but_as_null_builds(parse, tmp_path):
     assert printed == '{"self": null, "g": null}\napi_e:\n  self: null\n  g: null\n'
 
 
-# A record of bit-fields Zig translates as opaque, so its asserted size fails
-# the import of the header
+# Zig translates the record of bit-fields api_flags as an opaque type, so the
+# _Static_assert on its size fails when Zig imports the header
 UNTRANSLATABLE = """
 /** Flags */
 struct api_flags {
@@ -633,8 +642,8 @@ def test_a_function_the_headers_do_not_declare_fails(parse, tmp_path):
 
 
 def test_a_layout_of_more_asserts_than_a_comptime_quota_is_checked(parse, tmp_path):
-    """The check asserts the layout of every record, beyond 1000 comptime
-    branches"""
+    """The check asserts the layout of 300 records at comptime, and the asserts
+    take more than the default quota of 1000 branches"""
 
     records = "".join(
         f"/** R */\nstruct api_r{i} {{\n"
