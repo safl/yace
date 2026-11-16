@@ -45,8 +45,8 @@ from yace.targets.target import Target
 
 from . import cygen, idiomatic, pygen
 
-# What the C compiler is not to let pass in the C Cython makes of the check of
-# the .pxd, where a declaration disagrees with the header
+# The warnings made errors in compiling the C that Cython generates from the
+# check of the .pxd, so that a declaration that disagrees with the header fails
 CYTHON_CHECK_CFLAGS = [
     "-Werror=incompatible-pointer-types",
     "-Werror=int-conversion",
@@ -213,9 +213,9 @@ class Python(Target):
         return failures + self.cython(model)
 
     def cython(self, model: Model) -> list:
-        """Translate the check of the .pxd with Cython, and compile what it made
-        of it with the header, so a declaration that disagrees with the header
-        fails; where the Python running yace has no Cython, it warns that the
+        """Translate the check of the .pxd with Cython, and compile the C that
+        Cython generates with the header, so a declaration that disagrees with
+        the header fails; where the Python running yace has no Cython, it warns that the
         .pxd is not checked, and fails nothing"""
 
         out = self.output.resolve()

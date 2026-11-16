@@ -4,7 +4,7 @@
 
 """
 Python code for the IR: names, and the ctypes type of each IR type. The Python
-target's templates lay out the module; this produces what goes in it that
+target's templates lay out the module; pygen produces what goes in it that
 depends on the types.
 """
 
@@ -137,10 +137,10 @@ class Namer(object):
 
     def is_blob(self, record) -> bool:
         """Whether ctypes cannot lay out the record as C does: an unnamed
-        bit-field sets no alignment in C, but does in ctypes, which refuses one
-        of width 0; ctypes starts bit-fields of another type, and a field after
-        one, in a unit of their own, where GCC packs them in what is left; and
-        ctypes packs bit-fields only as MSVC does"""
+        bit-field sets no alignment in C, but does in ctypes, which raises an
+        error for one of width 0; ctypes starts bit-fields of another type, and
+        a field after one, in a unit of their own, where GCC packs them in what
+        is left; and ctypes packs bit-fields only as MSVC does"""
 
         bits = [f for f in record.fields if f.bits is not None]
         if not record.size or not bits:
@@ -301,7 +301,7 @@ def argument(param: decls.Param, name: str) -> str:
 
 def direct(function: decls.Function) -> bool:
     """Whether the ctypes function itself can stand for 'function' in the module,
-    as it converts none of its arguments; what it returns, its errcheck does"""
+    as it converts none of its arguments; its errcheck converts what it returns"""
 
     return not any(types.is_string(p.typ) for p in function.params)
 

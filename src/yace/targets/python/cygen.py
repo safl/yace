@@ -6,7 +6,7 @@
 Cython code for the IR: the names of the C API in a ``.pxd``, and the Cython
 spelling of each IR type. The ``.pxd`` declares the C API as the C target's
 header does, so Cython code cimports it and calls C directly; the check, a
-``.pyx`` cimporting every name, holds each declaration to the header.
+``.pyx`` cimporting every name, checks each declaration against the header.
 """
 
 import keyword
@@ -70,8 +70,8 @@ CIMPORTS = {
     "libc.stddef": ["ptrdiff_t"],
 }
 
-# The C 'bool', which Cython knows as 'bint', an int; declared as C's own name
-# for it, so what Cython declares of it is a bool
+# The C 'bool', which Cython knows as 'bint', an int. The .pxd declares '_Bool',
+# C's own name for bool, as a 'bint', so that the C Cython generates has a bool
 BOOL = "_Bool"
 
 
@@ -329,11 +329,13 @@ class Check(object):
         self.assigned: List[str] = []
 
     def local(self, typ, value: str = "", spec: str = "noexcept nogil") -> str:
-        """A local of 'typ' assigned 'value'; a function type it holds has
-        'spec', as Cython gives what the .pxd declares of the C API, but for a
-        field of a function pointer, which it does not declare nogil"""
+        """A local of 'typ' assigned 'value'; a function type in 'typ' has
+        'spec', as Cython gives that to what the .pxd declares of the C API,
+        except to a field of a function pointer, which Cython does not declare
+        nogil"""
 
-        # Assigned apart, as Cython does not initialize a function pointer
+        # Assigned in a statement of its own, as Cython does not initialize a
+        # function pointer
         name = f"v{len(self.cdefs)}"
         self.cdefs.append(f"cdef {self.names.decl(typ, name, 'c.', spec)}")
         if value:
@@ -388,7 +390,8 @@ class Check(object):
                     self.local(field.typ, member)  # a bit-field has no address
                 elif record.packed:
                     # The address of a packed field may not be aligned, so a
-                    # copy of it, of an array its first element, is assigned
+                    # copy of the field is assigned, or of an array field, a
+                    # copy of its first element
                     typ = field.typ
                     while isinstance(typ, types.Array):
                         typ, member = typ.of, f"{member}[0]"
