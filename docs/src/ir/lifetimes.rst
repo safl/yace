@@ -9,9 +9,9 @@ Callback lifetimes
 
 A C library calls back into its caller through a function pointer, and gives
 the callback a ``void *`` the caller chose, its context. In C the caller owns
-both, and keeps the context alive for as long as the library may use it. How
-long that is, the header does not say. It is in the documentation, if
-anywhere, and the C programmer reads it there.
+both, and keeps the context alive for as long as the library may use it. The
+header does not say how long that is. The documentation of the library says
+it, if anything does, and the C programmer reads it there.
 
 A binding in another language has to know. There, a callback is a closure: a
 Python lambda, a Rust ``FnMut``, a Go func. The binding turns the closure into
@@ -20,7 +20,7 @@ behalf. If it frees the context too soon, the library calls into freed memory.
 If it never frees it, every callback given leaks. Only the duration the
 library uses it is right, and nothing in C says what that is.
 
-**yace** does not guess. The header promises the lifetime of each callback,
+**yace** does not infer the lifetime of a callback. The header promises it,
 with ``@lifetime``, and the bindings keep the closure exactly that long.
 
 The promise
@@ -75,15 +75,16 @@ Lifetime                  The library may call it          As, in libfoo
 
 ``call``
   The library calls it only while the call it was given to runs, any number
-  of times, and never after that call returns. A visitor, a comparison for a
-  sort, a function applied to each element. The binding keeps the closure for
-  the call and no longer, and in most languages it need not be boxed or
-  copied at all: ``foo_point_visit()`` above.
+  of times, and never after that call returns. Examples are a visitor, a
+  comparison for a sort, and a function applied to each element. The binding
+  keeps the closure for the call and no longer, and in most languages it need
+  not be boxed or copied at all: ``foo_point_visit()`` above.
 
 ``once``
   The library calls it at most once, after the call has returned, from a later
-  call such as a poll. The completion of a command submitted. The binding
-  moves the closure to the heap and frees it when the library has called it.
+  call such as a poll. An example is the completion of a submitted command.
+  The binding moves the closure to the heap and frees it when the library has
+  called it.
   A callback the library never calls, as when the handle is closed with the
   command still pending, is never freed: nothing tells the binding it will
   not be called, so freeing it could be a use after free, and it leaks
@@ -91,9 +92,9 @@ Lifetime                  The library may call it          As, in libfoo
 
 ``handle``
   The library may call it any number of times, until the handle the function
-  is a method of is destroyed. A handler registered for the life of the
-  handle. The binding keeps the closure with the handle, and frees it when it
-  destroys the handle::
+  is a method of is destroyed. An example is a handler registered for the
+  life of the handle. The binding keeps the closure with the handle, and frees
+  it when it destroys the handle::
 
     /**
      * Watch the points added to the handle, from now until it is closed
@@ -121,11 +122,12 @@ when the function is a method, during a later call given the same handle, or
 as the handle is destroyed, and when it is not a method, during any later
 call.
 
-That is what lets a binding keep a closure that is not safe to share between
-threads. A handle in Rust is neither ``Send`` nor ``Sync``, so the calls that
-may run its closures are made on the thread that owns it, and those closures
-need not be ``Send``. A ``once`` closure given to a function of no handle can
-be run by a call from any thread, and in Rust it must be ``Send``.
+Calling back on the thread of a call into the library is what lets a binding
+keep a closure that is not safe to share between threads. A handle in Rust is
+neither ``Send`` nor ``Sync``, so the calls that may run its closures are made
+on the thread that owns it, and those closures need not be ``Send``. A ``once``
+closure given to a function of no handle can be run by a call from any thread,
+and in Rust it must be ``Send``.
 
 A library that calls back from a thread of its own, as when a command
 completes on a thread the library started, cannot say so yet. Leave such a
@@ -134,7 +136,8 @@ callback without a ``@lifetime``, and it is bound raw.
 In each target
 --------------
 
-What the bindings do with the promise, in brief. Each target's page says more.
+The bindings of each target do the following with the promise, in brief; the
+page of each target says more.
 
 C
   The C API declares the callback as the header does. A C caller keeps the
@@ -151,9 +154,9 @@ Python
 
 Rust
   ``call`` is a ``&mut dyn FnMut``, ``once`` a ``Box<dyn FnOnce>``, ``handle``
-  a ``Box<dyn FnMut>`` the handle keeps. The borrow checker sees
-  to it that a ``call`` closure lives as long as the call, and nothing longer
-  is asked of it.
+  a ``Box<dyn FnMut>`` the handle keeps. The borrow checker ensures that a
+  ``call`` closure lives as long as the call, and requires nothing longer of
+  it.
 
 Zig
   A context pointer and a comptime function. The caller owns the context, so
