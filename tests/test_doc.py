@@ -5,7 +5,7 @@
 from yace.ir import doc
 
 
-def test_brief_description_params_returns():
+def test_the_brief_description_params_and_returns_are_parsed():
     parsed = doc.parse(
         """/**
          * Open the thing
@@ -59,19 +59,19 @@ def test_an_item_of_a_list_is_a_line_of_its_own():
     assert parsed.params == {"n": "One of: - zero - more"}
 
 
-def test_tag_without_text_is_kept():
+def test_a_tag_without_text_is_kept():
     parsed = doc.parse("/**\n * Old\n *\n * @deprecated\n * @return zero\n */")
     assert parsed.tags == {"deprecated": ""}
     assert parsed.returns == "zero"
 
 
-def test_text_after_the_tags_is_description():
+def test_text_after_the_tags_is_part_of_the_description():
     found = doc.parse("/**\n * Brief\n *\n * @param x X\n *\n * More text\n */")
     assert found.params == {"x": "X"}
     assert found.description == "More text"
 
 
-def test_trailing_and_line_comments():
+def test_trailing_and_line_comments_give_a_brief():
     assert doc.parse("///< The value").brief == "The value"
     assert doc.parse("/// First\n/// Second").brief == "First Second"
 
@@ -82,11 +82,11 @@ def test_structural_tags_are_dropped():
     assert parsed.tags == {}
 
 
-def test_brief_tag():
+def test_the_brief_tag_gives_the_brief():
     assert doc.parse("/** @brief Short\n *\n * Long */").brief == "Short"
 
 
-def test_empty():
+def test_no_doc_and_an_empty_doc_comment_are_empty():
     assert doc.parse(None).is_empty()
     assert doc.parse("/** */").is_empty()
 
