@@ -210,9 +210,18 @@ def main():
         except MissingHeader as error:
             log.error("%s", error.args[0])
             return 1
+        notes = [diag for diag in diagnostics if diag.note]
+        diagnostics = [diag for diag in diagnostics if not diag.note]
+        for note in notes:
+            log.info("%s", note)
         for diagnostic in diagnostics:
             print(diagnostic, file=sys.stderr)
-        log.info("%d entities, %d diagnostics", len(model.entities), len(diagnostics))
+        log.info(
+            "%d entities, %d diagnostics, %d notes",
+            len(model.entities),
+            len(diagnostics),
+            len(notes),
+        )
         if diagnostics:
             print(
                 f"yace: {len(diagnostics)} diagnostics; the headers step outside the"

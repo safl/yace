@@ -60,9 +60,6 @@ breaking one is still parsed, and the run fails, unless ``--lenient``.
 ``param-name``
   The parameters of a function must be named, for its documentation and the bindings to name them.
 
-``function-like-macro``
-  Function-like macros are code, not part of the FFI boundary; they are skipped.
-
 ``macro-value``
   A #define must be a string literal or an integer constant expression; others are skipped.
 
@@ -70,7 +67,7 @@ breaking one is still parsed, and the run fails, unless ``--lenient``.
   The type has no equivalent across the targets; the declaration using it is skipped.
 
 ``unsupported-declaration``
-  Only types, functions and constants form the FFI boundary; variables and inline or static functions are skipped.
+  Only types, functions and constants form the FFI boundary; variables and other declarations are skipped.
 
 ``external-type``
   The type is declared outside the headers and outside the C subset, so other languages cannot bind it.
@@ -101,3 +98,19 @@ breaking one is still parsed, and the run fails, unless ``--lenient``.
 
 ``internal-error``
   yace failed on this declaration; it is skipped. This is a bug in yace.
+
+Notes
+-----
+
+A note reports what is skipped without the header breaking a rule: what
+only the C compiler uses, with no symbol for other languages to bind.
+A note does not fail the run.
+
+``function-like-macro``
+  A function-like macro is code, not part of the FFI boundary; it is skipped.
+
+``inline-function``
+  A static or inline function is code compiled into its callers, with no symbol for other languages to call; it is skipped.
+
+``static-assert``
+  A static assertion is checked by the C compiler and declares nothing; it is skipped. The checks of the targets compare the layout of each record with the IR.

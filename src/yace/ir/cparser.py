@@ -892,6 +892,14 @@ class _HeaderParser(object):
                 )
                 continue
 
+            if child.kind == CursorKind.STATIC_ASSERT:
+                self.report(
+                    "static-assert",
+                    f"'{name}' contains a static assertion; it is skipped",
+                    child,
+                )
+                continue
+
             self.report(
                 "unsupported-declaration",
                 f"'{name}' contains a {child.kind.name}, which is skipped",
@@ -1091,7 +1099,7 @@ class _HeaderParser(object):
 
         if cursor.storage_class == StorageClass.STATIC or cursor.is_definition():
             self.report(
-                "unsupported-declaration",
+                "inline-function",
                 f"'{name}' is a static or inline function; it is skipped",
                 cursor,
             )
@@ -1543,6 +1551,10 @@ class _HeaderParser(object):
             function = self.function(cursor)
             return [function] if function else []
 
+        if kind == CursorKind.STATIC_ASSERT:
+            self.report("static-assert", "a static assertion is skipped", cursor)
+            return []
+
         if kind == CursorKind.VAR_DECL:
             self.report(
                 "unsupported-declaration",
@@ -1596,7 +1608,11 @@ def c_to_yace(
     stem = model.meta.prefix
     model.save(output / f"{stem}.yaml")
 
-    lines = [f"Parsed {len(model.entities)} entities, {len(diagnostics)} diagnostics"]
+    notes = sum(diag.note for diag in diagnostics)
+    lines = [
+        f"Parsed {len(model.entities)} entities, {len(diagnostics) - notes}"
+        f" diagnostics, {notes} notes"
+    ]
     lines += [str(diag) for diag in diagnostics]
     (output / f"{stem}.status").write_text("\n".join(lines) + "\n")
 

@@ -109,11 +109,9 @@ VIOLATIONS = [
     ("typedef", "typedef unsigned int handle;"),
     ("callback-name", "typedef int (*visitor)(int value);"),
     ("callback-param-name", "typedef int (*visit_cb)(int);"),
-    ("function-like-macro", "#define TWICE(x) ((x) * 2)"),
     ("macro-value", "#define RATIO 1.5"),
     ("unsupported-type", "long double f(void);"),
     ("unsupported-declaration", "extern int counter;"),
-    ("unsupported-declaration", "static inline int f(void) { return 1; }"),
     ("external-type", "#include <stdio.h>\nint f(FILE *stream);"),
     ("missing-doc", "int f(void);"),
     ("doc-comment", "/** Stray */\n/** F */\nint f(void);"),
@@ -197,6 +195,33 @@ VIOLATIONS = [
 def test_each_rule_is_reported(parse, rule, source):
     _, diagnostics = parse(source)
     assert rule in rules(diagnostics), [str(d) for d in diagnostics]
+
+
+NOTES = [
+    ("function-like-macro", "#define TWICE(x) ((x) * 2)"),
+    ("inline-function", "static inline int f(void) { return 1; }"),
+    ("static-assert", '_Static_assert(sizeof(int) == 4, "int");'),
+    (
+        "static-assert",
+        '/** S */\nstruct s {\n\tint x; ///< X\n\t_Static_assert(1, "");\n};',
+    ),
+]
+
+
+@pytest.mark.parametrize("rule,source", NOTES, ids=[n[0] for n in NOTES])
+def test_each_note_is_reported_as_a_note(parse, rule, source):
+    _, diagnostics = parse(source)
+    assert [(d.rule, d.note) for d in diagnostics] == [(rule, True)], [
+        str(d) for d in diagnostics
+    ]
+    assert ": note: " in str(diagnostics[0])
+
+
+def test_a_rule_is_not_a_note(parse):
+    _, diagnostics = parse("extern int counter;")
+    assert [(d.rule, d.note) for d in diagnostics] == [
+        ("unsupported-declaration", False)
+    ]
 
 
 def test_diagnostics_say_where(parse):
@@ -838,7 +863,7 @@ def test_a_static_inline_function_tagged_nobind_is_left_out_unreported(parse):
 
     model, diagnostics = parse(STATIC_PR.replace(" *\n * @nobind\n", ""))
     assert [str(d) for d in diagnostics] == [
-        "api.h:10:20: unsupported-declaration: 't_pr' is a static or inline"
+        "api.h:10:20: note: inline-function: 't_pr' is a static or inline"
         " function; it is skipped"
     ]
     assert [e.name for e in model.entities] == ["t"]

@@ -212,8 +212,11 @@ recorded in the IR as ``variadic``. The C API, the Cython ``.pxd`` of the
 Python target, and the raw layers of Rust and Zig declare it. The Python module
 and the Go package do not bind it, and no idiomatic layer wraps it.
 
-Inline and static functions, which are code, not part of the boundary, are
-skipped, and so are variables: none of them is in the IR.
+Inline and static functions, function-like macros and static assertions are
+used by the C compiler only, and are not part of the boundary. They are skipped
+and reported as notes, which do not fail the run. Variables are skipped too,
+and reported as diagnostics, since a variable has a symbol that other languages
+cannot bind. None of them is in the IR.
 
 typedef
 -------
