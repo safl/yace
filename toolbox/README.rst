@@ -8,7 +8,7 @@
 
 The scripts, tools, and files found here are auxiliary to the project itself.
 
-Some staples include:
+Among them are:
 
 * bump.py
 * mkhelp.py

@@ -29,9 +29,8 @@ equivalently in C, C++, Python, Rust and Zig, and **yace** generates, for each,
 code that is idiomatic for that language: for C, a C API with pretty-printers
 for every struct, union and enum.
 
-* The project is hosted on `GitHUB`_
-
-* Documentation is available at `safl.dk/yace`_
+The project is hosted on `GitHub`_, and its documentation is at
+`safl.dk/yace`_.
 
 Bindings are generated for C, C++, Python (ctypes, with a ``.pxd`` for
 Cython), Rust, Zig and Go. Each target builds and runs a check of what it
@@ -40,13 +39,13 @@ and Zig check every function's signature against the header too.
 
 A header can also be written by a generator, from something other than C, and
 taken as one written by hand: ``yace --generate file.py:Class``, or a
-generator installed by name. A generator proposed to xNVMe writes its NVMe
-specification headers so, from the data model senfd makes of the
-specification documents.
+generator installed by name. A generator proposed to xNVMe writes the NVMe
+specification headers of xNVMe in this way, from the data model that senfd
+makes of the specification documents.
 
 Contributions are welcome; the documentation says how the code is laid out.
 
-.. _GitHUB: https://github.com/safl/yace
+.. _GitHub: https://github.com/safl/yace
 .. _safl.dk/yace: https://safl.dk/yace
 
 .. toctree::
