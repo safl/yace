@@ -33,7 +33,8 @@ from yace.targets.python.target import Python
 
 
 def module(tmp_path, name="api"):
-    """Run the source of the generated module 'name'; returns its namespace"""
+    """Execute the source of the generated module 'name' and return its
+    namespace."""
 
     namespace: dict = {}
     path = tmp_path / "python" / f"{name}.py"
@@ -96,7 +97,7 @@ def test_headers_outside_the_subset_still_bind(parse, tmp_path):
 
     ns = module(tmp_path)
     assert "FILE" in ns  # FILE, declared outside the headers, is a stub
-    assert "log_it" not in ns  # variadic, so not bound
+    assert "log_it" not in ns  # the Python target binds no variadic function
     assert ns["Outer"]._fields_[1] == ("bits", ns["ctypes"].c_uint, 3)
     assert ns["Flex"]().to_dict() == {"n": 0, "data": None}
 
@@ -121,8 +122,9 @@ def test_names_are_made_usable(parse, tmp_path):
 
 
 def test_a_field_named_as_a_keyword_is_reached_by_its_escaped_name(parse, tmp_path):
-    """As 'async' of xNVMe's options, which 'opts.async_ = ...' would otherwise
-    set as a new attribute, silently, and C would never see"""
+    """xNVMe's options have a field 'async'. Without the escaped name, the
+    assignment 'opts.async_ = ...' would silently add a Python attribute that
+    C never sees."""
 
     model, _ = parse(
         "/** R */\nstruct api_r {\n\tint async; ///< A\n"
@@ -173,7 +175,9 @@ def test_records_repr_as_their_constructor_is_called(parse, tmp_path):
 def test_a_header_named_as_a_standard_library_module_gets_an_underscore(
     parse, tmp_path
 ):
-    """json, never built into an interpreter, which zlib may or may not be"""
+    """The header is json.h rather than zlib.h. No interpreter builds json in,
+    so the rename comes from sys.stdlib_module_names on every interpreter, while
+    zlib is in sys.builtin_module_names on some interpreters and not others."""
 
     model, _ = parse("/** J */\nstruct json_s { int a; };\n", "json.h")
     assert process(model, ["python"], tmp_path) == []
@@ -189,7 +193,8 @@ def test_typedefs_of_their_own_names_add_no_alias_and_fields_named_as_printers_p
         "struct api_rec { int pr, fpr, to_dict; };\n"
         "int api_len(const api_buf *b, api_kind k);\n"
     )
-    assert process(model, ["python"], tmp_path) == []  # its check prints them
+    # process() runs the generated check, which prints ApiRec
+    assert process(model, ["python"], tmp_path) == []
 
     api = module(tmp_path)
     assert api["ApiBuf"]._yace_name == "api_buf" and "api_buf" not in api
@@ -241,8 +246,8 @@ def test_idiomatic_names_never_replace_the_raw_ones(parse, tmp_path):
     assert process(model, ["python"], tmp_path) == []
 
     ns = module(tmp_path)
-    # Without a prefix to strip, the names are those of the raw functions, and
-    # the handle's class that of the raw record: neither gets an idiomatic one
+    # Without a prefix to strip, an idiomatic name would equal the raw name, so
+    # open_it stays the raw function and Handle stays the raw record
     assert ns["open_it"].__doc__ is None or "Calls" not in ns["open_it"].__doc__
     assert "Handle" in ns and issubclass(ns["Handle"], ns["ctypes"].Structure)
 
@@ -496,7 +501,8 @@ def test_parameters_named_as_what_the_body_uses_pass_their_values_to_c(
     dev = api["api_dev_open_"](1, 2)
     assert dev.me(4) == 4 and api["make"](5)[1] == 5
     assert (dev.peer(dev), dev.peer(None)) == (1, 0)
-    message = dev.msg()  # a pointer, as its payload follows it
+    # api_msg ends in a flexible array, so msg() returns the pointer, not a copy
+    message = dev.msg()
     assert message.contents.len == 3 and api["take_"](1) == 2
     seen = []
     dev.keep(lambda v: seen.append(v) or 0, 6)
@@ -797,7 +803,8 @@ def test_the_parts_of_a_field_of_bits_are_properties(parse, tmp_path):
     }
 
 
-# C names Cython reserves, or shares between what C keeps apart
+# C names that Cython reserves, and a name that Cython would give both to a
+# struct tag and to a function, which C keeps in separate namespaces
 RESERVED = (
     "/** S */\nstruct api_s {\n\tint class; ///< C\n\tint include; ///< I\n};\n"
     "/** Tag */\nstruct tag { int a; };\n"
@@ -811,7 +818,8 @@ RESERVED = (
 @needs_cython
 def test_names_cython_reserves_are_declared_by_their_c_names(parse, tmp_path):
     model, _ = parse(RESERVED)
-    assert process(model, ["python"], tmp_path) == []  # compiles the .pxd check
+    # process() compiles the check of the .pxd
+    assert process(model, ["python"], tmp_path) == []
 
     pxd = (tmp_path / "python" / "api.pxd").read_text().splitlines()
     for line in (
@@ -824,7 +832,7 @@ def test_names_cython_reserves_are_declared_by_their_c_names(parse, tmp_path):
         "    int tag(const tag_ *t, const api_s *s)",
     ):
         assert line in pxd
-    ns = module(tmp_path)  # the ctypes names are the C ones
+    ns = module(tmp_path)  # the ctypes module keeps the C names
     assert "include" in ns and "tag" in ns and ns["Kind"].DEF == 2
 
 
@@ -841,15 +849,15 @@ def test_a_declaration_that_disagrees_with_the_header_fails_the_check(
             typ = typ.model_copy(update={"name": "int32_t"})
         return decl(self, typ, *args)
 
-    # A generator spelling a type wrong, in the .pxd and in its check alike
+    # signed() declares uint32_t as int32_t, in the .pxd and in its check alike
     monkeypatch.setattr(cygen.Names, "decl", signed)
     failures = process(model, ["python"], tmp_path)
     assert len(failures) == 1
     assert failures[0].startswith("python: compiling the check of the .pxd failed")
 
 
-# What C spells that Cython spells otherwise: a field of a function pointer,
-# which Cython does not declare nogil, and pointers that are const
+# Declarations that Cython spells otherwise than C: fields of a function pointer
+# type, which Cython does not declare nogil, and const pointers
 SPELLED = (
     "#include <stddef.h>\n"
     "/** P */\nstruct api_p {\n\tint x; ///< X\n};\n"
@@ -923,7 +931,7 @@ def test_a_packed_record_is_laid_out_and_printed_as_in_c(parse, tmp_path):
     offsets = [getattr(packed, name).offset for name in ("value", "at", "pair")]
     assert offsets == [1, 5, 29]
     assert (ctypes.sizeof(api["ApiKu"]), ctypes.alignment(api["ApiKu"])) == (8, 1)
-    # ctypes packs bit-fields only as MSVC does, so these are kept as bytes
+    # ctypes packs bit-fields only as MSVC does, so ApiB holds its bits as bytes
     assert [name for name, *_ in api["ApiB"]._fields_] == ["_bits"]
 
     value = packed(
