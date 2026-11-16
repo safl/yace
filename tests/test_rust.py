@@ -116,7 +116,9 @@ def test_the_crate_builds_without_warnings(parse, tmp_path, header):
     assert "warning" not in (tmp_path / "rust" / "cargo.log").read_text()
 
 
-def test_a_crate_named_in_the_meta_and_bindings_included_by_another(parser, tmp_path):
+def test_the_meta_names_the_crate_and_another_crate_includes_the_bindings(
+    parser, tmp_path
+):
     """As xNVMe names its crate 'xnvme-sys', and as a crate generating the
     bindings in its build script includes them"""
 
@@ -347,7 +349,9 @@ HANDLE_NAMED_AS_PREFIX = (
 )
 
 
-def test_a_handle_named_as_the_prefix_and_out_pointers_build(parse, tmp_path):
+def test_a_handle_named_as_the_prefix_is_api_handle_and_out_pointers_are_slices(
+    parse, tmp_path
+):
     model, _ = parse(HANDLE_NAMED_AS_PREFIX)
     assert process(model, ["rust"], tmp_path) == []
 
@@ -413,7 +417,9 @@ void *api_raw(void) { return (void *)16; }
 """
 
 
-def test_shared_counts_handles_given_and_constructors_without_errno(parse, tmp_path):
+def test_handles_pass_by_reference_make_returns_an_option_and_shared_counts_must_match(
+    parse, tmp_path
+):
     model, _ = parse(MORE)
     assert process(model, ["rust"], tmp_path) == []
 
@@ -513,7 +519,9 @@ def library(tmp_path, source: str):
 
 
 @needs_cc
-def test_an_out_count_and_an_error_holding_what_was_written(parse, tmp_path):
+def test_an_out_count_bounds_the_result_and_the_error_holds_what_was_written(
+    parse, tmp_path
+):
     model, _ = parse(REAP)
     assert process(model, ["rust"], tmp_path) == []
     library(tmp_path, REAP + REAP_C)
@@ -538,7 +546,9 @@ def test_an_out_count_and_an_error_holding_what_was_written(parse, tmp_path):
     )
 
 
-def test_bytes_out_arrays_sharing_a_count_and_clones_build(parse, tmp_path):
+def test_void_buffers_are_byte_slices_and_api_clone_returns_a_new_handle(
+    parse, tmp_path
+):
     model, _ = parse(IO)
     assert process(model, ["rust"], tmp_path) == []
 
@@ -898,7 +908,7 @@ int api_renamed(int a, int b, int c, int d, int e) { return a - b + c - d + e; }
 """
 
 
-def test_parameters_named_as_what_the_body_uses_build(parse, tmp_path):
+def test_the_crate_builds_with_parameters_named_as_what_the_body_uses(parse, tmp_path):
     model, _ = parse(HIDDEN)
     assert process(model, ["rust"], tmp_path) == []
 
@@ -906,12 +916,14 @@ def test_parameters_named_as_what_the_body_uses_build(parse, tmp_path):
     assert "pub fn msg(&mut self) -> *mut ApiMsg {" in lib  # not a copy
 
 
-def test_parameters_named_as_locals_of_the_layer_build(parse, tmp_path):
+def test_the_crate_builds_with_parameters_named_as_locals_of_the_layer(parse, tmp_path):
     model, _ = parse(NAMES)
     assert process(model, ["rust"], tmp_path) == []
 
 
-def test_constructors_and_methods_sharing_a_name_and_as_ptr(parse, tmp_path):
+def test_methods_named_as_a_constructor_or_as_ptr_build_without_warnings(
+    parse, tmp_path
+):
     model, _ = parse(
         "struct api_h;\n"
         + doc("From", "@param[out] h H", "@errno")
@@ -949,7 +961,7 @@ def test_a_function_named_as_a_record_has_its_own_doc(parse, tmp_path):
     assert "    /// The function\n    ///\n    /// Calls [`super::api_tag`]." in lib
 
 
-def test_closure_types_named_as_raw_types(parse, tmp_path):
+def test_closure_types_named_as_raw_types_build(parse, tmp_path):
     model, _ = parse(
         "typedef int (*api_cb)(void *arg, int v);\n"
         "typedef int (*api_cb_fn)(void *arg, int v);\n"
@@ -962,7 +974,7 @@ def test_closure_types_named_as_raw_types(parse, tmp_path):
     assert process(model, ["rust"], tmp_path) == []
 
 
-def test_closure_types_named_as_handles(parse, tmp_path):
+def test_closure_types_named_as_handles_build(parse, tmp_path):
     model, _ = parse(
         "struct api_api_cb_fn;\ntypedef int (*api_cb)(void *arg, int v);\n"
         + doc("Open", "@param[out] h H", "@errno")
@@ -973,7 +985,7 @@ def test_closure_types_named_as_handles(parse, tmp_path):
     assert process(model, ["rust"], tmp_path) == []
 
 
-def test_handles_named_as_std_types(parse, tmp_path):
+def test_handles_named_as_std_types_get_a_handle_suffix(parse, tmp_path):
     model, _ = parse(
         "struct api_option;\nstruct api_vec;\n"
         + doc("Open", "@param[out] h H", "@errno")
@@ -1206,7 +1218,7 @@ const struct api_cmd *api_peek(const struct api_q *q) { return q->head; }
 """
 
 
-def test_kept_closures_with_constructors_without_errno_and_inline_callbacks(
+def test_a_constructor_without_errno_keeps_no_closures_and_an_inline_callback_is_raw(
     parse, tmp_path
 ):
     model, _ = parse(
@@ -1295,7 +1307,7 @@ def test_closures_kept_by_a_handle_whose_destructor_fails_are_kept(parse, tmp_pa
     assert out == "true 4\n"
 
 
-def test_a_function_named_drop(parse, tmp_path):
+def test_a_function_named_drop_builds(parse, tmp_path):
     model, _ = parse(
         "struct api_h;\ntypedef int (*api_cb)(void *arg, int v);\n"
         + doc("Open", "@param[out] h H", "@errno")
