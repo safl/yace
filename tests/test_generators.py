@@ -34,7 +34,9 @@ toy_cmd_init(struct toy_cmd *cmd, uint8_t opcode);
 
 
 class Toy(Generator):
-    """Writes the header of a toy specification, named by the option 'name'"""
+    """A generator that writes the header of a toy specification to
+    '<name>.h', where 'name' is the generator option of that name, and a
+    source to 'toy.c'"""
 
     NAME = "toy"
 
@@ -48,7 +50,7 @@ class Toy(Generator):
 
 @pytest.fixture
 def toy(monkeypatch):
-    """The toy generator, installed"""
+    """Install Toy as the only generator, under the entry point 'toy'"""
 
     found = [
         EntryPoint(
@@ -75,7 +77,7 @@ def test_a_generated_header_is_parsed_as_a_header_written_by_hand(
     assert "TOY_CMD_CDW0_OPC" in ir
 
 
-def test_a_generator_has_its_options(toy, monkeypatch, tmp_path):
+def test_a_generator_option_reaches_its_generator(toy, monkeypatch, tmp_path):
     args = ["--generate", "toy", "--generator-option", "toy.name=spec"]
     assert run(monkeypatch, *args, "--output", tmp_path) == 0
     assert (tmp_path / "toy" / "spec.h").exists()
@@ -88,7 +90,7 @@ def test_the_targets_emit_and_check_what_a_generator_wrote(toy, monkeypatch, tmp
     assert list((tmp_path / "capi").glob("*.h"))
 
 
-def test_a_generator_not_installed_or_an_option_not_of_one_run_is_an_error(
+def test_an_unknown_generator_or_a_wrong_generator_option_fails_the_run(
     toy, monkeypatch, tmp_path
 ):
     assert run(monkeypatch, "--generate", "nothing", "--output", tmp_path) == 1
@@ -98,14 +100,14 @@ def test_a_generator_not_installed_or_an_option_not_of_one_run_is_an_error(
     assert run(monkeypatch, *args, "--output", tmp_path) == 1
 
 
-def test_options_are_by_generator():
+def test_options_are_grouped_by_generator():
     assert yace.generators.options_of(["a.x=1", "a.y=2", "b.x=3"]) == {
         "a": {"x": "1", "y": "2"},
         "b": {"x": "3"},
     }
 
 
-def test_an_option_not_of_the_form_names_what_it_is_an_option_of():
+def test_the_error_for_a_malformed_option_names_the_kind_of_option():
     with pytest.raises(ValueError, match="target option 't.k' is not <target>"):
         yace.generators.options_of(["t.k"], "target")
 
