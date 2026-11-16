@@ -25,7 +25,7 @@ breaking one is still parsed, and the run fails, unless ``--lenient``.
   Attributes other than packed, such as aligned, change the layout in ways the targets cannot all express. A record whose layout an attribute or '#pragma pack' changes, other than by packing it to one byte, is skipped; other attributes are ignored.
 
 ``cxx-keyword``
-  A name must not be a keyword of C++, which includes the generated C API as it is; parameters are renamed, other names cannot be.
+  A name must not be a keyword of C++, as C++ code includes the generated C API unchanged; parameters are renamed, other names cannot be.
 
 ``enum-value``
   An enumerator must fit an int, as C99 requires; compilers that allow more disagree on the type of the enum. The enumerator is left out.
@@ -52,7 +52,7 @@ breaking one is still parsed, and the run fails, unless ``--lenient``.
   A function pointer must be named by a typedef, as a callback; one written inline is bound only as a raw function pointer.
 
 ``callback-lifetime``
-  A callback parameter must say with @lifetime how long the library may invoke it, which nothing else can tell; without, it is bound only as a raw pointer.
+  A callback parameter must say with @lifetime how long the library may invoke the callback, which C cannot express; without @lifetime, the callback is bound only as a raw pointer.
 
 ``callback-param-name``
   The parameters of a function pointer must be named.

@@ -53,8 +53,8 @@ RULES = {
         " byte, is skipped; other attributes are ignored"
     ),
     "cxx-keyword": (
-        "A name must not be a keyword of C++, which includes the generated C API"
-        " as it is; parameters are renamed, other names cannot be"
+        "A name must not be a keyword of C++, as C++ code includes the generated C"
+        " API unchanged; parameters are renamed, other names cannot be"
     ),
     "enum-value": (
         "An enumerator must fit an int, as C99 requires; compilers that allow"
@@ -83,8 +83,8 @@ RULES = {
     ),
     "callback-lifetime": (
         "A callback parameter must say with @lifetime how long the library may"
-        " invoke it, which nothing else can tell; without, it is bound only as"
-        " a raw pointer"
+        " invoke the callback, which C cannot express; without @lifetime, the"
+        " callback is bound only as a raw pointer"
     ),
     "callback-param-name": ("The parameters of a function pointer must be named"),
     "param-name": (

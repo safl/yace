@@ -644,7 +644,7 @@ class _HeaderParser(object):
                 self.report(
                     "unsupported-type",
                     f"'{entity.name}' uses '{sorted(records | aliases)[0]}', which"
-                    " is skipped; it is skipped",
+                    f" is skipped, so '{entity.name}' is skipped",
                 )
                 if isinstance(entity, decls.RECORDS):
                     self.skipped_records.add(entity.name)
@@ -1188,9 +1188,9 @@ class _HeaderParser(object):
         if name in tags:
             self.report(
                 "typedef",
-                f"typedef '{name}' is another type than the record or enum of its"
-                " name, which no binding can declare beside it; its type is used"
-                " in its place",
+                f"typedef '{name}' is another type than the record or enum of the"
+                " same name, and no binding can declare both; each use of the"
+                " typedef is replaced by its type",
                 cursor,
             )
             self.absorbed.add(decl_key(cursor))
@@ -1575,7 +1575,8 @@ class _HeaderParser(object):
 
         self.report(
             "anonymous-record",
-            "an anonymous enum; its members are made constants",
+            "the members of an anonymous enum not named by a typedef are made"
+            " constants",
             cursor,
         )
         return [
