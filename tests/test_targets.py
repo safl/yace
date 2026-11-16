@@ -114,6 +114,31 @@ def test_every_target_documents_the_call_it_generates(parse, tmp_path):
             assert text in generated, name
 
 
+LISTED = (
+    "/**\n * Run\n *\n * It fails with:\n *\n * - -EINTR: interrupted\n"
+    " * - -EAGAIN: no resources\n *\n * @return 0\n */\nint api_run(void);\n"
+)
+
+LISTED_AS = {
+    "capi": " * - -EINTR: interrupted\n * - -EAGAIN: no resources\n",
+    "python": "    - -EINTR: interrupted\n    - -EAGAIN: no resources\n",
+    "rust": "/// - -EINTR: interrupted\n    /// - -EAGAIN: no resources\n",
+    "zig": "/// - -EINTR: interrupted\n/// - -EAGAIN: no resources\n",
+    "cpp": " * - -EINTR: interrupted\n * - -EAGAIN: no resources\n",
+    "go": "//   - -EINTR: interrupted\n//   - -EAGAIN: no resources\n",
+}
+
+
+def test_every_target_keeps_the_items_of_a_list_on_lines_of_their_own(parse, tmp_path):
+    model, _ = parse(LISTED)
+    for name, wanted in LISTED_AS.items():
+        assert process(model, [name], tmp_path, check=False) == []
+        generated = "\n".join(
+            path.read_text() for path in (tmp_path / name).iterdir() if path.is_file()
+        )
+        assert wanted in generated, name
+
+
 def test_an_apis_own_printer_formats_leave_every_target_building(parse, tmp_path):
     from tests.test_cparser import OWN_PRINTERS
 

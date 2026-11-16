@@ -29,6 +29,36 @@ def test_brief_description_params_returns():
     assert parsed.returns == "0 on success"
 
 
+def test_an_item_of_a_list_is_a_line_of_its_own():
+    parsed = doc.parse(
+        """/**
+         * Reap
+         *
+         * Three errors, after which
+         * it is called again:
+         *
+         * - -EINTR: a signal interrupted
+         *   the call
+         * - -EAGAIN: no resources
+         * 1. first
+         * -# second
+         * -EBUSY continues the item, not starting one
+         *
+         * @param[out] n One of:
+         * - zero
+         * - more
+         */"""
+    )
+    assert parsed.description == (
+        "Three errors, after which it is called again:\n\n"
+        "- -EINTR: a signal interrupted the call\n"
+        "- -EAGAIN: no resources\n"
+        "1. first\n"
+        "-# second -EBUSY continues the item, not starting one"
+    )
+    assert parsed.params == {"n": "One of: - zero - more"}
+
+
 def test_tag_without_text_is_kept():
     parsed = doc.parse("/**\n * Old\n *\n * @deprecated\n * @return zero\n */")
     assert parsed.tags == {"deprecated": ""}

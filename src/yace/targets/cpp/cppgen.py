@@ -68,7 +68,7 @@ def comment(doc, indent: str = "", errors: str = "") -> List[str]:
     if doc.brief:
         lines.append(doc.brief)
     for para in [p for p in doc.description.split("\n\n") if p]:
-        lines += ["", para]
+        lines += [""] + para.splitlines()
     tags = [f"@{tag} {doc.tags[tag]}".rstrip() for tag in PROSE_TAGS if tag in doc.tags]
     tags += [f"@param {name} {text}" for name, text in doc.params.items()]
     tags += [f"@return {doc.returns}"] if doc.returns else []

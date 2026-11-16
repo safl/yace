@@ -15,6 +15,7 @@ import re
 from typing import Dict, List, Tuple
 
 from yace.ir import decls, types
+from yace.ir.doc import LIST_ITEM
 from yace.ir.masks import VALUE_KEY
 from yace.ir.model import Model
 from yace.ir.semantics import is_void_ptr
@@ -125,7 +126,11 @@ def doc_lines(doc, errors: str = "") -> List[str]:
     if doc.brief:
         lines.append(doc.brief)
     for text in [p for p in doc.description.split("\n\n") if p]:
-        lines += [""] + para([line.strip() for line in text.splitlines()])
+        found = [line.strip() for line in text.splitlines()]
+        if all(LIST_ITEM.match(line) for line in found):
+            lines += [""] + [f"  {line}" for line in found]  # a list, as Go reads it
+        else:
+            lines += [""] + para(found)
     for line in doc.prose():
         lines += [""] + para([line])
     if doc.params:
