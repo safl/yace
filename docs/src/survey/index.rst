@@ -423,8 +423,8 @@ C idioms catalog
 
 The survey, counted with yace 0.5.9, identified 12 categories of C idioms that
 affect FFI friendliness. How yace treats each is now set by the rules of the C
-subset, :ref:`sec-ir-rules`. They are listed below in order of prevalence, with
-a summary of how FFI-friendly each idiom is and how many libraries use it.
+subset, :ref:`sec-ir-rules`. Each category below says how FFI-friendly the
+idiom is and how many libraries use it.
 
 1. Enum types in type positions (53 libraries)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -463,8 +463,9 @@ friendliness is low.
 4. String constant macros (20 libraries)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``#define`` with a string literal value containing characters the parser's
-regex doesn't yet match (dots, hyphens, slashes)::
+The value of such a ``#define`` is a string literal. yace 0.5.9 matched the
+value with a regular expression that did not accept dots, hyphens or slashes,
+and skipped the define. yace now reads the value from its tokens::
 
     #define ZLIB_VERSION  "1.3.1"
 
@@ -492,8 +493,9 @@ parsed now. FFI friendliness does not apply to them, as they are metadata only.
 7. ``const`` typedef in elaborated types (9 libraries)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``const``-qualified typedef names in type positions confuse the elaborated type
-splitter::
+yace 0.5.9 split the spelling of an elaborated type into words, and a
+``const``-qualified typedef name in a type position did not fit that split.
+yace now resolves the elaborated type through Clang::
 
     void draw(const point_t *p);
 
