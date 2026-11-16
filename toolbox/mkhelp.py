@@ -29,7 +29,7 @@ def setup():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     prsr.add_argument(
-        "--repos", help="Path to root of the xNVMe repository", required=True
+        "--repos", help="Path to the directory holding the Makefile", required=True
     )
     prsr.add_argument(
         "--verbose",
@@ -41,7 +41,7 @@ def setup():
         "--no-colorize",
         action="store_true",
         default=False,
-        help="If set, colorizes the text-output",
+        help="If set, does not colorize the output",
         required=False,
     )
     args = prsr.parse_args()
@@ -112,8 +112,6 @@ def print_help(args):
 
 
 def main(args):
-    """Entry point"""
-
     try:
         print_help(gen_help(args))
     except FileNotFoundError:

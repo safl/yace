@@ -18,8 +18,6 @@ PATHS = [
 
 
 def main():
-    """Main entry-point"""
-
     for path in PATHS:
         with path.open("r") as file:
             lines = [line.rstrip() for line in file]
