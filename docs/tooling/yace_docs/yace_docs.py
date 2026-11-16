@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
-"""yace docs tooling -- build, serve, and clean documentation."""
+"""Build, serve and clean the documentation of yace, and generate its listings
+of the IR and of the rules of the C subset"""
 
 import shutil
 import subprocess
