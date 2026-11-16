@@ -12,13 +12,12 @@ Features
 :rust-bindgen:`rust-bindgen <>`, generate bindings from the C header of the
 library that they wrap.
 
-**yace** in turn does not use the library C header, instead it uses an
-:ref:`sec-ir`, and rather than consuming the C header, then it
-**produces** it!
-
-This is useful for systems libraries where header definitions are
-representations of hardware communication protocols, and C-structs provide
-memory accessors and decode payloads to/from devices.
+**yace** parses the C header into an :ref:`sec-ir`, which also records what C
+does not state, from the doc comments of the header, and generates every
+target from the IR, a C header among them. The IR records the size and
+alignment of every record and the offset of every field. The layout matters
+to a systems library whose records represent the commands and payloads that a
+device exchanges with the host.
 
 C is well suited to systems programming, and other languages are better suited
 to other tasks. A program in another language accesses a C library through a

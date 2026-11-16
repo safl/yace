@@ -58,11 +58,8 @@ for the C target a C compiler, ``cc`` or what ``$CC`` names.
 Dockerized Build
 ----------------
 
-The following command starts a Docker container, with the repository mounted
-at ``/tmp/yace``, to test the build of **yace** in::
+The devenv image has every toolchain that the checks of the targets use, and
+CI runs the tests in it. The following command starts a shell in it, with the
+repository at ``/yace``, see :ref:`sec-codebase-devenv`::
 
-  docker run \
-    -it \
-    --mount type=bind,source=$HOME/git/yace,target=/tmp/yace \
-    ghcr.io/xnvme/xnvme-deps-debian-bullseye:next \
-    bash
+  make devenv-shell

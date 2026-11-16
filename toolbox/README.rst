@@ -12,4 +12,4 @@ Among them are:
 
 * bump.py
 * mkhelp.py
-* pkgs/{.sh,.bat}
+* pkgs/{fedora,macos,ubuntu}.sh
