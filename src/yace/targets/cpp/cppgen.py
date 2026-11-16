@@ -101,7 +101,8 @@ put_hex(std::string &out, std::uintmax_t value)
 	out.append(buf, static_cast<std::size_t>(len));
 }
 
-/// 'value' as printf() prints it with "%g", by C's own, so they agree
+/// 'value' as printf() prints it with "%g", through C's snprintf(), so that the
+/// C and C++ printers agree
 inline void
 put_g(std::string &out, double value)
 {
@@ -321,9 +322,9 @@ class Renderer(object):
         ]
 
     def name(self, cname: str) -> str:
-        """The name in the namespace: without the prefix; one that would hide a
-        C name the generated code uses, its own struct's for a handle's class,
-        is suffixed"""
+        """The name in the namespace: without the prefix. A name that would hide
+        a C name the generated code uses is suffixed, as is a handle's class
+        whose name would be its own struct's"""
 
         name = strip(cname, self.prefix)
         other = name != cname and name in self.c_names or name in RESERVED
@@ -410,8 +411,8 @@ class Renderer(object):
 
     def pname(self, name: str) -> str:
         """A parameter's name, other than a keyword or a name the body uses; one
-        ending in '_' gets another, so no two parameters, and no member such as
-        ptr_, share a name"""
+        ending in '_' gets another '_' appended, so no two parameters, and no
+        member such as ptr_, share a name"""
 
         if name in KEYWORDS or name in self.reserved or name.endswith("_"):
             return f"{name}_"
@@ -742,8 +743,8 @@ class Renderer(object):
 
     def fn_name(self, call: Call) -> str:
         """The name of a function of the namespace, other than a C name the
-        generated code uses and than the classes it defines; an alias of a
-        record gives way to the function instead"""
+        generated code uses and than the classes it defines; where an alias of
+        a record would have the same name, render() emits no alias"""
 
         name = ident(call.name)
         enums = [e.name for e in self.model.entities if isinstance(e, decls.Enum)]
@@ -767,7 +768,8 @@ class Renderer(object):
         self, call: Call, arg: Arg, given: str, params, passed, ctx, ret
     ) -> List[str]:
         """Statements moving the callable of a callback the library keeps to the
-        heap: given once, the trampoline deletes it; else the handle keeps it"""
+        heap: for a callback of @lifetime once, the trampoline deletes it; else
+        the handle keeps it"""
 
         name = self.pname(arg.param)
         held_t, tramp, cb, made, kept = (
@@ -913,8 +915,8 @@ class Renderer(object):
         ]
         if self.keeps(record):
             # The handle is destroyed before its closures, which C may call
-            # until then; they stay for good where it is not destroyed, or
-            # destroying it fails
+            # until then; where the handle is not destroyed, or destroying it
+            # fails, the closures are leaked
             leak: List[str] = []
             if not destructor or destructor.errno:
                 test = (
@@ -1110,7 +1112,7 @@ class Renderer(object):
                     "}",
                     "",
                     f"/// Set the part of '{field.name}' that {name}() reads;",
-                    f"/// std::out_of_range when 'value' does not fit in {bits}",
+                    f"/// throws std::out_of_range when 'value' does not fit in {bits}",
                     "inline void",
                     f"set_{name}({raw} &obj, {typ} value)",
                     "{",
