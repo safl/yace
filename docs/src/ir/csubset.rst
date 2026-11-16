@@ -277,11 +277,20 @@ The rest is said in the Doxygen comment of the function:
   Every other pointer must not be.
 
 ``@len pointer count ...``
-  ``count`` is the number of elements ``pointer`` points to; in pairs.
+  ``count`` is the number of elements ``pointer`` points to; in pairs. An
+  ``[out]`` array may have a second pair, naming an ``[out]`` pointer to an
+  integer, to which the function writes how many elements it wrote. The
+  integer of the first pair is then the capacity, which the caller gives, and
+  the bindings return the array cut to the count written.
 
 ``@errno``
   The function returns a negative errno on failure, and zero or more on
-  success.
+  success. ``@errno partial`` says that the function writes its ``[out]``
+  parameters also when it fails, so that what it wrote is not lost: the error
+  of each binding carries what the call returns when it succeeds. The function
+  returns ``int``, since a count it returned would be lost to the errno, and
+  has an ``[out]`` parameter, and no ``[out]`` handle, since nobody owns a
+  handle from a failed call.
 
 ``@destroys name``
   The function releases the handle given as ``name``, its only parameter. An
@@ -321,6 +330,24 @@ For example::
   foo_open(const char *name, struct foo_handle **handle);
 
   /**
+   * Take the points that are ready, as many as fit
+   *
+   * @param handle The handle
+   * @param[out] points The points taken
+   * @param max The number of points that 'points' has room for
+   * @param[out] taken Set to the number of points taken, also on failure
+   *
+   * @return 0 on success, a negative errno on failure
+   *
+   * @len points max
+   * @len points taken
+   * @errno partial
+   */
+  int
+  foo_take(struct foo_handle *handle, struct foo_point *points, uint32_t max,
+           uint32_t *taken);
+
+  /**
    * Close a handle
    *
    * @param handle The handle to close, NULL is ignored
@@ -354,3 +381,8 @@ describes both, and yace cannot separate the two. Each binding therefore shows
 that text where it documents errors: under ``# Errors`` in Rust, ``Raises:`` in
 Python, ``@throws`` in C++, and ``Errors:`` in Zig and Go. The text starts with
 the name of the C function, as in ``foo_open() returns: 0 on success, ...``.
+With ``@errno partial``, a sentence follows that says where the error holds
+what the call wrote: ``partial`` of the ``OSError`` in Python, ``value`` of
+the ``Partial`` error in Rust and of the ``partial_error`` exception in C++,
+the values returned with the error in Go, and the trailing ``partial``
+parameter in Zig, whose errors carry no value.

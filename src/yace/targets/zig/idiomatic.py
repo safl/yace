@@ -130,6 +130,26 @@ class Renderer(object):
     def out_name(self, call: Call, param: str) -> str:
         return self.local(call, param, "out")
 
+    def partial_name(self, call: Call) -> str:
+        """The parameter a partial call writes what it wrote to when it fails"""
+
+        taken = {self.pname(a.param) for a in call.args}
+        name = "partial"
+        while name in taken:
+            name += "_"
+        return name
+
+    def value(self, call: Call):
+        """The type and expression of what 'call' returns when it succeeds"""
+
+        results = self.results(call)
+        if not results:
+            return "void", None
+        if len(results) == 1:
+            return results[0]
+        rtype = f"struct {{ {', '.join(t for t, _ in results)} }}"
+        return rtype, f".{{ {', '.join(e for _, e in results)} }}"
+
     def z(self, typ, param=False) -> str:
         return self.namer.ztype(typ, param)
 
@@ -240,6 +260,8 @@ class Renderer(object):
             return f"&{self.local(call, arg.param, 'trampoline')}.call"
         if arg.kind == "context":
             return f"@ptrCast(@constCast({self.local(call, arg.of, 'context')}))"
+        if arg.kind == "count":
+            return f"&{self.out_name(call, arg.param)}"
         if arg.kind == "out":
             out = next(o for o in call.outs if o.param == arg.param)
             return (
@@ -276,7 +298,12 @@ class Renderer(object):
         count = "ret" if call.returns == "count" else None
         for out in call.outs:
             name = self.pname(out.param)
-            if out.kind == "array":
+            if out.kind == "array" and out.count:
+                length = self.out_name(call, out.count)
+                found.append(
+                    (f"[]{self.elem(out.typ)}", f"{name}[0..@intCast({length})]")
+                )
+            elif out.kind == "array":
                 found.append(
                     (
                         f"[]{self.elem(out.typ)}",
@@ -332,14 +359,8 @@ class Renderer(object):
 
     def function(self, call: Call, indent: str) -> List[str]:
         func = self.idioms.decl(call.function)
-        results = self.results(call)
-        if not results:
-            rtype, rexpr = "void", None
-        elif len(results) == 1:
-            rtype, rexpr = results[0]
-        else:
-            rtype = f"struct {{ {', '.join(t for t, _ in results)} }}"
-            rexpr = f".{{ {', '.join(e for _, e in results)} }}"
+        rtype, rexpr = self.value(call)
+        value = rtype
         if call.errno:
             rtype = f"anyerror!{rtype}"
 
@@ -352,7 +373,10 @@ class Renderer(object):
                         f" @panic(\"'{other}' does not have the count '{arg.param}'\");"
                     )
         for arg in call.args:
-            if arg.kind == "out":
+            if arg.kind == "count":
+                made = self.out_name(call, arg.param)
+                body.append(f"var {made}: {self.z(arg.typ.to)} = 0;")
+            elif arg.kind == "out":
                 out = next(o for o in call.outs if o.param == arg.param)
                 made = self.out_name(call, arg.param)
                 if out.kind == "handle":
@@ -368,12 +392,25 @@ class Renderer(object):
         uses_ret = call.errno or call.returns != "nothing"
         raw = f"{zgen.ident(call.function)}({args})"
         body.append(f"const ret = {raw};" if uses_ret else f"{raw};")
-        if call.errno:
+        if call.partial:
+            body += [
+                "if (ret < 0) {",
+                f"    if ({self.partial_name(call)}) |p| p.* = {rexpr};",
+                "    return errnoError(@intCast(ret));",
+                "}",
+            ]
+        elif call.errno:
             body.append("if (ret < 0) return errnoError(@intCast(ret));")
         if rexpr is not None:
             body.append(f"return {rexpr};")
 
-        shown, errors = call_doc(call, func.doc, self.pname)
+        shown, errors = call_doc(
+            call,
+            func.doc,
+            self.pname,
+            f"On failure, it writes to `{self.partial_name(call)}`, when given, what"
+            " it returns when it succeeds, with what was written before it failed.",
+        )
         lines = [f"/// {line}".rstrip() for line in zgen.doc_lines(shown, errors)]
         lines += ["///", f"/// Calls `{call.function}`."]
         for arg in call.args:
@@ -387,7 +424,10 @@ class Renderer(object):
             context = self.local(call, arg.param, "context")
             lines += ["///", f"/// `{context}` must live until {until}."]
         name = self.fn_name(call)
-        lines.append(f"pub fn {name}({', '.join(self.params(call))}) {rtype} {{")
+        params = self.params(call)
+        if call.partial:
+            params.append(f"{self.partial_name(call)}: ?*{value}")
+        lines.append(f"pub fn {name}({', '.join(params)}) {rtype} {{")
         lines += [f"    {line}" for line in body]
         lines.append("}")
         return [f"{indent}{line}".rstrip() for line in lines]

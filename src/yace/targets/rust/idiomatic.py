@@ -65,6 +65,36 @@ STD = {
 }
 
 
+PARTIAL = [
+    "/// The error of a call that wrote its outputs before it failed",
+    "#[derive(Debug)]",
+    "pub struct Partial<T> {",
+    "    /// The error the call failed with",
+    "    pub error: io::Error,",
+    "    /// What the call returns when it succeeds, with what it wrote",
+    "    pub value: T,",
+    "}",
+    "",
+    "impl<T> std::fmt::Display for Partial<T> {",
+    "    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {",
+    "        self.error.fmt(f)",
+    "    }",
+    "}",
+    "",
+    "impl<T: std::fmt::Debug> std::error::Error for Partial<T> {",
+    "    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {",
+    "        Some(&self.error)",
+    "    }",
+    "}",
+    "",
+    "impl<T> From<Partial<T>> for io::Error {",
+    "    fn from(partial: Partial<T>) -> io::Error {",
+    "        partial.error",
+    "    }",
+    "}",
+]
+
+
 class Renderer(object):
     def __init__(self, idioms: Idioms, namer: rgen.Namer):
         self.idioms = idioms
@@ -283,6 +313,8 @@ class Renderer(object):
             return f"{self.size(call, arg.of)} as {self.raw(typ)}"
         if arg.kind == "capacity":
             return name
+        if arg.kind == "count":
+            return f"&mut {name}"
         if arg.kind == "out":
             out = next(o for o in call.outs if o.param == arg.param)
             if out.kind == "array" and self.elem(out.typ) == "u8":
@@ -506,7 +538,10 @@ class Renderer(object):
         else:
             rtype = f"({', '.join(t for t, _ in results)})"
             rexpr = f"({', '.join(e for _, e in results)})"
-        if call.errno:
+        value = rexpr
+        if call.partial:
+            rtype, rexpr = f"Result<{rtype}, Partial<{rtype}>>", f"Ok({rexpr})"
+        elif call.errno:
             rtype, rexpr = f"io::Result<{rtype}>", f"Ok({rexpr})"
         uses_ret = call.errno or call.returns != "nothing"
 
@@ -527,7 +562,9 @@ class Renderer(object):
                     )
         for arg in call.args:
             name = self.pname(arg.param)
-            if arg.kind == "out":
+            if arg.kind == "count":
+                body.append(f"let mut {name}: {self.raw(arg.typ.to)} = 0;")
+            elif arg.kind == "out":
                 out = next(o for o in call.outs if o.param == arg.param)
                 if out.kind == "array":
                     elem = self.elem(out.typ)
@@ -572,15 +609,15 @@ class Renderer(object):
         args = ", ".join(self.param_expr(call, a) for a in call.args)
         raw_call = f"unsafe {{ super::{rgen.ident(call.function)}({args}) }};"
         body.append(f"let ret = {raw_call}" if uses_ret else raw_call)
+        failed: List[str] = []  # what an error releases, and how it returns
         if call.errno:
-            body += ["if ret < 0 {"]
             for arg in call.args:
                 if arg.kind == "callback" and self.callback_typedef(arg.typ) is None:
                     continue
                 if arg.kind == "callback" and arg.lifetime == "once":
                     ctx = self.local(call, arg.param, "ctx")
                     once = self.alias(self.callback_typedef(arg.typ), "Once")
-                    body += [
+                    failed += [
                         f"    if !{ctx}.is_null() {{",
                         f"        let f = {ctx} as *mut Box<{once}>;",
                         "        std::mem::drop(unsafe { Box::from_raw(f) });",
@@ -588,19 +625,22 @@ class Renderer(object):
                     ]
                 elif arg.kind == "callback" and arg.lifetime == "handle":
                     kept = self.local(call, arg.param, "kept")
-                    body.append(f"    self.keep.truncate({kept});")
-            body += [
-                "    return Err(io::Error::from_raw_os_error(-(ret as i32)));",
-                "}",
-            ]
+                    failed.append(f"    self.keep.truncate({kept});")
+            error = "io::Error::from_raw_os_error(-(ret as i32))"
+            if call.partial:
+                error = f"Partial {{ error: {error}, value: {value} }}"
+            failed = ["if ret < 0 {"] + failed + [f"    return Err({error});", "}"]
+        if not call.partial:
+            body += failed
         for out in call.outs:
             name = self.pname(out.param)
             if out.kind == "array":
-                count = (
-                    "ret as usize"
-                    if call.returns == "count"
-                    else f"{self.pname(out.capacity)} as usize"
-                )
+                if out.count:
+                    count = f"{self.pname(out.count)} as usize"
+                elif call.returns == "count":
+                    count = "ret as usize"
+                else:
+                    count = f"{self.pname(out.capacity)} as usize"
                 body.append(f"{name}.truncate({count});")
             elif out.kind == "handle" and not call.errno:
                 struct = self.struct_name(out.typ.to.name)
@@ -618,6 +658,8 @@ class Renderer(object):
                 if self.keeps(out.typ.to.name):
                     body.append("    keep: Vec::new(),")
                 body.append("};")
+        if call.partial:
+            body += failed
         if call.kind == "destructor" and self.keeps(call.handle):
             body.append("std::mem::drop(unsafe { std::ptr::read(&self.keep) });")
         if call.kind == "destructor":
@@ -626,7 +668,13 @@ class Renderer(object):
         if rexpr != "()":
             body.append(rexpr)
 
-        shown, errors = call_doc(call, func.doc, self.pname)
+        shown, errors = call_doc(
+            call,
+            func.doc,
+            self.pname,
+            "The error is a [`Partial`], whose `value` is what the call returns"
+            " when it succeeds, with what was written before it failed.",
+        )
         calls = f"Calls [`super::{rgen.ident(call.function)}`]."
         lines = [
             f"/// {line}".rstrip() for line in rgen.doc_lines(shown, errors, [calls])
@@ -750,6 +798,8 @@ class Renderer(object):
         for call in self.idioms.functions():
             if self.usable(call):
                 lines += [""] + self.function(call, "    ")
+        if any(c.partial and self.usable(c) for c in self.idioms.calls):
+            lines += [""] + [f"    {ln}".rstrip() for ln in PARTIAL]
         lines.append("}")
         # The types of the crate, not its constants, which would be read as
         # patterns where a parameter or local is named as one
