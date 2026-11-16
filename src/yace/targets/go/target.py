@@ -279,8 +279,9 @@ class Go(Target):
         cflags = " ".join(f"-I{path.resolve()}" for path in self.include)
         if cflags:
             env["CGO_CFLAGS"] = f"{os.environ.get('CGO_CFLAGS', '-g -O2')} {cflags}"
-        # The module is named as the prefix, which Go would also find in std;
-        # listed in std's own module, as the module of the package is ambiguous
+        # The module is named as the prefix, which may also name a package of
+        # Go's standard library; std is listed in GOROOT/src, its own module,
+        # as in the module of the package such a name is ambiguous
         goroot = subprocess.run(
             [go, "env", "GOROOT"], capture_output=True, text=True, env=env
         ).stdout.strip()
