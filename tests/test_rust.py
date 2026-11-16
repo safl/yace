@@ -32,8 +32,9 @@ def json_lines(text):
 
 
 def run_with_crate(tmp_path, main: str, env=None, user="user", fails=False) -> str:
-    """Build and run 'main' against the crate generated into 'tmp_path', as the
-    package 'user'; its output, or, where it 'fails' to, the errors"""
+    """Build and run 'main' as the package 'user' against the crate generated
+    into 'tmp_path', and return its standard output. With 'fails', assert that
+    the build or the run fails, and return the standard error instead."""
 
     project = tmp_path / user
     (project / "src").mkdir(parents=True)
@@ -119,8 +120,8 @@ def test_the_crate_builds_without_warnings(parse, tmp_path, header):
 def test_the_meta_names_the_crate_and_another_crate_includes_the_bindings(
     parser, tmp_path
 ):
-    """As xNVMe names its crate 'xnvme-sys', and as a crate generating the
-    bindings in its build script includes them"""
+    """xNVMe names its crate 'xnvme-sys' in the meta, and a crate that generates
+    the bindings in its build script includes bindings.rs with include!()."""
 
     header = tmp_path / "api.h"
     header.write_text(EDGES)
@@ -292,7 +293,8 @@ def doc(*lines):
 
 
 def misindented_docs(source: str) -> list:
-    """The doc comment lines indented otherwise than what they document"""
+    """Return the doc comment lines whose indentation differs from that of the
+    line they document."""
 
     lines = source.splitlines()
     found = []
@@ -480,7 +482,8 @@ int api_use(int x, struct api_x *p) { return p ? x : -1; }
 """
 
 
-# Writes up to three elements, then fails with the errno 'fail', unless 0
+# api_reap writes at most three elements and returns -fail, so it succeeds only
+# when 'fail' is 0
 REAP = (
     "#include <stdint.h>\n"
     + doc(
@@ -672,7 +675,8 @@ SHARED = (
 )
 
 
-# Parameters named as the locals the layers derive from the name of 'cb'
+# Parameters named as the locals that the idiomatic layers derive from the
+# parameter name 'cb'
 LOCALS = (
     "int cb_cb, int cb_ctx, int cb_c, int cb_key, int cb_kept, int cb_ref,"
     " int cb_tramp, int cb_t, int cb_fn_t, int cb_held, int cb_trampoline,"
@@ -740,7 +744,8 @@ size_t api_c(const int *api, size_t n) { (void)api; return n; }
 """
 )
 
-# Parameters named as what a body uses unqualified, or as each other renamed
+# Parameters named as identifiers that a generated function body uses
+# unqualified, and parameters that, once renamed, would take the name of another
 HIDDEN = (
     "#include <stddef.h>\n#include <stdio.h>\nstruct api_dev;\nstruct api_cb_out;\n"
     "typedef int (*api_cb)(void *arg, int v);\ntypedef unsigned api_u32;\n"
@@ -913,7 +918,8 @@ def test_the_crate_builds_with_parameters_named_as_what_the_body_uses(parse, tmp
     assert process(model, ["rust"], tmp_path) == []
 
     lib = (tmp_path / "rust" / "bindings.rs").read_text()
-    assert "pub fn msg(&mut self) -> *mut ApiMsg {" in lib  # not a copy
+    # api_msg ends in a flexible array, so msg() returns the pointer, not a copy
+    assert "pub fn msg(&mut self) -> *mut ApiMsg {" in lib
 
 
 def test_the_crate_builds_with_parameters_named_as_locals_of_the_layer(parse, tmp_path):
