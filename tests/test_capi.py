@@ -90,7 +90,7 @@ def test_include_directories_reach_the_check(parse, tmp_path):
 
 
 @needs_cc
-def test_pointer_to_external_function_type_prints(parse, tmp_path):
+def test_a_pointer_to_a_function_type_of_another_header_prints(parse, tmp_path):
     (tmp_path / "ext.h").write_text("typedef void ext_fn(void *ctx);\n")
     model, diagnostics = parse('#include "ext.h"\nstruct s { ext_fn *init; };\n')
 
@@ -153,7 +153,7 @@ def test_strings_with_trigraphs_keep_their_value(parse, tmp_path):
 
 
 @needs_cc
-def test_the_header_is_cxx_too(parse, tmp_path):
+def test_the_header_compiles_as_cxx(parse, tmp_path):
     model, _ = parse(
         "/**\n * Ok\n * @param class C\n */\nint ok(int class);\n"
         "typedef int (*api_cb)(void *this, int new);\n"
@@ -169,7 +169,7 @@ def test_the_header_is_cxx_too(parse, tmp_path):
     assert proc.returncode == 0, proc.stderr
 
 
-def test_header_declares_everything(parser, tmp_path):
+def test_the_header_declares_everything(parser, tmp_path):
     model, _ = parser.parse(HEADERS / "valid.h")
     header = emit(model, tmp_path).emit(model)[0].read_text()
 
@@ -206,13 +206,13 @@ def test_string_defines_keep_their_value(parse, tmp_path):
     assert run.stdout == ESCAPED_VALUE
 
 
-def test_the_header_generated_is_in_the_subset(parser, tmp_path):
+def test_the_generated_header_is_in_the_subset(parser, tmp_path):
     model, _ = parser.parse(HEADERS / "valid.h")
     emit(model, tmp_path)
 
-    # The pretty-printers take the FILE of stdio.h, which the subset does not
-    # define. They also have the names of the printers that yace generates, so
-    # yace skips them when it reads its own C API, and generates them again.
+    # The printers take a FILE of stdio.h, which the subset does not define.
+    # The printers also have the names of the printers that yace generates, so
+    # yace skips them when it reads its own C API and generates them again.
     _, diagnostics = parser.parse(tmp_path / "capi" / "libvalid.h")
     allowed = ("external-type", "printer-name")
     assert [d.message for d in diagnostics if d.rule not in allowed] == []
@@ -350,7 +350,7 @@ def test_without_the_headers_the_signatures_are_said_not_checked(
 
 
 @needs_cc
-def test_an_ir_of_no_headers_is_said_not_checked(parse, tmp_path, caplog):
+def test_an_ir_recording_no_headers_is_said_not_checked(parse, tmp_path, caplog):
     model, _ = parse(SIGNED)
     model.meta.headers = []
     assert process(model, ["capi"], tmp_path / "out", include=[tmp_path]) == []
@@ -358,9 +358,9 @@ def test_an_ir_of_no_headers_is_said_not_checked(parse, tmp_path, caplog):
     assert "the signatures are not checked: the IR records no headers" in caplog.text
 
 
-# A record with a field of every kind that the printers print, a record of
-# bit-fields, signed ones too, and a packed record holding both at offsets not
-# aligned for them
+# KINDS declares a record with a field of every kind that the printers print,
+# a record of signed and unsigned bit-fields, and a packed record that holds
+# api_in and the record of bit-fields at offsets not aligned for them
 KINDS = (
     "#include <stdbool.h>\n"
     "#include <stddef.h>\n"
@@ -567,8 +567,9 @@ def test_the_printers_print_the_value_of_every_kind_of_field(parse, tmp_path):
     ]
 
 
-# A header that uses bool without including stdbool.h, as xNVMe's do; the parser
-# includes it ahead of the headers, and so must lib<prefix>_pp.h
+# OWN_HEADER uses bool without including stdbool.h, as the xNVMe headers do.
+# The parser includes stdbool.h ahead of the headers, so lib<prefix>_pp.h must
+# include it too.
 OWN_HEADER = (
     "/** S */\nstruct api_s {\n\tint v; ///< V\n\tbool on; ///< On\n};\n"
     "/** K */\nenum api_k {\n\tAPI_K_A = 0, ///< A\n};\n"
@@ -590,14 +591,15 @@ def test_capi_pp_declares_the_printers_over_the_apis_own_headers(parse, tmp_path
     assert "api_k_str(int value);" in header
     assert "struct api_s {" not in header
 
-    # The printers are the C target's, over the other header
+    # capi_pp emits the printers of capi, with libapi_pp.h in place of libapi.h
     capi = (out / "capi" / "api_pp.c").read_text()
     pp = (out / "capi_pp" / "api_pp.c").read_text()
     assert pp == capi.replace("#include <libapi.h>", "#include <libapi_pp.h>")
 
 
-# Of a record only in an array, yace_pp_nest() is called with the NULL key of an
-# element alone, and gcc at -O2 sees it reach a '%s' of the YAML branch
+# api_a is used only as an array element, so every call of yace_pp_nest() for
+# api_a passes the NULL key of an element, and gcc at -O2 sees that NULL reach a
+# '%s' of the YAML branch
 ELEMENTS = (
     "/** A */\nstruct api_a {\n\tint x; ///< X\n};\n"
     "/** B */\nstruct api_b {\n\tstruct api_a e[2]; ///< E\n};\n"
@@ -605,7 +607,7 @@ ELEMENTS = (
 
 
 @needs_cc
-def test_a_record_only_in_an_array_builds_optimized(parse, tmp_path):
+def test_a_record_used_only_in_an_array_builds_at_o2(parse, tmp_path):
     model, _ = parse(ELEMENTS)
     out = tmp_path / "out"
     assert process(model, ["capi", "capi_pp"], out, include=[tmp_path]) == []
@@ -655,15 +657,16 @@ def test_capi_pp_header_form_defines_the_printers_static_inline(parse, tmp_path)
     assert "static inline const char *\napi_k_str(int value)\n{" in header
     assert "#ifndef YACE_PP_HELPERS\n#define YACE_PP_HELPERS\n" in header
 
-    # The printers print as those of the library form
+    # The header form prints what the library form prints
     for fmt in ("yaml", "json"):
         printed = (form / "capi_pp" / f"check.{fmt}").read_text()
         assert printed == (out / "capi_pp" / f"check.{fmt}").read_text()
 
 
 def header_form_of(parse, tmp_path, name: str):
-    """The header form of the printers of a record '<name>_s', in a run of its
-    own, with the prefix <name>; returns the directory of the printer header"""
+    """Emit the header form of the printers of a record '<name>_s', in a run
+    of its own with the prefix '<name>', and return the directory of the
+    printer header"""
 
     text = f"/** S */\nstruct {name}_s {{\n\tint v; ///< V\n\tchar t[4]; ///< T\n}};\n"
     model, _ = parse(text, f"{name}.h")
@@ -675,8 +678,9 @@ def header_form_of(parse, tmp_path, name: str):
 
 
 def compile_with_headers(tmp_path, dirs, body: str):
-    """Compile a program of 'body' that includes the printer headers of runs
-    'a' and 'b'; returns the program and the functions defined in it"""
+    """Compile a program whose main() is 'body' and which includes the printer
+    headers of the runs 'a' and 'b'. Return the program and the names of the
+    functions it defines, other than those starting with an underscore."""
 
     source = tmp_path / "main.c"
     source.write_text(
