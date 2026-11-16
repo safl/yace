@@ -67,7 +67,9 @@ def docstring(doc, indent: str = "", errors: str = "") -> str:
     parts = []
     if doc.brief:
         parts.append(safe(doc.brief))
-    parts += [safe(p) for p in doc.description.split("\n\n") if p]
+    parts += [
+        safe(p).replace("\n", f"\n{indent}") for p in doc.description.split("\n\n") if p
+    ]
     parts += [safe(line) for line in doc.prose()]
     if doc.params:
         lines = ["Args:"]

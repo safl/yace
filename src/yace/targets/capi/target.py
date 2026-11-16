@@ -76,11 +76,21 @@ def docblock(doc, indent: str = "") -> str:
         )
         return [f" * {line}" for line in lines] or [f" * {prefix}".rstrip()]
 
+    def item(text):
+        """A line of a paragraph, its continuation indented as Doxygen reads
+        the continuation of an item of a list"""
+
+        lines = textwrap.wrap(comment(text), width, subsequent_indent="  ")
+        return [f" * {line}" for line in lines]
+
     body = []
     if doc.brief:
         body += para(doc.brief)
     for paragraph in [p for p in doc.description.split("\n\n") if p]:
-        body += [" *"] + para(paragraph)
+        lines = paragraph.splitlines()
+        body += [" *"] + (para(paragraph) if len(lines) == 1 else [])
+        if len(lines) > 1:
+            body += [line for text in lines for line in item(text)]
     tags = [
         (
             f"param[{doc.directions[name]}]" if name in doc.directions else "param",

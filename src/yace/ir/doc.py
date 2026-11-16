@@ -16,6 +16,10 @@ TAG = re.compile(r"^[@\\](\w+)(?:\[([^\]]*)\])?\s*(.*)$")
 
 NAMED_TAGS = ("param", "tparam", "retval")  # tags whose first word is a name
 
+# The start of an item of a Doxygen list, which starts a line of its own in the
+# description; the text of a tag is one line, as the bindings show it in one
+LIST_ITEM = re.compile(r"^(?:[-*+]|-#|\d+\.)\s")
+
 Direction = Literal["in", "out", "inout"]
 
 DIRECTIONS: Dict[str, Direction] = {
@@ -35,7 +39,9 @@ PROSE_TAGS = {"note": "Note", "see": "See also", "deprecated": "Deprecated"}
 
 class Doc(BaseModel):
     """
-    The brief, the description after it, the parameters by name, the direction
+    The brief, the description after it, as paragraphs separated by a blank
+    line, with each item of a list on a line of its own, the parameters by
+    name, the direction
     of those documented with one, as ``@param[out]``, what is returned, and any
     other tag, by tag name, with its text
     """
@@ -89,6 +95,13 @@ def joint(tag: str, text: str) -> str:
     return " " if text.endswith((".", "!", "?", ":", ";")) else ". "
 
 
+def joined(line: str) -> str:
+    """What joins 'line' to the text before it: a newline, where it starts an
+    item of a list, else a space, as the line continues a sentence"""
+
+    return "\n" if LIST_ITEM.match(line.strip()) else " "
+
+
 def parse(raw) -> Doc:
     """Parse the raw comment text, as libclang gives it, into a :class:`.Doc`"""
 
@@ -121,7 +134,7 @@ def parse(raw) -> Doc:
                 paragraphs.append("")
         elif line.strip():
             if paragraphs and paragraphs[-1]:
-                paragraphs[-1] += " " + line.strip()
+                paragraphs[-1] += joined(line) + line.strip()
             else:
                 paragraphs.append(line.strip())
         elif paragraphs and paragraphs[-1]:
