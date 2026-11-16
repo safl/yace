@@ -65,6 +65,14 @@ STD = {
 }
 
 
+# The lifetime of the buffers the caller gives for [out] arrays, and of the part
+# of each that the function returns
+BUFFER = "'buf"
+
+# The local of what a partial call returns, whether it fails or not; no
+# parameter is named so, as pname() renames one ending in '_'
+PARTIAL_VALUE = "value_"
+
 PARTIAL = [
     "/// The error of a call that wrote its outputs before it failed",
     "#[derive(Debug)]",
@@ -277,8 +285,8 @@ class Renderer(object):
             if arg.lifetime == "handle":
                 return opt(f"Box<{self.alias(name, 'Fn')}<'static>>")
             return opt(f"&mut {self.alias(name, 'Fn')}")
-        if arg.kind == "capacity":
-            return self.raw(typ, True)
+        if arg.kind == "out" and call.out(arg.param).kind == "array":
+            return f"&{BUFFER} mut [{self.elem(call.out(arg.param).typ)}]"
         if arg.kind != "value":
             return None
         handle = is_opaque_ptr(typ, self.idioms.handles)
@@ -312,7 +320,7 @@ class Renderer(object):
         if arg.kind == "length":
             return f"{self.size(call, arg.of)} as {self.raw(typ)}"
         if arg.kind == "capacity":
-            return name
+            return f"{self.size(call, arg.of)} as {self.raw(typ)}"
         if arg.kind == "count":
             return f"&mut {name}"
         if arg.kind == "out":
@@ -341,6 +349,30 @@ class Renderer(object):
             return f"{name}.map_or(std::ptr::null{mut}(), |r| r as {ptr})"
         return name
 
+    def length(self, call: Call, out) -> str:
+        """The local of the number of elements of the [out] array 'out' that the
+        function wrote, at most the length of the buffer"""
+
+        return self.local(call, out.param, "len")
+
+    def lengths(self, call: Call) -> List[str]:
+        """The statements setting each local of length(), after the call"""
+
+        found = []
+        count = "ret as usize" if call.returns == "count" else None
+        for out in call.outs:
+            if out.kind != "array":
+                continue
+            written = f"{self.pname(out.count)} as usize" if out.count else count
+            if not out.count:
+                count = None
+            if written:
+                name = self.pname(out.param)
+                found.append(
+                    f"let {self.length(call, out)} = ({written}).min({name}.len());"
+                )
+        return found
+
     def results(self, call: Call):
         """The (type, expression) of each value the function returns"""
 
@@ -349,8 +381,14 @@ class Renderer(object):
         for out in call.outs:
             name = self.pname(out.param)
             if out.kind == "array":
-                found.append((f"Vec<{self.elem(out.typ)}>", name))
-                count = None
+                typ = f"&{BUFFER} mut [{self.elem(out.typ)}]"
+                written = out.count or count
+                if not out.count:
+                    count = None  # the count is that of the array, not returned too
+                if written:
+                    found.append((typ, f"&mut {name}[..{self.length(call, out)}]"))
+                else:
+                    found.append((typ, name))
             elif out.kind == "handle":
                 struct = self.struct_name(out.typ.to.name)
                 found.append((struct if call.errno else f"Option<{struct}>", name))
@@ -390,7 +428,9 @@ class Renderer(object):
 
         arg = next(a for a in call.args if a.param == param)
         name = self.pname(param)
-        return f"{name}.map_or(0, |s| s.len())" if arg.nullable else f"{name}.len()"
+        if arg.nullable and arg.kind != "out":  # a buffer is always given
+            return f"{name}.map_or(0, |s| s.len())"
+        return f"{name}.len()"
 
     def elem(self, typ) -> str:
         """The Rust type of an element of an array, bytes for void"""
@@ -477,7 +517,7 @@ class Renderer(object):
         return sum(
             "&" in (self.param_type(call, a) or "")
             for a in call.args
-            if a.kind != "self"
+            if a.kind not in ("self", "out")
         )
 
     def unbound_string(self, call: Call) -> bool:
@@ -548,14 +588,8 @@ class Renderer(object):
         body: List[str] = []
         for arg in call.args:
             if arg.kind in ("length", "capacity"):
-                count = (
-                    self.size(call, arg.of)
-                    if arg.kind == "length"
-                    else f"{self.pname(arg.param)} as usize"
-                )
+                count = self.size(call, arg.of)
                 for other in arg.shared:
-                    if next(a for a in call.args if a.param == other).kind == "out":
-                        continue
                     body.append(
                         f"assert_eq!({self.size(call, other)}, {count},"
                         f" \"'{other}' does not have the count '{arg.param}'\");"
@@ -567,14 +601,7 @@ class Renderer(object):
             elif arg.kind == "out":
                 out = next(o for o in call.outs if o.param == arg.param)
                 if out.kind == "array":
-                    elem = self.elem(out.typ)
-                    cap = self.pname(out.capacity)
-                    if isinstance(out.typ, types.Pointer):
-                        mut = "" if getattr(out.typ.to, "const", False) else "_mut"
-                        zero = f"std::ptr::null{mut}()"
-                    else:
-                        zero = f"<{elem}>::default()"
-                    body.append(f"let mut {name} = vec![{zero}; {cap} as usize];")
+                    continue  # the caller's buffer
                 elif out.kind == "handle":
                     body.append(f"let mut {name} = std::ptr::null_mut();")
                 elif isinstance(out.typ, types.Pointer):
@@ -628,21 +655,14 @@ class Renderer(object):
                     failed.append(f"    self.keep.truncate({kept});")
             error = "io::Error::from_raw_os_error(-(ret as i32))"
             if call.partial:
-                error = f"Partial {{ error: {error}, value: {value} }}"
+                error = f"Partial {{ error: {error}, value: {PARTIAL_VALUE} }}"
             failed = ["if ret < 0 {"] + failed + [f"    return Err({error});", "}"]
+        body += self.lengths(call)
         if not call.partial:
             body += failed
         for out in call.outs:
             name = self.pname(out.param)
-            if out.kind == "array":
-                if out.count:
-                    count = f"{self.pname(out.count)} as usize"
-                elif call.returns == "count":
-                    count = "ret as usize"
-                else:
-                    count = f"{self.pname(out.capacity)} as usize"
-                body.append(f"{name}.truncate({count});")
-            elif out.kind == "handle" and not call.errno:
+            if out.kind == "handle" and not call.errno:
                 struct = self.struct_name(out.typ.to.name)
                 keep = ", keep: Vec::new()" if self.keeps(out.typ.to.name) else ""
                 made = f"{struct} {{ ptr{keep} }}"
@@ -659,7 +679,9 @@ class Renderer(object):
                     body.append("    keep: Vec::new(),")
                 body.append("};")
         if call.partial:
+            body.append(f"let {PARTIAL_VALUE} = {value};")
             body += failed
+            rexpr = f"Ok({PARTIAL_VALUE})"
         if call.kind == "destructor" and self.keeps(call.handle):
             body.append("std::mem::drop(unsafe { std::ptr::read(&self.keep) });")
         if call.kind == "destructor":
@@ -674,6 +696,7 @@ class Renderer(object):
             self.pname,
             "The error is a [`Partial`], whose `value` is what the call returns"
             " when it succeeds, with what was written before it failed.",
+            buffers=True,
         )
         calls = f"Calls [`super::{rgen.ident(call.function)}`]."
         lines = [
@@ -697,7 +720,8 @@ class Renderer(object):
                 ]
         unsafe = "unsafe " if self.is_unsafe(call) else ""
         arrow = "" if rtype == "()" else f" -> {rtype}"
-        lines.append(f"pub {unsafe}fn {name}({', '.join(params)}){arrow} {{")
+        generic = f"<{BUFFER}>" if any(o.kind == "array" for o in call.outs) else ""
+        lines.append(f"pub {unsafe}fn {name}{generic}({', '.join(params)}){arrow} {{")
         lines += [f"    {line}" for line in body]
         lines.append("}")
         return [f"{indent}{line}".rstrip() for line in lines]

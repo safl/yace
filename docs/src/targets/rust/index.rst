@@ -114,11 +114,14 @@ Errors
 
 Results
   What a function writes through an ``[out]`` pointer is returned rather than
-  passed; an ``[out]`` array as a ``Vec`` of as many elements as the function
-  says it wrote. A returned string is a ``&CStr`` borrowed from the handle, from
-  the one reference given, or ``'static`` when none is; with more than one, the
-  function is ``unsafe``. A returned pointer to a record is a copy of it, an
-  ``Option`` where ``@nullable``.
+  passed. An ``[out]`` array is written to a slice the caller gives, whose
+  length is the capacity, and the part written is returned, as a slice of as
+  many elements as the function says it wrote; nothing is allocated, as with
+  ``std::io::Read::read()``. A returned string is a ``&CStr`` borrowed from the
+  handle, from the one reference given, or ``'static`` when none is; with more
+  than one, the function is ``unsafe``. A buffer given for an ``[out]`` array
+  is not counted as a reference. A returned pointer to a record is a copy of
+  it, an ``Option`` where ``@nullable``.
 
 Arguments
   An array read through a pointer is a slice; slices sharing one ``@len``

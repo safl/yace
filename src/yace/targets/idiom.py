@@ -15,7 +15,9 @@ From the semantics of the C subset, see :py:mod:`yace.ir.semantics`:
 * What a function writes through an ``[out]`` pointer is returned, not passed:
   a record, a value, a handle, or the elements of an array, as many as the
   function says it wrote: its ``[out]`` count, or else the count it returns,
-  or else the capacity.
+  or else the capacity. Python allocates the array, of the capacity given;
+  Rust, C++, Go and Zig take it from the caller, as a buffer whose length is
+  the capacity, and return the part written.
 * An array read through a pointer is given as a sequence, its ``@len`` count
   then known from the sequence, and not given.
 * A callback is given as a closure, kept for as long as its ``@lifetime`` says;
@@ -116,10 +118,22 @@ class Call(BaseModel):
     nullable: bool = False  # whether what is returned may be nothing
     ret: types.Type
 
-    def given(self) -> List[Arg]:
-        """The arguments the caller gives; the binding passes or returns the rest"""
+    def given(self, buffers: bool = False) -> List[Arg]:
+        """The arguments the caller gives; the binding passes or returns the rest.
+        With 'buffers', as Rust, C++, Go and Zig take them, the caller gives
+        each [out] array, as a buffer, and its capacity is the buffer's length"""
 
-        return [a for a in self.args if a.kind in GIVEN]
+        return [
+            a
+            for a in self.args
+            if (a.kind in GIVEN and not (buffers and a.kind == "capacity"))
+            or (buffers and a.kind == "out" and self.out(a.param).kind == "array")
+        ]
+
+    def out(self, param: str) -> "Out":
+        """What the function writes through the [out] parameter 'param'"""
+
+        return next(o for o in self.outs if o.param == param)
 
 
 # The kinds of argument the caller gives
@@ -127,17 +141,22 @@ GIVEN = ("value", "string", "sequence", "callback", "capacity")
 
 
 def call_doc(
-    call: Call, doc: Doc, pname: Callable[[str], str], partial: str = ""
+    call: Call,
+    doc: Doc,
+    pname: Callable[[str], str],
+    partial: str = "",
+    buffers: bool = False,
 ) -> Tuple[Doc, str]:
     """The doc of 'call', and what it fails with: the parameters given, by their
     names in the binding, and with @errno, what the C function says it returns,
     as how it fails, since the binding returns the value and fails with the
     error; the text says both, and cannot be split. With @errno partial, the
-    sentence 'partial' says where the error holds what the call wrote"""
+    sentence 'partial' says where the error holds what the call wrote. With
+    'buffers', the caller gives the [out] arrays, see Call.given()"""
 
     params = {
         pname(a.param): doc.params[a.param]
-        for a in call.given()
+        for a in call.given(buffers)
         if a.param in doc.params
     }
     if not call.errno:

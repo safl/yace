@@ -501,6 +501,7 @@ class Renderer(object):
             func.doc,
             lambda p: pnames[p],
             "With the error, it returns what was written before it failed.",
+            buffers=True,
         )
         lines = doc(doc_lines(shown, errors), f"{name} calls {call.function}.")
         for arg in call.args:

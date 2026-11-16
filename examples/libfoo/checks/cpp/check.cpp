@@ -177,7 +177,8 @@ main(int argc, char **argv)
 	std::int64_t add_many = static_cast<std::int64_t>(handle.point_add_many(points));
 	std::int64_t count_after = static_cast<std::int64_t>(handle.point_count());
 	std::int64_t watched_after = watched, watched_x_after = watched_x;
-	auto copied = handle.point_copy(4);
+	std::vector<::foo_point> buffer(4);
+	auto copied = handle.point_copy(buffer);
 	std::int64_t copied_x = 0;
 	for (const auto &p : copied) {
 		copied_x += p.x;

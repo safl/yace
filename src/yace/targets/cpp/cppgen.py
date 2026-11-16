@@ -363,16 +363,19 @@ class Renderer(object):
             return typ.to
         return None
 
-    def param_type(self, arg: Arg) -> Optional[str]:
+    def param_type(self, arg: Arg, call: Optional[Call] = None) -> Optional[str]:
+        """The C++ type of a parameter the caller gives, None when hidden; an
+        [out] array of 'call' is a buffer the caller gives, as a std::span"""
+
         typ = arg.typ
+        if arg.kind == "out" and call and call.out(arg.param).kind == "array":
+            return f"std::span<{self.elem(call.out(arg.param).typ)}>"
         if arg.kind == "string":
             return "const char *" if arg.nullable else "const std::string &"
         if arg.kind == "sequence":
             return f"std::span<{self.elem(typ.to)}>"
         if arg.kind == "callback":
             return "F &&"
-        if arg.kind == "capacity":
-            return self.c(typ)
         if arg.kind != "value":
             return None
         handle = is_opaque_ptr(typ, self.idioms.handles)
@@ -466,12 +469,14 @@ class Renderer(object):
             return f"{name}.data()"
         if arg.kind == "length":
             return f"{self.pname(arg.of)}.size()"
+        if arg.kind == "capacity":
+            return f"static_cast<{self.c(arg.typ)}>({self.pname(arg.of)}.size())"
         if arg.kind == "count":
             return f"&{self.local(call, arg.param, 'out')}"
         if arg.kind == "out":
             out = next(o for o in call.outs if o.param == arg.param)
             made = self.local(call, arg.param, "out")
-            return f"{made}.data()" if out.kind == "array" else f"&{made}"
+            return f"{name}.data()" if out.kind == "array" else f"&{made}"
         if arg.kind == "callback":
             return self.local(call, arg.param, "cb")
         if arg.kind == "context":
@@ -494,8 +499,20 @@ class Renderer(object):
         for out in call.outs:
             name = self.local(call, out.param, "out")  # the parameter may name a type
             if out.kind == "array":
-                found.append((f"std::vector<{self.elem(out.typ)}>", name))
-                count = None
+                buffer = self.pname(out.param)
+                written = out.count or count
+                if not out.count:
+                    count = None  # the count is that of the array, not returned too
+                found.append(
+                    (
+                        f"std::span<{self.elem(out.typ)}>",
+                        (
+                            f"{buffer}.first({self.local(call, out.param, 'len')})"
+                            if written
+                            else buffer
+                        ),
+                    )
+                )
             elif out.kind == "handle" and not call.errno:
                 cls = self.name(out.typ.to.name)
                 found.append(
@@ -558,7 +575,7 @@ class Renderer(object):
         params, template = [], ""
         callbacks = [a for a in call.args if a.kind == "callback"]
         for arg in call.args:
-            typ = self.param_type(arg)
+            typ = self.param_type(arg, call)
             if arg.kind == "callback":
                 typ = f"{self.tparam(call, arg)} &&"
             if typ is None or arg.kind == "self":
@@ -595,14 +612,8 @@ class Renderer(object):
         for arg in call.args:
             if arg.kind not in ("length", "capacity"):
                 continue
-            count = (
-                f"{self.pname(arg.of)}.size()"
-                if arg.kind == "length"
-                else f"static_cast<std::size_t>({self.pname(arg.param)})"
-            )
+            count = f"{self.pname(arg.of)}.size()"
             for other in arg.shared:
-                if next(a for a in call.args if a.param == other).kind == "out":
-                    continue
                 lines += [
                     f"if ({self.pname(other)}.size() != {count}) {{",
                     f"\tthrow std::invalid_argument(\"'{other}' does not have the"
@@ -618,10 +629,7 @@ class Renderer(object):
                 out = next(o for o in call.outs if o.param == arg.param)
                 made = self.local(call, arg.param, "out")
                 if out.kind == "array":
-                    lines.append(
-                        f"std::vector<{self.elem(out.typ)}> {made}"
-                        f"({self.pname(out.capacity)});"
-                    )
+                    continue  # the caller's buffer
                 elif out.kind == "handle":
                     lines.append(f"{self.c(out.typ)} {made} = nullptr;")
                 else:
@@ -681,7 +689,10 @@ class Renderer(object):
                     failed.append("\tkeep_.pop_back();")
             if call.partial:
                 rtype = self.signature(call)[1]
-                moved = [f"std::move({e})" for _, e in results]
+                # A local is moved; a temporary, such as a part of a buffer, is not
+                moved = [
+                    f"std::move({e})" if e.isidentifier() else e for _, e in results
+                ]
                 value = (
                     moved[0] if len(moved) == 1 else f"{rtype}{{{', '.join(moved)}}}"
                 )
@@ -697,18 +708,21 @@ class Renderer(object):
                     f'\t\t\t\t"{call.function}");',
                     "}",
                 ]
+        returned: Optional[str] = "ret" if call.returns == "count" else None
+        for out in call.outs:
+            if out.kind != "array":
+                continue
+            written = self.local(call, out.count, "out") if out.count else returned
+            if not out.count:
+                returned = None  # the count is that of the array, not returned too
+            if written:
+                buffer = self.pname(out.param)
+                lines.append(
+                    f"const auto {self.local(call, out.param, 'len')} = std::min("
+                    f"static_cast<std::size_t>({written}), {buffer}.size());"
+                )
         if not call.partial:
             lines += failed
-        for out in call.outs:
-            if out.kind == "array":
-                if out.count:
-                    count = self.local(call, out.count, "out")
-                elif call.returns == "count":
-                    count = "ret"
-                else:
-                    count = self.pname(out.capacity)
-                made = self.local(call, out.param, "out")
-                lines.append(f"{made}.resize(static_cast<std::size_t>({count}));")
         if call.partial:
             lines += failed
         if len(results) == 1:
@@ -860,6 +874,7 @@ class Renderer(object):
             self.pname,
             "The exception is a partial_error, whose value is what the call returns"
             " when it succeeds, with what was written before it failed.",
+            buffers=True,
         )
         if call.kind == "destructor":
             shown, errors = shown.model_copy(update={"returns": ""}), ""

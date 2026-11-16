@@ -188,13 +188,13 @@ def test_shared_counts_handles_given_and_constructors_without_errno(parse, tmp_p
         "#include <cstdio>\n#include <stdexcept>\n#include <vector>\n"
         "#include <api.hpp>\nint main() {\n"
         "\tauto h = api::open();\n\tauto m = api::make();\n\th.copy(*m);\n"
-        "\tstd::vector<int> a = {1, 2}, b = {3, 4}, c = {1};\n"
+        "\tstd::vector<int> a = {1, 2}, b = {3, 4}, c = {1}, o(2);\n"
         "\tint thrown = 0;\n"
         "\ttry {\n\t\tapi::dot(a, c);\n\t} catch (const std::invalid_argument &) {\n"
         "\t\tthrown += 1;\n\t}\n"
-        "\ttry {\n\t\tapi::map(c, 2);\n\t} catch (const std::invalid_argument &) {\n"
+        "\ttry {\n\t\tapi::map(c, o);\n\t} catch (const std::invalid_argument &) {\n"
         "\t\tthrown += 1;\n\t}\n"
-        '\tstd::printf("%ld %d %d %s\\n", api::dot(a, b), api::map(a, 2)[1], thrown,'
+        '\tstd::printf("%ld %d %d %s\\n", api::dot(a, b), api::map(a, o)[1], thrown,'
         " h.label());\n"
         "\treturn 0;\n}\n"
     )
@@ -236,8 +236,9 @@ def test_an_out_count_and_an_error_holding_what_was_written(parse, tmp_path):
     (tmp_path / "api.c").write_text(REAP + REAP_C)
     (tmp_path / "main.cpp").write_text(
         "#include <cerrno>\n#include <cstdio>\n#include <api.hpp>\nint main() {\n"
-        "\tauto done = api::reap(0, 4);\n"
-        "\ttry {\n\t\tapi::reap(EAGAIN, 2);\n"
+        "\tstd::vector<int32_t> buf(4);\n"
+        "\tauto done = api::reap(0, buf);\n"
+        "\ttry {\n\t\tapi::reap(EAGAIN, std::span(buf).first(2));\n"
         "\t} catch (const api::partial_error<decltype(done)> &e) {\n"
         '\t\tstd::printf("%zu %d %d %zu %d\\n", done.size(), done[2],\n'
         "\t\t\t    e.code().value() == EAGAIN, e.value.size(), e.value[1]);\n"
@@ -280,8 +281,10 @@ def test_bytes_two_callbacks_and_outs_named_like_ret(parse, tmp_path):
         "#include <cstddef>\n#include <cstdio>\n#include <vector>\n"
         "#include <api.hpp>\nint main() {\n"
         "\tstd::vector<std::byte> out(4);\n"
-        "\tauto read = api::read(8);\n"
-        "\tauto [a, b] = api::pair(3);\n"
+        "\tstd::vector<std::byte> in(8);\n"
+        "\tauto read = api::read(in);\n"
+        "\tstd::vector<int32_t> a(3), b(3);\n"
+        "\tapi::pair(a, b);\n"
         "\tint both = api::run([](int v) { return v; },\n"
         "\t\t\t    [](int v) { return 10 * v; });\n"
         "\tint one = api::run([](int v) { return v; }, nullptr);\n"
