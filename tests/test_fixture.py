@@ -3,8 +3,9 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-The fixture library, examples/libfoo, called through the bindings of each
-target: its check must print what examples/libfoo/expected.yaml says
+Tests that call the fixture library, examples/libfoo, through the bindings of
+each target. The check program of each target must print the documents in
+examples/libfoo/expected.yaml.
 """
 
 import importlib.util
@@ -43,7 +44,8 @@ def run(cmd: list) -> str:
 
 
 def documents(text: str, fmt: str) -> list:
-    """The documents of the output of a check; JSON objects follow each other"""
+    """Return the documents that a check printed; in JSON, the check prints its
+    objects one after another, with no separator but whitespace"""
 
     if fmt == "yaml":
         return list(yaml.safe_load_all(text))
@@ -59,7 +61,8 @@ def documents(text: str, fmt: str) -> list:
 
 @pytest.fixture(scope="module")
 def library(tmp_path_factory) -> Path:
-    """The fixture library, built as a shared library from its own header"""
+    """Build the fixture library from src/foo.c as a shared library, and return
+    the directory that holds it"""
 
     out = tmp_path_factory.mktemp("libfoo")
     suffix = ".dylib" if platform.system() == "Darwin" else ".so"
@@ -87,7 +90,7 @@ def test_the_fixture_is_in_the_subset():
 
 @needs_cc
 @pytest.mark.parametrize("fmt", ["yaml", "json"])
-def test_capi(model, library, tmp_path, fmt):
+def test_the_capi_check_prints_the_expected_documents(model, library, tmp_path, fmt):
     assert process(model, ["capi"], tmp_path, include=[FIXTURE / "include"]) == []
     assert "not checked" not in (tmp_path / "capi" / "signatures.log").read_text()
 
@@ -106,7 +109,9 @@ def test_capi(model, library, tmp_path, fmt):
 @needs_cc
 @pytest.mark.parametrize("fmt", ["yaml", "json"])
 @pytest.mark.parametrize("program", ["check.py", "idiomatic.py"])
-def test_python(model, library, tmp_path, fmt, program):
+def test_the_python_checks_print_the_expected_documents(
+    model, library, tmp_path, fmt, program
+):
     assert process(model, ["python"], tmp_path) == []
 
     lib = next(path for path in library.iterdir() if path.stem == "libfoo")
@@ -127,7 +132,7 @@ def test_python(model, library, tmp_path, fmt, program):
 @needs_cc
 @needs_cython
 @pytest.mark.parametrize("fmt", ["yaml", "json"])
-def test_cython(model, library, tmp_path, fmt):
+def test_the_cython_check_prints_the_expected_documents(model, library, tmp_path, fmt):
     assert process(model, ["python"], tmp_path) == []
 
     lib = next(path for path in library.iterdir() if path.stem == "libfoo")
@@ -165,8 +170,8 @@ def test_cython(model, library, tmp_path, fmt):
     assert documents(proc.stdout, fmt) == expected
 
 
-# Each target of the benchmark, the toolchain it is built with, and the results
-# its program prints
+# Each target of the benchmark, the tool that builds it, and the names of the
+# results that its program prints
 BENCH = {
     "c": ("cc", ["c"]),
     "cpp": (os.environ.get("CXX", "c++"), ["cpp"]),
@@ -252,7 +257,9 @@ def check_rust(model, library, tmp_path, fmt, program):
 @needs_cargo
 @pytest.mark.parametrize("fmt", ["yaml", "json"])
 @pytest.mark.parametrize("program", ["check", "idiomatic"])
-def test_rust(model, library, tmp_path, fmt, program):
+def test_the_rust_checks_print_the_expected_documents(
+    model, library, tmp_path, fmt, program
+):
     check_rust(model, library, tmp_path, fmt, program)
 
 
@@ -263,7 +270,7 @@ def test_rust(model, library, tmp_path, fmt, program):
     reason="no Rust toolchain of the declared rust-version; the devenv has it",
 )
 @pytest.mark.parametrize("program", ["check", "idiomatic"])
-def test_rust_at_the_declared_rust_version(
+def test_the_rust_checks_pass_with_the_declared_rust_version(
     model, library, tmp_path, program, monkeypatch
 ):
     template = (RUST / "Cargo.toml.template").read_text()
@@ -276,7 +283,7 @@ def test_rust_at_the_declared_rust_version(
 
 @needs_cc
 @pytest.mark.parametrize("fmt", ["yaml", "json"])
-def test_cpp(model, library, tmp_path, fmt):
+def test_the_cpp_check_prints_the_expected_documents(model, library, tmp_path, fmt):
     assert process(model, ["cpp"], tmp_path) == []
 
     cxx = os.environ.get("CXX", "c++")
@@ -295,7 +302,7 @@ def test_cpp(model, library, tmp_path, fmt):
 @needs_cc
 @needs_zig
 @pytest.mark.parametrize("fmt", ["yaml", "json"])
-def test_zig(model, library, tmp_path, fmt):
+def test_the_zig_check_prints_the_expected_documents(model, library, tmp_path, fmt):
     assert process(model, ["zig"], tmp_path) == []
 
     binary = tmp_path / "check"
@@ -314,7 +321,7 @@ def test_zig(model, library, tmp_path, fmt):
 @needs_cc
 @needs_go
 @pytest.mark.parametrize("fmt", ["yaml", "json"])
-def test_go(model, library, tmp_path, fmt):
+def test_the_go_check_prints_the_expected_documents(model, library, tmp_path, fmt):
     assert process(model, ["go"], tmp_path) == []
 
     project = tmp_path / "check"
@@ -343,13 +350,16 @@ def test_go(model, library, tmp_path, fmt):
 
 
 def test_a_c_time_below_the_clock_s_resolution_gives_no_ratio(tmp_path, monkeypatch):
-    """A run of few rounds can take less than a tick of the clock, as on macOS,
-    and C's time is then 0; a ratio to it says nothing, so there is none"""
+    """A run of few rounds can take less than one tick of the clock, as on
+    macOS, which makes the time of C 0. bench_report then leaves the ratio to
+    the time of C empty."""
 
     import importlib
     import types
 
-    # The report needs nothing of cijoe but what benchlib imports from it
+    # bench_report imports nothing of the cijoe package but what benchlib
+    # imports, cijoe.core.tools.family, so a stub of that module stands in
+    # where cijoe is not installed
     if importlib.util.find_spec("cijoe") is None:
         tools = types.ModuleType("cijoe.core.tools")
         tools.family = lambda *args, **kwargs: None
