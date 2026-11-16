@@ -41,8 +41,8 @@ class Renderer(object):
     @cached_property
     def reserved(self) -> set:
         """What a body names unqualified: what it binds, and the module's own
-        names, as of the raw function it calls, a type, among them those from
-        other headers, or a class it returns"""
+        names, such as the raw function it calls, a type, among them the types
+        of other headers, or a class it returns"""
 
         model = self.idioms.model.entities
         found = BOUND | {pygen.ident(e.name) for e in model if hasattr(e, "name")}
@@ -52,8 +52,8 @@ class Renderer(object):
 
     def pname(self, name: str) -> str:
         """A parameter's name, other than a keyword or a name the body uses; one
-        starting or ending in '_' gets another, so no two parameters, and no
-        name of the module's own, share a name"""
+        starting or ending in '_' gets another '_' appended, so no two
+        parameters, and no name of the module's own, share a name"""
 
         if (
             keyword.iskeyword(name)
@@ -142,7 +142,8 @@ class Renderer(object):
 
     def dispatcher(self, call: Call, arg) -> str:
         """The C callback, made once, that calls the closure kept under the key
-        the library gives back as the context; called once, the key is dropped"""
+        the library gives back as the context; for a callback of @lifetime
+        once, the dispatcher removes the key when called"""
 
         func = self.idioms.decl(call.function)
         cbtype = self.namer.ctype(func.params[arg.index].typ, True)
@@ -194,7 +195,8 @@ class Renderer(object):
             name = self.pname(arg.param)
             typ = func.params[arg.index].typ
             if arg.kind == "self":
-                # Before any closure is kept, so a closed handle keeps none
+                # Read before any closure is kept, so a closed handle raises
+                # before it keeps one
                 pre.insert(0, "_ptr = self._ptr")
                 args.append("_ptr")
             elif arg.kind == "value" and is_opaque_ptr(typ, self.idioms.handles) in (
@@ -406,18 +408,20 @@ class Renderer(object):
         entity = self.idioms.model.find(record, decls.RECORDS)
         doc = pygen.docstring(entity.doc, "    ") or record
         destructor = calls["destructor"][0] if calls["destructor"] else None
+        if destructor:
+            wraps = [
+                f"    Wraps a pointer to struct {record}, which it releases",
+                f"    with {destructor.name}(), also on leaving a with-block or when",
+                "    collected,",
+                "    when it owns it.",
+            ]
+        else:
+            wraps = [f"    Wraps a pointer to struct {record}, which nothing releases."]
         lines = [
             f"class {cls}(object):",
             f'    """{doc}',
             "",
-            f"    Wraps a pointer to struct {record}, which it releases",
-            (
-                f"    with {destructor.name}(), also on leaving a with-block or when"
-                "\n    collected,"
-                if destructor
-                else "    never: nothing releases it,"
-            ),
-            "    when it owns it.",
+            *wraps,
             '    """',
             "",
             "    def __init__(self, ptr, owned=True):",
