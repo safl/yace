@@ -7,11 +7,10 @@
 Features
 ========
 
-**yace** is yet another code emitter, it is natural to ask, why is another
-needed? And the answer is that related code-emitters such as
-:autopxd2:`autopxd2 <>`, :ctypeslib2:`ctypeslib2 <>`,
-:rust-bindgen:`rust-bindgen <>`, generate bindings based on the C header that
-they are wrapping / producing language bindings for.
+**yace** is yet another code emitter. Related code emitters, such as
+:autopxd2:`autopxd2 <>`, :ctypeslib2:`ctypeslib2 <>` and
+:rust-bindgen:`rust-bindgen <>`, generate bindings from the C header of the
+library that they wrap.
 
 **yace** in turn does not use the library C header, instead it uses an
 :ref:`sec-ir`, and rather than consuming the C header, then it
@@ -21,35 +20,34 @@ This is useful for systems libraries where header definitions are
 representations of hardware communication protocols, and C-structs provide
 memory accessors and decode payloads to/from devices.
 
-Adding to this, C is an excellent language for systems programming; however, C
-could be better for some things... yet there are plenty of great languages to
-choose from and access to the system the C library provided can be done via
-foreign-function-interfaces (FFI).
+C is well suited to systems programming, and other languages are better suited
+to other tasks. A program in another language accesses a C library through a
+foreign-function interface (FFI).
 
-This is where **yace** steps in and provides bindings those bindings. As
-mentioned before, then other code emitters can do this as well, however,
-**yace** introduces some niceties:
+**yace** generates the bindings for such an interface. Other code emitters do
+so as well; what **yace** adds is:
 
-* **Documentation**; the :ref:`sec-ir` requires documentation of all symbols,
-  this means that generated wrappers/bindings also get documentation, e.g. in
-  DoxyGen format for C code, in PyDoc for Python etc.
+Documentation
+  The :ref:`sec-ir` requires documentation of all symbols, so the generated
+  bindings are documented too: in Doxygen format for C code, in PyDoc for
+  Python, and so on.
 
-* **Sugar**; the :ref:`sec-ir` is very close to C code, yet, it has some
-  higher-level constructs which enables it to exploit the semantics emit code
-  which is slightly more **Pythonic**, **idiomatic Go / Rust**, and **Modern
-  C++**.
-  That is, the generated bindings can have small layers of **syntactic sugar**,
-  sanding down the rough edges of the raw FFI interface of the language.
+Syntactic sugar
+  The :ref:`sec-ir` is close to C, but has higher-level constructs, from which
+  **yace** emits code that is more Pythonic, idiomatic Go and Rust, and modern
+  C++. The generated bindings thus have a thin layer of syntactic sugar over
+  the raw FFI of each language.
 
-* **Pretty-printers**; since **yace** knows the data-structures via the
-  :ref:`sec-ir`, then the emitter can produce helper-functions
-  pretty-printing those enums, structs, and unions in **YAML**, **JSON**.
+Pretty-printers
+  The :ref:`sec-ir` describes the data structures, so **yace** emits functions
+  that pretty-print the enums, structs and unions, in YAML and JSON.
 
-* **Fields of bits**; C bit-fields do not cross an FFI boundary, so a field of
-  bits is an integer whose parts are named by masks. The :ref:`sec-ir` links
-  each mask to its field, from the doc comments, so the pretty-printers print
-  the parts by name, and every target reads and writes them by name.
+Fields of bits
+  C bit-fields do not cross an FFI boundary, so a field of bits is an integer
+  whose parts are named by masks. The :ref:`sec-ir` links each mask to its
+  field, from the doc comments, so the pretty-printers print the parts by
+  name, and every target reads and writes them by name.
 
-For a quick introduction to using **yace** then jump to the :ref:`sec-usage`
-section. For details and reference see the :ref:`sec-ir`. For details on the
-supported targets, then have a look at the **yace** :ref:`sec-targets` section.
+For an introduction to using **yace**, see :ref:`sec-usage`. For details and
+reference, see :ref:`sec-ir`, and for the supported targets, see
+:ref:`sec-targets`.
