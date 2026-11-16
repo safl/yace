@@ -26,26 +26,25 @@ The above should produce the output below:
 .. literalinclude:: 100_help.out
    :lines: 1-1
 
-In case it does not, then check your :lang-python:`Python <>` environment, in case
-it is due to an error with **yace** then please submit an issue on
-:github-yace-issues:`GitHUB <>`.
+If the command prints something else, check your :lang-python:`Python <>`
+environment. If the cause is an error in **yace**, please submit an issue on
+:github-yace-issues:`GitHub <>`.
 
 .. note::
-   A common issue with the above approach is that you get an error message lige
-   ``command not found: yace``, this is because ``yace`` is not in in one of
-   the locations that the ``PATH`` environment variable is pointing to. When
-   using ``pipx`` then this can be resovel with::
+   A common error after installing with ``pipx`` is
+   ``command not found: yace``. The shell reports it when ``yace`` is not in
+   any of the directories that the ``PATH`` environment variable lists. The
+   following commands resolve it::
 
      pipx ensurepath
 
      # Re-login, source your shell-config, or start a new shell, eg
      $SHELL
 
-   That is, when running bash-like shell, adjust according to your environment.
+   These commands are for a bash-like shell; adjust them to your environment.
 
-The above is all that is needed for the code-emission functionality of
-**yace**, however, to take things a bit further then **yace** utilizes a
-handful of other tools, compilers, build-systems and documentation generators.
+Installing **yace** is all that its code emission needs. Beyond that, **yace**
+uses other tools: compilers, build systems and documentation generators.
 
 .. _sec-install-tools:
 
@@ -59,7 +58,8 @@ for the C target a C compiler, ``cc`` or what ``$CC`` names.
 Dockerized Build
 ----------------
 
-This is primarily a reference on how to bring up a docker-image, to test the build of **yace**::
+The following command starts a Docker container, with the repository mounted
+at ``/tmp/yace``, to test the build of **yace** in::
 
   docker run \
     -it \
