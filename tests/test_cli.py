@@ -22,7 +22,7 @@ def test_a_header_in_the_subset_passes(tmp_path):
     assert (tmp_path / "valid.status").read_text().startswith("Parsed ")
 
 
-def test_a_diagnostic_fails_unless_lenient(tmp_path):
+def test_a_diagnostic_fails_the_run_unless_lenient_is_given(tmp_path):
     header = tmp_path / "bad.h"
     header.write_text("struct s { unsigned int a : 3; };\n")
 
@@ -41,7 +41,7 @@ def test_a_diagnostic_fails_unless_lenient(tmp_path):
     assert (tmp_path / "lenient" / "capi").exists()
 
 
-def test_notes_do_not_fail(tmp_path):
+def test_notes_do_not_fail_the_run(tmp_path):
     header = tmp_path / "noted.h"
     header.write_text(
         "#define TWICE(x) ((x) * 2)\n"
@@ -65,13 +65,13 @@ def test_meta_is_applied(tmp_path):
     assert "prefix: val" in (tmp_path / "val.yaml").read_text()
 
 
-def test_schema(tmp_path):
+def test_schema_prints_the_json_schema_of_the_ir(tmp_path):
     proc = yace("--schema")
     assert proc.returncode == 0
     assert "Struct" in json.loads(proc.stdout)["$defs"]
 
 
-def test_unknown_target(tmp_path):
+def test_an_unknown_target_fails_the_run(tmp_path):
     proc = yace(HEADERS / "valid.h", "--output", tmp_path, "--emit", "nope")
     assert proc.returncode == 1
     assert "no target" in proc.stderr
@@ -167,9 +167,10 @@ def test_a_check_without_its_toolchain_fails_naming_it(tmp_path, monkeypatch):
     assert "cpp: no C++ compiler ('/nonexistent/c++'); set CXX" in proc.stderr
 
 
-def test_a_header_the_subset_needs_missing_stops_before_anything_is_written(tmp_path):
-    """As 'stdbool.h' where clang's own headers are not found: every layout
-    would be guessed, and the bindings would build with them wrong"""
+def test_a_missing_header_that_yace_includes_stops_the_run_before_any_output(tmp_path):
+    """A header that yace includes can be missing, as 'stdbool.h' is where
+    clang's own headers are not found. Parsing without it would guess every
+    layout, and the bindings would build with the wrong layouts."""
 
     header = tmp_path / "api_m.h"
     header.write_text("/** M */\nstruct api_m { bool b; };\n")
