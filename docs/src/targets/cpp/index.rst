@@ -57,9 +57,8 @@ Results
   written is returned, as a ``std::span`` of as many elements as the function
   says it wrote; nothing is allocated. A returned string is a
   ``std::string_view``, a ``std::optional`` of one where ``@nullable``, borrowed
-  from the handle or the library. A returned
-  pointer to a record is a copy of it, a ``std::optional`` where
-  ``@nullable``.
+  from the handle or the library. A returned pointer to a record is a copy of
+  it, a ``std::optional`` where ``@nullable``.
 
 Arguments
   A string is a ``const std::string &``, or a ``const char *`` where
@@ -84,8 +83,8 @@ Records and enums
   API's pretty-printers print it, without calling them, and ``operator<<``
   prints its YAML. Each part of a field of bits, see :ref:`sec-ir-csubset`, is
   read by a function of the namespace overloaded on the record,
-  ``foo::code_type(status)``, and written by
-  another, ``foo::set_code_type(status, value)``, which throws
+  ``foo::code_type(status)``, and written by another,
+  ``foo::set_code_type(status, value)``, which throws
   ``std::out_of_range`` for a value that does not fit the part's bits; the
   records being C's, they have no methods. Each enum is an
   ``enum class``, its members without the prefix of the enum, in lower case:

@@ -46,14 +46,13 @@ translates as opaque.
 The raw layer
 -------------
 
-The C API as C has it, by its C names, as Zig's own translation of C headers
-gives it: records as ``extern struct`` and ``extern union``, named in
-CamelCase, ``struct foo_point`` as ``FooPoint``, which ``typedef struct
-foo_point foo_point;`` also names; a packed record with each field
-``align(1)``; opaque records as ``opaque``;
-functions as ``extern fn``; pointers as C pointers, ``[*c]T``, except to opaque
-types, ``void`` and functions, which are optional pointers; constants by their
-names.
+The raw layer is the C API as C has it, by its C names, as Zig's own
+translation of C headers gives it: records as ``extern struct`` and
+``extern union``, named in CamelCase, ``struct foo_point`` as ``FooPoint``,
+which ``typedef struct foo_point foo_point;`` also names; a packed record with
+each field ``align(1)``; opaque records as ``opaque``; functions as
+``extern fn``; pointers as C pointers, ``[*c]T``, except to opaque types,
+``void`` and functions, which are optional pointers; constants by their names.
 Each enum is a non-exhaustive ``enum``, as C does not restrict an enum to its
 values, its members in lower case without the prefix of the enum, with
 ``cName()`` the C name of a value; the members are also constants by their C
@@ -75,9 +74,10 @@ as a field or a printer, gets a trailing underscore.
 The idiomatic layer
 -------------------
 
-Over the raw one, from what the header says beyond C, see
-:ref:`sec-ir-csubset`, and as derived in :py:mod:`yace.targets.idiom`. Its
-functions are named in camelCase, without the prefix:
+The idiomatic layer is built over the raw one, from what the header says
+beyond C, see :ref:`sec-ir-csubset`, and as derived in
+:py:mod:`yace.targets.idiom`. Its functions are named in camelCase, without
+the prefix:
 
 Handles
   An opaque record is a struct holding the pointer, named without the prefix:

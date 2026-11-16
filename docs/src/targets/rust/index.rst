@@ -57,8 +57,8 @@ Enumerations
   Each enum is a ``#[repr(transparent)]`` integer newtype, with its members as
   associated constants, also given as constants of the crate. C does not
   restrict an enum to its members, and a Rust enum holding another value is
-  undefined behaviour, so an integer it is. ``name()`` is the name of a value,
-  ``None`` when it has none.
+  undefined behaviour, so the enum is an integer. ``name()`` is the name of a
+  value, ``None`` when it has none.
 
 Records
   Each struct and union is ``#[repr(C)]``, ``Clone`` and ``Copy``, and has a
@@ -69,14 +69,14 @@ Records
   union, or a record of bit-fields kept as bytes, shows none,
   ``FooValue { .. }``, as which member of a union is meant is not known. An
   opaque record is a zero-sized type that cannot be constructed, used through
-  pointers. Each part of a field of bits, see
-  :ref:`sec-ir-csubset`, has a getter and a setter, ``code_type()`` and
-  ``set_code_type(value)``, of the field's type; the setter panics on a value
-  that does not fit the part's bits. The field itself is there as before; a
-  getter of a union's field is safe, as every value of an integer is one. A
-  packed record is ``#[repr(C, packed)]``: a reference to one of its fields
-  may not be aligned, which Rust does not allow, so ``Debug``, the printers and
-  the getters read each field by a copy.
+  pointers. Each part of a field of bits, see :ref:`sec-ir-csubset`, has a
+  getter and a setter, ``code_type()`` and ``set_code_type(value)``, of the
+  field's type; the setter panics on a value that does not fit the part's
+  bits. The field itself is there as before; a getter of a union's field is
+  safe, as every value of an integer is one. A packed record is
+  ``#[repr(C, packed)]``: a reference to one of its fields may not be aligned,
+  which Rust does not allow, so ``Debug``, the printers and the getters read
+  each field by a copy.
 
 Callbacks
   A function pointer type is an ``Option`` of an ``unsafe extern "C" fn``, the
@@ -146,9 +146,9 @@ cannot cross C.
 A record with bit-fields, which Rust has none of, keeps only its size and
 alignment, as an array of integers as wide as its alignment, and is not
 printed. Its alignment is that of the integers, not ``repr(align)``, which a
-packed record may not hold. Types declared outside the
-header, such as ``FILE``, are opaque types, usable through pointers. These are
-outside the C subset; the diagnostics of the header say so.
+packed record may not hold. Types declared outside the header, such as
+``FILE``, are opaque types, usable through pointers. These are outside the C
+subset; the diagnostics of the header say so.
 
 Example
 -------
