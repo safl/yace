@@ -16,6 +16,39 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## 0.10.0
+
+This release breaks the command line and the Rust and C++ bindings.
+
+A diagnostic now fails the run, and no code is generated, unless `--lenient`
+is given; `--strict` is removed. What only the C compiler uses, a static
+assert, a static or inline function and a function-like macro, is reported as
+a note, which does not fail the run. The status line counts the notes, and
+`-l` lists them.
+
+In the Rust and C++ idiomatic layers, an `[out]` array is a buffer that the
+caller gives, `&mut [T]` and `std::span<T>`, as in Go and Zig. Its length is
+the capacity, which is no longer a parameter, and the function returns the
+part written, so nothing is allocated. Python allocates the array, as before.
+
+A second `@len` on an `[out]` array may name an `[out]` pointer to an
+integer, the number of elements written; the bindings return that many.
+`@errno partial` states that a function writes its outputs also when it
+fails, and the error of every target then carries them: `OSError.partial` in
+Python, `Partial<T>` in Rust, `partial_error<T>` in C++, the values returned
+with the error in Go, and a `partial` parameter in Zig.
+
+The parser handles `#pragma pack`. It skips, with a diagnostic, a function
+whose calling convention is not that of C, such as `ms_abi`, and a record
+whose layout an aligned attribute changes. It leaves out an enumerator that
+does not fit an `int`, and an enum whose every enumerator is left out so. An attribute on
+a field is reported.
+
+The Zig check asserts the size and alignment of a record of bit-fields. The Go
+target no longer creates an empty directory for the C target. Each item of a
+Doxygen list in a description keeps a line of its own in the documentation of
+every target.
+
 ## 0.9.6
 
 `--target-option TARGET.KEY=VALUE` passes an option to a target, as
