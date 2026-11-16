@@ -170,7 +170,9 @@ def test_records_repr_as_their_constructor_is_called(parse, tmp_path):
     assert repr(status) == "ApiStatus(code=36613, wide=0)"
 
 
-def test_a_header_named_as_a_module_of_the_standard_library(parse, tmp_path):
+def test_a_header_named_as_a_standard_library_module_gets_an_underscore(
+    parse, tmp_path
+):
     """json, never built into an interpreter, which zlib may or may not be"""
 
     model, _ = parse("/** J */\nstruct json_s { int a; };\n", "json.h")
@@ -178,7 +180,9 @@ def test_a_header_named_as_a_module_of_the_standard_library(parse, tmp_path):
     assert (tmp_path / "python" / "json_.py").exists()
 
 
-def test_typedefs_of_their_own_names_and_fields_named_as_printers(parse, tmp_path):
+def test_typedefs_of_their_own_names_add_no_alias_and_fields_named_as_printers_print(
+    parse, tmp_path
+):
     model, _ = parse(
         "struct api_buf { int len; };\ntypedef struct api_buf api_buf;\n"
         "enum api_kind { API_KIND_A = 1 };\ntypedef enum api_kind api_kind;\n"
@@ -288,7 +292,9 @@ def test_handles_are_released_when_collected(parse, tmp_path, monkeypatch):
 
 
 @needs_cc
-def test_pointers_written_and_nullable_sequences(parse, tmp_path, monkeypatch):
+def test_an_out_pointer_is_returned_and_a_nullable_sequence_may_be_omitted(
+    parse, tmp_path, monkeypatch
+):
     header = (
         "#include <stddef.h>\n/** P */\nstruct api_p {\n\tint x; ///< X\n};\n"
         "/**\n * Get\n * @param[out] p P\n * @errno\n */\n"
@@ -318,7 +324,9 @@ def test_pointers_written_and_nullable_sequences(parse, tmp_path, monkeypatch):
 
 
 @needs_cc
-def test_shared_counts_handles_given_and_more_returns(parse, tmp_path, monkeypatch):
+def test_shared_counts_raise_on_unequal_lengths_and_handles_pass_as_arguments(
+    parse, tmp_path, monkeypatch
+):
     from tests.test_rust import HANDLE_NAMED_AS_PREFIX, MORE, MORE_C
 
     model, _ = parse(MORE)
@@ -354,7 +362,7 @@ def test_shared_counts_handles_given_and_more_returns(parse, tmp_path, monkeypat
 
 
 @needs_cc
-def test_bytes_out_arrays_in_out_sequences_and_destructor_errors(
+def test_void_buffers_are_bytes_and_a_failing_destructor_raises_oserror(
     parse, tmp_path, monkeypatch
 ):
     from tests.test_rust import IO, IO_C
@@ -388,7 +396,7 @@ def test_bytes_out_arrays_in_out_sequences_and_destructor_errors(
 
 
 @needs_cc
-def test_an_out_count_and_an_error_holding_what_was_written(
+def test_an_out_count_bounds_the_result_and_the_error_holds_what_was_written(
     parse, tmp_path, monkeypatch
 ):
     from tests.test_rust import REAP, REAP_C, library
@@ -432,7 +440,9 @@ def test_functions_named_as_builtins_do_not_shadow_them(parse, tmp_path, monkeyp
 
 
 @needs_cc
-def test_shared_names_module_globals_and_callback_strings(parse, tmp_path, monkeypatch):
+def test_shared_and_global_names_bind_and_a_callback_receives_a_str(
+    parse, tmp_path, monkeypatch
+):
     header = (
         "typedef void (*api_seen_cb)(void *arg, const char *s);\n"
         "/**\n * Bar\n */\nint bar(int x);\n"
@@ -461,7 +471,9 @@ def test_shared_names_module_globals_and_callback_strings(parse, tmp_path, monke
 
 
 @needs_cc
-def test_parameters_named_as_what_the_body_uses(parse, tmp_path, monkeypatch):
+def test_parameters_named_as_what_the_body_uses_pass_their_values_to_c(
+    parse, tmp_path, monkeypatch
+):
     from tests.test_rust import HIDDEN, HIDDEN_C
 
     model, _ = parse(HIDDEN)
@@ -499,7 +511,7 @@ def test_parameters_named_as_what_the_body_uses(parse, tmp_path, monkeypatch):
 
 
 @needs_cc
-def test_parameters_named_as_locals_and_constructors_sharing_a_name(
+def test_constructors_sharing_a_name_and_parameters_named_as_locals_bind(
     parse, tmp_path, monkeypatch
 ):
     from tests.test_rust import NAMES, NAMES_C
@@ -536,7 +548,7 @@ def test_parameters_named_as_locals_and_constructors_sharing_a_name(
 
 
 @needs_cc
-def test_contexts_given_c_byte_buffers_written_and_records_named_as_functions(
+def test_a_callback_gets_a_non_null_context_and_an_in_out_bytearray_is_written(
     parse, tmp_path, monkeypatch
 ):
     header = (
@@ -876,7 +888,7 @@ def test_the_check_of_the_pxd_needs_a_c_compiler(parse, tmp_path, monkeypatch):
     assert failures == ["python: no C compiler ('/nonexistent/cc'); set CC"]
 
 
-def test_without_cython_the_pxd_is_said_not_checked(
+def test_without_cython_the_log_says_the_pxd_is_not_checked(
     parse, tmp_path, monkeypatch, caplog
 ):
     model, _ = parse(SPELLED)
