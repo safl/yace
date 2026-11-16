@@ -10,7 +10,7 @@ generated
 Emits, into ``<output>/rust``:
 
 * ``Cargo.toml`` and ``build.rs``, the crate, linking the library
-* ``lib.rs``, the crate of the bindings, which includes them
+* ``lib.rs``, the crate of the bindings, which includes ``bindings.rs``
 * ``bindings.rs``, the bindings, which another crate may ``include!()``
 * ``check.rs``, the check program, an example of the crate
 
