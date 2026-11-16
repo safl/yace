@@ -7,8 +7,9 @@
 Benchmark
 =========
 
-What a call of the C API costs through the bindings of each target, measured
-against plain C. ``examples/libfoo/bench`` holds a program per target, each
+The benchmark measures what a call of the C API costs through the bindings of
+each target, against plain C. ``examples/libfoo/bench`` holds a program per
+target, each
 doing the same work through the bindings **yace** generates for it, and a
 :cijoe:`cijoe <>` workflow that builds and runs them all and records the
 machine it ran on.
@@ -18,7 +19,7 @@ The work
 
 Each program opens a libfoo handle and adds ``FOO_POINTS_MAX`` points, 8, by
 ``foo_point_add_many()``, the x of each its index. It then sums the x of every
-point, a number of rounds over, in two ways:
+point, ``rounds`` times, in two ways:
 
 calls
   A call of ``foo_point_get()`` per point, so one crossing of the FFI boundary
@@ -28,8 +29,9 @@ callback
   A call of ``foo_point_visit()`` per round, with a callback written in the
   program's language, which libfoo calls once per point.
 
-Each way is run a number of times, the best kept, and the program prints its
-time per point and its sum, which every program must get: the rounds times 28.
+Each way is run ``repeat`` times, and the best time is kept. The program
+prints its time per point and its sum, which every program must get:
+``rounds`` times 28.
 The library is a shared library, so no compiler sees through a call into it.
 
 The programs, in ``examples/libfoo/bench/programs/``, by what the report names
@@ -69,8 +71,8 @@ Running it
 ----------
 
 ``bench.yaml`` is the workflow, and ``bench.toml`` says what it runs: the
-rounds, the repeats, the targets, and the commands of yace and of each
-toolchain. Its steps:
+``rounds``, the ``repeat``, the ``targets``, and the commands of yace and of
+each toolchain. The steps of the workflow are:
 
 ``facts``
   The machine's OS, kernel, CPUs and memory, as cijoe gathers them.
@@ -131,9 +133,10 @@ loaded moves its time by as much as any of these targets differ. The one
 difference larger than that is Zig's call of ``handle.pointGet()``, about twice
 C's, as it is not inlined and returns its optional through memory.
 
-Go pays for each crossing of cgo: a call costs about ten times C's, and a
+In Go, every call crosses cgo: a call costs about ten times C's, and a
 callback, which crosses back into Go, about thirty times.
 
 ctypes, whose every call goes through the interpreter, costs two orders of
 magnitude more than C, and its idiomatic layer about two thirds again as much
-as its raw one. That is what the ``.pxd`` is for: see :ref:`sec-targets-python-cython`.
+as its raw one. The ``.pxd`` of the Python target avoids that cost, see
+:ref:`sec-targets-python-cython`.
