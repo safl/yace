@@ -14,9 +14,10 @@ outside the C subset, and the survey checks two things: that yace parses every
 one of them without failing, and which rules of the subset they break, and how
 often.
 
-Failing means a traceback, a timeout or an ``internal-error`` diagnostic, and it
-is a bug in yace. A rule broken is not; it is what a header written for yace
-would have to change, and it shows which idioms are common in practice.
+Failing means a traceback, a timeout or an ``internal-error`` diagnostic, and
+is a bug in yace. A broken rule is not a bug in yace; it is what a header
+written for yace would have to change, and the broken rules show which idioms
+are common in practice.
 
 The pipeline
 ------------
@@ -37,7 +38,7 @@ The packaged libraries must be installed, with
 
     python3 toolbox/survey/survey.py --packaged-only --with-capi
 
-Useful flags:
+These flags are useful:
 
 ``--skip-download``
     Reuse the downloaded headers and cloned repositories.
@@ -53,9 +54,8 @@ header.
 Surveyed libraries
 ------------------
 
-The libraries span a broad range of domains. The table below lists each
-library, the domain it belongs to, and whether it is known to have bindings in
-other languages.
+The libraries span 13 domains. The table below lists each library, the domain
+it belongs to, and whether it is known to have bindings in other languages.
 
 .. list-table::
    :header-rows: 1
@@ -421,44 +421,44 @@ has well-known bindings or wrappers for those languages.
 C idioms catalog
 ----------------
 
-The survey identified **12 categories of C idioms** that affect FFI
-friendliness, counted with yace 0.5.9. How yace treats each is now set by the
-rules of the C subset, :ref:`sec-ir-rules`. They are listed below in order of prevalence, with a summary of
-how FFI-friendly each idiom is and how many libraries use it.
+The survey, counted with yace 0.5.9, identified 12 categories of C idioms that
+affect FFI friendliness. How yace treats each is now set by the rules of the C
+subset, :ref:`sec-ir-rules`. They are listed below in order of prevalence, with
+a summary of how FFI-friendly each idiom is and how many libraries use it.
 
 1. Enum types in type positions (53 libraries)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Using bare ``enum`` types as function parameters, return types, or struct
-fields without a typedef alias. Extremely common but straightforward to
-support --- the enum values map directly to integers across all FFI
-boundaries.
-
-**FFI friendliness:** High --- enums are integers.
+These headers use bare ``enum`` types as function parameters, return types, or
+struct fields, without a typedef alias. The idiom is straightforward to
+support, as the values of an enum map directly to integers across all FFI
+boundaries, so its FFI friendliness is high.
 
 2. ``char`` without explicit sign (49 libraries)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Plain ``char`` (neither ``signed char`` nor ``unsigned char``). The C standard
-leaves its signedness implementation-defined. yace keeps it as ``char``, and
-each target maps it to its language's C character type, such as ``c_char`` in
-Rust, so the binding has the signedness of the platform, as C does.
+These headers use plain ``char``, neither ``signed char`` nor ``unsigned
+char``. The C standard leaves its signedness implementation-defined. yace keeps
+it as ``char``, and each target maps it to its language's C character type,
+such as ``c_char`` in Rust, so the binding has the signedness of the platform,
+as C does.
 
-**FFI friendliness:** Medium --- works in practice but semantically ambiguous.
+The FFI friendliness of plain ``char`` is medium: it works in practice, but its
+signedness is ambiguous.
 
 3. Symbolic alias macros (47 libraries)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``#define`` where the value is another macro name rather than a literal::
+The value of such a ``#define`` is the name of another macro rather than a
+literal::
 
     #define BROTLI_DEFAULT_MODE  BROTLI_MODE_GENERIC
     #define Z_ASCII              Z_TEXT
 
-Common for deprecation aliases, default values, and platform abstraction.
-These cannot be represented as simple constants in FFI --- they require
-resolving the reference chain.
-
-**FFI friendliness:** Low --- requires compile-time resolution.
+Headers use these aliases for deprecated names, default values, and platform
+abstraction. An alias cannot be represented as a simple constant in an FFI,
+as the chain of references has to be resolved at compile time, so its FFI
+friendliness is low.
 
 4. String constant macros (20 libraries)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -468,28 +468,26 @@ regex doesn't yet match (dots, hyphens, slashes)::
 
     #define ZLIB_VERSION  "1.3.1"
 
-**FFI friendliness:** High once parsed --- strings are universally supported.
+Once parsed, the FFI friendliness of a string constant is high, as every FFI
+supports strings.
 
 5. Function/type alias macros (25 libraries)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``#define`` mapping one function or type name to another::
+Such a ``#define`` maps the name of one function or type to another::
 
     #define SSLv23_method  TLS_method
 
-Used for API versioning and platform abstraction. Requires policy decisions
-about whether to emit the alias, the target, or both.
-
-**FFI friendliness:** Low --- no direct FFI representation.
+Headers use these aliases for API versioning and platform abstraction. A
+binding generator has to decide whether to emit the alias, its target, or both.
+Their FFI friendliness is low, as an FFI has no direct representation of them.
 
 6. Docstring validation errors (10 libraries)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Doxygen comments with parameterless tags (``@returns``, ``@brief``, ``@see``)
 failed to parse in yace 0.6.0 and earlier, dropping the declaration. They are
-parsed now.
-
-**FFI friendliness:** N/A --- metadata only.
+parsed now. FFI friendliness does not apply to them, as they are metadata only.
 
 7. ``const`` typedef in elaborated types (9 libraries)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -499,52 +497,51 @@ splitter::
 
     void draw(const point_t *p);
 
-**FFI friendliness:** High once parsed --- ``const`` pointers are standard FFI.
+Once parsed, their FFI friendliness is high, as ``const`` pointers are standard
+in FFI.
 
 8. Incomplete arrays (9 libraries)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Flexible array members (C99)::
+These are the flexible array members of C99::
 
     struct msg { int len; char data[]; };
 
-These have no fixed size, making them awkward for FFI bindings that need to
-know struct layout at compile time.
-
-**FFI friendliness:** Low --- requires manual buffer management.
+A flexible array member has no fixed size, which makes it awkward for an FFI
+binding that needs to know the layout of the struct at compile time. Its FFI
+friendliness is low, as the binding has to manage the buffer by hand.
 
 9. Anonymous unions/structs (12 libraries)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Unnamed struct or union members nested inside another struct. Common in
-protocol and hardware definitions. Most FFI systems cannot represent these
-directly and require flattening or synthetic names.
-
-**FFI friendliness:** Low --- no direct representation in most languages.
+These are struct or union members without a name, nested inside another
+struct. Protocol and hardware definitions use them. Most FFI systems cannot
+represent them directly, and require flattening or synthetic names. Their FFI
+friendliness is low, as most languages have no direct representation of them.
 
 10. Unnamed structs/unions (5 libraries)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Structs or unions with no tag name, typically used as fields of other structs.
-Similar to anonymous members but at the type-definition level.
-
-**FFI friendliness:** Low --- requires synthetic naming.
+These are structs or unions with no tag name, typically used as fields of other
+structs. They are similar to anonymous members, but at the level of the type
+definition. Their FFI friendliness is low, as a binding has to give them
+synthetic names.
 
 11. ``long double`` (1 library)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Extended-precision floating point. Only fftw3 uses it in this survey. Most FFI
-systems do not support ``long double`` natively.
-
-**FFI friendliness:** Very low --- no portable FFI representation.
+``long double`` is an extended-precision floating-point type. Of the surveyed
+libraries, only fftw3 uses it. Most FFI systems do not support ``long double``
+natively. Its FFI friendliness is very low, as it has no portable FFI
+representation.
 
 12. ``TypeKind.INVALID`` (3 libraries)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Clang reports the type as ``INVALID``, usually for complex preprocessor
-constructs or platform-specific builtins. Cannot be fixed in yace.
-
-**FFI friendliness:** N/A --- clang limitation.
+constructs or platform-specific builtins. yace cannot correct a type that Clang
+reports as invalid. FFI friendliness does not apply, as the cause is a
+limitation of Clang.
 
 Summary
 ^^^^^^^
