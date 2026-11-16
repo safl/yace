@@ -10,11 +10,9 @@ model of a specification, for **yace** to take as it takes any header.
 Generators are found through the ``yace.generators`` entry point group, so a
 project provides one without changes to **yace**, or are named by their file
 or module and class, so a project that is no Python package needs nothing
-installed. What a generator writes is
-parsed, emitted and checked as headers written by hand are: it is held to the
-C subset, its diagnostics are reported, and the targets emit its bindings and
-printers. So a generator gets no way past **yace**'s rules, and what it writes
-can be trusted as far as a header can.
+installed. What a generator writes is parsed, emitted and checked as headers
+written by hand are: it is held to the C subset, its diagnostics are reported,
+and the targets emit its bindings and printers.
 """
 
 import importlib
@@ -111,7 +109,8 @@ def generate(names: List[str], output: Path, given: List[str]) -> Generated:
     """Run the named generators, with their options; returns all they wrote"""
 
     options = options_of(given)
-    # Options are by a generator's NAME, as one given by its file has no other
+    # Options are keyed by the NAME of a generator, as a generator given by its
+    # file has no other name
     classes = [load(name) for name in names]
     unknown = sorted(set(options) - {cls.NAME for cls in classes})
     if unknown:
