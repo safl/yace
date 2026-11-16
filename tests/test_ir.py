@@ -46,7 +46,7 @@ def make():
     )
 
 
-def test_roundtrip_keeps_the_kinds(tmp_path):
+def test_a_saved_and_loaded_model_keeps_the_kinds_of_its_entities(tmp_path):
     original = make()
     original.save(tmp_path / "api.yaml")
     loaded = model.load(tmp_path / "api.yaml")
@@ -61,7 +61,7 @@ def test_roundtrip_keeps_the_kinds(tmp_path):
     assert loaded.entities[0].fields[0].typ.length is None
 
 
-def test_entities_from_dicts_by_key():
+def test_entities_validated_from_dicts_get_their_classes():
     data = make().model_dump(mode="json")
     assert [type(e) for e in model.Model.model_validate(data).entities][:2] == [
         decls.Struct,
@@ -69,7 +69,7 @@ def test_entities_from_dicts_by_key():
     ]
 
 
-def test_unknown_attributes_are_rejected():
+def test_an_unknown_attribute_or_builtin_type_fails_validation():
     with pytest.raises(pydantic.ValidationError):
         types.Builtin(name="int", signed=True)
     with pytest.raises(pydantic.ValidationError):
