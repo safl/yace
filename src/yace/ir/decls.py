@@ -147,8 +147,9 @@ class Param(Node):
     """
     A parameter, with what C cannot say about it, from its documentation: whether
     the function reads it, writes it, or both, whether it may be NULL, which
-    parameter holds its length, which callback a ``void *`` is the context of,
-    and how long a callback may be invoked
+    parameter holds its length, which [out] parameter the function writes the
+    number of elements it wrote to, which callback a ``void *`` is the context
+    of, and how long a callback may be invoked
     """
 
     name: str = ""
@@ -156,6 +157,7 @@ class Param(Node):
     direction: Direction = "in"
     nullable: bool = False
     length: Optional[str] = None  # the parameter holding its number of elements
+    count: Optional[str] = None  # the [out] parameter of the number written
     context: Optional[str] = None  # the callback parameter it is given back to
     lifetime: Optional[Lifetime] = None
 
@@ -163,8 +165,9 @@ class Param(Node):
 class Function(Node):
     """
     A function, with what C cannot say about it, from its documentation: whether
-    it returns a negative errno on failure, which parameter's handle it destroys,
-    and whether the pointer it returns may be NULL
+    it returns a negative errno on failure, and whether it writes its [out]
+    parameters also then, which parameter's handle it destroys, and whether the
+    pointer it returns may be NULL
     """
 
     key: Literal["function_decl"] = "function_decl"
@@ -173,6 +176,7 @@ class Function(Node):
     params: List[Param] = []
     variadic: bool = False
     errno: bool = False
+    partial: bool = False
     destroys: Optional[str] = None
     nullable: bool = False
     doc: Doc = Doc()

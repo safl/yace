@@ -136,3 +136,22 @@ def test_a_call_documents_what_is_given_and_with_errno_how_it_fails():
 
     shown, errors = documented("foo_point_count")
     assert (shown.params, shown.returns, errors) == ({}, "The number of points", "")
+
+
+def test_an_out_count_is_the_length_of_its_array_and_partial_is_kept(parse):
+    from tests.test_semantics import REAP
+
+    model, _ = parse(REAP)
+    (reap,) = Idioms(model).calls
+    assert kinds(reap) == [
+        ("queue", "self"),
+        ("done", "out"),
+        ("max", "capacity"),
+        ("n", "count"),
+    ]
+    (out,) = reap.outs
+    assert (out.kind, out.capacity, out.count) == ("array", "max", "n")
+    assert reap.partial
+
+    _, errors = call_doc(reap, model.entities[-1].doc, str, "Partial says so.")
+    assert errors == "Partial says so."
