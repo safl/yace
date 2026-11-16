@@ -24,9 +24,9 @@ install`` instead builds the wheel and installs it, as CI does.
 
 The tests build and run the check of each target, and skip a target whose
 toolchain is missing: a C compiler for the C target, a C and a C++ compiler
-for the C++ target, Cython for the Python target, cargo for Rust, zig and go. ``yace --toolchains`` prints the
-toolchains yace finds. The devenv image, from ``toolbox/devenv``, has all of
-them, and is what CI runs the tests in:
+for the C++ target, Cython for the Python target, cargo for Rust, zig and go.
+``yace --toolchains`` prints the toolchains yace finds. The devenv image, from
+``toolbox/devenv``, has all of them, and is what CI runs the tests in:
 
 .. code-block:: console
 
@@ -43,9 +43,9 @@ Check a change
 ``make format-all`` runs pre-commit on every file: black formats the Python,
 ruff lints it, mypy checks the types, yamlfmt and actionlint check the YAML
 and the workflows, and REUSE checks every file's license. ``make test`` runs
-the tests with coverage. ``make example`` parses ``examples/libfoo``, failing on any diagnostic,
-and emits and checks every target. CI runs all three, the tests in the devenv
-with Python 3.12 and 3.13, and on macOS.
+the tests with coverage. ``make example`` parses ``examples/libfoo``, failing
+on any diagnostic, and emits and checks every target. CI runs all three, the
+tests in the devenv with Python 3.12 and 3.13, and on macOS.
 
 What a change carries
 ---------------------
@@ -55,9 +55,9 @@ parses a header it writes itself, with the ``parse`` fixture of
 ``tests/conftest.py``, and runs the target's check, so that the test covers
 what a compiler makes of the emitted code and not only its text.
 
-``make docs`` builds the documentation, and runs ``kmdo`` first, which makes
-again the command output the documentation shows. Commit the output it
-changes with the change that changed it.
+``make docs`` builds the documentation, and runs ``kmdo`` first, which
+regenerates the command output that the documentation shows. Commit the output
+that ``kmdo`` changes with the change that caused it.
 
 Commits
 -------

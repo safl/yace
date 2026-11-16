@@ -18,14 +18,14 @@ targets. The IR is described in :ref:`sec-ir-entities`, and the targets in
 Toolbox
 =======
 
-The toolbox and Makefile-helper requires that ``make`` is available. See the
-utilities provided by running:
+The toolbox and the Makefile require that ``make`` is available. See the
+utilities they provide by running:
 
 .. literalinclude:: 900_make.txt
    :language: bash
    :lines: 1-
 
-This should output:
+``make help`` prints:
 
 .. literalinclude:: 900_make.out
    :language: ansi-color
@@ -39,9 +39,9 @@ Development environment
 The development environment is a container image, built from
 ``toolbox/devenv/Containerfile``: Ubuntu with every toolchain a target checks
 its bindings with, at pinned versions. That includes the Rust of the
-``rust-version`` the generated ``Cargo.toml`` declares, which the tests build the
-fixture's Rust checks with. Its tag is a digest of what it is built from, and it
-is published as ``ghcr.io/safl/yace-devenv``. A shell in it, as your own user,
+``rust-version`` the generated ``Cargo.toml`` declares, which the tests build
+the fixture's Rust checks with. The tag of the image is a digest of what it is
+built from, and the image is published as ``ghcr.io/safl/yace-devenv``. A shell in it, as your own user,
 with the repository at ``/yace``::
 
   make devenv-shell
@@ -52,8 +52,8 @@ Or a command, as CI runs those of its Linux jobs that need the toolchains::
 
 As for any make variable, a ``$`` in ``CMD`` is written ``$$``.
 
-With ``make devenv-pull`` you get the image of the tree you have checked out, and
-after changing ``toolbox/devenv`` you build it with ``make devenv``. Podman is
+With ``make devenv-pull`` you get the image of the tree you have checked out,
+and after changing ``toolbox/devenv`` you build it with ``make devenv``. Podman is
 used when installed, Docker otherwise; set ``CONTAINER`` to choose.
 
 CI pushes the image when the registry has none of its tag. A package that CI
