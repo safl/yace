@@ -30,7 +30,8 @@ def test_the_subset_prints_as_the_c_api_does(parser, tmp_path):
         assert (tmp_path / "cpp" / "cpp" / f"check.{fmt}").read_text() == c_out
 
 
-# A value of every kind a printer prints, a union, and a field of bits
+# VALUES declares a record with a field of every kind the printers print, a
+# union, and the record of bit-fields of BITS
 VALUES = (
     "#include <stdbool.h>\n#include <stddef.h>\n#include <stdint.h>\n"
     "/** E */\nenum api_e { API_E_A = -1, API_E_B = 2, API_E_C = 2 };\n"
@@ -113,7 +114,8 @@ def test_the_layer_builds_for_every_kind_of_parameter(parse, tmp_path):
     assert process(model, ["cpp"], tmp_path) == []
 
     hpp = (tmp_path / "cpp" / "api.hpp").read_text()
-    assert "\th open(" not in hpp  # constructors are functions of the namespace
+    # A constructor is a function of the namespace, not a member of the class
+    assert "\th open(" not in hpp
     assert "inline h\nopen(const char *name)" in hpp
     assert "std::size_t each(F &&cb);" in hpp
     assert "std::size_t each(std::nullptr_t);" in hpp
@@ -178,7 +180,9 @@ def test_closing_twice_calls_c_once(parse, tmp_path):
     assert subprocess.run([str(program)]).returncode == 0
 
 
-def test_shared_counts_handles_given_and_constructors_without_errno(parse, tmp_path):
+def test_shared_counts_handles_as_arguments_and_constructors_without_errno_work(
+    parse, tmp_path
+):
     from tests.test_rust import MORE, MORE_C
 
     model, _ = parse(MORE)
@@ -213,7 +217,7 @@ def test_shared_counts_handles_given_and_constructors_without_errno(parse, tmp_p
     assert run.stdout == "11 4 2 lbl\n"
 
 
-def test_names_shared_by_records_functions_and_get_build(parse, tmp_path):
+def test_a_record_named_as_a_function_and_a_method_named_get_build(parse, tmp_path):
     model, _ = parse(
         "struct api_h;\n"
         "/**\n * Open\n * @param[out] h H\n * @errno\n */\n"
@@ -228,7 +232,9 @@ def test_names_shared_by_records_functions_and_get_build(parse, tmp_path):
     assert "int get() const;" in hpp and "using version =" not in hpp
 
 
-def test_an_out_count_and_an_error_holding_what_was_written(parse, tmp_path):
+def test_an_out_count_bounds_the_result_and_the_error_holds_what_was_written(
+    parse, tmp_path
+):
     from tests.test_rust import REAP, REAP_C
 
     model, _ = parse(REAP)
@@ -259,7 +265,9 @@ def test_an_out_count_and_an_error_holding_what_was_written(parse, tmp_path):
     assert run.stdout == "3 20 1 2 10\n"
 
 
-def test_bytes_two_callbacks_and_outs_named_like_ret(parse, tmp_path):
+def test_byte_buffers_two_callbacks_clones_and_an_out_named_retval_work(
+    parse, tmp_path
+):
     from tests.test_rust import IO, IO_C, doc
 
     header = (
@@ -308,7 +316,7 @@ def test_bytes_two_callbacks_and_outs_named_like_ret(parse, tmp_path):
     assert run.stdout == "4 3 20 21 1 42 1\n"
 
 
-def test_a_class_returned_before_it_is_defined(parse, tmp_path):
+def test_a_class_returned_before_it_is_defined_builds(parse, tmp_path):
     from tests.test_rust import doc
 
     model, _ = parse(
@@ -323,7 +331,7 @@ def test_a_class_returned_before_it_is_defined(parse, tmp_path):
     assert process(model, ["cpp"], tmp_path) == []
 
 
-def test_parameters_named_ret_and_functions_sharing_a_name(parse, tmp_path):
+def test_parameters_named_ret_and_functions_sharing_a_name_build(parse, tmp_path):
     from tests.test_rust import SHARED, doc
 
     model, _ = parse(SHARED + doc("Echo", "@errno") + "int api_echo(int ret);\n")
@@ -344,7 +352,7 @@ def test_parameters_named_as_locals_of_the_layer_build(parse, tmp_path):
     assert process(model, ["cpp"], tmp_path) == []
 
 
-def test_a_function_given_by_name_as_a_callback(parse, tmp_path):
+def test_a_function_given_by_name_as_a_callback_is_called(parse, tmp_path):
     from tests.test_rust import doc
 
     header = (
@@ -387,7 +395,7 @@ def test_a_function_named_as_a_record_builds(parse, tmp_path):
     )
 
 
-def test_methods_named_as_their_class_or_its_deleter(parse, tmp_path):
+def test_methods_named_as_their_class_or_its_deleter_build(parse, tmp_path):
     from tests.test_rust import doc
 
     model, _ = parse(
@@ -404,7 +412,7 @@ def test_methods_named_as_their_class_or_its_deleter(parse, tmp_path):
     assert process(model, ["cpp"], tmp_path) == []
 
 
-def test_a_class_named_as_a_c_typedef_it_uses(parse, tmp_path):
+def test_a_class_named_as_a_c_typedef_it_uses_builds(parse, tmp_path):
     from tests.test_rust import doc
 
     model, _ = parse(
@@ -417,7 +425,9 @@ def test_a_class_named_as_a_c_typedef_it_uses(parse, tmp_path):
     assert process(model, ["cpp"], tmp_path) == []
 
 
-def test_names_hiding_c_names_and_types_of_the_namespace(parse, tmp_path):
+def test_names_that_would_hide_c_names_or_namespace_types_are_renamed_or_left_out(
+    parse, tmp_path
+):
     from tests.test_rust import doc
 
     model, _ = parse(
@@ -445,7 +455,7 @@ def test_names_hiding_c_names_and_types_of_the_namespace(parse, tmp_path):
     assert "\nkind_(int x)" in hpp and "\nh_(int x)" in hpp
 
 
-def test_names_the_namespace_declares_or_uses(parse, tmp_path):
+def test_names_the_namespace_declares_or_uses_are_renamed(parse, tmp_path):
     from tests.test_rust import doc
 
     model, _ = parse(
@@ -467,7 +477,9 @@ def test_names_the_namespace_declares_or_uses(parse, tmp_path):
     assert "class name_handle" in hpp and "enum class json_" in hpp
 
 
-def test_methods_named_as_classes_and_callbacks_as_template_parameters(parse, tmp_path):
+def test_methods_named_as_classes_and_callbacks_as_template_parameters_build(
+    parse, tmp_path
+):
     from tests.test_rust import doc
 
     model, _ = parse(
@@ -507,7 +519,7 @@ def test_methods_named_as_classes_and_callbacks_as_template_parameters(parse, tm
     )
 
 
-def test_a_template_parameter_named_as_a_record(parse, tmp_path):
+def test_a_record_named_as_a_template_parameter_builds(parse, tmp_path):
     from tests.test_rust import doc
 
     model, _ = parse(
