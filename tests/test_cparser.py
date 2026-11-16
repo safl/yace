@@ -46,7 +46,7 @@ def test_the_subset_gives_no_diagnostics(parser):
         assert name in names
 
 
-def test_types_of_the_subset(parser):
+def test_the_types_of_the_subset_are_recorded(parser):
     model, _ = parser.parse(HEADERS / "valid.h")
     fields = {f.name: f.typ for f in model.find("valid_all").fields}
 
@@ -71,7 +71,7 @@ def test_types_of_the_subset(parser):
     assert isinstance(handle, decls.Struct) and handle.fields == []
 
 
-def test_values_and_docs(parser):
+def test_the_values_and_docs_of_the_subset_are_recorded(parser):
     model, _ = parser.parse(HEADERS / "valid.h")
 
     assert model.find("VALID_NAME").value == decls.StrLiteral(value="valid")
@@ -224,7 +224,7 @@ def test_a_rule_is_not_a_note(parse):
     ]
 
 
-def test_diagnostics_say_where(parse):
+def test_a_diagnostic_names_its_file_and_line(parse):
     _, diagnostics = parse("/** doc */\nstruct s { unsigned int a : 3; };\n")
     (bitfield,) = [d for d in diagnostics if d.rule == "bitfield"]
     assert (bitfield.file, bitfield.line) == ("api.h", 2)
@@ -261,7 +261,7 @@ def test_typedef_names_an_anonymous_record(parse):
     assert not any(isinstance(e, decls.Typedef) for e in model.entities)
 
 
-def test_typedef_of_an_array(parse):
+def test_a_typedef_of_an_array_is_an_array_type(parse):
     model, _ = parse(
         "#include <stdint.h>\ntypedef uint8_t mac[6];\nstruct addr { mac m; };"
     )
@@ -327,7 +327,7 @@ def test_a_record_typedef_with_two_names_keeps_both(parse):
     assert "typedef" in [d.rule for d in diagnostics]
 
 
-def test_names_of_cxx_and_attributes_are_reported_where_they_are(parse):
+def test_a_cxx_keyword_and_an_attribute_are_reported_at_their_lines(parse):
     _, diagnostics = parse(
         "/** R */\nstruct api_rec {\n\tint class; ///< C\n};\n"
         "/** F */\nint api_f(void) __attribute__((deprecated));\n"
@@ -340,7 +340,9 @@ def test_names_of_cxx_and_attributes_are_reported_where_they_are(parse):
     )
 
 
-def test_a_record_with_a_flexible_array_in_an_array_or_struct(parse):
+def test_a_field_holding_a_flexible_array_record_is_left_out_or_its_record_skipped(
+    parse,
+):
     model, diagnostics = parse(FLEXIBLE)
     found = [d.message for d in diagnostics if d.rule == "flexible-array"]
     nested = (
@@ -400,7 +402,7 @@ def test_a_rejected_lifetime_is_reported_once(parse):
     assert [d.rule for d in diagnostics] == ["annotation"]
 
 
-def test_defines_documented_with_exclamation_marks(parse):
+def test_a_doc_comment_opened_with_an_exclamation_mark_documents_a_define(parse):
     _, diagnostics = parse("//! Line\n#define API_A 1\n/*! Block */\n#define API_B 2\n")
     assert diagnostics == []
 
@@ -410,7 +412,9 @@ def test_forward_declaration_of_a_defined_record_is_not_opaque(parse):
     assert [(e.name, len(e.fields)) for e in model.entities] == [("s", 1)]
 
 
-def test_a_typedef_of_another_type_by_its_records_name_is_that_type(parse):
+def test_a_typedef_named_as_its_record_but_of_another_type_is_replaced_by_its_type(
+    parse,
+):
     model, diagnostics = parse(
         "struct node { int v; };\ntypedef struct node *node;\n"
         "int f(node n);\ntypedef struct node node_t;\n"
@@ -425,7 +429,7 @@ def test_a_typedef_of_another_type_by_its_records_name_is_that_type(parse):
     assert "each use of the typedef is replaced by its type" in typedef.message
 
 
-def test_an_array_typedef_by_its_records_name_is_that_array(parse):
+def test_an_array_typedef_named_as_its_record_is_replaced_by_the_array(parse):
     model, _ = parse(
         "struct node { int v; };\ntypedef struct node node[2];\n"
         "struct holder { node n; const node c; };\n"
@@ -553,7 +557,7 @@ def test_typedefs_from_another_header_are_their_types(parser, tmp_path):
     assert pid == types.Builtin(name="int")
 
 
-def test_a_record_defined_nested_lacks_a_doc_once(parse):
+def test_a_nested_record_without_a_doc_is_reported_once(parse):
     _, diagnostics = parse(
         "/** O */\nstruct o { struct i { int a; } in; };\n"
         "struct f;\n/** H */\nstruct h { struct f { int a; } at; };\n"
@@ -562,7 +566,7 @@ def test_a_record_defined_nested_lacks_a_doc_once(parse):
     assert missing == ["struct 'i' has no doc", "struct 'f' has no doc"]
 
 
-def test_an_enum_from_another_header_is_its_integer(parser, tmp_path):
+def test_an_enum_from_another_header_is_its_integer_type(parser, tmp_path):
     (tmp_path / "other.h").write_text("enum other_e { OTHER_A, OTHER_B };\n")
     (tmp_path / "api.h").write_text(
         '#include "other.h"\nstruct api_a { enum other_e e; int n; };\n'
@@ -578,13 +582,13 @@ def test_string_defines_hold_the_value_of_the_literal(parse):
     assert model.find("API_S").value.value == ESCAPED_VALUE
 
 
-def test_a_doc_mentioning_a_doc_comment_is_one(parse):
+def test_a_doc_containing_the_doc_comment_opener_is_one_doc_comment(parse):
     _, diagnostics = parse("/**\n * F, which a /** opens\n */\nint f(void);")
     assert "doc-comment" not in [d.rule for d in diagnostics]
 
 
 def headers(tmp_path, **sources):
-    """Write each source as '<name>.h' in 'tmp_path'; returns their paths"""
+    """Write each source to '<name>.h' in 'tmp_path' and return the paths"""
 
     paths = []
     for name, source in sources.items():
@@ -631,8 +635,8 @@ def test_a_header_included_but_not_given_is_external(parser, tmp_path):
     assert "external-type" in rules(diagnostics)
 
 
-# An API of two headers that include nothing: 'api_n.h' uses what 'api_m.h'
-# declares, and both the standard types that yace includes before them
+# An API of two headers that include nothing. 'api_n.h' uses what 'api_m.h'
+# declares, and both headers use standard types that yace includes before them.
 API_M = (
     "/** M */\nstruct api_m {\n\tuint32_t v; ///< V\n};\n"
     "/** M */\ntypedef struct api_m api_m;\n"
@@ -643,7 +647,7 @@ API_N = (
 )
 
 
-def test_a_header_may_use_what_one_given_before_it_declares(parser, tmp_path):
+def test_a_header_may_use_what_a_header_given_before_it_declares(parser, tmp_path):
     model, diagnostics = parser.parse(headers(tmp_path, api_m=API_M, api_n=API_N))
 
     assert [str(d) for d in diagnostics] == []
@@ -662,9 +666,12 @@ def test_a_header_using_a_type_before_its_header_is_given_is_reported(parser, tm
     assert diagnostics[0].message == "unknown type name 'api_m'"
 
 
-def test_gccs_headers_serve_where_clang_has_none(tmp_path, monkeypatch):
-    """The libclang package ships no stddef.h; with no clang installed, gcc's
-    give the same layouts"""
+def test_gccs_builtin_headers_give_the_model_that_the_default_ones_give(
+    tmp_path, monkeypatch
+):
+    """The libclang package ships no stddef.h. Where no clang is installed, the
+    parser uses gcc's builtin headers, which must give the same model as the
+    headers that the parser finds by default."""
 
     gcc = CParser._gcc_include()
     if gcc is None:
@@ -683,7 +690,9 @@ def test_gccs_headers_serve_where_clang_has_none(tmp_path, monkeypatch):
     assert model.find("api_l").size == 24
 
 
-def test_gccs_headers_are_found_last(tmp_path, monkeypatch):
+def test_gccs_builtin_headers_are_the_fallback_when_clang_is_not_found(
+    tmp_path, monkeypatch
+):
     gcc = CParser._gcc_include()
     resource = subprocess.run(["cc", "-print-resource-dir"], capture_output=True)
     if gcc is None or resource.returncode == 0:
@@ -723,7 +732,7 @@ def test_a_type_from_outside_the_set_is_external_with_no_include(parser, tmp_pat
     assert diagnostics[0].file == "api_p.h"
 
 
-# Uses what <stdio.h> declares, without including it
+# A header that uses what <stdio.h> declares without including <stdio.h>
 API_Q = (
     "/** End of file, and one */\n#define API_EOF1 (EOF + 1)\n"
     "/**\n * Q\n *\n * @param f F\n * @return N\n */\nint api_q(FILE *f);\n"
@@ -767,14 +776,15 @@ def test_every_error_of_the_headers_is_reported(parse):
     assert errors[-1].message == "unknown type name 'api_t29'"
 
 
-def test_a_header_yace_includes_not_found_stops_the_parse(parser, tmp_path):
+def test_a_missing_prelude_header_stops_the_parse(parser, tmp_path):
     paths = headers(tmp_path, api_q=API_Q)
 
     with pytest.raises(MissingHeader, match="'yace_nowhere.h' file not found"):
         parser.parse(paths, prelude=["yace_nowhere.h"])
 
 
-# An API's own printers, as xNVMe's libxnvme_pp.h declares them
+# Printers that an API declares itself, named as xNVMe's libxnvme_pp.h names
+# its printers
 OWN_PRINTERS = (
     "/** Formats */\nenum api_pr {\n\tAPI_PR_DEF = 0, ///< D\n"
     "\tAPI_PR_YAML = 1, ///< Y\n\tAPI_PR_TERSE = 2, ///< T\n};\n"
@@ -791,7 +801,7 @@ OWN_PRINTERS = (
 )
 
 
-def test_what_is_named_as_the_printers_output_formats_is_skipped(parse):
+def test_what_has_the_name_of_a_generated_printer_or_format_is_skipped(parse):
     model, diagnostics = parse(OWN_PRINTERS)
 
     skipped = "so yace skips"
@@ -817,7 +827,8 @@ def test_what_is_named_as_the_printers_output_formats_is_skipped(parse):
     assert [e.name for e in model.entities] == ["api_s", "api_k", "api_q"]
 
 
-# An API's own printers, tagged as not bound, and one not named as a printer
+# Printers that an API declares itself, all tagged @nobind, among them
+# api_a_dump, which is not named as a printer
 NOBIND = (
     "#include <stdio.h>\n"
     "/** A */\nstruct api_a {\n\tint x; ///< X\n};\n"
@@ -831,7 +842,7 @@ NOBIND = (
 )
 
 
-def test_a_function_tagged_nobind_is_left_out_unreported(parse):
+def test_a_function_tagged_nobind_is_left_out_without_a_diagnostic(parse):
     model, diagnostics = parse(NOBIND)
 
     assert diagnostics == []
@@ -856,7 +867,7 @@ STATIC_PR = (
 )
 
 
-def test_a_static_inline_function_tagged_nobind_is_left_out_unreported(parse):
+def test_a_static_inline_function_tagged_nobind_is_left_out_without_a_diagnostic(parse):
     model, diagnostics = parse(STATIC_PR)
     assert diagnostics == []
     assert [e.name for e in model.entities] == ["t"]
@@ -869,7 +880,7 @@ def test_a_static_inline_function_tagged_nobind_is_left_out_unreported(parse):
     assert [e.name for e in model.entities] == ["t"]
 
 
-def test_an_include_not_found_is_kept(parse):
+def test_an_include_that_is_not_found_is_kept_and_reported(parse):
     model, diagnostics = parse('#include "api_missing.h"\n/** F */\nint f(void);\n')
 
     assert [e.name for e in model.entities] == ["api_missing.h", "f"]
