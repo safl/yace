@@ -410,7 +410,7 @@ class Semantics(object):
                 if after.length:
                     annotation(
                         f"'{after.name}' is the context of '{param.name}', which"
-                        " the binding passes; it has no @len"
+                        " the binding passes; a context takes no @len"
                     )
                     after.length = None
 

@@ -422,7 +422,7 @@ def test_a_typedef_of_another_type_by_its_records_name_is_that_type(parse):
     (typedef,) = [
         d for d in diagnostics if d.rule == "typedef" and "'node'" in d.message
     ]
-    assert "its type is used in its place" in typedef.message
+    assert "each use of the typedef is replaced by its type" in typedef.message
 
 
 def test_an_array_typedef_by_its_records_name_is_that_array(parse):
@@ -812,7 +812,7 @@ def test_what_is_named_as_the_printers_output_formats_is_skipped(parse):
         f" yace generates for 'api_k', {skipped} 'api_k_str' and uses the"
         " generated printer",
         "<header>: unsupported-type: 'api_list_pr' uses 'api_pr', which is"
-        " skipped; it is skipped",
+        " skipped, so 'api_list_pr' is skipped",
     ]
     assert [e.name for e in model.entities] == ["api_s", "api_k", "api_q"]
 
@@ -994,6 +994,7 @@ def test_an_enum_with_no_enumerator_that_fits_an_int_is_skipped(parse):
     assert [str(d).split(": ", 1)[1] for d in diagnostics] == [
         "enum-value: 'API_E_BIG' of enum 'api_e' does not fit an int; it is left out",
         "enum-value: enum 'api_e' has no enumerator that fits an int; it is skipped",
-        "unsupported-type: 'api_s' uses 'api_e', which is skipped; it is skipped",
+        "unsupported-type: 'api_s' uses 'api_e', which is skipped, so 'api_s' is"
+        " skipped",
     ]
     assert model.find("api_e") is None and model.find("api_s") is None
