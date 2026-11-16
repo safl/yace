@@ -612,6 +612,23 @@ def test_bytes_out_arrays_sharing_a_count_and_clones(parse, tmp_path):
 
 
 @needs_cc
+def test_an_out_count_and_an_error_holding_what_was_written(parse, tmp_path):
+    from tests.test_rust import REAP, REAP_C
+
+    model, _ = parse(REAP)
+    assert process(model, ["go"], tmp_path) == []
+
+    main = program(
+        "\tdone, err := api.Reap(0, make([]int32, 4))\n"
+        "\tif err != nil {\n\t\tpanic(err)\n\t}\n"
+        "\tpartial, err := api.Reap(int32(syscall.EAGAIN), make([]int32, 2))\n"
+        "\tfmt.Println(done, partial, errors.Is(err, syscall.EAGAIN))\n",
+        imports=("errors", "fmt", "syscall"),
+    )
+    assert run_go(tmp_path, main, REAP + REAP_C) == "[0 10 20] [0 10] true\n"
+
+
+@needs_cc
 def test_closures_are_kept_as_long_as_their_lifetime_says(parse, tmp_path):
     model, _ = parse(KEPT)
     assert process(model, ["go"], tmp_path) == []

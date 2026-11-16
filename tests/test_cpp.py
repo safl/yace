@@ -228,6 +228,36 @@ def test_names_shared_by_records_functions_and_get_build(parse, tmp_path):
     assert "int get() const;" in hpp and "using version =" not in hpp
 
 
+def test_an_out_count_and_an_error_holding_what_was_written(parse, tmp_path):
+    from tests.test_rust import REAP, REAP_C
+
+    model, _ = parse(REAP)
+    assert process(model, ["cpp"], tmp_path) == []
+    (tmp_path / "api.c").write_text(REAP + REAP_C)
+    (tmp_path / "main.cpp").write_text(
+        "#include <cerrno>\n#include <cstdio>\n#include <api.hpp>\nint main() {\n"
+        "\tauto done = api::reap(0, 4);\n"
+        "\ttry {\n\t\tapi::reap(EAGAIN, 2);\n"
+        "\t} catch (const api::partial_error<decltype(done)> &e) {\n"
+        '\t\tstd::printf("%zu %d %d %zu %d\\n", done.size(), done[2],\n'
+        "\t\t\t    e.code().value() == EAGAIN, e.value.size(), e.value[1]);\n"
+        "\t}\n\treturn 0;\n}\n"
+    )
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    api_o = str(tmp_path / "api.o")
+    subprocess.run(
+        ["cc", *include, "-c", str(tmp_path / "api.c"), "-o", api_o], check=True
+    )
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), api_o]
+        + ["-o", str(program)],
+        check=True,
+    )
+    run = subprocess.run([str(program)], capture_output=True, text=True)
+    assert run.stdout == "3 20 1 2 10\n"
+
+
 def test_bytes_two_callbacks_and_outs_named_like_ret(parse, tmp_path):
     from tests.test_rust import IO, IO_C, doc
 

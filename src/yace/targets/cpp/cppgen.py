@@ -159,6 +159,24 @@ def copied(expr: str, local: str, call: str) -> List[str]:
     return ["{", f"\tconst auto {local} = {expr};", f"\t{call.format(local)};", "}"]
 
 
+PARTIAL = [
+    "/**",
+    " * The error of a call that wrote its outputs before it failed",
+    " */",
+    "template <class T> class partial_error : public std::system_error {",
+    "public:",
+    "\tpartial_error(int ev, const char *what, T value)",
+    "\t\t: std::system_error(ev, std::generic_category(), what),",
+    "\t\t  value(std::move(value))",
+    "\t{",
+    "\t}",
+    "",
+    "\t/** What the call returns when it succeeds, with what it wrote */",
+    "\tT value;",
+    "};",
+]
+
+
 class Printer(object):
     """The C++ statements printing a value of a type into the std::string
     'out', as the pretty-printers of the C API print it"""
@@ -448,6 +466,8 @@ class Renderer(object):
             return f"{name}.data()"
         if arg.kind == "length":
             return f"{self.pname(arg.of)}.size()"
+        if arg.kind == "count":
+            return f"&{self.local(call, arg.param, 'out')}"
         if arg.kind == "out":
             out = next(o for o in call.outs if o.param == arg.param)
             made = self.local(call, arg.param, "out")
@@ -591,7 +611,10 @@ class Renderer(object):
                 ]
         for arg in call.args:
             name = self.pname(arg.param)
-            if arg.kind == "out":
+            if arg.kind == "count":
+                made = self.local(call, arg.param, "out")
+                lines.append(f"{self.c(arg.typ.to)} {made}{{}};")
+            elif arg.kind == "out":
                 out = next(o for o in call.outs if o.param == arg.param)
                 made = self.local(call, arg.param, "out")
                 if out.kind == "array":
@@ -644,28 +667,50 @@ class Renderer(object):
         uses_ret = call.errno or call.returns != "nothing"
         raw = f"::{call.function}({args});"
         lines.append(f"auto ret = {raw}" if uses_ret else raw)
+        failed: List[str] = []
         if call.errno:
-            lines.append("if (ret < 0) {")
+            failed.append("if (ret < 0) {")
             for arg in call.args:
                 if arg.kind != "callback" or (null and self.nulled(call, arg)):
                     continue
                 if arg.lifetime == "once":
                     held_t = self.local(call, arg.param, "t")
                     ctx = self.local(call, arg.param, "ctx")
-                    lines.append(f"\tdelete static_cast<{held_t} *>({ctx});")
+                    failed.append(f"\tdelete static_cast<{held_t} *>({ctx});")
                 elif arg.lifetime == "handle":
-                    lines.append("\tkeep_.pop_back();")
-            lines += [
-                "\tthrow std::system_error(static_cast<int>(-ret),"
-                " std::generic_category(),",
-                f'\t\t\t\t"{call.function}");',
-                "}",
-            ]
+                    failed.append("\tkeep_.pop_back();")
+            if call.partial:
+                rtype = self.signature(call)[1]
+                moved = [f"std::move({e})" for _, e in results]
+                value = (
+                    moved[0] if len(moved) == 1 else f"{rtype}{{{', '.join(moved)}}}"
+                )
+                failed += [
+                    f"\tthrow partial_error<{rtype}>(static_cast<int>(-ret),",
+                    f'\t\t\t\t"{call.function}", {value});',
+                    "}",
+                ]
+            else:
+                failed += [
+                    "\tthrow std::system_error(static_cast<int>(-ret),"
+                    " std::generic_category(),",
+                    f'\t\t\t\t"{call.function}");',
+                    "}",
+                ]
+        if not call.partial:
+            lines += failed
         for out in call.outs:
             if out.kind == "array":
-                count = "ret" if call.returns == "count" else self.pname(out.capacity)
+                if out.count:
+                    count = self.local(call, out.count, "out")
+                elif call.returns == "count":
+                    count = "ret"
+                else:
+                    count = self.pname(out.capacity)
                 made = self.local(call, out.param, "out")
                 lines.append(f"{made}.resize(static_cast<std::size_t>({count}));")
+        if call.partial:
+            lines += failed
         if len(results) == 1:
             lines.append(f"return {results[0][1]};")
         elif results:
@@ -809,7 +854,13 @@ class Renderer(object):
         """The comment of 'call'; a destructor returns nothing and never throws, as
         the pointer it releases is reset"""
 
-        shown, errors = call_doc(call, self.idioms.decl(call.function).doc, self.pname)
+        shown, errors = call_doc(
+            call,
+            self.idioms.decl(call.function).doc,
+            self.pname,
+            "The exception is a partial_error, whose value is what the call returns"
+            " when it succeeds, with what was written before it failed.",
+        )
         if call.kind == "destructor":
             shown, errors = shown.model_copy(update={"returns": ""}), ""
         return comment(shown, indent, errors)
@@ -1078,6 +1129,8 @@ class Renderer(object):
 
     def render(self) -> str:
         out: List[str] = self.printers() + [""]
+        if any(c.partial and self.usable(c) for c in self.idioms.calls):
+            out += PARTIAL + [""]
         for enum in [e for e in self.model.entities if isinstance(e, decls.Enum)]:
             out += self.enum(enum) + [""]
         for record in [e for e in self.model.entities if isinstance(e, decls.RECORDS)]:

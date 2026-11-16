@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
+import errno
 import json
 import os
 import subprocess
@@ -468,6 +469,69 @@ void api_twice(int32_t *v, size_t n) { for (size_t i = 0; i < n; i++) v[i] *= 2;
 struct api_x *api_default(void) { return (struct api_x *)&handles[0]; }
 int api_use(int x, struct api_x *p) { return p ? x : -1; }
 """
+
+
+# Writes up to three elements, then fails with the errno 'fail', unless 0
+REAP = (
+    "#include <stdint.h>\n"
+    + doc(
+        "Reap",
+        "@param[out] done D",
+        "@param[out] n N",
+        "@len done max",
+        "@len done n",
+        "@errno partial",
+    )
+    + "int api_reap(int fail, int32_t *done, uint32_t max, uint32_t *n);\n"
+)
+
+REAP_C = """
+int api_reap(int fail, int32_t *done, uint32_t max, uint32_t *n)
+{
+\tuint32_t i;
+\tfor (i = 0; i < max && i < 3; i++)
+\t\tdone[i] = (int32_t)(10 * i);
+\t*n = i;
+\treturn -fail;
+}
+"""
+
+
+def library(tmp_path, source: str):
+    """Build 'source' as the shared library 'libapi.so' in 'tmp_path'"""
+
+    (tmp_path / "api.c").write_text(source)
+    subprocess.run(
+        ["cc", "-shared", "-fPIC", str(tmp_path / "api.c")]
+        + ["-o", str(tmp_path / "libapi.so")],
+        check=True,
+    )
+    return tmp_path / "libapi.so"
+
+
+@needs_cc
+def test_an_out_count_and_an_error_holding_what_was_written(parse, tmp_path):
+    model, _ = parse(REAP)
+    assert process(model, ["rust"], tmp_path) == []
+    library(tmp_path, REAP + REAP_C)
+
+    main = (
+        "use api::safe::*;\nfn main() {\n"
+        '    println!("{:?}", reap(0, 4).unwrap());\n'
+        f"    let failed = reap({errno.EAGAIN}, 2).unwrap_err();\n"
+        '    println!("{:?} {:?}", failed.error.kind(), failed.value);\n'
+        f"    let error: std::io::Error = reap({errno.EAGAIN}, 4)"
+        ".unwrap_err().into();\n"
+        '    println!("{:?}", error.raw_os_error());\n'
+        "}\n"
+    )
+    env = {
+        "API_LIB_DIR": str(tmp_path),
+        "RUSTFLAGS": f"-C link-arg=-Wl,-rpath,{tmp_path}",
+    }
+    assert run_with_crate(tmp_path, main, env) == (
+        f"[0, 10, 20]\nWouldBlock [0, 10]\nSome({errno.EAGAIN})\n"
+    )
 
 
 def test_bytes_out_arrays_sharing_a_count_and_clones_build(parse, tmp_path):

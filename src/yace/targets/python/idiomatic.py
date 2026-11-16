@@ -81,7 +81,13 @@ class Renderer(object):
 
     def doc(self, call: Call, indent: str) -> str:
         func = self.idioms.decl(call.function)
-        shown, errors = call_doc(call, func.doc, self.pname)
+        shown, errors = call_doc(
+            call,
+            func.doc,
+            self.pname,
+            "The OSError holds what the call returns when it succeeds, as"
+            " 'partial', with what was written before it failed.",
+        )
         body = pygen.docstring(shown, indent, errors)
         body = body or call.function
         return pygen.quoted(f"{body}\n\n{indent}Calls {call.function}().", indent)
@@ -238,6 +244,9 @@ class Renderer(object):
                 else:
                     made = self.local(call, arg.of, "c")
                     args.append(f"ctypes.cast({made}, ctypes.c_void_p)")
+            elif arg.kind == "count":
+                pre.append(f"{name} = {self.namer.ctype(arg.typ.to)}()")
+                args.append(f"ctypes.byref({name})")
             elif arg.kind == "out":
                 out = next(o for o in call.outs if o.param == arg.param)
                 if out.kind == "array":
@@ -281,7 +290,8 @@ class Renderer(object):
                     lines.append(f"    _KEPT.pop({key}, None)")
                     if arg.lifetime == "handle":
                         lines.append(f"    self._keys.remove({key})")
-            lines.append("_check(ret)")
+            if not call.partial:
+                lines.append("_check(ret)")
         for arg in call.args:
             if (
                 arg.kind == "sequence"
@@ -299,7 +309,9 @@ class Renderer(object):
         counted: Optional[str] = "ret" if call.returns == "count" else None
         for out in call.outs:
             name = self.pname(out.param)
-            if out.kind == "array":
+            if out.kind == "array" and out.count:
+                results.append(f"{name}[: {self.pname(out.count)}.value]")
+            elif out.kind == "array":
                 results.append(f"{name}[: {counted or self.pname(out.capacity)}]")
                 counted = None  # the count is that of the array, not returned too
             elif out.kind == "handle":
@@ -334,9 +346,15 @@ class Renderer(object):
 
         if not results:
             return lines
-        if len(results) == 1:
-            return lines + [f"return {results[0]}"]
-        return lines + [f"return ({', '.join(results)})"]
+        value = results[0] if len(results) == 1 else f"({', '.join(results)})"
+        if call.partial:
+            made = self.local(call, "partial", "value")
+            return lines + [
+                f"{made} = {value}",
+                f"_check(ret, {made})",
+                f"return {made}",
+            ]
+        return lines + [f"return {value}"]
 
     def points_to_value(self, typ) -> bool:
         """Whether 'typ' is a pointer to a record or number, not a string"""
@@ -473,11 +491,15 @@ class Renderer(object):
 
     def render(self) -> str:
         parts = [
-            "def _check(ret):",
-            '    """Raise the negative errno returned as an OSError"""',
+            "def _check(ret, *partial):",
+            '    """Raise the negative errno returned as an OSError; with \'partial\',',
+            '    the OSError holds it as what the call wrote before it failed"""',
             "",
             "    if ret < 0:",
-            "        raise OSError(-ret, _os.strerror(-ret))",
+            "        error = OSError(-ret, _os.strerror(-ret))",
+            "        if partial:",
+            "            error.partial = partial[0]",
+            "        raise error",
         ]
         self.classes = [
             name for name in self.idioms.handles if any(self.idioms.of(name).values())

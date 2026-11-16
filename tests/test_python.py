@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 import ctypes
+import errno
 import gc
 import importlib.util
 import inspect
@@ -384,6 +385,25 @@ def test_bytes_out_arrays_in_out_sequences_and_destructor_errors(
         failed = err.errno
     assert failed == 5
     handle.close()
+
+
+@needs_cc
+def test_an_out_count_and_an_error_holding_what_was_written(
+    parse, tmp_path, monkeypatch
+):
+    from tests.test_rust import REAP, REAP_C, library
+
+    model, _ = parse(REAP)
+    assert process(model, ["python"], tmp_path) == []
+    monkeypatch.setenv("API_LIBRARY", str(library(tmp_path, REAP + REAP_C)))
+
+    api = module(tmp_path)
+    assert api["reap"](0, 4) == [0, 10, 20]
+    assert api["reap"](0, 2) == [0, 10]
+    with pytest.raises(BlockingIOError) as failed:
+        api["reap"](errno.EAGAIN, 2)
+    assert failed.value.errno == errno.EAGAIN
+    assert failed.value.partial == [0, 10]
 
 
 @needs_cc

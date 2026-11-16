@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
+import errno
 import json
 import subprocess
 
@@ -216,6 +217,39 @@ def test_typedefs_of_handles_and_methods_named_deinit_build(parse, tmp_path):
         "/**\n * Use\n */\nint api_use(api_h_t *h);\n"
     )
     assert process(model, ["zig"], tmp_path) == []
+
+
+@needs_cc
+def test_an_out_count_and_an_error_holding_what_was_written(parse, tmp_path):
+    from tests.test_rust import REAP, REAP_C
+
+    model, _ = parse(REAP)
+    assert process(model, ["zig"], tmp_path) == []
+    (tmp_path / "impl.c").write_text(REAP + REAP_C)
+    (tmp_path / "api.zig").write_text((tmp_path / "zig" / "api.zig").read_text())
+    main = tmp_path / "main.zig"
+    main.write_text(
+        'const std = @import("std");\nconst api = @import("api.zig");\n'
+        "pub fn main() !void {\n"
+        "    var buf: [4]i32 = undefined;\n"
+        "    const done = try api.reap(0, &buf, null);\n"
+        "    const last = done[done.len - 1];\n"
+        "    var partial: []i32 = &.{};\n"
+        f"    const failed = api.reap({errno.EAGAIN}, buf[0..2], &partial);\n"
+        "    const err = if (failed) |_| error.Unexpected else |e| e;\n"
+        '    std.debug.print("{} {} {} {any}\\n", .{ done.len, last,'
+        f" api.errnoOf(err) == {errno.EAGAIN}, partial }});\n"
+        "}\n"
+    )
+    cache = str(tmp_path / ".cache")
+    run = subprocess.run(
+        ["zig", "run", str(main), str(tmp_path / "impl.c"), "-lc"]
+        + ["--cache-dir", cache, "--global-cache-dir", cache],
+        capture_output=True,
+        text=True,
+    )
+    assert run.returncode == 0, run.stderr
+    assert run.stderr == "3 20 true { 0, 10 }\n"
 
 
 @needs_cc

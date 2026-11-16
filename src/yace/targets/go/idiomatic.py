@@ -246,7 +246,10 @@ class Renderer(object):
         count = call.returns == "count"
         for out in call.outs:
             name = names[out.param]
-            if out.kind == "array":
+            if out.kind == "array" and out.count:
+                length = self.local(call, out.count, "out")
+                found.append((f"[]{self.elem(out.typ)}", f"{name}[:{length}]", "nil"))
+            elif out.kind == "array":
                 found.append(
                     (
                         f"[]{self.elem(out.typ)}",
@@ -408,6 +411,10 @@ class Renderer(object):
                     after_ok.append(f"h.keep = append(h.keep, {ctx})")
             elif arg.kind == "context":
                 args.append(self.local(call, arg.of, "ctx"))
+            elif arg.kind == "count":
+                made = self.local(call, arg.param, "out")
+                body.append(f"var {made} {namer.gotype(typ.to)}")
+                args.append(namer.to_c(typ, f"&{made}"))
             elif arg.kind == "out":
                 out = next(o for o in call.outs if o.param == arg.param)
                 if out.kind == "array":
@@ -438,6 +445,8 @@ class Renderer(object):
         uses_ret = call.errno or call.returns != "nothing"
         body.append(f"ret := {raw_call}" if uses_ret else raw_call)
         zeros = [z for _, _, z in results]
+        if call.partial:
+            zeros = [e for _, e, _ in results]
         if call.errno:
             failed = f'yaceErrno("{call.function}", int64(ret))'
             body += ["if ret < 0 {"]
@@ -487,7 +496,12 @@ class Renderer(object):
             body.append(f"return {', '.join(rexprs)}")
 
         pnames = self.pnames(call)
-        shown, errors = call_doc(call, func.doc, lambda p: pnames[p])
+        shown, errors = call_doc(
+            call,
+            func.doc,
+            lambda p: pnames[p],
+            "With the error, it returns what was written before it failed.",
+        )
         lines = doc(doc_lines(shown, errors), f"{name} calls {call.function}.")
         for arg in call.args:
             if arg.kind == "callback" and arg.lifetime != "call":
