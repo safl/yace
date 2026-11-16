@@ -4,9 +4,10 @@
 
 """
 The raw layer of the Go package: the constants, enums, types and functions of
-the C API, by their C names, exported. A function is a Go function calling it
-through cgo, converting what it is given; one cgo cannot call, such as a
-variadic one, is not bound, which its place in the package says.
+the C API, by their C names, exported. Each C function is bound as a Go
+function that calls it through cgo, converting its arguments; a C function cgo
+cannot call, such as a variadic one, is not bound, and a comment in its place
+in the package says why.
 """
 
 from typing import List, Optional
