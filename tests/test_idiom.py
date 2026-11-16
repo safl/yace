@@ -91,7 +91,7 @@ def test_a_callback_without_a_context_is_given_raw(parse):
     assert kinds(found["api_each"]) == [("cb", "value")]
 
 
-def test_a_callback_type_without_one_context_is_given_raw(parse):
+def test_a_callback_type_without_a_context_parameter_is_given_raw(parse):
     model, _ = parse(
         "typedef int (*api_cb)(int v);\n"
         "/**\n * Run\n * @lifetime cb once\n */\nint api_run(api_cb cb, void *arg);\n"
@@ -119,7 +119,7 @@ def test_a_returned_record_is_copied_only_when_the_caller_may_not_write_it(parse
     assert found["api_peek"].returns == "pointer"
 
 
-def test_a_call_documents_what_is_given_and_with_errno_how_it_fails():
+def test_a_call_documents_its_given_parameters_and_its_errno_failures():
     idioms = Idioms(CParser().parse(FIXTURE / "include" / "foo.h", meta())[0])
     found = {c.function: c for c in idioms.calls}
 
