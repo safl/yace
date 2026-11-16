@@ -4,7 +4,7 @@
 
 """
 C code for the IR: declarations of its types, and the statements of the pretty-
-printers. The C target's templates lay out the files; this produces what goes in
+printers. The C target's templates lay out the files; cgen produces what goes in
 them that depends on the types.
 """
 
@@ -235,8 +235,9 @@ class Printer(object):
         if isinstance(typ, types.Pointer):
             if types.is_string(typ):
                 return call("str", expr)
-            # Straight to an integer: going through 'void *' is not allowed for a
-            # function pointer, which a pointer to an external typedef may be
+            # Cast directly to an integer, as a cast through 'void *' is not
+            # allowed for a function pointer, which a pointer to an external
+            # typedef may be
             return call("ptr", f"(uintptr_t){expr}")
 
         if isinstance(typ, types.Array):

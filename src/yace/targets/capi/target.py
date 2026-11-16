@@ -12,6 +12,7 @@ Emits, into ``<output>/capi``:
 * ``lib<prefix>.h``, the C API
 * ``<prefix>_pp.c``, the pretty-printers
 * ``<prefix>_check.c``, the check program
+* ``<prefix>_signatures.c``, the check of the signatures against the headers
 
 The ``capi_pp`` target emits the pretty-printers alone, into ``<output>/capi_pp``,
 for an API to compile into its own library:
@@ -40,8 +41,9 @@ from yace.targets.target import Target
 
 from . import cgen
 
-# ISO C, strictly; with what glibc declares by default, as the parser saw it;
-# optimized, as some warnings, of format arguments among them, need it
+# The check program is compiled as strict ISO C, with what glibc declares by
+# default, as the parser saw it, and optimized, as some warnings need it, among
+# them those on format arguments
 CFLAGS = [
     "-std=c11",
     "-D_DEFAULT_SOURCE",
@@ -337,7 +339,8 @@ class CAPIPP(CAPI):
 
     NAME = "capi_pp"
     OPTIONS = {"form": ("library", "header")}
-    # GNU C11, as the check of the signatures compiles the API's own headers
+    # GNU C11, as lib<prefix>_pp.h includes the API's own headers, which the
+    # check program is then compiled with
     CFLAGS = ["-std=gnu11", "-O2", "-Wall", "-Wextra", "-Werror"]
 
     @staticmethod
