@@ -52,8 +52,10 @@ Errors
 
 Results
   What a function writes through an ``[out]`` pointer is returned rather than
-  passed, several as a ``std::tuple``; an ``[out]`` array as a ``std::vector``
-  of as many elements as the function says it wrote. A returned string is a
+  passed, several as a ``std::tuple``. An ``[out]`` array is written to a
+  ``std::span`` the caller gives, whose size is the capacity, and the part
+  written is returned, as a ``std::span`` of as many elements as the function
+  says it wrote; nothing is allocated. A returned string is a
   ``std::string_view``, a ``std::optional`` of one where ``@nullable``, borrowed
   from the handle or the library. A returned
   pointer to a record is a copy of it, a ``std::optional`` where

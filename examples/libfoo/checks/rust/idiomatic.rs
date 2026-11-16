@@ -121,7 +121,8 @@ fn main() -> io::Result<()> {
     let visit_with = count(unsafe { handle.point_visit_with(&visitor) });
     let unknown = status(safe::figure_fill(3).map(|_| ()));
     let add_many = count(handle.point_add_many(&points));
-    let copied = handle.point_copy(4)?;
+    let mut buffer = [FooPoint::default(); 4];
+    let copied = handle.point_copy(&mut buffer)?;
     let counted = std::rc::Rc::new(std::cell::Cell::new(0));
     let (once, again) = (counted.clone(), counted.clone());
     let submit = status(handle.count_submit(Box::new(move |n| once.set(n))));

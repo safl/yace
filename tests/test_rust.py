@@ -353,7 +353,10 @@ def test_a_handle_named_as_the_prefix_and_out_pointers_build(parse, tmp_path):
 
     lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "pub struct ApiHandle {" in lib
-    assert "vec![std::ptr::null_mut(); n as usize]" in lib
+    assert (
+        "pub fn ptrs<'buf>(&mut self, ptrs: &'buf mut [*mut c_int])"
+        " -> io::Result<&'buf mut [*mut c_int]>" in lib
+    )
 
 
 MORE = (
@@ -418,7 +421,7 @@ def test_shared_counts_handles_given_and_constructors_without_errno(parse, tmp_p
     assert "pub fn copy(&mut self, src: &H) -> io::Result<()>" in lib
     assert "pub fn make() -> Option<H>" in lib
     assert "assert_eq!(b.len(), a.len()," in lib
-    assert "assert_eq!(r#in.len(), n as usize," in lib
+    assert "assert_eq!(r#in.len(), out.len()," in lib
 
 
 IO = (
@@ -517,10 +520,11 @@ def test_an_out_count_and_an_error_holding_what_was_written(parse, tmp_path):
 
     main = (
         "use api::safe::*;\nfn main() {\n"
-        '    println!("{:?}", reap(0, 4).unwrap());\n'
-        f"    let failed = reap({errno.EAGAIN}, 2).unwrap_err();\n"
+        "    let mut buf = [0i32; 4];\n"
+        '    println!("{:?}", reap(0, &mut buf).unwrap());\n'
+        f"    let failed = reap({errno.EAGAIN}, &mut buf[..2]).unwrap_err();\n"
         '    println!("{:?} {:?}", failed.error.kind(), failed.value);\n'
-        f"    let error: std::io::Error = reap({errno.EAGAIN}, 4)"
+        f"    let error: std::io::Error = reap({errno.EAGAIN}, &mut buf)"
         ".unwrap_err().into();\n"
         '    println!("{:?}", error.raw_os_error());\n'
         "}\n"
@@ -540,7 +544,7 @@ def test_bytes_out_arrays_sharing_a_count_and_clones_build(parse, tmp_path):
 
     lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "pub fn write(buf: &[u8]) -> usize" in lib
-    assert "pub fn read(n: usize) -> io::Result<Vec<u8>>" in lib
+    assert "pub fn read<'buf>(buf: &'buf mut [u8]) -> io::Result<&'buf mut [u8]>" in lib
     assert "pub fn clone(&self) -> io::Result<H>" in lib
 
 
@@ -1411,3 +1415,16 @@ def test_a_packed_record_is_read_by_copies(parse, tmp_path):
         " [ApiP { x: 4, y: 5 }, ApiP { x: 6, y: 7 }], pair: [8, 9], type: 26 } 10\n"
         "ApiR { a: 1, self: 2 }\n"
     )
+
+
+def test_a_nullable_out_array_is_a_buffer_always_given(parse, tmp_path):
+    model, _ = parse(
+        "#include <stddef.h>\n#include <stdint.h>\n"
+        + doc("Fill", "@param[out] v V", "@param n N", "@nullable v", "@len v n")
+        + "void api_fill(int32_t *v, size_t n);\n"
+    )
+    assert process(model, ["rust"], tmp_path) == []
+
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
+    assert "pub fn fill<'buf>(v: &'buf mut [i32]) -> &'buf mut [i32]" in lib
+    assert "v.len() as usize" in lib

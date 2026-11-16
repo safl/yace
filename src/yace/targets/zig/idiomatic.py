@@ -410,6 +410,7 @@ class Renderer(object):
             self.pname,
             f"On failure, it writes to `{self.partial_name(call)}`, when given, what"
             " it returns when it succeeds, with what was written before it failed.",
+            buffers=True,
         )
         lines = [f"/// {line}".rstrip() for line in zgen.doc_lines(shown, errors)]
         lines += ["///", f"/// Calls `{call.function}`."]
