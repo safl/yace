@@ -11,7 +11,10 @@ represented is; every place it steps outside is reported as a
 :class:`.Diagnostic`, naming the rule it breaks. Nothing is dropped or changed
 without one. A diagnostic fails the run, unless ``--lenient``.
 
-The rules, by name, with why each exists, are :data:`.RULES`.
+The rules, by name, with why each exists, are :data:`.RULES`. A note, by a name
+in :data:`.NOTES`, reports what is skipped without the header breaking a rule:
+what only the C compiler uses, with no symbol for other languages to bind.
+A note does not fail the run.
 """
 
 from pydantic import BaseModel, ConfigDict
@@ -88,10 +91,6 @@ RULES = {
         "The parameters of a function must be named, for its documentation and"
         " the bindings to name them"
     ),
-    "function-like-macro": (
-        "Function-like macros are code, not part of the FFI boundary; they"
-        " are skipped"
-    ),
     "macro-value": (
         "A #define must be a string literal or an integer constant expression;"
         " others are skipped"
@@ -102,7 +101,7 @@ RULES = {
     ),
     "unsupported-declaration": (
         "Only types, functions and constants form the FFI boundary; variables"
-        " and inline or static functions are skipped"
+        " and other declarations are skipped"
     ),
     "external-type": (
         "The type is declared outside the headers and outside the C subset, so"
@@ -151,8 +150,24 @@ RULES = {
 }
 
 
+NOTES = {
+    "function-like-macro": (
+        "A function-like macro is code, not part of the FFI boundary; it is skipped"
+    ),
+    "inline-function": (
+        "A static or inline function is code compiled into its callers, with no"
+        " symbol for other languages to call; it is skipped"
+    ),
+    "static-assert": (
+        "A static assertion is checked by the C compiler and declares nothing;"
+        " it is skipped. The checks of the targets compare the layout of each"
+        " record with the IR"
+    ),
+}
+
+
 class Diagnostic(BaseModel):
-    """Where a header breaks a rule of the C subset, and how"""
+    """Where a header breaks a rule of the C subset, and how, or a note"""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -162,6 +177,13 @@ class Diagnostic(BaseModel):
     line: int = 0
     column: int = 0
 
+    @property
+    def note(self) -> bool:
+        """Whether this reports what is skipped without breaking a rule"""
+
+        return self.rule in NOTES
+
     def __str__(self):
         where = f"{self.file}:{self.line}:{self.column}" if self.file else "<header>"
-        return f"{where}: {self.rule}: {self.message}"
+        kind = "note: " if self.note else ""
+        return f"{where}: {kind}{self.rule}: {self.message}"

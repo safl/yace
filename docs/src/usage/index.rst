@@ -31,7 +31,10 @@ Given C headers, **yace** parses them as one API, see
 place where the header steps outside the C subset. The header is still parsed
 and the IR written, but a diagnostic fails the run before any code is
 generated. With ``--lenient``, the code is generated anyway, and what the
-diagnostics point at will likely not bind well, or at all.
+diagnostics point at will likely not bind well, or at all. A note reports what
+is skipped without the header breaking a rule, such as a static inline function;
+notes are written to ``<prefix>.status``, and do not fail the run, see
+:ref:`sec-ir-rules`.
 
 Given IR files, ``.yaml``, **yace** reads them instead. Either way, ``--emit``
 generates the code of the given targets, and checks it, unless ``--no-check``.

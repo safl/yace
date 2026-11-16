@@ -41,6 +41,22 @@ def test_a_diagnostic_fails_unless_lenient(tmp_path):
     assert (tmp_path / "lenient" / "capi").exists()
 
 
+def test_notes_do_not_fail(tmp_path):
+    header = tmp_path / "noted.h"
+    header.write_text(
+        "#define TWICE(x) ((x) * 2)\n"
+        "static inline int twice(int x) { return x * 2; }\n"
+        '_Static_assert(sizeof(int) == 4, "int");\n'
+    )
+
+    proc = yace(header, "--output", tmp_path)
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stderr == ""
+    status = (tmp_path / "noted.status").read_text().splitlines()
+    assert status[0] == "Parsed 0 entities, 0 diagnostics, 3 notes"
+    assert all(": note: " in line for line in status[1:])
+
+
 def test_meta_is_applied(tmp_path):
     meta = tmp_path / "meta.yaml"
     meta.write_text("name: Valid\nprefix: val\nlicense: MIT\n")

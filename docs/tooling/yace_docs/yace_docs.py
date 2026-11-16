@@ -105,7 +105,7 @@ def gen_entities():
     import typing
 
     from yace.ir import decls, types
-    from yace.ir.diagnostics import RULES
+    from yace.ir.diagnostics import NOTES, RULES
 
     docs_root = find_docs_root()
 
@@ -147,6 +147,17 @@ def gen_entities():
     ]
     for rule, text in RULES.items():
         # The texts are plain, for diagnostics; '*' would start emphasis
+        lines += [f"``{rule}``", f"  {text.replace('*', chr(92) + '*')}.", ""]
+    lines += [
+        "Notes",
+        "-----",
+        "",
+        "A note reports what is skipped without the header breaking a rule: what",
+        "only the C compiler uses, with no symbol for other languages to bind.",
+        "A note does not fail the run.",
+        "",
+    ]
+    for rule, text in NOTES.items():
         lines += [f"``{rule}``", f"  {text.replace('*', chr(92) + '*')}.", ""]
     (docs_root / "src" / "ir" / "rules.rst").write_text("\n".join(lines))
 
