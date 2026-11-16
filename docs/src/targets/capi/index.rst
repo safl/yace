@@ -51,9 +51,9 @@ IR's meta.
 The check of the signatures is compiled, as GNU C11, with the include
 directories, which hold the headers when they were given by path, or by
 ``-I``. Where a header is not found, **yace** warns that the signatures are not
-checked, and fails nothing. It does not say whether a library was built from
-these headers; that is for a tool comparing the library's ABI with them, such as
-``abidiff``.
+checked, and fails nothing. The check of the signatures does not say whether
+a library was built from these headers; that is for a tool comparing the
+library's ABI with them, such as ``abidiff``.
 
 capi_pp
 -------

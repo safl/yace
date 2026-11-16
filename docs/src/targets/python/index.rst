@@ -36,18 +36,18 @@ Where that Python has Cython, **yace** also translates the check of the
 ``.pxd`` and compiles what Cython made of it with the header, so a declaration
 that disagrees with the header fails to compile. A bit-field is the exception:
 it has no address to take, so the integer type the ``.pxd`` gives it is not
-checked. Nothing runs it. Where that
-Python has no Cython, **yace** warns that the ``.pxd`` is not checked, and the
-check does not fail.
+checked. What Cython made of the check is only compiled, and not run. Where
+that Python has no Cython, **yace** warns that the ``.pxd`` is not checked, and
+the check does not fail.
 
 The bindings
 ------------
 
 Names are those of the C API, so its documentation applies, as with the modules
 of Python's own library that bind C APIs. Only types are renamed, to CamelCase,
-as Python names classes: ``struct foo_point`` is ``FooPoint``, as is ``typedef
-struct foo_point foo_point;``, the callback type ``foo_visit_cb`` is
-``FooVisitCb``. Where two C names would get the same
+as Python names classes: ``struct foo_point`` is ``FooPoint``, as is
+``typedef struct foo_point foo_point;``, and the callback type
+``foo_visit_cb`` is ``FooVisitCb``. Where two C names would get the same
 Python name, both keep their C names. A name that is a Python keyword gets a
 trailing underscore.
 
@@ -70,10 +70,11 @@ Records
   a record is its YAML, and ``repr()`` is as its constructor is called,
   ``FooPoint(x=3, y=4)``: arrays as lists, a field typed as an enum by the name
   of its member, every member of a union. An opaque record is an empty
-  structure, used through pointers. Each part of a field of bits, see :ref:`sec-ir-csubset`, is a
-  property, ``<field>_<part>``, such as ``status.code_type``, reading the part
-  shifted down and writing it in its place, raising :py:class:`ValueError` for a
-  value that does not fit its bits; the field itself is there as before.
+  structure, used through pointers. Each part of a field of bits, see
+  :ref:`sec-ir-csubset`, is a property, ``<field>_<part>``, such as
+  ``status.code_type``, reading the part shifted down and writing it in its
+  place, raising :py:class:`ValueError` for a value that does not fit its
+  bits; the field itself is there as before.
 
 Callbacks
   A function pointer type is a :py:func:`ctypes.CFUNCTYPE`. The caller keeps
@@ -205,8 +206,8 @@ What it brings
 :ref:`sec-bench` measures a call of libfoo from every target, against C. Through
 the ``.pxd``, a Cython loop calls the C API at C's cost, where ctypes, whose
 every call goes through the interpreter, costs two orders of magnitude more.
-That is what the ``.pxd`` is for: code with a hot loop over the library writes
-it in Cython, and the rest uses the ctypes module.
+The ``.pxd`` is for code with a hot loop over the library: that loop is written
+in Cython, and the rest of the code uses the ctypes module.
 
 Example
 -------

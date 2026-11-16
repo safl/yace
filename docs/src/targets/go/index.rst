@@ -50,8 +50,9 @@ through ``CGO_CFLAGS``.
 The raw layer
 -------------
 
-The C API as C has it, by its C names, which Go exports only from an upper-case
-letter: ``foo_open()`` is ``Foo_open()``, ``FOO_MAGIC`` stays ``FOO_MAGIC``.
+The raw layer is the C API as C has it, by its C names, which Go exports only
+from an upper-case letter: ``foo_open()`` is ``Foo_open()``, ``FOO_MAGIC``
+stays ``FOO_MAGIC``.
 Each function converts what it is given and calls the C function through cgo.
 cgo's own types are of no use outside the package, so the records are Go structs
 of the C layout, named in CamelCase, ``struct foo_point`` as ``FooPoint``, with
@@ -64,8 +65,7 @@ record, which cgo does not declare the unaligned fields of, is its bytes, with
 a getter and a setter per field reading and writing a copy of it, ``At()`` and
 ``SetAt(value)``, as Go aligns every field. A getter, also of a part of a
 field of bits, takes the record by value, so getters chain, ``Many()[1].At()``;
-the garbage collector does not see
-a pointer set through a setter. A flexible
+the garbage collector does not see a pointer set through a setter. A flexible
 array, last in a struct, is left out, as a struct ending in a zero-sized field
 is padded in Go; a comment says so. An opaque record is a struct of no fields,
 usable only through pointers, as is a type declared outside the headers.
@@ -89,11 +89,11 @@ Every struct and union has printers of its own, not calling the C API's:
 its YAML. They print what the C API's pretty-printers print, floats as C's
 ``%g`` prints them, except for a record with bit-fields: Go keeps it as its
 bytes, so it has no printers, and a record holding one prints it as ``null``,
-where the C printers print its fields. Each part of
-a field of bits, see :ref:`sec-ir-csubset`, has a getter and a setter,
-``CodeType()`` and ``SetCodeType(value)``, of the field's type, the setter
-panicking on a value that does not fit the part's bits. A name the struct has
-already, as a field or a printer, gets a trailing underscore.
+where the C printers print its fields. Each part of a field of bits, see
+:ref:`sec-ir-csubset`, has a getter and a setter, ``CodeType()`` and
+``SetCodeType(value)``, of the field's type, the setter panicking on a value
+that does not fit the part's bits. A name the struct has already, as a field
+or a printer, gets a trailing underscore.
 
 Memory given to C must hold no Go pointers, as cgo requires: a record given by
 a pointer may point to C memory, not to Go memory. cgo checks it as it passes
@@ -102,9 +102,10 @@ the record.
 The idiomatic layer
 -------------------
 
-Over the raw one, from what the header says beyond C, see
-:ref:`sec-ir-csubset`, and as derived in :py:mod:`yace.targets.idiom`. Its
-functions are named in CamelCase, without the prefix:
+The idiomatic layer is built over the raw one, from what the header says
+beyond C, see :ref:`sec-ir-csubset`, and as derived in
+:py:mod:`yace.targets.idiom`. Its functions are named in CamelCase, without
+the prefix:
 
 Handles
   An opaque record is a struct holding the pointer, named without the prefix:
@@ -118,9 +119,9 @@ Handles
 Errors
   A function documented ``@errno`` returns an ``error`` last, a
   ``syscall.Errno`` wrapped with the name of the C function, so
-  ``errors.Is(err, syscall.EINVAL)`` holds for ``-EINVAL``. One returning ``int``
-  returns only the ``error``; one returning another integer, such as a count,
-  an ``int`` before it.
+  ``errors.Is(err, syscall.EINVAL)`` holds for ``-EINVAL``. One returning
+  ``int`` returns only the ``error``; one returning another integer, such as a
+  count, an ``int`` before it.
 
 Results
   What a function writes through an ``[out]`` pointer is returned rather than
@@ -149,8 +150,8 @@ Callbacks
   destroyed, for ``handle``, and never where the destructor fails or nothing
   destroys the handle, as C may still hold it. One the call fails to take, by
   its ``@errno``, is released at once. A ``@nullable`` callback may be nil,
-  passing NULL. A panic in the function
-  unwinds the C frames that called it, which C does not expect.
+  passing NULL. A panic in the function unwinds the C frames that called it,
+  which C does not expect.
 
 A call that has no idiomatic form, as the raw layer does not bind it or what it
 writes has no fields to return, has a comment in its place naming the raw

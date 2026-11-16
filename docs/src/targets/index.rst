@@ -14,8 +14,8 @@ and that it works. The C and Zig targets also check the functions against the
 headers: C that the IR gives them the types the headers do, see
 :ref:`sec-targets-capi`, and Zig that its bindings agree with Zig's own
 translation of the headers, see :ref:`sec-targets-zig`. Targets are found
-through the ``yace.targets`` entry point group, so a package can provide one without changes to **yace**; see
-:py:mod:`yace.targets.target`.
+through the ``yace.targets`` entry point group, so a package can provide one
+without changes to **yace**; see :py:mod:`yace.targets.target`.
 
 Each target has two layers. The raw one calls the C functions as they are,
 and needs nothing beyond the declarations. The idiomatic one, over it, is what
