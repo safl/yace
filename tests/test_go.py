@@ -41,10 +41,13 @@ pytestmark = needs_go
 
 
 def run_go(tmp_path, main: str, impl: str = "", strict: bool = False) -> str:
-    """Build and run 'main', the source of a Go program, against the package
-    generated into 'tmp_path'; linked with 'impl', the C source of the library,
-    or with nothing, by the tag 'api_no_link'. 'strict' checks every pointer
-    crossing to C, as GOEXPERIMENT=cgocheck2 does. Returns what it printed."""
+    """Build the Go program 'main' against the package generated into
+    'tmp_path', run it, and return what it printed.
+
+    With 'impl', the C source of the library, the program links against a
+    shared library built from 'impl'; without it, the build sets the tag
+    'api_no_link' and links against no library. With 'strict', the build sets
+    GOEXPERIMENT=cgocheck2, which checks every pointer passed to C."""
 
     project = tmp_path / "user"
     project.mkdir()
@@ -77,7 +80,8 @@ def run_go(tmp_path, main: str, impl: str = "", strict: bool = False) -> str:
 
 
 def program(body: str, imports=("fmt",)) -> str:
-    """A Go program of 'body', in main(), importing the package as 'api'"""
+    """Return a Go program whose main() is 'body' and which imports the
+    packages 'imports' and the generated package 'api'"""
 
     lines = "".join(f'\t"{name}"\n' for name in imports)
     return (
@@ -95,7 +99,8 @@ def test_the_subset_prints_as_the_c_api_does(parser, tmp_path):
         assert (tmp_path / "go" / f"check.{fmt}").read_text() == c_out
 
 
-# A value of every kind a printer prints, a union, and a field of bits
+# VALUES declares a record with a field of every kind the printers print, a
+# union, a record of arrays of floats, and the record of bit-fields of BITS
 VALUES = (
     "#include <stdbool.h>\n#include <stddef.h>\n#include <stdint.h>\n"
     "/** E */\nenum api_e { API_E_A = -1, API_E_B = 2, API_E_C = 2 };\n"
@@ -112,7 +117,7 @@ VALUES = (
     "/** G */\nstruct api_g { double d[11]; float f[3]; };\n"
 ) + BITS
 
-# The C printers, called on the records the Go program fills in
+# VALUES_C calls the C printers on the records that VALUES_GO fills in
 VALUES_C = r"""#include <stdio.h>
 #include <libapi.h>
 void cb(void *arg) { (void)arg; }
@@ -239,10 +244,11 @@ def test_values_print_as_the_c_printers_print_them(parse, tmp_path):
     assert go_out == c_out
     v_yaml = c_out[c_out.index("api_v:") : c_out.index("api_u:")]
     s_yaml = c_out[c_out.index("api_status:") : c_out.index("api_g:")]
-    assert strings == v_yaml + s_yaml  # String() is the YAML
+    assert strings == v_yaml + s_yaml  # String() returns the YAML form
 
 
-# A union whose members are an array, a string and a field of bits
+# UNION adds to BITS the union api_u, which has a field of bits, and the union
+# api_w, whose members are an array and a string
 UNION = (
     BITS + BITS_UNION + "/** W */\nunion api_w { uint32_t words[2]; char name[8]; };\n"
 )
@@ -361,7 +367,8 @@ def test_no_toolchain_is_a_failure_not_a_crash(parser, tmp_path, monkeypatch):
 
 
 def test_string_defines_keep_their_value(parse, tmp_path):
-    # A package named in a string is not one the package uses
+    # API_P names strconv and cgo only in a string, so the package must not
+    # import them
     model, _ = parse(ESCAPED + '/** P */\n#define API_P "strconv.Itoa cgo.Handle"\n')
     assert process(model, ["go"], tmp_path) == []
 
@@ -563,7 +570,9 @@ def test_the_idiomatic_layer_builds_for_every_kind_of_parameter(parse, tmp_path)
 
 
 @needs_cc
-def test_shared_counts_handles_given_and_constructors_without_errno(parse, tmp_path):
+def test_shared_counts_handles_as_arguments_and_constructors_without_errno_work(
+    parse, tmp_path
+):
     model, _ = parse(MORE)
     assert process(model, ["go"], tmp_path) == []
 
@@ -590,7 +599,7 @@ def test_shared_counts_handles_given_and_constructors_without_errno(parse, tmp_p
 
 
 @needs_cc
-def test_bytes_out_arrays_sharing_a_count_and_clones(parse, tmp_path):
+def test_byte_slices_out_arrays_sharing_a_count_and_clones_work(parse, tmp_path):
     header = IO + doc("Get", "@param[out] retval R") + "void api_get(int *retval);\n"
     model, _ = parse(header)
     assert process(model, ["go"], tmp_path) == []
@@ -612,7 +621,9 @@ def test_bytes_out_arrays_sharing_a_count_and_clones(parse, tmp_path):
 
 
 @needs_cc
-def test_an_out_count_and_an_error_holding_what_was_written(parse, tmp_path):
+def test_an_out_count_bounds_the_result_and_the_error_holds_what_was_written(
+    parse, tmp_path
+):
     from tests.test_rust import REAP, REAP_C
 
     model, _ = parse(REAP)
@@ -677,7 +688,9 @@ def test_a_string_with_a_count_is_counted_from_the_string(parse, tmp_path):
 
 
 @needs_cc
-def test_nullable_slices_strings_to_callbacks_and_names_of_the_layer(parse, tmp_path):
+def test_nullable_slices_strings_given_to_callbacks_and_parameters_named_ret_work(
+    parse, tmp_path
+):
     header = (
         "#include <stddef.h>\ntypedef void (*api_seen_cb)(void *arg, const char *s);\n"
         + doc("Ret")
@@ -733,7 +746,8 @@ def test_a_call_without_an_idiomatic_form_says_so(parse, tmp_path):
         + doc("Now", "@param[out] tv T")
         + "void api_now(struct api_r *tv);\n"
     )
-    model.find("api_r").fields = []  # as for a record defined elsewhere
+    # A record defined outside the headers has no fields; api_r is given none
+    model.find("api_r").fields = []
     assert process(model, ["go"], tmp_path) == []
 
     module = (tmp_path / "go" / "api.go").read_text()
