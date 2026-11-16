@@ -32,8 +32,8 @@ def process(
     failures = []
     for name in names:
         cls = targets.load(name)
-        # Only to a target given options, as a target that takes none may define
-        # __init__() without them
+        # Pass 'options' only to a target given options, as a target that takes
+        # none may define __init__() without the parameter
         given = {"options": options[name]} if options.get(name) else {}
         tgt = cls(output, include or [], **given)
         for path in tgt.emit(model):

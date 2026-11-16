@@ -7,14 +7,14 @@
 """
 The command-line interface of **yace**
 
-Given C headers, parses them as one API into the IR, writing '<prefix>.yaml'
-and the diagnostics to '<prefix>.status', and reports every place the headers
-step outside the C subset; such a place fails the run, unless '--lenient'. The
-prefix is that of the meta, or else the name of the first header. Given IR
-files, '.yaml', reads them.
-Either way, '--emit' then generates the code of the given targets and checks it.
-A generator, '--generate', writes headers that are parsed with the headers given.
-With '--toolchains', prints what those checks build with instead.
+Given C headers, yace parses them as one API into the IR, writes
+'<prefix>.yaml' and the diagnostics to '<prefix>.status', and reports every
+place the headers step outside the C subset; such a place fails the run, unless
+'--lenient'. The prefix is that of the meta, or else the name of the first
+header. Given IR files, '.yaml', yace reads them. Either way, '--emit' then
+generates the code of the given targets and checks it. A generator,
+'--generate', writes headers that are parsed with the headers given. With
+'--toolchains', yace prints what those checks build with instead.
 """
 
 import argparse
@@ -192,7 +192,7 @@ def main():
 
     missing = [str(path) for path in args.filepath if not path.exists()]
     if missing:
-        log.error("does not exist: %s", ", ".join(missing))
+        log.error("no such file or directory: %s", ", ".join(missing))
         return 1
 
     suffixes = {path.suffix for path in args.filepath}
@@ -238,8 +238,8 @@ def main():
     else:
         models = [ir.load(path) for path in args.filepath]
 
-    # The headers' own directories too, where the check of the signatures finds
-    # them when they are given by path
+    # Add the directories of the headers, where the check of the signatures
+    # finds the headers given by path
     include = [Path(path) for path in args.include]
     if ".h" in suffixes:
         include += [p.parent for p in args.filepath if p.parent not in include]
