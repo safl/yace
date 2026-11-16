@@ -87,8 +87,8 @@ def strip_markers(raw: str) -> str:
 
 def joint(tag: str, text: str) -> str:
     """What joins another of the repeated prose 'tag' to its 'text': references
-    are listed, and the rest are sentences; yace's own tags are joined by a
-    space, as their text is read word by word"""
+    are listed, and the rest are sentences. parse() joins yace's own tags by a
+    space instead, as their text is read word by word"""
 
     if tag == "see":
         return ", "

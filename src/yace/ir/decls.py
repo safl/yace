@@ -15,10 +15,10 @@ Each is one top-level declaration of the header, in the order they appear:
 * :class:`.Function`, ``int foo_open(const char *path);``
 
 Struct and union carry their layout, size and alignment in bytes and the offset
-of each field in bits, as the compiler that parsed the header laid them out. Targets
-check what they generate against it. A record declared with
-``__attribute__((packed))`` is 'packed': its fields are not aligned, and nor is
-the record.
+of each field in bits, as the compiler that parsed the header laid them out.
+Targets check what they generate against that layout. A record declared with
+``__attribute__((packed))``, or under ``#pragma pack(1)``, is 'packed': its
+fields are not aligned, and nor is the record.
 """
 
 import typing

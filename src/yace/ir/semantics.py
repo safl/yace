@@ -25,9 +25,9 @@ comment of the function:
 
 ``@len pointer count ...``
   The parameter ``count`` holds the number of elements ``pointer`` points to;
-  pairs, any number of them. For an [out] array, a second pair may name an
-  [out] pointer to an integer, to which the function writes the number of
-  elements it wrote; the integer is then the capacity of the array.
+  the tag takes any number of such pairs. For an [out] array, a second pair may
+  name an [out] pointer to an integer, to which the function writes the number
+  of elements it wrote; the integer is then the capacity of the array.
 
 ``@errno``
   The function returns a negative errno on failure, and zero or more on
@@ -46,10 +46,10 @@ comment of the function:
   the header can make: ``call``, only during the call; ``once``, at most once,
   after the call, and not at all when it fails; ``handle``, any number of times,
   until the handle the function is a method of is destroyed, and not at all
-  when the call fails. Pairs, one for every callback. A callback is invoked
-  during a call into the library, on its thread: ``call``, during the call
-  itself; the others, of a method, during a later call given the same handle,
-  or of a function, during any later call.
+  when the call fails. The tag takes pairs, one for every callback. A callback
+  is invoked during a call into the library, on its thread: ``call``, during
+  the call itself; the others, of a method, during a later call given the same
+  handle, or of a function, during any later call.
 
 ``@nobind``
   The function is not bound: the parser leaves it out of the IR, before reading
@@ -174,9 +174,10 @@ class Semantics(object):
         )
 
     def partial(self, func: decls.Function, annotation) -> bool:
-        """Whether 'func' can write its [out] parameters when it fails: it has
-        one, none is a handle, whose owner after a failure nobody knows, and it
-        returns int, as a count returned is not given by a failure"""
+        """Whether 'func' can write its [out] parameters when it fails: 'func'
+        has an [out] parameter, none of them is a handle, as the owner of a
+        handle written by a failed call is undefined, and 'func' returns int, as
+        a failure returns no count"""
 
         outs = [p for p in func.params if p.direction == "out"]
         if not outs:
