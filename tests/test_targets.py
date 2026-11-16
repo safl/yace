@@ -11,7 +11,8 @@ from yace.targets import target as targets
 
 
 def test_every_target_checks_with_a_relative_output(parser, tmp_path, monkeypatch):
-    """The checks run tools in the output directory, given as a relative path"""
+    """The checks run tools in the output directory, which is given as a
+    relative path"""
 
     model, _ = parser.parse(HEADERS / "valid.h")
     monkeypatch.chdir(tmp_path)
@@ -31,8 +32,9 @@ def test_the_go_target_writes_only_its_own_directory(parser, tmp_path):
 
 
 def test_a_packed_record_holding_bit_fields_checks_in_every_target(parse, tmp_path):
-    """A packed record holding a record of bit-fields, which most targets keep
-    as its bytes, directly and in a union, as xNVMe's do"""
+    """A packed record holds a record of bit-fields directly and inside a
+    union, as xNVMe's records do. Most targets represent the record of
+    bit-fields as its bytes."""
 
     model, _ = parse(
         "#include <stdint.h>\n"
@@ -67,8 +69,10 @@ DOCUMENTED = (
     "size_t api_count(const struct api_h *h);\n"
 )
 
-# What each target's idiomatic layer says of api_open() and api_count(): the
-# parameter given, how it fails, as C says it returns, and the prose tags
+# The text that the idiomatic layer of each target writes in the docs of
+# api_open() and api_count(): the parameter that the caller passes, the error
+# with what the C doc says api_open() returns, and the @note, @see and
+# @deprecated tags
 DOCUMENTED_AS = {
     "cpp": [
         " * @note Not thread-safe\n * @see api_close()\n * @param name The name\n"
@@ -139,11 +143,14 @@ def test_every_target_keeps_the_items_of_a_list_on_lines_of_their_own(parse, tmp
         assert wanted in generated, name
 
 
-def test_an_apis_own_printer_formats_leave_every_target_building(parse, tmp_path):
+def test_every_target_but_capi_pp_builds_an_api_that_declares_its_own_printers(
+    parse, tmp_path
+):
     from tests.test_cparser import OWN_PRINTERS
 
     model, _ = parse(OWN_PRINTERS)
-    # capi_pp includes the headers, so their own printers must be left out
+    # lib<prefix>_pp.h of capi_pp includes the parsed headers, whose printers
+    # have the names of the printers that capi_pp generates
     names = [name for name in sorted(targets.targets()) if name != "capi_pp"]
     failures = process(model, names, tmp_path)
     assert [
@@ -151,9 +158,12 @@ def test_an_apis_own_printer_formats_leave_every_target_building(parse, tmp_path
     ] == []
 
 
-def test_functions_tagged_nobind_leave_every_target_building(parse, tmp_path):
-    """Functions taking a FILE *, two named as the generated printers, are
-    neither bound nor in the way of the generated printers"""
+def test_every_target_builds_an_api_whose_own_printers_are_tagged_nobind(
+    parse, tmp_path
+):
+    """NOBIND declares three functions tagged @nobind, two of them with the
+    names of generated printers and two taking a FILE *. No target binds them,
+    and their names do not clash with the generated printers."""
     from tests.test_cparser import NOBIND
 
     model, _ = parse(NOBIND)
