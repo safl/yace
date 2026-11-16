@@ -11,8 +11,9 @@ which rules of the C subset the headers break
 Headers written for other purposes are expected to step outside the subset;
 that is reported, by rule, not counted against yace. What counts against yace
 is failing: a traceback, a timeout, or an 'internal-error' diagnostic. With
-'--with-capi', the C API is also generated and checked; for a header outside
-the subset that may not build, which is reported but is not a failure of yace.
+'--with-capi', the C API is also generated and checked; the C API of a header
+outside the subset may not build, which is reported but is not a failure of
+yace.
 
 Three sources of libraries:
   packaged.txt  Debian packages, parsing the installed headers
@@ -23,7 +24,7 @@ Usage:
     python3 toolbox/survey/survey.py --packaged-only --with-capi
     python3 toolbox/survey/survey.py --skip-download --report-only
 
-Exits non-zero when yace failed on any header.
+The survey exits non-zero when yace failed on any header.
 """
 
 import argparse
@@ -132,7 +133,8 @@ def repos(download: bool) -> Dict[str, List[Path]]:
 
 
 def yace(*args) -> Dict[str, Any]:
-    """Run yace; 'failed' when it raised or timed out, rather than reported"""
+    """Run yace; 'failed' is 'traceback' or 'timeout' where yace raised an
+    exception or timed out, and empty where yace ran to the end"""
 
     try:
         proc = subprocess.run(
