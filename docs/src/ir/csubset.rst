@@ -255,7 +255,7 @@ errno. A binding that only calls C needs none of this; one that is idiomatic in
 its language needs all of it: to return what is written, to raise or return an
 error, and to release the handle when it goes out of scope.
 
-Two rules settle what a convention can:
+Three rules settle what a convention can settle:
 
 * A returned string is ``const char *``, and borrowed: it belongs to the
   library, or to the handle it came from, and is never the caller's to free.

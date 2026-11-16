@@ -97,10 +97,11 @@ of these is C99. Each compiler spells them its own way, and not every target
 language can express each of them.
 
 A record declared with ``__attribute__((packed))``, or under
-``#pragma pack(1)``, is recorded as ``packed`` in the IR, with the layout the compiler chose, and every target declares it
-packed: the C API with the attribute, and so C++; Python with ``_pack_ = 1``;
-Rust with ``#[repr(C, packed)]``; Zig as an ``extern struct`` whose fields are
-each ``align(1)``. Go aligns every field, so a packed record is its bytes, each
+``#pragma pack(1)``, is recorded as ``packed`` in the IR, with the layout the
+compiler chose, and every target declares it packed: the C API with the
+attribute, and so C++; Python with ``_pack_ = 1``; Rust with
+``#[repr(C, packed)]``; Zig as an ``extern struct`` whose fields are each
+``align(1)``. Go aligns every field, so a packed record is its bytes, each
 field read and written by a copy, through a getter and a setter. A field of a
 packed record may not be aligned for its type, so a reference to it, or its
 address, may not be used as one to an aligned value: the printers of every
@@ -195,8 +196,9 @@ of the C API asserts them at compile time, for this example:
    :end-at: offsetof(pad_sample, count)
 
 The other targets assert the same in their own language. The C++ layer uses
-the records of the C API, and its check asserts them as the C check does. Where the ``abi``
-differs from the host's, or with ``--no-check``, the layout is not asserted.
+the records of the C API, and its check asserts them as the C check does.
+Where the ``abi`` differs from the host's, or with ``--no-check``, the layout
+is not asserted.
 
 No check asserts a calling convention. The fixture exercises them end to end:
 it builds the example library and calls it through every target, see
