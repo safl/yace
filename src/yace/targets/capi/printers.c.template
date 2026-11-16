@@ -2,14 +2,14 @@
 {%- if complete %}
 {%- if header_form %}
 
-/* Every printer header of yace carries the helpers; the first one included
- * defines them, with all of them, so that it serves the others too */
+/* Every printer header of yace carries the helpers; the first printer header
+ * included defines all of them, for the printers of the headers after it too */
 #ifndef YACE_PP_HELPERS
 #define YACE_PP_HELPERS
 {%- endif %}
 
-/* The printers are not on a fast path, so the helpers stay out of line;
- * inlined at every field, they make the printers much larger */
+/* The printers are not on a fast path, so the helpers are not inlined;
+ * inlined at every field, the helpers would make the printers larger */
 #if defined(__GNUC__)
 #define YACE_PP_HELPER __attribute__((noinline{{ ", unused" if header_form else "" }})) static
 #else
@@ -17,8 +17,8 @@
 #endif
 
 /* Where and how a record is printed: as JSON on one line, or as YAML with its
- * fields at 'indent'; of JSON, 'count' is the values printed in the object or
- * list, which a separator follows */
+ * fields at 'indent'; in JSON, 'count' is the number of values printed in the
+ * object or list, which a separator follows */
 struct yace_pp {
 	FILE *stream;
 	int json;
@@ -29,8 +29,9 @@ struct yace_pp {
 
 {%- if "key" in helpers %}
 
-/* A key, or of an element of a list, a NULL key, only the separator; a list is
- * printed as JSON, also in YAML, so a NULL key is never printed as YAML */
+/* Print 'key' and what follows it; for a NULL key, the key of an element of a
+ * list, print only the separator from the element before. A list is printed
+ * as JSON, also in YAML, so a NULL key is never printed as YAML */
 YACE_PP_HELPER int
 yace_pp_key(struct yace_pp *pp, const char *key)
 {
