@@ -16,6 +16,17 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## 0.12.0
+
+In the Rust target, a member of a union reads without `unsafe` where that is
+sound. Where every member of a union is as large as the union and has no
+padding, every byte of the union is initialised however it was written, and
+each member of a type for which every bit pattern is a value, such as an
+integer, a float, a raw pointer, an enum, or an array or record of those, has
+a safe getter of its name, `value.u()`. A `bool` or a function pointer keeps
+the unsafe read. The crate asserts the sizes this relies on when it is
+compiled.
+
 ## 0.11.0
 
 This release changes the layout of the code yace emits, and yace now needs a
