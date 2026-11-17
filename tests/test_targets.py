@@ -7,7 +7,8 @@ import shutil
 import subprocess
 import sys
 
-from tests.conftest import HEADERS
+from tests.conftest import HEADERS, needs_go
+from yace import formatter
 from yace.compiler import process
 from yace.ir import decls
 from yace.targets import target as targets
@@ -27,6 +28,16 @@ def test_every_target_checks_with_a_relative_output(parser, tmp_path, monkeypatc
     assert os.path.isdir(tmp_path / "out")
 
 
+def formattable():
+    """The targets whose formatters are found, as no other is emitted"""
+
+    return [
+        name
+        for name in sorted(targets.targets())
+        if not formatter.missing(targets.load(name).FORMATTERS)
+    ]
+
+
 def emitted(root, seed):
     """The files that 'yace --emit' of every target writes in a process of its
     own with hash seed 'seed', from a copy of valid.h under 'root', by path
@@ -36,7 +47,7 @@ def emitted(root, seed):
     include.mkdir(parents=True)
     shutil.copy(HEADERS / "valid.h", include)
     cmd = [sys.executable, "-m", "yace", "valid.h", "-I", ".", "--no-check"]
-    cmd += ["--emit", *sorted(targets.targets()), "--output", str(output)]
+    cmd += ["--emit", *formattable(), "--output", str(output)]
     env = {**os.environ, "PYTHONHASHSEED": str(seed)}
     proc = subprocess.run(cmd, cwd=include, env=env, capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr
@@ -60,6 +71,20 @@ def test_every_target_emits_the_same_bytes_in_two_processes(tmp_path):
     assert [name for name in first if first[name] != second[name]] == []
 
 
+def test_every_target_emits_code_as_its_formatters_lay_it_out(parser, tmp_path):
+    """Formatting the emitted code again changes no byte of it"""
+
+    model, _ = parser.parse(HEADERS / "valid.h")
+    names = formattable()
+    assert process(model, names, tmp_path, check=False) == []
+    for name in names:
+        paths = sorted(p for p in (tmp_path / name).rglob("*") if p.is_file())
+        before = [path.read_bytes() for path in paths]
+        assert formatter.format_all(targets.load(name).FORMATTERS, paths) == []
+        assert [path.read_bytes() for path in paths] == before, name
+
+
+@needs_go
 def test_the_go_target_writes_only_its_own_directory(parser, tmp_path):
     model, _ = parser.parse(HEADERS / "valid.h")
     assert process(model, ["go"], tmp_path, check=False) == []
@@ -146,6 +171,8 @@ DOCUMENTED_AS = {
 def test_every_target_documents_the_call_it_generates(parse, tmp_path):
     model, _ = parse(DOCUMENTED)
     for name, wanted in DOCUMENTED_AS.items():
+        if name not in formattable():
+            continue
         assert process(model, [name], tmp_path, check=False) == []
         generated = "\n".join(
             path.read_text() for path in (tmp_path / name).iterdir() if path.is_file()
@@ -172,6 +199,8 @@ LISTED_AS = {
 def test_every_target_keeps_the_items_of_a_list_on_lines_of_their_own(parse, tmp_path):
     model, _ = parse(LISTED)
     for name, wanted in LISTED_AS.items():
+        if name not in formattable():
+            continue
         assert process(model, [name], tmp_path, check=False) == []
         generated = "\n".join(
             path.read_text() for path in (tmp_path / name).iterdir() if path.is_file()

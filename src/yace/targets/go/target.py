@@ -33,7 +33,7 @@ from typing import List
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
-from yace import toolchain
+from yace import formatter, toolchain
 from yace.ir import decls
 from yace.ir.model import Model, host_abi
 from yace.targets.capi import cgen
@@ -160,6 +160,7 @@ def imports(lines: List[str]) -> List[str]:
 class Go(Target):
     NAME = "go"
     TOOLCHAINS = (toolchain.GO,)
+    FORMATTERS = (formatter.GO, formatter.GO_MOD, formatter.CLANG_FORMAT)
 
     def context(self, model: Model) -> dict:
         prefix = cgen.c_ident(model.meta.prefix)

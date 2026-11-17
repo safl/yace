@@ -354,9 +354,11 @@ def test_no_toolchain_is_a_failure_not_a_crash(parser, tmp_path, monkeypatch):
     monkeypatch.setenv("GO", "no-such-go")
     model, _ = parser.parse(HEADERS / "valid.h")
 
+    # go.mod is formatted by 'go mod edit', so nothing is emitted either
     assert process(model, ["go"], tmp_path) == [
-        "go: no Go toolchain ('no-such-go'); set GO"
+        "go: no Go toolchain ('no-such-go'); set GO; nothing is emitted"
     ]
+    assert not (tmp_path / "go").exists()
 
 
 def test_string_defines_keep_their_value(parse, tmp_path):

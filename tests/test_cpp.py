@@ -11,6 +11,7 @@ from tests.conftest import (
     PACKED_C,
     PACKED_PRINTED,
     SKIPPED,
+    flat,
     needs_cc,
 )
 from tests.test_rust import BITS_UNION, EDGES, HANDLE_NAMED_AS_PREFIX
@@ -117,11 +118,11 @@ def test_the_layer_builds_for_every_kind_of_parameter(parse, tmp_path):
     # A constructor is a function of the namespace, not a member of the class
     assert "\th open(" not in hpp
     assert "inline h\nopen(const char *name)" in hpp
-    assert "std::size_t each(F &&cb);" in hpp
-    assert "std::size_t each(std::nullptr_t);" in hpp
-    assert "int step(size_t &pos);" in hpp
-    assert "void inline_(int (*fn)(void *ctx), void *ctx);" in hpp
-    assert "void close();" in hpp
+    assert "std::size_t each(F &&cb);" in flat(hpp)
+    assert "std::size_t each(std::nullptr_t);" in flat(hpp)
+    assert "int step(size_t &pos);" in flat(hpp)
+    assert "void inline_(int (*fn)(void *ctx), void *ctx);" in flat(hpp)
+    assert "void close();" in flat(hpp)
 
 
 def test_a_handle_named_as_the_prefix_builds(parse, tmp_path):
@@ -229,7 +230,7 @@ def test_a_record_named_as_a_function_and_a_method_named_get_build(parse, tmp_pa
     assert process(model, ["cpp"], tmp_path) == []
 
     hpp = (tmp_path / "cpp" / "api.hpp").read_text()
-    assert "int get() const;" in hpp and "using version =" not in hpp
+    assert "int get() const;" in flat(hpp) and "using version =" not in hpp
 
 
 def test_an_out_count_bounds_the_result_and_the_error_holds_what_was_written(

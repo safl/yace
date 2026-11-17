@@ -119,7 +119,8 @@ def parse_args():
         "--toolchains",
         action="store_true",
         help="print, as JSON, the toolchains the checks of the '--emit' targets, or"
-        " of every target, build with: the command, where it is, and its version",
+        " of every target, build with, and the formatters that format their code:"
+        " the command, where it is, and its version",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {version}")
     parser.add_argument(
@@ -166,7 +167,10 @@ def main():
 
     if args.toolchains:
         names = args.emit or sorted(targets())
-        found = {name: [tc.find() for tc in load(name).TOOLCHAINS] for name in names}
+        found = {
+            name: [t.find() for t in (*load(name).TOOLCHAINS, *load(name).FORMATTERS)]
+            for name in names
+        }
         print(json.dumps(found, indent=2))
         return 0
 

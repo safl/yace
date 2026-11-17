@@ -18,6 +18,7 @@ from tests.conftest import (
     PACKED,
     PACKED_PRINTED,
     SKIPPED,
+    flat,
     needs_cargo,
     needs_cc,
 )
@@ -351,10 +352,10 @@ def test_a_handle_named_as_the_prefix_is_api_handle_and_out_pointers_are_slices(
 
     lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "pub struct ApiHandle {" in lib
-    assert (
+    assert flat(
         "pub fn ptrs<'buf>(&mut self, ptrs: &'buf mut [*mut c_int])"
-        " -> io::Result<&'buf mut [*mut c_int]>" in lib
-    )
+        " -> io::Result<&'buf mut [*mut c_int]>"
+    ) in flat(lib)
 
 
 MORE = (
@@ -570,10 +571,10 @@ def test_the_idiomatic_layer_builds_for_every_kind_of_parameter(parse, tmp_path)
     )
     assert "pub fn on(&mut self, cb: Box<ApiCbFn<'static>>) -> io::Result<()>" in lib
     assert "keep: Vec<Box<dyn std::any::Any>>," in lib
-    assert (
+    assert flat(
         'pub unsafe fn inline(&mut self, r#fn: Option<unsafe extern "C" fn(*mut c_void)'
-        " -> c_int>, ctx: *mut c_void)" in lib
-    )
+        " -> c_int>, ctx: *mut c_void)"
+    ) in flat(lib)
     assert "pub fn other(&mut self) -> *mut ApiH" in lib
     assert "pub fn base(path: &CStr) -> &CStr" in lib
     assert "pub unsafe fn pick(a: &CStr, b: &CStr) -> &'static CStr" in lib
@@ -1228,8 +1229,8 @@ def test_a_constructor_without_errno_keeps_no_closures_and_an_inline_callback_is
     assert process(model, ["rust"], tmp_path) == []
 
     lib = (tmp_path / "rust" / "bindings.rs").read_text()
-    assert "map(|ptr| H { ptr, keep: Vec::new() })" in lib
-    assert "pub unsafe fn each(r#fn: Option<unsafe extern" in lib
+    assert flat("map(|ptr| H { ptr, keep: Vec::new() })") in flat(lib)
+    assert "pub unsafe fn each(r#fn: Option<unsafe extern" in flat(lib)
 
 
 def test_inline_callbacks_kept_by_errno_functions_build(parse, tmp_path):

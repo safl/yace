@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 import importlib.util
+import re
 import shutil
 from pathlib import Path
 
@@ -11,6 +12,17 @@ import pytest
 from yace.ir.cparser import CParser
 
 HEADERS = Path(__file__).parent / "headers"
+
+
+def flat(code: str) -> str:
+    """'code' with the layout a formatter chooses taken out: every run of
+    whitespace one space, none inside brackets, and no trailing comma, so that
+    a test can look for a declaration however the formatter wrapped it"""
+
+    code = re.sub(r"\s+", " ", code)
+    code = re.sub(r"([(\[{<]) ", r"\1", code)
+    return re.sub(r",? ([)\]}>])", r"\1", code)
+
 
 ESCAPED = '/** S */\n#define API_S "a\\n\\"b\\"\\x41\\t\\\\" "c\\xc3\\xa9"\n'
 ESCAPED_VALUE = 'a\n"b"A\t\\cé'
@@ -137,7 +149,9 @@ def parse(parser, tmp_path):
 needs_cc = pytest.mark.skipif(not shutil.which("cc"), reason="no C compiler")
 needs_cargo = pytest.mark.skipif(not shutil.which("cargo"), reason="no Rust toolchain")
 needs_zig = pytest.mark.skipif(not shutil.which("zig"), reason="no Zig toolchain")
-needs_go = pytest.mark.skipif(not shutil.which("go"), reason="no Go toolchain")
+needs_go = pytest.mark.skipif(
+    not (shutil.which("go") and shutil.which("gofmt")), reason="no Go toolchain"
+)
 needs_cython = pytest.mark.skipif(
     importlib.util.find_spec("Cython") is None, reason="no Cython"
 )
