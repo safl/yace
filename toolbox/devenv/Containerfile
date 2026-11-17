@@ -35,8 +35,9 @@ ENV RUSTUP_HOME=/opt/rust/rustup \
     CARGO_HOME=/opt/rust/cargo
 RUN curl -sSf https://sh.rustup.rs -o /tmp/rustup-init.sh \
  && sh /tmp/rustup-init.sh -y -q --no-modify-path --profile minimal \
-      --default-toolchain ${RUST} \
+      --default-toolchain ${RUST} --component rustfmt \
  && /opt/rust/cargo/bin/rustup toolchain install ${RUST_MSRV} --profile minimal \
+      --component rustfmt \
  && rm /tmp/rustup-init.sh \
  && chmod -R a+rwX /opt/rust/cargo
 ENV YACE_RUST_MSRV=${RUST_MSRV}
