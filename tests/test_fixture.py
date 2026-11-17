@@ -224,7 +224,55 @@ def test_the_benchmark_runs_every_target_alike(tmp_path, target):
     assert {row["sum"] for row in rows} == {3 * sum(range(8))}
     report = (out / "artifacts" / "report.txt").read_text()
     assert all(result in report for result in results)
+    assert "built at -O3 for the baseline CPU" in report
+    assert "not pinned to a core; the clock not pinned" in report
     assert (out / "artifacts" / "results.csv").exists()
+    recorded = json.loads((out / "artifacts" / "results.json").read_text())
+    assert recorded["clock"]["pinned"] is False
+    ran = [run["target"] for run in recorded["runs"]]
+    assert ran == list(dict.fromkeys(["c", target]))
+    assert recorded["rounds"] == {name: 3 for name in ran}
+    assert recorded["seconds"] is None
+
+
+def benchlib():
+    """examples/libfoo/bench/scripts/benchlib.py"""
+
+    spec = importlib.util.spec_from_file_location(
+        "benchlib", FIXTURE / "bench" / "scripts" / "benchlib.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_benchmark_counts_how_busy_each_cpu_was():
+    lib = benchlib()
+    before = lib.ticks("cpu0 10 0 10 80 0 0 0 0 0 0\ncpu1 0 0 0 100 0 0 0 0 0 0\n")
+    after = lib.ticks("cpu0 60 0 10 130 0 0 0 0 0 0\ncpu1 0 0 5 195 0 0 0 0 0 0\n")
+    assert before == {0: (20, 100), 1: (0, 100)}
+    assert lib.busy(before, after) == {0: 0.5, 1: 0.05}
+
+
+def test_the_benchmark_pins_every_program_to_the_core_given(tmp_path, monkeypatch):
+    lib = benchlib()
+    where = {"build": "/b", "gen": "/g", "lib": "/l/libfoo.so", "programs": "/p"}
+    monkeypatch.setattr(lib, "paths", lambda cijoe: where)
+
+    class Conf:
+        output_path = str(tmp_path)
+
+        def __init__(self, values):
+            self.values = values
+
+        def getconf(self, key, default=None):
+            return self.values.get(key, default)
+
+    for target in lib.TARGETS:
+        cmd, _ = lib.run_command(Conf({"bench.cpu": 3}), target, 10, 1)
+        assert "taskset -c 3 " in cmd, target
+        cmd, _ = lib.run_command(Conf({}), target, 10, 1)
+        assert "taskset" not in cmd, target
 
 
 def check_rust(model, library, tmp_path, fmt, program):
@@ -354,21 +402,8 @@ def test_a_c_time_below_the_clock_s_resolution_gives_no_ratio(tmp_path, monkeypa
     macOS, which makes the time of C 0. bench_report then leaves the ratio to
     the time of C empty."""
 
-    import importlib
     import types
 
-    # bench_report imports nothing of the cijoe package but what benchlib
-    # imports, cijoe.core.tools.family, so a stub of that module stands in
-    # where cijoe is not installed
-    if importlib.util.find_spec("cijoe") is None:
-        tools = types.ModuleType("cijoe.core.tools")
-        tools.family = lambda *args, **kwargs: None
-        for name, module in [
-            ("cijoe", types.ModuleType("cijoe")),
-            ("cijoe.core", types.ModuleType("cijoe.core")),
-            ("cijoe.core.tools", tools),
-        ]:
-            monkeypatch.setitem(sys.modules, name, module)
     monkeypatch.syspath_prepend(str(FIXTURE / "bench" / "scripts"))
     import bench_report
 
@@ -389,3 +424,13 @@ def test_a_c_time_below_the_clock_s_resolution_gives_no_ratio(tmp_path, monkeypa
         "c,calls,0.0,84,",
         "python,calls,5.0,84,",
     ]
+
+
+def test_the_benchmark_calibrates_the_rounds_to_the_slowest_way():
+    lib = benchlib()
+    rows = [{"ns": 2.5}, {"ns": 10.0}]
+
+    # 8 points at 10 ns for 10**7 rounds is 0.8 s; 2 s takes 2.5 times as many
+    assert lib.rounds_for(rows, 10**7, 2.0) == 25 * 10**6
+    assert lib.rounds_for(rows, 10**6, 2.0) is None
+    assert lib.rounds_for([{"ns": 0.0}], 1000, 2.0) is None

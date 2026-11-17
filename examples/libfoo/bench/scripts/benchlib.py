@@ -15,8 +15,6 @@ Its path goes into the commands as it is, so it must hold no spaces.
 import logging as log
 from pathlib import Path
 
-from cijoe.core.tools import family
-
 # examples/libfoo, as this is examples/libfoo/bench/scripts/benchlib.py
 LIBFOO = Path(__file__).resolve().parents[2]
 
@@ -72,6 +70,12 @@ TARGETS = {
 
 WAYS = ["calls", "callback"]
 
+# Every program, and libfoo, is built at optimisation level 3, which is what
+# Zig's ReleaseFast and Rust's release profile are, for the baseline CPU of the
+# architecture, which is what gcc, g++ and rustc build for by default and Zig
+# builds for with '-mcpu baseline'. Go's compiler has no level.
+OPT = "-O3"
+
 # The commands of the toolchains, by the key of their config, 'bench.<key>'
 COMMANDS = {
     "cc": "cc",
@@ -113,12 +117,37 @@ def workdir(cijoe) -> str:
     return str(cijoe.getconf("bench.workdir", Path(cijoe.output_path) / "work"))
 
 
-def rounds_and_repeat(cijoe) -> tuple:
-    return int(cijoe.getconf("bench.rounds", 1)), int(cijoe.getconf("bench.repeat", 1))
+def timing(cijoe) -> tuple:
+    """'bench.rounds', None where not given, 'bench.seconds' and 'bench.repeat'"""
+
+    rounds = cijoe.getconf("bench.rounds", None)
+    rounds = None if rounds in (None, "", 0) else int(rounds)
+    seconds = float(cijoe.getconf("bench.seconds", 2))
+    return rounds, seconds, int(cijoe.getconf("bench.repeat", 1))
+
+
+# A probe whose slowest way sums for less than this, in seconds, is too short
+# to calibrate the rounds from: a few ticks of the clock, and the program's
+# start-up, would be most of it
+PROBE = 0.2
+
+
+def rounds_for(rows: list, rounds: int, seconds: float):
+    """The rounds that make the slowest way of 'rows', what a run of 'rounds'
+    printed, sum for 'seconds'; None where that run was too short to tell"""
+
+    slowest = max(row["ns"] for row in rows) * POINTS * rounds / 1e9
+    if slowest < PROBE:
+        return None
+    return max(1, round(rounds * seconds / slowest))
 
 
 def paths(cijoe) -> dict:
     """The paths in the workdir, and the library as the target's OS names it"""
+
+    # cijoe is imported here, where it runs the step, so that the tests can
+    # import the rest without it
+    from cijoe.core.tools import family
 
     work = workdir(cijoe)
     suffix = "dylib" if family(cijoe, cijoe.default_target) == "darwin" else "so"
@@ -144,7 +173,7 @@ def build_commands(cijoe, target: str) -> list:
         cc = command(cijoe, "cc")
         return [
             (
-                f"{cc} -std=c11 -D_DEFAULT_SOURCE -O2 -I {p['gen']}/capi"
+                f"{cc} -std=c11 -D_DEFAULT_SOURCE {OPT} -I {p['gen']}/capi"
                 f" {p['programs']}/c/bench.c {link} -o {out}/bench",
                 out,
             )
@@ -153,7 +182,7 @@ def build_commands(cijoe, target: str) -> list:
         cxx = command(cijoe, "cxx")
         return [
             (
-                f"{cxx} -std=c++20 -O2 -I {p['gen']}/capi -I {p['gen']}/cpp"
+                f"{cxx} -std=c++20 {OPT} -I {p['gen']}/capi -I {p['gen']}/cpp"
                 f" {p['programs']}/cpp/bench.cpp {link} -o {out}/bench",
                 out,
             )
@@ -168,7 +197,7 @@ def build_commands(cijoe, target: str) -> list:
         return [
             (f"cat > Cargo.toml <<'EOF'\n{manifest}EOF", out),
             (
-                f"FOO_LIB_DIR={p['libdir']}"
+                f"FOO_LIB_DIR={p['libdir']} CARGO_PROFILE_RELEASE_OPT_LEVEL=3"
                 f" RUSTFLAGS='-C link-arg=-Wl,-rpath,{p['libdir']}'"
                 f" {cargo} build --release --offline --quiet",
                 out,
@@ -178,7 +207,7 @@ def build_commands(cijoe, target: str) -> list:
         zig = command(cijoe, "zig")
         return [
             (
-                f"{zig} build-exe -O ReleaseFast --cache-dir {out}/cache"
+                f"{zig} build-exe -O ReleaseFast -mcpu baseline --cache-dir {out}/cache"
                 f" --global-cache-dir {out}/cache -lc -L {p['libdir']} -lfoo"
                 f" -rpath {p['libdir']} --dep foo -Mroot={p['programs']}/zig/bench.zig"
                 f" -Mfoo={p['gen']}/zig/foo.zig -femit-bin={out}/bench",
@@ -211,29 +240,139 @@ def build_commands(cijoe, target: str) -> list:
             (f"cp {p['programs']}/cython/* .", out),
             (
                 f"FOO_BINDINGS={p['gen']}/python FOO_LIBRARY={p['lib']}"
-                f" {python} setup.py -q build_ext --inplace",
+                f" FOO_CFLAGS={OPT} {python} setup.py build_ext --inplace",
                 out,
             ),
         ]
     raise ValueError(f"no target({target})")
 
 
+def cpu(cijoe):
+    """The core the programs are pinned to, 'bench.cpu', or None for none"""
+
+    value = cijoe.getconf("bench.cpu", None)
+    return None if value in (None, "") else int(value)
+
+
 def run_command(cijoe, target: str, rounds: int, repeat: int) -> tuple:
-    """The command running the program of 'target', and the directory it runs in"""
+    """The command running the program of 'target', pinned to the core of
+    'bench.cpu' where given, and the directory it runs in"""
 
     p = paths(cijoe)
     out = f"{p['build']}/{target}"
     args = f"{rounds} {repeat}"
     python = command(cijoe, "python")
+    core = cpu(cijoe)
+    pin = f"taskset -c {core} " if core is not None else ""
     if target == "rust":
-        return f"{out}/target/release/bench {args}", out
+        return f"{pin}{out}/target/release/bench {args}", out
     if target == "python":
         env = f"PYTHONPATH={p['gen']}/python FOO_LIBRARY={p['lib']}"
-        return f"{env} {python} {p['programs']}/python/bench.py {args}", out
+        return f"env {env} {pin}{python} {p['programs']}/python/bench.py {args}", out
     if target == "cython":
-        return f"{python} bench.py {args}", out
+        return f"{pin}{python} bench.py {args}", out
 
-    return f"{out}/bench {args}", out
+    return f"{pin}{out}/bench {args}", out
+
+
+# The first line of /proc/stat per CPU: user, nice, system, idle, iowait, irq,
+# softirq and steal, in ticks; idle and iowait are the time not busy
+STAT = "grep '^cpu[0-9]' /proc/stat"
+
+
+def stat(cijoe):
+    """The lines of STAT on the target, or None where it has no /proc/stat"""
+
+    err, state = cijoe.run(STAT)
+    return None if err else state.output()
+
+
+def ticks(text: str) -> dict:
+    """The busy and the total ticks of each CPU, by its number, of 'text', the
+    lines of STAT"""
+
+    found = {}
+    for line in text.splitlines():
+        name, *values = line.split()
+        numbers = [int(v) for v in values[:8]]
+        idle = numbers[3] + numbers[4]
+        found[int(name[3:])] = (sum(numbers) - idle, sum(numbers))
+    return found
+
+
+def busy(before: dict, after: dict) -> dict:
+    """The fraction of the time each CPU was busy between two 'ticks'"""
+
+    found = {}
+    for n in sorted(set(before) & set(after)):
+        total = after[n][1] - before[n][1]
+        found[n] = (after[n][0] - before[n][0]) / total if total else 0.0
+    return found
+
+
+def cpufreq(core: int) -> str:
+    return f"/sys/devices/system/cpu/cpu{core}/cpufreq"
+
+
+BOOST = "/sys/devices/system/cpu/cpufreq/boost"
+
+# What clock() reads of a core's cpufreq
+CLOCK = (
+    "scaling_driver",
+    "scaling_governor",
+    "scaling_min_freq",
+    "scaling_max_freq",
+    "cpuinfo_min_freq",
+    "cpuinfo_max_freq",
+)
+
+
+def read(cijoe, path: str):
+    """The text of 'path' on the target, or None where it cannot be read"""
+
+    err, state = cijoe.run(f"cat {path}")
+    return None if err else state.output().strip()
+
+
+def clock(cijoe, core: int) -> dict:
+    """The frequency settings of 'core', and boost, as the target has them;
+    empty where it has no cpufreq"""
+
+    found = {}
+    for name in CLOCK:
+        value = read(cijoe, f"{cpufreq(core)}/{name}")
+        if value is not None:
+            found[name] = value
+    boost = read(cijoe, BOOST)
+    if boost is not None:
+        found["boost"] = boost
+    return found
+
+
+def set_clock(cijoe, core: int, settings: dict) -> bool:
+    """Write 'settings', of the names clock() gives, to 'core' and boost; the
+    governor first, then the bounds in the order that keeps min below max"""
+
+    sudo = str(cijoe.getconf("bench.sudo", "sudo -n"))
+    writes = []
+    if "boost" in settings:
+        writes.append((BOOST, settings["boost"]))
+    if "scaling_governor" in settings:
+        writes.append(
+            (f"{cpufreq(core)}/scaling_governor", settings["scaling_governor"])
+        )
+    lo, hi = settings.get("scaling_min_freq"), settings.get("scaling_max_freq")
+    current = clock(cijoe, core)
+    bounds = [("scaling_max_freq", hi), ("scaling_min_freq", lo)]
+    if lo is not None and int(lo) <= int(current.get("scaling_max_freq", lo)):
+        bounds.reverse()
+    writes += [(f"{cpufreq(core)}/{name}", v) for name, v in bounds if v is not None]
+    for path, value in writes:
+        err, _ = cijoe.run(f"echo {value} | {sudo} tee {path} >/dev/null")
+        if err:
+            log.error(f"failed: writing {value} to {path}")
+            return False
+    return True
 
 
 def run(cijoe, cmd: str, cwd=None):

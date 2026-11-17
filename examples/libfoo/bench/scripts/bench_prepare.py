@@ -47,7 +47,8 @@ def main(args, cijoe):
 
     cc = benchlib.command(cijoe, "cc")
     cmd = (
-        f"{cc} -std=c11 -D_DEFAULT_SOURCE -O2 -shared -fPIC -I include src/foo.c"
+        f"{cc} -std=c11 -D_DEFAULT_SOURCE {benchlib.OPT} -shared -fPIC -I include"
+        " src/foo.c"
         f" -o {p['lib']}"
     )
     if not benchlib.run(cijoe, cmd, p["src"]):

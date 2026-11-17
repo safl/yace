@@ -5,9 +5,9 @@
 """
 Builds fast, the Cython benchmark, against the Python bindings of libfoo in
 FOO_BINDINGS, where foo.pxd and libfoo.h are, linked to the library at
-FOO_LIBRARY:
+FOO_LIBRARY, compiled with the flags of FOO_CFLAGS, after those of the Python:
 
-  FOO_BINDINGS=output/python FOO_LIBRARY=/path/to/libfoo.so \
+  FOO_BINDINGS=output/python FOO_LIBRARY=/path/to/libfoo.so FOO_CFLAGS=-O3 \
     python setup.py build_ext --inplace
 """
 
@@ -23,7 +23,7 @@ extension = Extension(
     "fast",
     ["fast.pyx"],
     include_dirs=[bindings],
-    extra_compile_args=["-O2"],
+    extra_compile_args=os.environ.get("FOO_CFLAGS", "-O3").split(),
     extra_link_args=[library, f"-Wl,-rpath,{os.path.dirname(library)}"],
 )
 setup(ext_modules=cythonize([extension], include_path=[bindings]))
