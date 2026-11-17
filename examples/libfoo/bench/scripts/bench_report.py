@@ -10,8 +10,10 @@ Writes, from 'artifacts/results.json' and the facts of the target, to the
 artifacts of the run's output: 'results.csv', a row per layer and way, its time
 per point, its sum and the ratio of its time to C's, and 'report.txt', a table
 of the time per point of each layer, in each way, and its ratio to C's, with
-the machine and the toolchains it ran on. A ratio is left out where C was not
-benchmarked, or ran in less than a tick of the clock.
+the machine and the toolchains it ran on, the optimisation level, whether the
+programs were pinned to a core and its clock pinned, and how busy the pinned
+core and the busiest other CPU were while each program ran. A ratio is left out
+where C was not benchmarked, or ran in less than a tick of the clock.
 
 Retargetable: True
 ------------------
@@ -65,6 +67,50 @@ def machine(facts) -> list:
     return lines
 
 
+def conditions(results) -> list:
+    """Lines saying how the programs were built and what they ran on"""
+
+    clock = results.get("clock") or {}
+    core, found = clock.get("cpu"), clock.get("found") or {}
+    lines = [f"built at {results.get('opt', '?')} for the baseline CPU"]
+    if core is None:
+        lines.append("not pinned to a core; the clock not pinned")
+    elif clock.get("pinned"):
+        lines.append(f"pinned to cpu{core}, its clock at {clock['khz']} kHz")
+    else:
+        driver = found.get("scaling_driver", "no cpufreq")
+        lines.append(f"pinned to cpu{core}; the clock not pinned ({driver})")
+    for run in results.get("runs", []):
+        parts = []
+        if run.get("busy_pinned") is not None:
+            parts.append(f"cpu{run['cpu']} {run['busy_pinned']:.0%} busy")
+        if run.get("busy_others_max") is not None:
+            parts.append(f"other CPUs at most {run['busy_others_max']:.0%}")
+        if run.get("khz_before") is not None:
+            parts.append(f"{run['khz_before']} to {run['khz_after']} kHz")
+        lines.append(f"{run['target']}: " + ", ".join(parts))
+    return lines
+
+
+def durations(results) -> list:
+    """Lines giving each program's rounds, and how long its runs took"""
+
+    rounds = results["rounds"]
+    if not isinstance(rounds, dict):
+        return []
+    lines = []
+    for target, count in rounds.items():
+        took = [
+            row["ns"] * results["points"] * count / 1e9
+            for row in results["rows"]
+            if row["target"] in benchlib.TARGETS[target]["results"]
+        ]
+        lines.append(
+            f"{target}: {count} rounds, a run of {min(took):.2f} to {max(took):.2f} s"
+        )
+    return lines
+
+
 def main(args, cijoe):
     artifacts = Path(cijoe.output_path) / "artifacts"
     path = artifacts / "results.json"
@@ -101,8 +147,10 @@ def main(args, cijoe):
     by = {(row["target"], row["way"]): row for row in results["rows"]}
     names = list(dict.fromkeys(row["target"] for row in results["rows"]))
     head = f"{'target':<18}" + "".join(f"{way:>12}{'x C':>8}" for way in benchlib.WAYS)
+    rounds = results["rounds"]
+    summed = "" if isinstance(rounds, dict) else f" summed {rounds} times"
     lines = [
-        f"libfoo: {results['points']} points summed {results['rounds']} times,"
+        f"libfoo: {results['points']} points{summed},"
         f" best of {results['repeat']} runs, ns per point",
         "",
         head,
@@ -116,6 +164,7 @@ def main(args, cijoe):
             line += f"{row['ns']:>12.1f}" if row else f"{'':>12}"
             line += f"{r:>8.1f}" if r is not None else f"{'':>8}"
         lines.append(line)
+    lines += ["", *durations(results), *conditions(results)]
     lines += ["", *machine(cijoe.facts.target())]
 
     report = "\n".join(lines) + "\n"
