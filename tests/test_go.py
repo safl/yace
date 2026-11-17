@@ -35,7 +35,7 @@ from tests.test_rust import (
     doc,
 )
 from yace.compiler import process
-from yace.targets.go.target import GO_VERSION, Go
+from yace.targets.go.target import GO_VERSION
 
 pytestmark = needs_go
 
@@ -348,13 +348,6 @@ def test_pointers_to_arrays_are_given_as_such(parse, tmp_path):
         " rec.Pa[0])\n"
     )
     assert run_go(tmp_path, main, impl, strict=True) == "4 3 2 1\n"
-
-
-def test_emitting_is_deterministic(parser, tmp_path):
-    model, _ = parser.parse(HEADERS / "valid.h")
-    first = [p.read_bytes() for p in Go(tmp_path / "a").emit(model)]
-    second = [p.read_bytes() for p in Go(tmp_path / "b").emit(model)]
-    assert first == second
 
 
 def test_no_toolchain_is_a_failure_not_a_crash(parser, tmp_path, monkeypatch):

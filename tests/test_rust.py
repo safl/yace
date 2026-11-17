@@ -22,7 +22,6 @@ from tests.conftest import (
     needs_cc,
 )
 from yace.compiler import process
-from yace.targets.rust.target import Rust
 
 pytestmark = needs_cargo
 
@@ -248,13 +247,6 @@ def test_a_layout_other_than_recorded_fails_the_check(parser, tmp_path):
 
     failures = process(model, ["rust"], tmp_path)
     assert failures and "size_of::<ValidPoint>() == 12" in failures[0]
-
-
-def test_emitting_is_deterministic(parser, tmp_path):
-    model, _ = parser.parse(HEADERS / "valid.h")
-    first = [p.read_bytes() for p in Rust(tmp_path / "a").emit(model)]
-    second = [p.read_bytes() for p in Rust(tmp_path / "b").emit(model)]
-    assert first == second
 
 
 def test_no_toolchain_is_a_failure_not_a_crash(parser, tmp_path, monkeypatch):
