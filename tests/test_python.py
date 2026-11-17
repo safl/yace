@@ -29,7 +29,6 @@ from tests.conftest import (
 from yace.compiler import process
 from yace.ir import types
 from yace.targets.python import cygen
-from yace.targets.python.target import Python
 
 
 def module(tmp_path, name="api"):
@@ -207,13 +206,6 @@ def test_a_layout_other_than_recorded_fails_the_check(parser, tmp_path):
 
     failures = process(model, ["python"], tmp_path)
     assert failures and "sizeof(ValidPoint)" in failures[0]
-
-
-def test_emitting_is_deterministic(parser, tmp_path):
-    model, _ = parser.parse(HEADERS / "valid.h")
-    first = [p.read_bytes() for p in Python(tmp_path / "a").emit(model)]
-    second = [p.read_bytes() for p in Python(tmp_path / "b").emit(model)]
-    assert first == second
 
 
 def test_calling_without_the_library_says_how_to_find_it(parse, tmp_path):

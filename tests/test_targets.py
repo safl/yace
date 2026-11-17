@@ -3,6 +3,9 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 import os
+import shutil
+import subprocess
+import sys
 
 from tests.conftest import HEADERS
 from yace.compiler import process
@@ -22,6 +25,39 @@ def test_every_target_checks_with_a_relative_output(parser, tmp_path, monkeypatc
         f for f in failures if "toolchain" not in f and "no compiler" not in f
     ] == []
     assert os.path.isdir(tmp_path / "out")
+
+
+def emitted(root, seed):
+    """The files that 'yace --emit' of every target writes in a process of its
+    own with hash seed 'seed', from a copy of valid.h under 'root', by path
+    relative to the output directory"""
+
+    include, output = root / "include", root / "out"
+    include.mkdir(parents=True)
+    shutil.copy(HEADERS / "valid.h", include)
+    cmd = [sys.executable, "-m", "yace", "valid.h", "-I", ".", "--no-check"]
+    cmd += ["--emit", *sorted(targets.targets()), "--output", str(output)]
+    env = {**os.environ, "PYTHONHASHSEED": str(seed)}
+    proc = subprocess.run(cmd, cwd=include, env=env, capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stderr
+    return {
+        str(path.relative_to(output)): path.read_bytes()
+        for path in sorted(output.rglob("*"))
+        if path.is_file()
+    }
+
+
+def test_every_target_emits_the_same_bytes_in_two_processes(tmp_path):
+    """Python orders a set of strings by a hash that differs per process
+    unless PYTHONHASHSEED is set, so two emits in one process cannot show
+    output that depends on that order. The two processes differ in the hash
+    seed and in the paths of the header and the output."""
+
+    first = emitted(tmp_path / "a", 1)
+    second = emitted(tmp_path / "elsewhere" / "b", 2)
+    assert first
+    assert first.keys() == second.keys()
+    assert [name for name in first if first[name] != second[name]] == []
 
 
 def test_the_go_target_writes_only_its_own_directory(parser, tmp_path):

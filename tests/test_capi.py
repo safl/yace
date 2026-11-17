@@ -107,13 +107,6 @@ def test_a_layout_other_than_recorded_fails_the_check(parser, tmp_path):
     assert failures and "sizeof(valid_point)" in failures[0]
 
 
-def test_emitting_is_deterministic(parser, tmp_path):
-    model, _ = parser.parse(HEADERS / "valid.h")
-    first = [p.read_bytes() for p in emit(model, tmp_path / "a").emit(model)]
-    second = [p.read_bytes() for p in emit(model, tmp_path / "b").emit(model)]
-    assert first == second
-
-
 def test_emitting_from_the_stored_ir_is_the_same(parser, tmp_path):
     model, _ = parser.parse(HEADERS / "valid.h")
     model.save(tmp_path / "valid.yaml")
