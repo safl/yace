@@ -19,7 +19,7 @@ comments, and **yace** checks that they agree:
 For example::
 
   struct foo_status {
-	uint16_t code; ///< Status code, see FOO_STATUS_CODE_*
+    uint16_t code; ///< Status code, see FOO_STATUS_CODE_*
   };
 
   /** Generic, command specific or media error; bits 2:0 of 'code' */

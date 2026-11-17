@@ -6,8 +6,7 @@ from yace.ir import doc
 
 
 def test_the_brief_description_params_and_returns_are_parsed():
-    parsed = doc.parse(
-        """/**
+    parsed = doc.parse("""/**
          * Open the thing
          *
          * It opens the thing, which
@@ -18,8 +17,7 @@ def test_the_brief_description_params_and_returns_are_parsed():
          * @param flags How to open it
          *
          * @return 0 on success
-         */"""
-    )
+         */""")
     assert parsed.brief == "Open the thing"
     assert parsed.description == "It opens the thing, which takes a while."
     assert parsed.params == {
@@ -30,8 +28,7 @@ def test_the_brief_description_params_and_returns_are_parsed():
 
 
 def test_an_item_of_a_list_is_a_line_of_its_own():
-    parsed = doc.parse(
-        """/**
+    parsed = doc.parse("""/**
          * Reap
          *
          * Three errors, after which
@@ -47,8 +44,7 @@ def test_an_item_of_a_list_is_a_line_of_its_own():
          * @param[out] n One of:
          * - zero
          * - more
-         */"""
-    )
+         */""")
     assert parsed.description == (
         "Three errors, after which it is called again:\n\n"
         "- -EINTR: a signal interrupted the call\n"

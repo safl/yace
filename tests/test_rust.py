@@ -709,9 +709,7 @@ NAMES = (
     + "size_t api_c(const int *api, size_t n);\n"
 )
 
-NAMES_C = (
-    f"#define LOCALS {LOCALS}\n"
-    + """
+NAMES_C = f"#define LOCALS {LOCALS}\n" + """
 static int h, g;
 int api_h_open(struct api_h **p) { *p = (struct api_h *)&h; return 0; }
 int api_g_open(struct api_g **p) { *p = (struct api_g *)&g; return 0; }
@@ -734,7 +732,6 @@ int api_two(api_x_cb x, void *arg, api_x_cb other, void *oarg)
 { return x(arg, 1) + other(oarg, 2); }
 size_t api_c(const int *api, size_t n) { (void)api; return n; }
 """
-)
 
 # Parameters named as identifiers that a generated function body uses
 # unqualified, and parameters that, once renamed, would take the name of another

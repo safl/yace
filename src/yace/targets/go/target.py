@@ -127,9 +127,7 @@ func yacePtr(out []byte, addr uintptr) []byte {
 	out = strconv.AppendUint(append(out, `"0x`...), uint64(addr), 16)
 	return append(out, '"')
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 
 # The C trampolines of the callbacks, calling the Go functions exported to C

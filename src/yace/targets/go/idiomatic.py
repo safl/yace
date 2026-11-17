@@ -39,9 +39,7 @@ HELPERS = """
 func yaceErrno(function string, ret int64) error {
 	return fmt.Errorf("%s: %w", function, syscall.Errno(-ret))
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 CLOSURES = """
 // yaceClosure is a Go function given to C, and whether C calls it once
@@ -75,9 +73,7 @@ func yaceCalled(ctx unsafe.Pointer) any {
 	}
 	return closure.fn
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 
 class Renderer(object):

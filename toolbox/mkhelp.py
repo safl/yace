@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """Traverse Makefile and print all help instructions"""
+
 import argparse
 import os
 import re
