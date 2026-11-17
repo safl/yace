@@ -8,13 +8,14 @@ of the pretty-printers. The Rust target's templates lay out the crate; rgen
 produces what goes in it that depends on the types.
 """
 
-from typing import Dict, List, Sequence
+import ctypes
+from typing import Dict, List, Optional, Sequence
 
 from yace.ir import decls, types
 from yace.ir.masks import VALUE_KEY
 from yace.ir.model import Model
 from yace.targets.capi.target import string_literal
-from yace.targets.python.pygen import camel
+from yace.targets.python.pygen import CTYPES, camel
 
 RUST_TYPES = {
     "bool": "bool",
@@ -382,3 +383,175 @@ class Printer(object):
                 lines += self.value(field.typ, expr)
             lines.append("writeln!(w)?;")
         return lines
+
+
+# Methods a record has, or inherits from a trait it derives, that a getter of a
+# union's member must not shadow
+SIZE_OF = "std::mem::size_of::"
+
+RECORD_METHODS = {"clone", "clone_from", "default", "fmt", "fpr", "pr", "to_string"}
+
+
+class Unions:
+    """Which members of a union safe code may read. Reading a union's member is
+    unsafe in Rust because the bytes may not be a value of the member's type.
+    Where every member of a union is as large as the union and has no padding,
+    a value of the union written through any member, by C or by Rust, has every
+    byte initialised; a member of a type for which every bit pattern is a value
+    then reads soundly. The sizes are the host's, and the crate asserts them
+    when compiled, so a target where they differ fails to build."""
+
+    def __init__(self, model: Model, namer: Namer, blobs):
+        self.namer = namer
+        self.records = {
+            r.name: r for r in model.entities if isinstance(r, decls.RECORDS)
+        }
+        self.enums = {e.name: e for e in model.entities if isinstance(e, decls.Enum)}
+        self.blobs = {r.name for r in blobs}
+
+    def size(self, typ) -> Optional[int]:
+        """The size in bytes of a value of 'typ', None where not known"""
+
+        typ = self.namer.resolve(typ)
+        if isinstance(typ, types.Builtin):
+            if typ.name == "void":
+                return None
+            return ctypes.sizeof(getattr(ctypes, CTYPES[typ.name].split(".")[1]))
+        if isinstance(typ, types.Pointer):
+            return ctypes.sizeof(ctypes.c_void_p)
+        if isinstance(typ, types.Array):
+            size = self.size(typ.of)
+            return None if typ.length is None or size is None else typ.length * size
+        if isinstance(typ, types.Record):
+            record = self.records.get(typ.name)
+            return record.size if record and record.fields else None
+        if isinstance(typ, types.EnumRef):
+            enum = self.enums.get(typ.name)
+            if enum and enum.underlying:
+                return self.size(enum.underlying)
+            return ctypes.sizeof(ctypes.c_int)
+        return None
+
+    def dense(self, typ) -> bool:
+        """Whether every byte of a value of 'typ' belongs to a field"""
+
+        typ = self.namer.resolve(typ)
+        if isinstance(typ, (types.Builtin, types.Pointer, types.EnumRef)):
+            return self.size(typ) is not None
+        if isinstance(typ, types.Array):
+            return typ.length is not None and self.dense(typ.of)
+        if not isinstance(typ, types.Record):
+            return False
+        record = self.records.get(typ.name)
+        if record is None or not record.fields:
+            return False
+        if record.name in self.blobs:
+            return True
+        if isinstance(record, decls.Union):
+            return self.covered(record)
+        end = 0
+        for field in sorted(record.fields, key=lambda f: f.offset or 0):
+            size = self.size(field.typ)
+            if field.offset != 8 * end or size is None or not self.dense(field.typ):
+                return False
+            end += size
+        return end == record.size
+
+    def any_bits(self, typ) -> bool:
+        """Whether every bit pattern of the size of 'typ' is a value of it in
+        Rust: not of a bool, nor of a function pointer, which may not be null
+        once Some"""
+
+        typ = self.namer.resolve(typ)
+        if isinstance(typ, types.Builtin):
+            return typ.name not in ("bool", "void")
+        if isinstance(typ, types.Pointer):
+            return not isinstance(self.namer.resolve(typ.to), types.FunctionType)
+        if isinstance(typ, types.Array):
+            return typ.length is not None and self.any_bits(typ.of)
+        if isinstance(typ, types.EnumRef):
+            return True
+        if isinstance(typ, types.Record):
+            record = self.records.get(typ.name)
+            if record is None or not record.fields:
+                return False
+            if record.name in self.blobs:
+                return True
+            return all(self.any_bits(field.typ) for field in record.fields)
+        return False
+
+    def covered(self, union) -> bool:
+        """Whether every member of 'union' spans all of it, without padding"""
+
+        return bool(union.fields) and all(
+            self.size(f.typ) == union.size and self.dense(f.typ) for f in union.fields
+        )
+
+    def readable(self, record) -> List[decls.Field]:
+        """The members of 'record' that safe code may read, if it is a union"""
+
+        if (
+            not isinstance(record, decls.Union)
+            or record.name in self.blobs
+            or not self.covered(record)
+        ):
+            return []
+        return [f for f in record.fields if self.any_bits(f.typ)]
+
+    def getters(self, record) -> List[str]:
+        """The methods reading the members of 'readable(record)'"""
+
+        taken = {
+            f"{field.name}_{mask.name}"
+            for field in record.fields
+            for mask in field.masks
+        }
+        lines: List[str] = []
+        for field in self.readable(record):
+            name = field.name + ("_" if field.name in RECORD_METHODS else "")
+            if name in taken or name in PRINTER_METHODS:
+                continue
+            lines += [""] if lines else []
+            lines += [
+                f"    /// '{field.name}', read without unsafe: every member spans the",
+                "    /// whole union, and every bit pattern is a value of its type",
+                f"    pub fn {ident(name)}(&self) -> {self.namer.rtype(field.typ)} {{",
+                f"        unsafe {{ self.{ident(field.name)} }}",
+                "    }",
+            ]
+        return lines
+
+    def asserts(self, record) -> List[str]:
+        """The assertions, at compile time, of the sizes 'readable(record)'
+        relies on: each member as large as the union, and each record within
+        as large as its fields"""
+
+        name = self.namer(record.name)
+        sizes = [
+            f"{SIZE_OF}<{self.namer.rtype(f.typ)}>() == {SIZE_OF}<{name}>()"
+            for f in record.fields
+        ]
+        seen = set()
+
+        def within(typ):
+            typ = self.namer.resolve(typ)
+            if isinstance(typ, types.Array):
+                within(typ.of)
+            if not isinstance(typ, types.Record) or typ.name in seen:
+                return
+            seen.add(typ.name)
+            inner = self.records[typ.name]
+            if inner.name in self.blobs:
+                return
+            rust = self.namer(inner.name)
+            parts = [f"{SIZE_OF}<{self.namer.rtype(f.typ)}>()" for f in inner.fields]
+            if isinstance(inner, decls.Union):
+                sizes.extend(f"{part} == {SIZE_OF}<{rust}>()" for part in parts)
+            else:
+                sizes.append(f"{' + '.join(parts)} == {SIZE_OF}<{rust}>()")
+            for field in inner.fields:
+                within(field.typ)
+
+        for field in record.fields:
+            within(field.typ)
+        return [f"const _: () = assert!({size});" for size in dict.fromkeys(sizes)]

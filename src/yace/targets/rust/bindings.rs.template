@@ -178,6 +178,18 @@ impl {{ name }} {
 {%- endfor %}
 }
 {%- endif %}
+{%- if unions.readable(record) %}
+
+/// The members that safe code may read
+impl {{ name }} {
+{%- for line in unions.getters(record) %}
+{{ line }}
+{%- endfor %}
+}
+{%- for line in unions.asserts(record) %}
+{{ line }}
+{%- endfor %}
+{%- endif %}
 {%- endfor %}
 {%- for name, rust in stubs %}
 

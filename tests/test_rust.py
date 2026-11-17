@@ -229,6 +229,65 @@ def test_debug_names_the_c_fields_and_reads_no_union(parse, tmp_path):
     ]
 
 
+def test_a_union_whose_members_span_it_reads_without_unsafe(parse, tmp_path):
+    """Every member of api_word is 4 bytes without padding, so each is read by a
+    safe method; the program forbids unsafe code and so builds only if it is"""
+
+    model, _ = parse(
+        "#include <stdint.h>\n"
+        "struct api_rgb { uint8_t r; uint8_t g; uint8_t b; uint8_t a; };\n"
+        "union api_word { uint32_t u; float f; struct api_rgb rgb;"
+        " uint8_t bytes[4]; };\n"
+    )
+    assert process(model, ["rust"], tmp_path) == []
+    lib = flat((tmp_path / "rust" / "bindings.rs").read_text())
+    assert (
+        flat(
+            "const _: () = assert!(std::mem::size_of::<u32>()"
+            " == std::mem::size_of::<ApiWord>());"
+        )
+        in lib
+    )
+
+    out = run_with_crate(
+        tmp_path,
+        "#![forbid(unsafe_code)]\nuse api::*;\nfn main() {\n"
+        "    let w = ApiWord { bytes: [7, 7, 7, 7] };\n"
+        "    let (u, f) = (w.u(), w.f().to_bits());\n"
+        '    println!("{u:#x} {f:#x} {:?} {}", w.bytes(), w.rgb().a);\n'
+        "}\n",
+        {"API_NO_LINK": "1"},
+    )
+    assert out.splitlines() == ["0x7070707 0x7070707 [7, 7, 7, 7] 7"]
+
+
+def test_a_union_reads_with_unsafe_where_a_member_is_short_padded_or_not_any_bits(
+    parse, tmp_path
+):
+    """A member shorter than the union, or with padding, leaves bytes that may
+    be uninitialised, so no member reads safely; a bool or a function pointer
+    is not a value for every bit pattern, so that member alone needs unsafe"""
+
+    model, _ = parse(
+        "#include <stdbool.h>\n#include <stdint.h>\n"
+        "struct api_pad { uint8_t a; uint32_t b; };\n"
+        "union api_short { uint8_t b; uint32_t u; };\n"
+        "union api_padded { struct api_pad p; uint64_t v; };\n"
+        "typedef int (*api_cb)(void *arg);\n"
+        "union api_fn { api_cb cb; uintptr_t v; };\n"
+        "union api_flag { bool b; uint8_t v; };\n"
+    )
+    assert process(model, ["rust"], tmp_path) == []
+    lib = flat((tmp_path / "rust" / "bindings.rs").read_text())
+    assert "pub fn u(&self)" not in lib
+    assert "pub fn p(&self)" not in lib
+    assert "pub fn cb(&self)" not in lib
+    assert "pub fn b(&self)" not in lib
+    assert flat("pub fn v(&self) -> usize {") in lib
+    assert flat("pub fn v(&self) -> u8 {") in lib
+    assert "pub fn v(&self) -> u64" not in lib
+
+
 def test_a_typedef_of_its_own_record_or_enum_is_that_type(parse, tmp_path):
     model, _ = parse(
         "struct api_buf { int len; };\ntypedef struct api_buf api_buf;\n"
