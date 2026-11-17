@@ -16,6 +16,34 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## 0.11.0
+
+This release changes the layout of the code yace emits, and yace now needs a
+formatter for every target it emits.
+
+yace formats what it emits with the formatter of each language: black for the
+Python, gofmt for the Go and `go mod edit -fmt` for its `go.mod`, rustfmt for
+the Rust, `zig fmt` for the Zig, taplo for the TOML, and clang-format in the
+style of xNVMe for the C and C++ of every target. black 26.10.1, clang-format
+23.1.3 and taplo 0.9.3 are dependencies of yace, pinned to those versions.
+gofmt, rustfmt and `zig fmt` come with the toolchains of their languages,
+named by `GOFMT`, `RUSTFMT`, `GO` and `ZIG` where set. A target whose formatter
+is missing emits nothing and fails the run, also with `--no-check`. The Rust
+target also writes the `rustfmt.toml` it is formatted with, and
+`--toolchains` lists the formatters with the toolchains. Cython has no
+formatter, so the `.pyx` and `.pxd` files keep the layout yace writes.
+
+The comments and docstrings that every target emits are rewritten where they
+were garbled, ambiguous or wrong, and the diagnostics name their subject where
+"it" was ambiguous.
+
+The benchmark, `examples/libfoo/bench`, builds every program and libfoo at
+optimisation level 3 for the baseline CPU. `bench.cpu` pins every program to
+one core, and `bench.khz` pins that core's clock through cpufreq. Each
+program's rounds are calibrated so that a run of its slowest way takes
+`bench.seconds`, and the report gives how busy each CPU was and the core's
+clock while each program ran.
+
 ## 0.10.0
 
 This release breaks the command line and the Rust and C++ bindings.
