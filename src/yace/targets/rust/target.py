@@ -139,6 +139,7 @@ class Rust(Target):
             ],
             "layout": model.meta.abi == host_abi(),
             "accessors": lambda record: rgen.accessors(record, namer),
+            "unions": rgen.Unions(model, namer, blobs),
             "debug": lambda record: rgen.debug(record, namer, record in blobs),
             "idiomatic": idiomatic.Renderer(Idioms(model), namer).render(),
         }

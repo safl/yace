@@ -73,7 +73,15 @@ Records
   getter and a setter, ``code_type()`` and ``set_code_type(value)``, of the
   field's type; the setter panics on a value that does not fit the part's
   bits. The field itself is there as before; a getter of a union's field is
-  safe, as every value of an integer is one. A packed record is
+  safe, as every value of an integer is one. Reading a member of a union is
+  unsafe in Rust, as its bytes may not be a value of the member's type. Where
+  every member of a union is as large as the union and has no padding, every
+  byte of the union is initialised however it was written, by C or by Rust,
+  and each member of a type for which every bit pattern is a value has a safe
+  getter of its name, ``value.u()``: integers, floats, raw pointers, enums,
+  and arrays and records of those. A ``bool`` or a function pointer is not
+  such a type, and keeps the unsafe read. The crate asserts the sizes this
+  relies on when it is compiled. A packed record is
   ``#[repr(C, packed)]``: a reference to one of its fields may not be aligned,
   which Rust does not allow, so ``Debug``, the printers and the getters read
   each field by a copy.
