@@ -32,7 +32,7 @@ from pathlib import Path
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
-from yace import toolchain
+from yace import formatter, toolchain
 from yace.ir import decls
 from yace.ir.cparser import STANDARD_HEADERS
 from yace.ir.masks import VALUE_KEY
@@ -149,6 +149,7 @@ def header(model: Model) -> str:
 class CAPI(Target):
     NAME = "capi"
     TOOLCHAINS = (toolchain.CC,)
+    FORMATTERS = (formatter.CLANG_FORMAT,)
     CFLAGS = CFLAGS
 
     @staticmethod

@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: Samsung Electronics Co., Ltd
+#
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# The C style of xNVMe, its .clang-format as of commit 62da6f178 ("feat: add
+# clang-format for lsp-integration"), with which yace formats the C and the C++
+# it emits. clang-format applies one style to both languages; what xNVMe's
+# options do not set for C++, such as the indentation of namespaces and access
+# specifiers, is LLVM's.
+
+BasedOnStyle: LLVM
+
+AlignConsecutiveBitFields: AcrossEmptyLinesAndComments
+AlignEscapedNewlines: Left
+AlwaysBreakAfterReturnType: All
+BreakBeforeBraces: WebKit
+ColumnLimit: 99
+ContinuationIndentWidth: 8
+IndentGotoLabels: false
+IndentWidth: 8
+MaxEmptyLinesToKeep: 1
+SortIncludes: Never
+TabWidth: 8
+UseTab: ForContinuationAndIndentation
+
+# Not xNVMe's: the Go target's C files open with a build constraint, which
+# clang-format would otherwise write as '// go:build', a comment Go ignores
+CommentPragmas: '^go:build '

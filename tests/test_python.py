@@ -115,7 +115,7 @@ def test_names_are_made_usable(parse, tmp_path):
     ns = module(tmp_path)
     assert ns["foo_bar"]().to_dict() == {"class": 0}
     assert ns["foo__bar"]().to_dict() == {"x": 0}
-    assert ns["pass_"].__doc__ == 'Ends in a quote, "so"'
+    assert ns["pass_"].__doc__ == 'Ends in a quote, "so" '
     assert ns["Kind"].None_ == 1
     assert str(ns["foo__bar"]()) == "foo__bar:\n  x: 0\n"
 

@@ -83,12 +83,13 @@ def docstring(doc, indent: str = "", errors: str = "") -> str:
 
 
 def quoted(body: str, indent: str = "") -> str:
-    """'body' as a docstring; one ending in a quote would end it early"""
+    """'body' as a docstring; one ending in a quote would end it early, so it
+    ends in a space, as black writes it"""
 
     if "\n" in body:
         return f'"""{body}\n{indent}"""'
     if body.endswith('"'):
-        body = body[:-1] + '\\"'
+        body += " "
     return f'"""{body}"""'
 
 

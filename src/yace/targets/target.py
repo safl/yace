@@ -11,7 +11,7 @@ point group, so a package can provide one without changes to **yace**.
 from abc import ABC, abstractmethod
 from importlib.metadata import EntryPoint, entry_points
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Type
 
 
 class Target(ABC):
@@ -20,6 +20,8 @@ class Target(ABC):
     NAME = ""
     # What check() builds and runs with, see yace.toolchain
     TOOLCHAINS: tuple = ()
+    # What formats the code emit() writes, see yace.formatter
+    FORMATTERS: tuple = ()
     # The options the target takes, each with the values it accepts, the first
     # of them its default
     OPTIONS: Dict[str, Tuple[str, ...]] = {}
@@ -86,7 +88,7 @@ def targets() -> Dict[str, EntryPoint]:
     return {ep.name: ep for ep in entry_points(group="yace.targets")}
 
 
-def load(name: str) -> type:
+def load(name: str) -> Type["Target"]:
     found = targets()
     if name not in found:
         raise KeyError(f"no target '{name}'; installed: {', '.join(sorted(found))}")

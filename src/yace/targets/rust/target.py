@@ -27,7 +27,7 @@ from pathlib import Path
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
-from yace import toolchain
+from yace import formatter, toolchain
 from yace.ir import decls
 from yace.ir.model import Model, host_abi
 from yace.targets.capi import cgen
@@ -54,9 +54,13 @@ def toml_str(text: str) -> str:
     return json.dumps(oneline(text))
 
 
+RUSTFMT = 'edition = "2021"\nstyle_edition = "2021"\n'
+
+
 class Rust(Target):
     NAME = "rust"
     TOOLCHAINS = (toolchain.CARGO,)
+    FORMATTERS = (formatter.RUST, formatter.TOML)
 
     def environment(self) -> Environment:
         env = Environment(
@@ -154,6 +158,11 @@ class Rust(Target):
             path = self.output / filename
             path.write_text(env.get_template(template).render(**context))
             paths.append(path)
+        # rustfmt reads the style from here, so that running it on the crate
+        # again gives the layout yace formatted it with
+        path = self.output / "rustfmt.toml"
+        path.write_text(RUSTFMT)
+        paths.append(path)
 
         return paths
 

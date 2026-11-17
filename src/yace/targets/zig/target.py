@@ -26,7 +26,7 @@ from pathlib import Path
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
-from yace import toolchain
+from yace import formatter, toolchain
 from yace.ir import decls
 from yace.ir.cparser import STANDARD_HEADERS
 from yace.ir.model import Model, host_abi
@@ -51,6 +51,7 @@ DISAGREE = "the bindings and the headers disagree on"
 class Zig(Target):
     NAME = "zig"
     TOOLCHAINS = (toolchain.ZIG,)
+    FORMATTERS = (formatter.ZIG,)
 
     def context(self, model: Model) -> dict:
         prefix = cgen.c_ident(model.meta.prefix)

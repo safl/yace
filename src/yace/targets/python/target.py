@@ -34,7 +34,7 @@ from pathlib import Path
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
-from yace import toolchain
+from yace import formatter, toolchain
 from yace.ir import decls
 from yace.ir.masks import VALUE_KEY
 from yace.ir.model import Model, host_abi
@@ -82,6 +82,7 @@ def module_name(model: Model) -> str:
 class Python(Target):
     NAME = "python"
     TOOLCHAINS = (toolchain.PYTHON, toolchain.CC)
+    FORMATTERS = (formatter.BLACK, formatter.CLANG_FORMAT)
 
     def environment(self) -> Environment:
         env = Environment(

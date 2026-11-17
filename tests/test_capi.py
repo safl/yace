@@ -16,6 +16,7 @@ from tests.conftest import (
     PACKED_C,
     PACKED_PRINTED,
     SKIPPED,
+    flat,
     needs_cc,
 )
 from yace.compiler import process
@@ -316,7 +317,8 @@ def test_the_signatures_are_checked_against_the_headers(parse, tmp_path):
 
     source = (tmp_path / "out" / "capi" / "api_signatures.c").read_text()
     assert '#include "api.h"' in source
-    assert "int (*)(const api_pair_t *, api_count_t, const char *)" in source
+    wanted = "int (*)(const api_pair_t *, api_count_t, const char *)"
+    assert flat(wanted) in flat(source)
 
 
 @needs_cc
@@ -578,7 +580,8 @@ def test_capi_pp_declares_the_printers_over_the_apis_own_headers(parse, tmp_path
     header = (out / "capi_pp" / "libapi_pp.h").read_text()
     assert "#include <stdbool.h>\n#include <stddef.h>\n#include <stdint.h>\n" in header
     assert "#include <stdio.h>\n#include <api.h>\n" in header
-    assert "\tAPI_PR_TERSE = 0x2," in header and "\tAPI_PR_JSON  = 0x4," in header
+    assert "API_PR_TERSE = 0x2," in flat(header)
+    assert "API_PR_JSON = 0x4," in flat(header)
     assert "enum api_pr {" in header
     assert "api_s_fpr(FILE *stream, const struct api_s *obj, int flags);" in header
     assert "api_k_str(int value);" in header

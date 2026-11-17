@@ -23,7 +23,7 @@ from pathlib import Path
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
-from yace import toolchain
+from yace import formatter, toolchain
 from yace.ir.model import Model, host_abi
 from yace.targets.capi import cgen
 from yace.targets.capi.target import CAPI, comment
@@ -37,6 +37,7 @@ CXXFLAGS = ["-std=c++20", "-pedantic-errors", "-Wall", "-Wextra", "-Werror"]
 class CPP(Target):
     NAME = "cpp"
     TOOLCHAINS = (toolchain.CXX,)
+    FORMATTERS = (formatter.CLANG_FORMAT,)
 
     def __init__(self, output: Path, include=None):
         super().__init__(output, include)
