@@ -2,6 +2,9 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
+import shutil
+
+from yace.compiler import process
 from yace.ir import decls
 
 HEADER = """
@@ -233,3 +236,32 @@ def test_a_wrong_out_count_or_partial_errno_is_reported(parse):
         func = functions(model)["f"]
         assert not func.partial
         assert {p.name: p.count for p in func.params if p.count} == kept
+
+
+def test_an_out_pointer_to_void_without_a_len_is_reported_and_not_applied(
+    parse, tmp_path
+):
+    """Nothing says how many bytes the function writes through 'p', so the
+    bindings cannot return them; 'buf' has a @len, and is returned"""
+
+    model, diagnostics = parse(
+        "#include <stddef.h>\n"
+        "/**\n * Fill\n * @param[out] p P\n * @errno\n */\nint api_fill(void *p);\n"
+        "/**\n * Read\n * @param[out] buf B\n * @len buf n\n * @errno\n */\n"
+        "int api_read(void *buf, size_t n);\n"
+    )
+    found = [d for d in diagnostics if d.rule == "annotation"]
+    assert [(d.line, d.message) for d in found] == [
+        (
+            7,
+            "'api_fill': 'p' is [out] but points to void without a @len; give its"
+            " size in bytes with @len",
+        )
+    ]
+    funcs = functions(model)
+    assert funcs["api_fill"].params[0].direction == "in"
+    assert funcs["api_read"].params[0].direction == "out"
+
+    # With [out] applied, the C++ layer declared a local of type void
+    if shutil.which("cc"):
+        assert process(model, ["cpp"], tmp_path / "out") == []
