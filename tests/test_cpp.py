@@ -1132,3 +1132,28 @@ def test_the_message_is_read_before_a_callable_is_destroyed(parse, tmp_path):
     )
     run = subprocess.run([str(program)], capture_output=True, text=True)
     assert run.stdout == "api_later: later is busy\napi_on: on is busy\n"
+
+
+def test_a_destructor_documented_errno_says_what_it_throws(parse, tmp_path):
+    from tests.test_rust import doc
+
+    model, _ = parse(
+        "struct api_h;\nstruct api_q;\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_h **h);\n"
+        + doc("Close", "@return 0, or -EIO where the write failed", "@destroys h")
+        + "int api_close(struct api_h *h);\n"
+        + doc("Make", "@param[out] q Q", "@errno")
+        + "int api_make(struct api_q **q);\n"
+        + doc("Drop", "@return 0, or -EIO", "@destroys q", "@errno")
+        + "int api_drop(struct api_q *q);\n"
+    )
+    assert process(model, ["cpp"], tmp_path, check=False) == []
+
+    hpp = flat((tmp_path / "cpp" / "api.hpp").read_text())
+    # api_close() has no @errno: close() ignores what it returns, and never throws
+    assert "/** * Close */ void close();" in hpp
+    assert (
+        "/** * Drop * * @throws std::system_error api_drop() returns: 0, or -EIO */"
+        " void drop();" in hpp
+    )

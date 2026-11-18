@@ -47,6 +47,9 @@ a local of type `void` for it, which did not compile.
 The diagnostic of a `#define` without a doc names the file and the line of the
 `#define`; it was reported at `<header>`.
 
+In the C++ layer, the comment of a method that destroys a handle and is
+documented `@errno` says what the method throws; the `@throws` was left out.
+
 ## 0.12.0
 
 In the Rust target, a member of a union reads without `unsafe` where that is
