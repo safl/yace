@@ -11,6 +11,7 @@ Emits, into ``<output>/cpp``:
 * ``<prefix>.hpp``, the layer, header-only
 * ``<prefix>_check.cpp``, the check program
 
+for the C++ standard that the option ``std`` names, ``c++20`` or ``c++17``,
 and the C API into ``<output>/capi``, as the C target does, which the layer
 includes; the layer has printers of its own, printing what the C API's
 pretty-printers print.
@@ -31,16 +32,24 @@ from yace.targets.target import Target
 
 from . import cppgen
 
-CXXFLAGS = ["-std=c++20", "-pedantic-errors", "-Wall", "-Wextra", "-Werror"]
+
+def cxxflags(std: str) -> list:
+    """The flags that the check is built with, as the C++ standard 'std'"""
+
+    return [f"-std={std}", "-pedantic-errors", "-Wall", "-Wextra", "-Werror"]
+
+
+CXXFLAGS = cxxflags("c++20")
 
 
 class CPP(Target):
     NAME = "cpp"
     TOOLCHAINS = (toolchain.CXX,)
     FORMATTERS = (formatter.CLANG_FORMAT,)
+    OPTIONS = {"std": ("c++20", "c++17")}
 
-    def __init__(self, output: Path, include=None):
-        super().__init__(output, include)
+    def __init__(self, output: Path, include=None, options=None):
+        super().__init__(output, include, options)
         self.capi = CAPI(output, include)
 
     def emit(self, model: Model) -> list:
@@ -52,10 +61,11 @@ class CPP(Target):
             keep_trailing_newline=True,
         )
         env.filters.update(comment=comment, tag=cgen.tag)
-        renderer = cppgen.Renderer(model)
+        renderer = cppgen.Renderer(model, self.options["std"])
         prefix = cgen.c_ident(model.meta.prefix)
         context = {
             "meta": model.meta,
+            "std": self.options["std"],
             "ns": renderer.ns,
             "guard": f"{prefix.upper()}_HPP",
             "body": renderer.render(),
@@ -85,7 +95,8 @@ class CPP(Target):
         includes = ["-I", str(self.capi.output), "-I", str(self.output)]
         includes += [f"-I{path}" for path in self.include]
         binary = self.output / f"{prefix}_check"
-        cmd = [cxx, *CXXFLAGS, *includes, str(self.output / f"{prefix}_check.cpp")]
+        flags = cxxflags(self.options["std"])
+        cmd = [cxx, *flags, *includes, str(self.output / f"{prefix}_check.cpp")]
         cmd += ["-o", str(binary)]
         proc = subprocess.run(cmd, capture_output=True, text=True)
         (self.output / "cc.log").write_text(

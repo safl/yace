@@ -25,7 +25,7 @@ from tests.conftest import needs_cargo, needs_cc, needs_cython, needs_go, needs_
 from yace.compiler import process
 from yace.ir.cparser import CParser
 from yace.targets.capi.target import CFLAGS
-from yace.targets.cpp.target import CXXFLAGS
+from yace.targets.cpp.target import CPP, cxxflags
 from yace.targets.go.target import GO_VERSION
 from yace.targets.rust import target as rust_target
 
@@ -331,14 +331,17 @@ def test_the_rust_checks_pass_with_the_declared_rust_version(
 
 @needs_cc
 @pytest.mark.parametrize("fmt", ["yaml", "json"])
-def test_the_cpp_check_prints_the_expected_documents(model, library, tmp_path, fmt):
-    assert process(model, ["cpp"], tmp_path) == []
+@pytest.mark.parametrize("std", CPP.OPTIONS["std"])
+def test_the_cpp_check_prints_the_expected_documents(
+    model, library, tmp_path, fmt, std
+):
+    assert process(model, ["cpp"], tmp_path, options={"cpp": {"std": std}}) == []
 
     cxx = os.environ.get("CXX", "c++")
     includes = ["-I", tmp_path / "capi", "-I", tmp_path / "cpp"]
     binary = tmp_path / "check"
     run(
-        [cxx, *CXXFLAGS, *includes, FIXTURE / "checks" / "cpp" / "check.cpp"]
+        [cxx, *cxxflags(std), *includes, FIXTURE / "checks" / "cpp" / "check.cpp"]
         + ["-L", library, "-lfoo", f"-Wl,-rpath,{library}"]
         + ["-o", binary]
     )

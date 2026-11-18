@@ -3,6 +3,7 @@
  *
  * The idiomatic C++ layer over the C API in lib{{ meta.prefix }}.h, which is its
  * raw layer. Everything is in the namespace {{ ns }}, named without the prefix.
+ * Generated for {{ "C++20" if std == "c++20" else "C++17 and later" }}.
 {%- if meta.license %}
  *
  * SPDX-License-Identifier: {{ meta.license }}
@@ -23,7 +24,9 @@
 #include <memory>
 #include <optional>
 #include <ostream>
+{%- if std == "c++20" %}
 #include <span>
+{%- endif %}
 #include <stdexcept>
 #include <string>
 #include <string_view>

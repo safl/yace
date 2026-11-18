@@ -213,3 +213,20 @@ def test_a_target_option_not_taken_is_an_error_before_parsing(tmp_path):
         assert proc.returncode == 1, option
         assert error in proc.stderr, proc.stderr
     assert not (tmp_path / "valid.yaml").exists()
+
+
+def test_the_cpp_target_takes_the_standard_as_an_option(tmp_path):
+    args = [HEADERS / "valid.h", "--emit", "cpp", "--no-check"]
+    proc = yace(*args, "--output", tmp_path / "20")
+    assert proc.returncode == 0, proc.stderr
+    assert "#include <span>" in (tmp_path / "20" / "cpp" / "valid.hpp").read_text()
+
+    option = ["--target-option", "cpp.std=c++17"]
+    proc = yace(*args, "--output", tmp_path / "17", *option)
+    assert proc.returncode == 0, proc.stderr
+    assert "#include <span>" not in (tmp_path / "17" / "cpp" / "valid.hpp").read_text()
+
+    option = ["--target-option", "cpp.std=c++14"]
+    proc = yace(*args, "--output", tmp_path / "14", *option)
+    assert proc.returncode == 1
+    assert "cpp.std is one of c++20, c++17, not 'c++14'" in proc.stderr
