@@ -1061,10 +1061,10 @@ def test_the_exception_holds_the_message_of_the_function_the_meta_names(
         (16, "api_close", "still in use"),
         (11, "api_reap", "reaped 1 of 3"),
     ]
+    # The message, or the text of the errno where there is none, and not both:
+    # a library's message may end in the text of the errno, as strerror() gives
     expected = [
-        f"{code} {function}: "
-        + (f"{message}: " if named and message else "")
-        + os.strerror(code)
+        f"{code} {function}: " + (message if named and message else os.strerror(code))
         for code, function, message in failed
     ]
     assert run.stdout.splitlines() == expected + ["1 7"]

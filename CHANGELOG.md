@@ -28,8 +28,9 @@ The check is built as the standard the layer is generated for.
 
 The meta takes `errmsg`, the name of the function of the API that returns the
 message of the call that failed last on the calling thread, a
-`const char *f(void)`. Where it is set, the `std::system_error` of the C++
-layer says the function, that message and the text of the errno in `what()`,
+`const char *f(void)`. Where it is set, the C++ layer throws
+`detail::failure`, a `std::system_error` whose `what()` is the function and
+that message, without the text of the errno that `std::system_error` appends,
 and the `OSError` of the Python layer has the message as its `strerror`. The
 errno is the code as before. A name that is no such function is reported by
 the new rule `meta`, and fails the run. The Rust, Zig and Go targets do not
