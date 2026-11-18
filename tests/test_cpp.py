@@ -1157,3 +1157,27 @@ def test_a_destructor_documented_errno_says_what_it_throws(parse, tmp_path):
         "/** * Drop * * @throws std::system_error api_drop() returns: 0, or -EIO */"
         " void drop();" in hpp
     )
+
+
+def test_a_constructor_named_as_a_keyword_keeps_the_name_of_its_handle(parse, tmp_path):
+    from tests.test_rust import doc
+
+    model, _ = parse(
+        "struct api_req;\nstruct api_h;\n"
+        + doc("New", "@param[out] r R", "@errno")
+        + "int api_req_new(struct api_req **r);\n"
+        + doc("Free", "@destroys r")
+        + "void api_req_free(struct api_req *r);\n"
+        + doc("Delete")
+        + "int api_req_delete(struct api_req *r);\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_h_open(struct api_h **h);\n"
+        + doc("Switch")
+        + "int api_switch(int v);\n"
+    )
+    assert process(model, ["cpp"], tmp_path) == []
+
+    hpp = (tmp_path / "cpp" / "api.hpp").read_text()
+    assert "inline req\nreq_new()" in hpp and "inline h\nopen()" in hpp
+    # A method is in the class of its handle, and a function has no handle
+    assert "int delete_();" in flat(hpp) and "inline int\nswitch_(int v)" in hpp
