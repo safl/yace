@@ -59,6 +59,10 @@ only where the C parameter points to const; it was always one. A caller that
 passed a `const` handle or a temporary to a function whose C parameter is not
 a pointer to const no longer compiles.
 
+In the C++ layer, the comment of a function whose text names a parameter that
+the signature folds into a span, or returns, has a `@note` saying what the
+signature has for the parameter.
+
 ## 0.12.0
 
 In the Rust target, a member of a union reads without `unsafe` where that is

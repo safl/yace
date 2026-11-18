@@ -1016,7 +1016,42 @@ class Renderer(object):
         )
         if call.kind == "destructor":
             shown = shown.model_copy(update={"returns": ""})
+        folded = self.folded(call, shown, errors)
+        if folded:
+            note = f"{shown.tags.get('note', '')} {folded}".strip()
+            shown = shown.model_copy(update={"tags": {**shown.tags, "note": note}})
         return comment(shown, indent, errors)
+
+    def folded(self, call: Call, doc, errors: str) -> str:
+        """A sentence for the comment of 'call', saying what the signature has
+        in place of each parameter of the C function that the signature does not
+        have and that the text of 'doc' or 'errors' names in quotes: a count is
+        the size of a span, and what is written through an [out] pointer is
+        returned. The text is the C function's, and yace cannot reword it"""
+
+        text = "\n".join(
+            [
+                doc.brief,
+                doc.description,
+                errors,
+                *doc.params.values(),
+                *doc.tags.values(),
+            ]
+        )
+        said = []
+        for arg in call.args:
+            if f"'{arg.param}'" not in text:
+                continue
+            if arg.kind in ("length", "capacity"):
+                said.append(f"'{arg.param}' is the size of '{self.pname(arg.of)}'")
+            elif arg.kind == "count":
+                said.append(
+                    f"'{arg.param}' is the size of the part of"
+                    f" '{self.pname(arg.of)}' returned"
+                )
+            elif arg.kind == "out" and call.out(arg.param).kind != "array":
+                said.append(f"'{arg.param}' is returned")
+        return f"In this signature: {'; '.join(said)}." if said else ""
 
     def declaration(self, call: Call, owner: str) -> List[str]:
         template, rtype, name, params, const = self.signature(call, owner)

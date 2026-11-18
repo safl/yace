@@ -1204,3 +1204,52 @@ def test_a_handle_given_is_const_where_the_c_parameter_points_to_const(parse, tm
     hpp = flat((tmp_path / "cpp" / "api.hpp").read_text())
     assert "int start(q &q_);" in hpp and "int peek(const q &q_);" in hpp
     assert "int maybe(q *q_, const q *r);" in hpp
+
+
+def test_the_comment_says_what_the_signature_has_for_a_parameter_it_folds(
+    parse, tmp_path
+):
+    from tests.test_rust import doc
+
+    model, _ = parse(
+        "#include <stdint.h>\n"
+        + doc(
+            "List from 'offset', until 'remaining' is 0",
+            "",
+            "'count' may be less than 'max'.",
+            "",
+            "@param offset The entries to skip",
+            "@param[out] entries The entries, as many as 'count'",
+            "@param max The room in 'entries'",
+            "@param[out] count The entries written",
+            "@param[out] remaining The entries after those",
+            "@param[out] total The total",
+            "@return 0, or a negative errno",
+            "@note Not thread-safe.",
+            "@len entries max",
+            "@len entries count",
+            "@errno",
+        )
+        + "int api_list(uint64_t offset, int32_t *entries, uint32_t max,"
+        " uint32_t *count, uint64_t *remaining, uint64_t *total);\n"
+        + doc("Sum of the 'n' values", "@len v n")
+        + "int api_sum(const int32_t *v, uint32_t n);\n"
+        + doc("Get", "@param[out] value The value")
+        + "void api_get(int *value);\n"
+    )
+    assert process(model, ["cpp"], tmp_path) == []
+
+    # Each comment on one line, without the ' * ' that starts a line of it
+    hpp = (tmp_path / "cpp" / "api.hpp").read_text()
+    hpp = re.sub(r"\s+", " ", re.sub(r"\s+\*(?=\s)", " ", hpp))
+    # 'total' is returned too, and no text names it
+    assert (
+        " @note Not thread-safe. In this signature: 'max' is the size of"
+        " 'entries'; 'count' is the size of the part of 'entries' returned;"
+        " 'remaining' is returned. @param offset" in hpp
+    )
+    assert (
+        "/** Sum of the 'n' values @note In this signature: 'n' is the size of"
+        " 'v'. */ inline int sum(" in hpp
+    )
+    assert "/** Get */ inline int get()" in hpp
