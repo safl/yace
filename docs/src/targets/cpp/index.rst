@@ -131,6 +131,13 @@ Records and enums
   ``FOO_SHAPE_POINT`` is ``foo::shape::point``. ``foo::name()`` is the C name
   of a value, none when it has none.
 
+The comment of a function is that of the C function, whose text may name a
+parameter that the signature does not have: a count that is the size of a
+span, or an ``[out]`` pointer whose value is returned. yace cannot reword the
+text, so the comment gets a ``@note`` that says what the signature has for
+each such parameter that the text names in quotes: ``In this signature: 'max'
+is the size of 'entries'; 'remaining' is returned.``
+
 A constructor whose name without the handle's is a C++ keyword keeps the name
 of the handle: ``foo_req_new()`` is ``foo::req_new()``. Any other name that is
 a C++ keyword gets a trailing underscore, as does a method named
