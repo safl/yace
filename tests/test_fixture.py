@@ -8,6 +8,7 @@ each target. The check program of each target must print the documents in
 examples/libfoo/expected.yaml.
 """
 
+import errno
 import importlib.util
 import json
 import os
@@ -348,6 +349,56 @@ def test_the_cpp_check_prints_the_expected_documents(
     expected = list(yaml.safe_load_all((FIXTURE / "expected.yaml").read_text()))
 
     assert documents(run([binary, fmt]), fmt) == expected
+
+
+# What foo_errmsg() returns after foo_point_add() failed on a handle named
+# 'points' that holds FOO_POINTS_MAX points
+FULL = "the handle 'points' holds 8 points, as many as it can"
+
+
+@needs_cc
+@pytest.mark.parametrize("std", CPP.OPTIONS["std"])
+def test_the_cpp_exception_holds_the_message_of_the_library(
+    model, library, tmp_path, std
+):
+    assert process(model, ["cpp"], tmp_path, options={"cpp": {"std": std}}) == []
+
+    (tmp_path / "main.cpp").write_text(
+        "#include <cstdio>\n#include <system_error>\n#include <foo.hpp>\n"
+        "int main() {\n"
+        '\tauto handle = foo::open("points");\n'
+        "\ttry {\n\t\tfor (;;) {\n\t\t\thandle.point_add({1, 2});\n\t\t}\n"
+        "\t} catch (const std::system_error &err) {\n"
+        '\t\tstd::printf("%d %s\\n", err.code().value(), err.what());\n\t}\n'
+        "\treturn 0;\n}\n"
+    )
+    cxx = os.environ.get("CXX", "c++")
+    includes = ["-I", tmp_path / "capi", "-I", tmp_path / "cpp"]
+    binary = tmp_path / "main"
+    run(
+        [cxx, *cxxflags(std), *includes, tmp_path / "main.cpp"]
+        + ["-L", library, "-lfoo", f"-Wl,-rpath,{library}", "-o", binary]
+    )
+    enospc = errno.ENOSPC
+    assert run([binary]) == f"{enospc} foo_point_add: {FULL}: {os.strerror(enospc)}\n"
+
+
+@needs_cc
+def test_the_python_oserror_holds_the_message_of_the_library(
+    model, library, tmp_path, monkeypatch
+):
+    assert process(model, ["python"], tmp_path) == []
+
+    lib = next(path for path in library.iterdir() if path.stem == "libfoo")
+    monkeypatch.setenv("FOO_LIBRARY", str(lib))
+    foo: dict = {}
+    path = tmp_path / "python" / "foo.py"
+    exec(compile(path.read_text(), str(path), "exec"), foo)
+
+    with foo["open"]("points") as handle, pytest.raises(OSError) as raised:
+        while True:
+            handle.point_add(foo["FooPoint"](1, 2))
+    assert (raised.value.errno, raised.value.strerror) == (errno.ENOSPC, FULL)
 
 
 @needs_cc

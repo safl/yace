@@ -241,6 +241,15 @@ def main():
         models = [model]
     else:
         models = [ir.load(path) for path in args.filepath]
+        unfit = [
+            f"{path}: meta: {model.errmsg_unfit()}"
+            for path, model in zip(args.filepath, models)
+            if model.errmsg_unfit()
+        ]
+        for message in unfit:
+            log.error("%s", message)
+        if unfit:
+            return 1
 
     # Add the directories of the headers, where the check of the signatures
     # finds the headers given by path

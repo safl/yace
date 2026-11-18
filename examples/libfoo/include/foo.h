@@ -179,6 +179,19 @@ const char *
 foo_version(void);
 
 /**
+ * Why the call that failed last on the calling thread failed
+ *
+ * A function that returns a negative errno keeps a message saying what the
+ * errno does not, such as the name of the handle that is full. The meta names
+ * this function as 'errmsg', so that the error of a binding holds the message.
+ *
+ * @return The message, owned by the library and valid until the next call
+ *   fails on the calling thread; "" when no call has failed
+ */
+const char *
+foo_errmsg(void);
+
+/**
  * Open a handle holding no points
  *
  * @param[in] name Name of the handle, copied

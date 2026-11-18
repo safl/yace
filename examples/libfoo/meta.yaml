@@ -10,3 +10,4 @@ brief: An example library described in the C subset of yace
 author: Simon A. F. Lund <os@safl.dk>
 license: GPL-2.0-only
 pkg: foo
+errmsg: foo_errmsg

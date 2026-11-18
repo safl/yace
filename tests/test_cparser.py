@@ -1009,3 +1009,29 @@ def test_an_enum_with_no_enumerator_that_fits_an_int_is_skipped(parse):
         " skipped",
     ]
     assert model.find("api_e") is None and model.find("api_s") is None
+
+
+def test_the_function_the_meta_names_as_errmsg_must_fit(parse):
+    header = (
+        "/** The message */\nconst char *api_errmsg(void);\n"
+        "/** A count */\nint api_count(void);\n"
+        "/** Of a code */\nconst char *api_strerror(int code);\n"
+        "/** Not const */\nchar *api_buffer(void);\n"
+    )
+    for name, why, line in [
+        ("api_errmsg", None, None),
+        ("api_nope", "which is no function of the API", 0),
+        ("api_count", "which does not return const char *", 4),
+        ("api_strerror", "which takes parameters; it must take void", 6),
+        ("api_buffer", "which does not return const char *", 8),
+    ]:
+        model, diagnostics = parse(header, meta={"errmsg": name})
+        found = [d for d in diagnostics if d.rule == "meta"]
+        assert model.meta.errmsg == name
+        if why is None:
+            assert found == [] and model.errmsg().name == name
+            continue
+        assert [d.message for d in found] == [f"'errmsg' names '{name}', {why}"]
+        # The diagnostic is at the function, where the headers declare it
+        assert (found[0].file, found[0].line) == ("api.h" if line else "", line)
+        assert model.errmsg() is None

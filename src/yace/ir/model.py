@@ -17,7 +17,7 @@ from typing import Any, List, Optional, Tuple, Type, TypeVar, overload
 
 import yaml
 
-from . import decls
+from . import decls, types
 from .types import Node
 
 T = TypeVar("T")
@@ -38,6 +38,9 @@ class Meta(Node):
     prelude: List[str] = []  # system headers included ahead of them, as 'stdio.h'
     pkg: str = ""  # its pkg-config name, if any
     crate: str = ""  # the name of its Rust crate, as 'foo-sys'; else the prefix
+    # the function that returns the message of the call that failed last on the
+    # calling thread, a 'const char *f(void)', as 'foo_errmsg'; else none
+    errmsg: str = ""
     abi: str = ""  # the platform whose layout the 'size', 'align' and 'offset' are
 
     def source(self) -> str:
@@ -82,6 +85,31 @@ class Model(Node):
         """The enums by name"""
 
         return {e.name: e for e in self.entities if isinstance(e, decls.Enum)}
+
+    def errmsg_unfit(self) -> Optional[str]:
+        """Why the function that the meta names as 'errmsg' cannot give the
+        message of a failed call, or None where the function can, or the meta
+        names no function"""
+
+        name = self.meta.errmsg
+        if not name:
+            return None
+        func = self.find(name, decls.Function)
+        if func is None:
+            return f"'errmsg' names '{name}', which is no function of the API"
+        if func.params or func.variadic:
+            return f"'errmsg' names '{name}', which takes parameters; it must take void"
+        if not types.is_string(func.ret):
+            return f"'errmsg' names '{name}', which does not return const char *"
+        return None
+
+    def errmsg(self) -> Optional[decls.Function]:
+        """The function that returns the message of the call that failed last,
+        or None where the meta names none, or one that errmsg_unfit() rejects"""
+
+        if not self.meta.errmsg or self.errmsg_unfit():
+            return None
+        return self.find(self.meta.errmsg, decls.Function)
 
     @overload
     def find(self, name: str, kind: Type[T]) -> Optional[T]: ...

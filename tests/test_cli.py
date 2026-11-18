@@ -215,6 +215,27 @@ def test_a_target_option_not_taken_is_an_error_before_parsing(tmp_path):
     assert not (tmp_path / "valid.yaml").exists()
 
 
+def test_an_ir_whose_meta_names_no_function_as_errmsg_fails_the_run(tmp_path):
+    header = tmp_path / "api.h"
+    header.write_text("/** The message */\nconst char *api_errmsg(void);\n")
+    meta = tmp_path / "meta.yaml"
+    meta.write_text("name: api\nprefix: api\nerrmsg: api_errmsg\n")
+    proc = yace(header, "--output", tmp_path, "--meta", meta)
+    assert proc.returncode == 0, proc.stderr
+
+    ir = tmp_path / "api.yaml"
+    ir.write_text(ir.read_text().replace("errmsg: api_errmsg", "errmsg: api_nope"))
+    proc = yace(ir, "--output", tmp_path / "out", "--emit", "capi", "--no-check")
+    assert proc.returncode == 1
+    assert "meta: 'errmsg' names 'api_nope', which is no function" in proc.stderr
+    assert not (tmp_path / "out" / "capi").exists()
+
+    meta.write_text("name: api\nprefix: api\nerrmsg: api_nope\n")
+    proc = yace(header, "--output", tmp_path, "--meta", meta)
+    assert proc.returncode == 1
+    assert "meta: 'errmsg' names 'api_nope', which is no function" in proc.stderr
+
+
 def test_the_cpp_target_takes_the_standard_as_an_option(tmp_path):
     args = [HEADERS / "valid.h", "--emit", "cpp", "--no-check"]
     proc = yace(*args, "--output", tmp_path / "20")
