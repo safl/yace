@@ -872,9 +872,15 @@ class Renderer(object):
     def fn_name(self, call: Call) -> str:
         """The name of a function of the namespace, other than a C name the
         generated code uses and than the classes it defines; where an alias of
-        a record would have the same name, render() emits no alias"""
+        a record would have the same name, render() emits no alias. The name of a
+        constructor is that of its function without the name of the handle,
+        open(); where that is a keyword, the name of the handle stays, since
+        req_new() says what new_() does not"""
 
-        name = ident(call.name)
+        name = call.name
+        if call.kind == "constructor" and name in KEYWORDS:
+            name = strip(call.function, self.prefix)
+        name = ident(name)
         enums = [e.name for e in self.model.entities if isinstance(e, decls.Enum)]
         typed = {self.name(n) for n in enums + list(self.classes)}
         taken = self.c_names - {call.function} | typed | RESERVED

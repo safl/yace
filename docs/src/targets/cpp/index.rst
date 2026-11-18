@@ -130,7 +130,9 @@ Records and enums
   ``FOO_SHAPE_POINT`` is ``foo::shape::point``. ``foo::name()`` is the C name
   of a value, none when it has none.
 
-A name that is a C++ keyword gets a trailing underscore, as does a method named
+A constructor whose name without the handle's is a C++ keyword keeps the name
+of the handle: ``foo_req_new()`` is ``foo::req_new()``. Any other name that is
+a C++ keyword gets a trailing underscore, as does a method named
 ``native_handle``, ``deleter`` or as a handle class, and a parameter named as
 what its function names unqualified, such as ``ret``, the local of the result,
 a C name or a handle class, or ending in ``_``, so no two parameters share a

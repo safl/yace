@@ -50,6 +50,10 @@ The diagnostic of a `#define` without a doc names the file and the line of the
 In the C++ layer, the comment of a method that destroys a handle and is
 documented `@errno` says what the method throws; the `@throws` was left out.
 
+In the C++ layer, a constructor whose name without the handle's is a keyword
+keeps the name of the handle: `foo_req_new()` is `foo::req_new()`, and was
+`foo::new_()`.
+
 ## 0.12.0
 
 In the Rust target, a member of a union reads without `unsafe` where that is
