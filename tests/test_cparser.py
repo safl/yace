@@ -1035,3 +1035,16 @@ def test_the_function_the_meta_names_as_errmsg_must_fit(parse):
         # The diagnostic is at the function, where the headers declare it
         assert (found[0].file, found[0].line) == ("api.h" if line else "", line)
         assert model.errmsg() is None
+
+
+def test_a_define_without_a_doc_is_reported_where_it_is_defined(parse):
+    _, diagnostics = parse(
+        "/** Documented */\n#define API_A 1\n#define API_B 2\n"
+        '#define API_S "s"\n\nenum { API_E = 3 };\n'
+    )
+    missing = [d for d in diagnostics if d.rule == "missing-doc"]
+    assert [(d.message, d.file, d.line) for d in missing] == [
+        ("define 'API_B' has no doc", "api.h", 3),
+        ("define 'API_S' has no doc", "api.h", 4),
+        ("define 'API_E' has no doc", "api.h", 6),
+    ]

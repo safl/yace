@@ -42,6 +42,9 @@ An `[out]` pointer to `void` without a `@len` is reported by the rule
 `annotation` and bound as a pointer the function reads. The C++ layer declared
 a local of type `void` for it, which did not compile.
 
+The diagnostic of a `#define` without a doc names the file and the line of the
+`#define`; it was reported at `<header>`.
+
 ## 0.12.0
 
 In the Rust target, a member of a union reads without `unsafe` where that is
