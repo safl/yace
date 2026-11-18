@@ -795,22 +795,23 @@ class Renderer(object):
                     f"\tstatic_cast<const void *>(std::addressof({ref})));",
                 ]
         args = ", ".join(self.param_expr(call, a, null) for a in call.args)
+        named = {self.pname(a.param) for a in call.args}
         results = self.results(call)
         uses_ret = call.errno or call.returns != "nothing"
         raw = f"::{call.function}({args});"
         lines.append(f"auto ret = {raw}" if uses_ret else raw)
         failed: List[str] = []
         if call.errno:
-            failed.append("if (ret < 0) {")
+            released: List[str] = []
             for arg in call.args:
                 if arg.kind != "callback" or (null and self.nulled(call, arg)):
                     continue
                 if arg.lifetime == "once":
                     held_t = self.local(call, arg.param, "t")
                     ctx = self.local(call, arg.param, "ctx")
-                    failed.append(f"\tdelete static_cast<{held_t} *>({ctx});")
+                    released.append(f"\tdelete static_cast<{held_t} *>({ctx});")
                 elif arg.lifetime == "handle":
-                    failed.append("\tkeep_.pop_back();")
+                    released.append("\tkeep_.pop_back();")
             if call.partial:
                 rtype = self.signature(call)[1]
                 # A local is moved; a temporary, such as a part of a buffer, is not
@@ -820,13 +821,22 @@ class Renderer(object):
                 value = (
                     moved[0] if len(moved) == 1 else f"{rtype}{{{', '.join(moved)}}}"
                 )
-                failed += [
-                    f"\tthrow partial_error<{rtype}>(static_cast<int>(-ret),",
-                    f'\t\t\t\t"{call.function}", {value});',
-                    "}",
-                ]
+                error = (
+                    f"partial_error<{rtype}>(static_cast<int>(-ret),"
+                    f' "{call.function}", {value})'
+                )
             else:
-                failed += [f"\tthrow {self.error(call.function)};", "}"]
+                error = self.error(call.function)
+            failed.append("if (ret < 0) {")
+            if self.errmsg and released:
+                # The exception reads the message of the library, so it is made
+                # before a callable is destroyed: the destructor of a callable
+                # may call the library, and a call that fails replaces the message
+                made = local("call", "error", self.reserved | named)
+                failed += [f"\tauto {made} = {error};", *released, f"\tthrow {made};"]
+            else:
+                failed += [*released, f"\tthrow {error};"]
+            failed.append("}")
         returned: Optional[str] = "ret" if call.returns == "count" else None
         for out in call.outs:
             if out.kind != "array":

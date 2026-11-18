@@ -32,7 +32,8 @@ message of the call that failed last on the calling thread, a
 `detail::failure`, a `std::system_error` whose `what()` is the function and
 that message, without the text of the errno that `std::system_error` appends,
 and the `OSError` of the Python layer has the message as its `strerror`. The
-errno is the code as before. A name that is no such function is reported by
+errno is the code as before. The layer reads the message before it destroys
+the callable of a callback that the failed call was given. A name that is no such function is reported by
 the new rule `meta`, and fails the run. The Rust, Zig and Go targets do not
 use `errmsg`.
 
