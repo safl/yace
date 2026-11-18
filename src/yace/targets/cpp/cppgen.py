@@ -495,8 +495,10 @@ class Renderer(object):
             return None
         handle = is_opaque_ptr(typ, self.idioms.handles)
         if handle in self.classes:
-            cls = self.name(handle)
-            return f"const {cls} *" if arg.nullable else f"const {cls} &"
+            # const as the C parameter is: a function given a pointer to a
+            # handle that is not const may change the handle
+            cls = f"{'const ' if typ.to.const else ''}{self.name(handle)}"
+            return f"{cls} *" if arg.nullable else f"{cls} &"
         if (
             isinstance(typ, types.Pointer)
             and not is_void_ptr(typ)

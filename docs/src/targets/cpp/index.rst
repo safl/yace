@@ -105,7 +105,8 @@ Arguments
   sharing one ``@len`` count must be as long, or ``std::invalid_argument`` is
   thrown; an empty one, ``{}``, gives NULL where ``@nullable``. A ``void *``
   with a ``@len`` is a ``std::span`` of ``std::byte``. A handle given is a
-  reference to its class, a pointer where ``@nullable``. A pointer to a record
+  reference to its class, a pointer where ``@nullable``, to ``const`` where
+  the C parameter points to const. A pointer to a record
   or value is a reference, or the pointer where ``@nullable``. A callback is
   any callable, called through a ``noexcept`` trampoline with the ``void *``
   context, so an exception thrown by it terminates, as it cannot cross C; the

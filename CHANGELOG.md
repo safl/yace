@@ -54,6 +54,11 @@ In the C++ layer, a constructor whose name without the handle's is a keyword
 keeps the name of the handle: `foo_req_new()` is `foo::req_new()`, and was
 `foo::new_()`.
 
+In the C++ layer, a handle given as an argument is a reference to `const`
+only where the C parameter points to const; it was always one. A caller that
+passed a `const` handle or a temporary to a function whose C parameter is not
+a pointer to const no longer compiles.
+
 ## 0.12.0
 
 In the Rust target, a member of a union reads without `unsafe` where that is
