@@ -1068,3 +1068,67 @@ def test_the_exception_holds_the_message_of_the_function_the_meta_names(
         for code, function, message in failed
     ]
     assert run.stdout.splitlines() == expected + ["1 7"]
+
+
+def test_the_message_is_read_before_a_callable_is_destroyed(parse, tmp_path):
+    """The callable of main.cpp calls api_quiet() when destroyed, which fails
+    and clears the message of the library. The layer destroys the callable of a
+    call that failed, and the exception holds the message of that call"""
+
+    from tests.test_rust import doc
+
+    header = (
+        "struct api_h;\ntypedef void (*api_cb)(void *arg);\n"
+        "/** The message of the call that failed last */\n"
+        "const char *api_errmsg(void);\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_h **h);\n"
+        + doc("Later", "@lifetime cb once", "@errno")
+        + "int api_later(api_cb cb, void *arg);\n"
+        + doc("On", "@lifetime cb handle", "@errno")
+        + "int api_on(struct api_h *h, api_cb cb, void *arg);\n"
+        + doc("Quiet", "@errno")
+        + "int api_quiet(void);\n"
+    )
+    model, _ = parse(header, meta={"errmsg": "api_errmsg"})
+    assert process(model, ["cpp"], tmp_path) == []
+    (tmp_path / "api.c").write_text(
+        header + "#include <stdio.h>\nstatic char msg[32];\nstatic int handle;\n"
+        "const char *api_errmsg(void) { return msg; }\n"
+        "int api_open(struct api_h **h) { *h = (struct api_h *)&handle; return 0; }\n"
+        "int api_later(api_cb cb, void *arg)\n"
+        '{\n\t(void)cb; (void)arg;\n\tsnprintf(msg, sizeof(msg), "later is busy");\n'
+        "\treturn -16;\n}\n"
+        "int api_on(struct api_h *h, api_cb cb, void *arg)\n"
+        "{\n\t(void)h; (void)cb; (void)arg;\n"
+        '\tsnprintf(msg, sizeof(msg), "on is busy");\n'
+        "\treturn -16;\n}\n"
+        "int api_quiet(void) { msg[0] = 0; return -5; }\n"
+    )
+    (tmp_path / "main.cpp").write_text(
+        "#include <cstdio>\n#include <system_error>\n#include <api.hpp>\n"
+        "struct noisy {\n\t~noisy() { (void)::api_quiet(); }\n"
+        "\tvoid operator()() const {}\n};\n"
+        "int main() {\n\tauto h = api::open();\n"
+        "\ttry {\n\t\tapi::later(noisy{});\n"
+        "\t} catch (const std::system_error &e) {\n"
+        '\t\tstd::printf("%s\\n", e.what());\n'
+        "\t}\n"
+        "\ttry {\n\t\th.on(noisy{});\n"
+        "\t} catch (const std::system_error &e) {\n"
+        '\t\tstd::printf("%s\\n", e.what());\n'
+        "\t}\n\treturn 0;\n}\n"
+    )
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    api_o = str(tmp_path / "api.o")
+    subprocess.run(
+        ["cc", *include, "-c", str(tmp_path / "api.c"), "-o", api_o], check=True
+    )
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), api_o]
+        + ["-o", str(program)],
+        check=True,
+    )
+    run = subprocess.run([str(program)], capture_output=True, text=True)
+    assert run.stdout == "api_later: later is busy\napi_on: on is busy\n"
