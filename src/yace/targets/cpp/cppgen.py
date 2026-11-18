@@ -995,8 +995,8 @@ class Renderer(object):
         return lines
 
     def call_comment(self, call: Call, indent: str = "") -> List[str]:
-        """The comment of 'call'; a destructor returns nothing and never throws, as
-        the pointer it releases is reset"""
+        """The comment of 'call'; a destructor returns nothing, and throws only
+        where the function that destroys the handle is documented @errno"""
 
         shown, errors = call_doc(
             call,
@@ -1007,7 +1007,7 @@ class Renderer(object):
             buffers=True,
         )
         if call.kind == "destructor":
-            shown, errors = shown.model_copy(update={"returns": ""}), ""
+            shown = shown.model_copy(update={"returns": ""})
         return comment(shown, indent, errors)
 
     def declaration(self, call: Call, owner: str) -> List[str]:
