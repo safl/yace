@@ -12,17 +12,46 @@ The C++ target, ``cpp``, generates the idiomatic C++ layer of the API, into
 the target also emits the C API into ``<output>/capi``, as the C target does:
 
 ``<prefix>.hpp``
-  The layer, header-only, including ``lib<prefix>.h``. It needs C++20, for
-  ``std::span``.
+  The layer, header-only, including ``lib<prefix>.h``. It needs C++20, or
+  C++17 where the option ``std`` says so, see :ref:`sec-targets-cpp-std`.
 
 ``<prefix>_check.cpp``
   The check, not part of the API: it asserts the layout of the records, and
   prints a zeroed instance of every record, through the layer, as YAML or JSON.
 
-The check is built with ``$CXX``, by default ``c++``, as C++20 with all
-warnings as errors, and run; **yace** then parses what it printed, as YAML and
+The check is built with ``$CXX``, by default ``c++``, as the standard the layer
+is generated for, with all warnings as errors, and run; **yace** then parses what it printed, as YAML and
 as JSON. The check asserts the layout of the C API's records, which the layer
 uses, as the C check does.
+
+.. _sec-targets-cpp-std:
+
+The C++ standard
+----------------
+
+The option ``std`` names the standard that the layer and the check are
+generated for: ``c++20``, the default, or ``c++17``, given as
+``--target-option cpp.std=c++17``. The layer for C++17 is for a program that
+is built as C++17, and it also compiles as C++20.
+
+``std::span`` is all that the layer takes from C++20. The layer for C++17
+declares a class of its own instead, ``detail::span``, in the namespace of the
+layer, and names it wherever the layer for C++20 names ``std::span``. A span
+converts from what ``std::span`` converts from: a ``std::vector``, a
+``std::array``, a C array, another span, a pointer and a length in braces,
+``{data, size}``, and ``{}`` for none. It has ``data()``, ``size()``,
+``size_bytes()``, ``empty()``, ``operator[]``, ``front()``, ``back()``,
+``begin()``, ``end()``, ``first()``, ``last()`` and ``subspan()``. It has no
+static extent, no reverse iterators, and no ``std::as_bytes()``. A call
+written with those conversions and members compiles against both layers.
+``std::span(buffer)``, which deduces the type of the element, compiles only
+against the layer for C++20.
+
+The alternative was a pointer and a length for each array. With that, a
+function that fills a buffer returns a count instead of the part of the buffer
+it wrote, a caller with a ``std::vector`` passes ``data()`` and ``size()``
+itself, and every signature with an array differs between the two standards.
+With the class, the two layers differ in the name of one type.
 
 The layer
 ---------

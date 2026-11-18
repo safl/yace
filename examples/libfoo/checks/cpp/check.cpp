@@ -230,7 +230,7 @@ main(int argc, char **argv)
 				 {"add", num(errno_of([&] { handle.point_add(points[0]); }))},
 				 {"add_many",
 				  num(errno_of([&] {
-					  return handle.point_add_many(std::span(points).first(1));
+					  return handle.point_add_many({points.data(), 1});
 				  }))},
 				 {"watched", num(watched)},
 			 });

@@ -2,7 +2,12 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
+import functools
+import re
 import subprocess
+import sys
+
+import pytest
 
 from tests.conftest import (
     BITS,
@@ -15,10 +20,26 @@ from tests.conftest import (
     needs_cc,
 )
 from tests.test_rust import BITS_UNION, EDGES, HANDLE_NAMED_AS_PREFIX
+from yace import compiler
 from yace.compiler import process
-from yace.targets.cpp.target import CXXFLAGS
+from yace.targets.cpp.target import CPP, CXXFLAGS, cxxflags
 
 pytestmark = needs_cc
+
+
+@pytest.fixture(autouse=True, params=CPP.OPTIONS["std"])
+def std(request, monkeypatch):
+    """Run every test of this module once for each C++ standard that the layer
+    is generated for: process() generates the layer for the standard, and
+    CXXFLAGS compiles the programs of the tests as the standard"""
+
+    this = sys.modules[__name__]
+    options = {"cpp": {"std": request.param}}
+    monkeypatch.setattr(
+        this, "process", functools.partial(compiler.process, options=options)
+    )
+    monkeypatch.setattr(this, "CXXFLAGS", cxxflags(request.param))
+    return request.param
 
 
 def test_the_subset_prints_as_the_c_api_does(parser, tmp_path):
@@ -245,7 +266,7 @@ def test_an_out_count_bounds_the_result_and_the_error_holds_what_was_written(
         "#include <cerrno>\n#include <cstdio>\n#include <api.hpp>\nint main() {\n"
         "\tstd::vector<int32_t> buf(4);\n"
         "\tauto done = api::reap(0, buf);\n"
-        "\ttry {\n\t\tapi::reap(EAGAIN, std::span(buf).first(2));\n"
+        "\ttry {\n\t\tapi::reap(EAGAIN, {buf.data(), 2});\n"
         "\t} catch (const api::partial_error<decltype(done)> &e) {\n"
         '\t\tstd::printf("%zu %d %d %zu %d\\n", done.size(), done[2],\n'
         "\t\t\t    e.code().value() == EAGAIN, e.value.size(), e.value[1]);\n"
@@ -825,9 +846,11 @@ def test_a_packed_record_prints_through_copies(parse, tmp_path):
     model, _ = parse(PACKED)
     assert process(model, ["cpp"], tmp_path) == []
 
+    # C++17 has no designated initializers
+    positional = re.sub(r"\.\w+ = ", "", PACKED_C)
     (tmp_path / "main.cpp").write_text(
         "#include <iostream>\n#include <api.hpp>\n"
-        f"int main() {{\n\tapi::k k = {PACKED_C};\n"
+        f"int main() {{\n\tapi::k k = {positional};\n"
         "\tapi::set_type_low(k, 0xa);\n"
         "\tstd::cout << api::yaml(k) << api::json(k);\n\treturn 0;\n}\n"
     )
@@ -873,3 +896,99 @@ def test_a_record_the_caller_may_write_is_not_copied(parse, tmp_path):
     run = subprocess.run([str(program)], capture_output=True, text=True)
     assert run.returncode == 0, run.stderr
     assert run.stdout == "1 7 7\n"
+
+
+def test_the_layer_names_the_span_of_its_standard(parse, tmp_path, std):
+    from tests.test_rust import IO
+
+    model, _ = parse(IO)
+    assert process(model, ["cpp"], tmp_path) == []
+
+    hpp = (tmp_path / "cpp" / "api.hpp").read_text()
+    cc_log = (tmp_path / "cpp" / "cc.log").read_text()
+    assert f"-std={std} " in cc_log
+    if std == "c++20":
+        assert "#include <span>\n" in hpp and "class span" not in hpp
+        assert "write(std::span<const std::byte> buf)" in hpp
+        assert " * Generated for C++20.\n" in hpp
+    else:
+        assert "#include <span>" not in hpp and "std::span<" not in hpp
+        assert "template <class T> class span {" in hpp
+        assert "write(detail::span<const std::byte> buf)" in hpp
+        assert " * Generated for C++17 and later.\n" in hpp
+
+
+def test_the_layer_for_cpp17_builds_as_cpp20_too(parse, tmp_path, std):
+    from tests.test_rust import IO
+
+    model, _ = parse(IO)
+    assert process(model, ["cpp"], tmp_path) == []
+    if std != "c++17":
+        pytest.skip("the layer for C++20 needs C++20")
+
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    check = str(tmp_path / "cpp" / "api_check.cpp")
+    subprocess.run(
+        ["c++", *cxxflags("c++20"), *include, "-fsyntax-only", check], check=True
+    )
+
+
+def test_a_span_is_given_as_a_container_an_array_or_a_pointer_and_a_length(
+    parse, tmp_path
+):
+    """The calls of main.cpp compile alike against std::span and against the
+    span of the layer for C++17"""
+
+    from tests.test_rust import doc
+
+    header = (
+        "#include <stddef.h>\n#include <stdint.h>\n"
+        + doc("Sum", "@len v n")
+        + "int64_t api_sum(const int32_t *v, size_t n);\n"
+        + doc("Fill", "@param[out] v V", "@len v n", "@errno")
+        + "int64_t api_fill(int32_t *v, size_t n);\n"
+    )
+    model, _ = parse(header)
+    assert process(model, ["cpp"], tmp_path) == []
+    (tmp_path / "api.c").write_text(
+        header + "int64_t api_sum(const int32_t *v, size_t n)\n"
+        "{\n\tint64_t sum = 0;\n\twhile (n--)\n\t\tsum += v[n];\n\treturn sum;\n}\n"
+        "int64_t api_fill(int32_t *v, size_t n)\n"
+        "{\n\tfor (size_t i = 0; i < n && i < 3; i++)\n\t\tv[i] = (int32_t)i + 1;\n"
+        "\treturn n < 3 ? (int64_t)n : 3;\n}\n"
+    )
+    (tmp_path / "main.cpp").write_text(
+        "#include <array>\n#include <cstdio>\n#include <vector>\n"
+        "#include <api.hpp>\nint main() {\n"
+        "\tstd::vector<int32_t> vec = {1, 2, 3};\n"
+        "\tconst std::vector<int32_t> cvec = {4, 5};\n"
+        "\tstd::array<int32_t, 2> arr = {6, 7};\n"
+        "\tint32_t raw[4] = {8, 9, 10, 11};\n"
+        '\tstd::printf("%ld %ld %ld %ld %ld %ld %ld\\n", (long)api::sum(vec),\n'
+        "\t\t    (long)api::sum(cvec), (long)api::sum(arr), (long)api::sum(raw),\n"
+        "\t\t    (long)api::sum({raw + 1, 2}), (long)api::sum({}),\n"
+        "\t\t    (long)api::sum(std::vector<int32_t>{20, 22}));\n"
+        "\tauto filled = api::fill(raw);\n"
+        "\tlong sum = 0;\n"
+        "\tfor (auto v : filled) {\n\t\tsum += v;\n\t}\n"
+        "\tauto part = api::fill({vec.data(), 2});\n"
+        '\tstd::printf("%zu %ld %d %d %zu %d %zu %d %zu %d\\n", filled.size(), sum,\n'
+        "\t\t    filled[2], filled.empty(), part.size(), part.back(),\n"
+        "\t\t    filled.first(2).size(), filled.last(1).front(),\n"
+        "\t\t    filled.subspan(1).size(), filled.subspan(1, 1)[0]);\n"
+        "\treturn api::sum(filled) == 6 ? 0 : 1;\n}\n"
+    )
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    api_o = str(tmp_path / "api.o")
+    subprocess.run(
+        ["cc", *include, "-c", str(tmp_path / "api.c"), "-o", api_o], check=True
+    )
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), api_o]
+        + ["-o", str(program)],
+        check=True,
+    )
+    run = subprocess.run([str(program)], capture_output=True, text=True)
+    assert run.returncode == 0
+    assert run.stdout == "6 9 13 38 19 0 42\n3 6 3 0 2 2 2 3 2 2\n"

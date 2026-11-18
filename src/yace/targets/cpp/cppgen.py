@@ -6,10 +6,13 @@
 The idiomatic C++ layer of the API, over the C API the C target generates,
 which is its raw layer, as C++ includes C headers: handles as move-only RAII
 classes, errors as ``std::system_error``, what is written through ``[out]``
-pointers returned, ``std::span`` for arrays, ``std::vector`` for those
-returned, ``std::string_view`` for strings, ``std::optional`` where NULL is
-allowed, and any callable for callbacks. See :py:mod:`yace.targets.idiom` for
-what is derived from where.
+pointers returned, ``std::span`` for arrays, ``std::string_view`` for strings,
+``std::optional`` where NULL is allowed, and any callable for callbacks. See
+:py:mod:`yace.targets.idiom` for what is derived from where.
+
+The layer is generated for C++20 or for C++17. C++17 has no ``std::span``, so
+the layer for C++17 declares :data:`SPAN`, the class ``detail::span``, and
+names it where the layer for C++20 names ``std::span``.
 
 Everything is in a namespace named for the prefix, its names without it, so
 nothing clashes with the macros of the C API's ``#define`` constants; where the
@@ -160,6 +163,81 @@ def copied(expr: str, local: str, call: str) -> List[str]:
     return ["{", f"\tconst auto {local} = {expr};", f"\t{call.format(local)};", "}"]
 
 
+# The span of the layer for C++17: the members of std::span that have no
+# equivalent in a pointer and a length, and the conversions from a container
+# that std::span has, so that a call compiles alike for C++17 and for C++20
+SPAN = r"""/**
+ * The elements of an array that another object owns, as std::span of C++20,
+ * of which this has the members below: the layer is generated for C++17
+ */
+template <class T> class span {
+public:
+	using element_type = T;
+	using value_type = std::remove_cv_t<T>;
+	using size_type = std::size_t;
+	using pointer = T *;
+	using reference = T &;
+	using iterator = T *;
+
+	constexpr span() noexcept = default;
+
+	constexpr span(T *data, std::size_t size) noexcept : data_(data), size_(size) {}
+
+	template <std::size_t N>
+	constexpr span(T (&array)[N]) noexcept : data_(array), size_(N)
+	{
+	}
+
+	/// The elements of a container that has data() and size(), such as a
+	/// std::vector, a std::array or another span; of a temporary container
+	/// only where T is const
+	template <
+		class C,
+		class = std::enable_if_t<
+			!std::is_same_v<std::decay_t<C>, span> &&
+			(std::is_lvalue_reference_v<C> || std::is_const_v<T>) &&
+			std::is_convertible_v<
+				std::remove_pointer_t<decltype(std::declval<C &>().data())> (*)[],
+				T (*)[]>>,
+		class = decltype(std::declval<C &>().size())>
+	constexpr span(C &&container) noexcept
+		: data_(container.data()), size_(static_cast<std::size_t>(container.size()))
+	{
+	}
+
+	constexpr T *data() const noexcept { return data_; }
+	constexpr std::size_t size() const noexcept { return size_; }
+	constexpr std::size_t size_bytes() const noexcept { return size_ * sizeof(T); }
+	constexpr bool empty() const noexcept { return !size_; }
+	constexpr T &operator[](std::size_t idx) const { return data_[idx]; }
+	constexpr T &front() const { return data_[0]; }
+	constexpr T &back() const { return data_[size_ - 1]; }
+	constexpr T *begin() const noexcept { return data_; }
+	constexpr T *end() const noexcept { return data_ + size_; }
+
+	/// The first 'count' elements
+	constexpr span first(std::size_t count) const { return {data_, count}; }
+
+	/// The last 'count' elements
+	constexpr span last(std::size_t count) const
+	{
+		return {data_ + (size_ - count), count};
+	}
+
+	/// 'count' elements from 'offset' on; without 'count', those that remain
+	constexpr span
+	subspan(std::size_t offset, std::size_t count = static_cast<std::size_t>(-1)) const
+	{
+		return {data_ + offset,
+			count == static_cast<std::size_t>(-1) ? size_ - offset : count};
+	}
+
+private:
+	T *data_ = nullptr;
+	std::size_t size_ = 0;
+};""".splitlines()
+
+
 PARTIAL = [
     "/**",
     " * The error of a call that wrote its outputs before it failed",
@@ -308,8 +386,10 @@ class Printer(object):
 
 
 class Renderer(object):
-    def __init__(self, model):
+    def __init__(self, model, std="c++20"):
         self.model = model
+        self.std = std
+        self.span = "std::span" if std == "c++20" else "detail::span"
         self.idioms = Idioms(model)
         self.prefix = model.meta.prefix
         self.typedefs = model.typedefs()
@@ -366,15 +446,15 @@ class Renderer(object):
 
     def param_type(self, arg: Arg, call: Optional[Call] = None) -> Optional[str]:
         """The C++ type of a parameter the caller gives, None when hidden; an
-        [out] array of 'call' is a buffer the caller gives, as a std::span"""
+        [out] array of 'call' is a buffer the caller gives, as a span"""
 
         typ = arg.typ
         if arg.kind == "out" and call and call.out(arg.param).kind == "array":
-            return f"std::span<{self.elem(call.out(arg.param).typ)}>"
+            return f"{self.span}<{self.elem(call.out(arg.param).typ)}>"
         if arg.kind == "string":
             return "const char *" if arg.nullable else "const std::string &"
         if arg.kind == "sequence":
-            return f"std::span<{self.elem(typ.to)}>"
+            return f"{self.span}<{self.elem(typ.to)}>"
         if arg.kind == "callback":
             return "F &&"
         if arg.kind != "value":
@@ -506,7 +586,7 @@ class Renderer(object):
                     count = None  # the count is that of the array, not returned too
                 found.append(
                     (
-                        f"std::span<{self.elem(out.typ)}>",
+                        f"{self.span}<{self.elem(out.typ)}>",
                         (
                             f"{buffer}.first({self.local(call, out.param, 'len')})"
                             if written
@@ -1033,7 +1113,10 @@ class Renderer(object):
 
         printer = Printer(self.model)
         records = cgen.ordered_records(self.model)
-        lines = ["namespace detail {", ""] + HELPERS
+        lines = ["namespace detail {", ""]
+        if self.std != "c++20":
+            lines += SPAN + [""]
+        lines += HELPERS
         for record in records:
             raw = f"{cgen.tag(record)} ::{record.name}"
             lines += [

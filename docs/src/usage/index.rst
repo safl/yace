@@ -64,6 +64,10 @@ The IR has no place in a C header for the name, prefix, license and so on of
 the API; give those in a YAML file with ``--meta``, of the fields of
 :py:class:`yace.ir.model.Meta`.
 
+A target takes its options as ``--target-option <target>.<key>=<value>``:
+``capi_pp.form``, see :ref:`sec-targets-capi`, and ``cpp.std``, see
+:ref:`sec-targets-cpp-std`.
+
 Example
 =======
 

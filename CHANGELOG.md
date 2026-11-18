@@ -16,6 +16,16 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## Unreleased
+
+The C++ target generates its layer for C++17 as well as for C++20, chosen
+with `--target-option cpp.std=c++17`; C++20 remains the default. The layer for
+C++17 declares a class `detail::span` and names it where the layer for C++20
+names `std::span`, which is all the layer takes from C++20. `detail::span`
+converts from a `std::vector`, a `std::array`, a C array and a pointer with a
+length in braces, as `std::span` does, so a call compiles against both layers.
+The check is built as the standard the layer is generated for.
+
 ## 0.12.0
 
 In the Rust target, a member of a union reads without `unsafe` where that is
