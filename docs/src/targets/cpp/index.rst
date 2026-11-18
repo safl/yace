@@ -79,11 +79,15 @@ Errors
   ``int`` returns nothing otherwise; one returning another integer, such as a
   count, a ``std::size_t``. Where the meta names the function of the library
   that returns the message of the call that failed last, as ``errmsg:
-  foo_errmsg``, the layer calls it when a function has failed, and ``what()``
-  is then the name of the function, the message, and the text of the errno:
-  ``foo_point_add: the handle 'points' holds 8 points, as many as it can: No
-  space left on device``. ``code()`` is the errno either way. Where the
-  function returns NULL or ``""``, ``what()`` has no message.
+  foo_errmsg``, the layer calls it when a function has failed, and throws
+  ``detail::failure``, a ``std::system_error`` whose ``what()`` is the name of
+  the function and the message: ``foo_point_add: the handle 'points' holds 8
+  points, as many as it can``. ``code()`` is the errno either way, and a
+  handler of ``std::system_error`` catches the exception. ``what()`` does not
+  add the text of the errno to the message, as ``std::system_error`` would,
+  since the message of a library may end in that text already. Where the
+  function returns NULL or ``""``, ``what()`` is the name of the function and
+  the text of the errno, as without ``errmsg``.
 
 Results
   What a function writes through an ``[out]`` pointer is returned rather than

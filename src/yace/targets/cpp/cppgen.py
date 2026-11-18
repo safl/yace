@@ -239,23 +239,35 @@ private:
 
 
 def failure(errmsg: str) -> List[str]:
-    """detail::failure(), which gives what the exception of a failed call says;
-    'errmsg' is the function of the library that returns its message"""
+    """detail::failure, the exception of a failed call where the meta names
+    'errmsg', the function of the library that returns its message. It is a
+    std::system_error, so its code() is the errno and a handler of
+    std::system_error catches it, and it overrides what(), since
+    std::system_error appends the text of the errno to what it is given, and
+    the message of a library often ends in that text already"""
 
     return [
-        "/// What the exception of a failed call says: the name of 'function', and",
-        f"/// the message that {errmsg}() gives of the failure, where it gives one",
-        "inline std::string",
-        "failure(const char *function)",
-        "{",
-        "\tstd::string what = function;",
-        f"\tconst char *msg = ::{errmsg}();",
-        "\tif (msg && *msg) {",
-        '\t\twhat += ": ";',
-        "\t\twhat += msg;",
+        "/**",
+        " * The error of a failed call: a std::system_error whose code() is the errno,",
+        " * and whose what() is the name of the function and the message that",
+        f" * {errmsg}() gives of the failure, or the text of the errno where it",
+        " * gives none",
+        " */",
+        "class failure : public std::system_error {",
+        "public:",
+        "\tfailure(int ev, const char *function)",
+        "\t\t: std::system_error(ev, std::generic_category()), what_(function)",
+        "\t{",
+        f"\t\tconst char *msg = ::{errmsg}();",
+        '\t\twhat_ += ": ";',
+        "\t\twhat_ += msg && *msg ? std::string(msg) : code().message();",
         "\t}",
-        "\treturn what;",
-        "}",
+        "",
+        "\tconst char *what() const noexcept override { return what_.c_str(); }",
+        "",
+        "private:",
+        "\tstd::string what_;",
+        "};",
     ]
 
 
@@ -263,10 +275,10 @@ PARTIAL = [
     "/**",
     " * The error of a call that wrote its outputs before it failed",
     " */",
-    "template <class T> class partial_error : public std::system_error {",
+    "template <class T> class partial_error : public {base} {",
     "public:",
-    "\tpartial_error(int ev, {what}, T value)",
-    "\t\t: std::system_error(ev, std::generic_category(), what),",
+    "\tpartial_error(int ev, const char *what, T value)",
+    "\t\t: {init},",
     "\t\t  value(std::move(value))",
     "\t{",
     "\t}",
@@ -708,12 +720,14 @@ class Renderer(object):
             const,
         )
 
-    def what(self, function: str) -> str:
-        """The expression of what the exception of a failed call of 'function'
-        says: its name, with the message of the library where the meta names
-        the function that returns the message"""
+    def error(self, function: str) -> str:
+        """The expression of the exception of a failed call of 'function',
+        which returned the negative errno 'ret'"""
 
-        return f'detail::failure("{function}")' if self.errmsg else f'"{function}"'
+        code = "static_cast<int>(-ret)"
+        if self.errmsg:
+            return f'detail::failure({code}, "{function}")'
+        return f'std::system_error({code}, std::generic_category(), "{function}")'
 
     def body(self, call: Call, null: bool = False) -> List[str]:
         """The statements of 'call'; with 'null', for no callback at all"""
@@ -808,16 +822,11 @@ class Renderer(object):
                 )
                 failed += [
                     f"\tthrow partial_error<{rtype}>(static_cast<int>(-ret),",
-                    f"\t\t\t\t{self.what(call.function)}, {value});",
+                    f'\t\t\t\t"{call.function}", {value});',
                     "}",
                 ]
             else:
-                failed += [
-                    "\tthrow std::system_error(static_cast<int>(-ret),"
-                    " std::generic_category(),",
-                    f"\t\t\t\t{self.what(call.function)});",
-                    "}",
-                ]
+                failed += [f"\tthrow {self.error(call.function)};", "}"]
         returned: Optional[str] = "ret" if call.returns == "count" else None
         for out in call.outs:
             if out.kind != "array":
@@ -1095,12 +1104,7 @@ class Renderer(object):
             ]
             if self.keeps(record):
                 lines.append("\t\t(void)new decltype(keep_)(std::move(keep_));")
-            lines += [
-                "\t\tthrow std::system_error(static_cast<int>(-ret),"
-                " std::generic_category(),",
-                f"\t\t\t\t\t{self.what(call.function)});",
-                "\t}",
-            ]
+            lines += [f"\t\tthrow {self.error(call.function)};", "\t}"]
             if self.keeps(record):
                 lines.append("\tkeep_.clear();")
         else:
@@ -1261,8 +1265,13 @@ class Renderer(object):
     def render(self) -> str:
         out: List[str] = self.printers() + [""]
         if any(c.partial and self.usable(c) for c in self.idioms.calls):
-            what = "const std::string &what" if self.errmsg else "const char *what"
-            out += [line.replace("{what}", what) for line in PARTIAL] + [""]
+            base, init = "std::system_error", "(ev, std::generic_category(), what)"
+            if self.errmsg:
+                base, init = "detail::failure", "(ev, what)"
+            out += [
+                line.replace("{init}", base + init).replace("{base}", base)
+                for line in PARTIAL
+            ] + [""]
         for enum in [e for e in self.model.entities if isinstance(e, decls.Enum)]:
             out += self.enum(enum) + [""]
         for record in [e for e in self.model.entities if isinstance(e, decls.RECORDS)]:

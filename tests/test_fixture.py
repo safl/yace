@@ -379,8 +379,7 @@ def test_the_cpp_exception_holds_the_message_of_the_library(
         [cxx, *cxxflags(std), *includes, tmp_path / "main.cpp"]
         + ["-L", library, "-lfoo", f"-Wl,-rpath,{library}", "-o", binary]
     )
-    enospc = errno.ENOSPC
-    assert run([binary]) == f"{enospc} foo_point_add: {FULL}: {os.strerror(enospc)}\n"
+    assert run([binary]) == f"{errno.ENOSPC} foo_point_add: {FULL}\n"
 
 
 @needs_cc
