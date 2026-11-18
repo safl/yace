@@ -1181,3 +1181,26 @@ def test_a_constructor_named_as_a_keyword_keeps_the_name_of_its_handle(parse, tm
     assert "inline req\nreq_new()" in hpp and "inline h\nopen()" in hpp
     # A method is in the class of its handle, and a function has no handle
     assert "int delete_();" in flat(hpp) and "inline int\nswitch_(int v)" in hpp
+
+
+def test_a_handle_given_is_const_where_the_c_parameter_points_to_const(parse, tmp_path):
+    from tests.test_rust import doc
+
+    model, _ = parse(
+        "struct api_h;\nstruct api_q;\n"
+        + doc("Open", "@param[out] h H", "@errno")
+        + "int api_open(struct api_h **h);\n"
+        + doc("Make", "@param[out] q Q", "@errno")
+        + "int api_make(struct api_q **q);\n"
+        + doc("Start")
+        + "int api_start(struct api_h *h, struct api_q *q);\n"
+        + doc("Peek")
+        + "int api_peek(struct api_h *h, const struct api_q *q);\n"
+        + doc("Maybe", "@nullable q r")
+        + "int api_maybe(struct api_h *h, struct api_q *q, const struct api_q *r);\n"
+    )
+    assert process(model, ["cpp"], tmp_path) == []
+
+    hpp = flat((tmp_path / "cpp" / "api.hpp").read_text())
+    assert "int start(q &q_);" in hpp and "int peek(const q &q_);" in hpp
+    assert "int maybe(q *q_, const q *r);" in hpp
