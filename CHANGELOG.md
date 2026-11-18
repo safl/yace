@@ -26,6 +26,18 @@ converts from a `std::vector`, a `std::array`, a C array and a pointer with a
 length in braces, as `std::span` does, so a call compiles against both layers.
 The check is built as the standard the layer is generated for.
 
+The meta takes `errmsg`, the name of the function of the API that returns the
+message of the call that failed last on the calling thread, a
+`const char *f(void)`. Where it is set, the `std::system_error` of the C++
+layer says the function, that message and the text of the errno in `what()`,
+and the `OSError` of the Python layer has the message as its `strerror`. The
+errno is the code as before. A name that is no such function is reported by
+the new rule `meta`, and fails the run. The Rust, Zig and Go targets do not
+use `errmsg`.
+
+The fixture library, `examples/libfoo`, keeps a message for each failure and
+declares `foo_errmsg()`, which its meta names.
+
 ## 0.12.0
 
 In the Rust target, a member of a union reads without `unsafe` where that is

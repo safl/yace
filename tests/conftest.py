@@ -128,6 +128,55 @@ PACKED_PRINTED = (
 )
 
 
+# A library that keeps a message of the call that failed last, which
+# api_errmsg() returns; a meta names api_errmsg() with 'errmsg'. ERRMSG_C defines
+# the functions: api_open() fails for a name that starts with '/', api_quiet()
+# fails with no message, and api_reap() fails after it wrote one element.
+ERRMSG = (
+    "#include <stdint.h>\nstruct api_h;\n"
+    "/** The message of the call that failed last */\n"
+    "const char *api_errmsg(void);\n"
+    "/**\n * Open\n * @param[out] h H\n * @errno\n */\n"
+    "int api_open(const char *name, struct api_h **h);\n"
+    "/**\n * Close\n * @destroys h\n * @errno\n */\nint api_close(struct api_h *h);\n"
+    "/**\n * Quiet\n * @errno\n */\nint api_quiet(void);\n"
+    "/**\n * Reap\n * @param[out] done D\n * @param[out] n N\n * @len done max\n"
+    " * @len done n\n * @errno partial\n */\n"
+    "int api_reap(int32_t *done, uint32_t max, uint32_t *n);\n"
+)
+
+ERRMSG_C = """
+#include <stdio.h>
+static char msg[64];
+static int handle;
+const char *api_errmsg(void) { return msg; }
+int api_open(const char *name, struct api_h **h)
+{
+\tif (name[0] == '/') {
+\t\tsnprintf(msg, sizeof(msg), "no socket at %s", name);
+\t\treturn -2;
+\t}
+\t*h = (struct api_h *)&handle;
+\treturn 0;
+}
+int api_close(struct api_h *h)
+{
+\t(void)h;
+\tsnprintf(msg, sizeof(msg), "still in use");
+\treturn -16;
+}
+int api_quiet(void) { msg[0] = 0; return -5; }
+int api_reap(int32_t *done, uint32_t max, uint32_t *n)
+{
+\t*n = max ? 1 : 0;
+\tif (max)
+\t\tdone[0] = 7;
+\tsnprintf(msg, sizeof(msg), "reaped %u of 3", *n);
+\treturn -11;
+}
+"""
+
+
 @pytest.fixture(scope="session")
 def parser():
     return CParser()
@@ -138,10 +187,10 @@ def parse(parser, tmp_path):
     """Return a function that parses C source text as a header and returns the
     (Model, [Diagnostic])"""
 
-    def parse(text: str, name: str = "api.h"):
+    def parse(text: str, name: str = "api.h", meta=None):
         path = tmp_path / name
         path.write_text(text)
-        return parser.parse(path)
+        return parser.parse(path, meta)
 
     return parse
 

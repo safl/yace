@@ -494,13 +494,17 @@ class Renderer(object):
         return True
 
     def render(self) -> str:
+        # The message of the library where the meta names the function that
+        # returns it and the function returns one, else the message of the errno
+        errmsg = self.idioms.model.errmsg()
+        message = f"{pygen.ident(errmsg.name)}() or " if errmsg else ""
         parts = [
             "def _check(ret, *partial):",
             '    """Raise the negative errno returned as an OSError; with \'partial\',',
             '    the OSError holds it as what the call wrote before it failed"""',
             "",
             "    if ret < 0:",
-            "        error = OSError(-ret, _os.strerror(-ret))",
+            f"        error = OSError(-ret, {message}_os.strerror(-ret))",
             "        if partial:",
             "            error.partial = partial[0]",
             "        raise error",

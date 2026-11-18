@@ -5,6 +5,8 @@
  */
 
 #include <errno.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <foo.h>
@@ -19,10 +21,31 @@ struct foo_handle {
 	void *added_arg;
 };
 
+static _Thread_local char errmsg[96];
+
+/** Keep the message of a failure, and return 'err', its negative errno */
+static int
+fail(int err, const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	vsnprintf(errmsg, sizeof(errmsg), fmt, args);
+	va_end(args);
+
+	return err;
+}
+
 const char *
 foo_version(void)
 {
 	return "1.2.3";
+}
+
+const char *
+foo_errmsg(void)
+{
+	return errmsg;
 }
 
 int
@@ -31,17 +54,17 @@ foo_open(const char *name, struct foo_handle **handle)
 	struct foo_handle *opened;
 
 	if (!name || !handle) {
-		return -EINVAL;
+		return fail(-EINVAL, "'%s' is NULL", name ? "handle" : "name");
 	}
 
 	opened = calloc(1, sizeof(*opened));
 	if (!opened) {
-		return -ENOMEM;
+		return fail(-ENOMEM, "no memory for the handle '%s'", name);
 	}
 	opened->name = malloc(strlen(name) + 1);
 	if (!opened->name) {
 		free(opened);
-		return -ENOMEM;
+		return fail(-ENOMEM, "no memory for the handle '%s'", name);
 	}
 	strcpy(opened->name, name);
 
@@ -70,7 +93,8 @@ int
 foo_point_add(struct foo_handle *handle, const struct foo_point *point)
 {
 	if (handle->npoints == FOO_POINTS_MAX) {
-		return -ENOSPC;
+		return fail(-ENOSPC, "the handle '%s' holds %d points, as many as it can",
+			    handle->name, FOO_POINTS_MAX);
 	}
 	handle->points[handle->npoints++] = *point;
 	if (handle->added) {
@@ -118,7 +142,7 @@ int
 foo_point_watch(struct foo_handle *handle, foo_added_cb added, void *arg)
 {
 	if (handle->added) {
-		return -EBUSY;
+		return fail(-EBUSY, "the handle '%s' is watched already", handle->name);
 	}
 	handle->added = added;
 	handle->added_arg = arg;
@@ -132,7 +156,7 @@ foo_point_visit(struct foo_handle *handle, foo_visit_cb visit, void *arg)
 	ssize_t visited = 0;
 
 	if (!visit) {
-		return -EINVAL;
+		return fail(-EINVAL, "'visit' is NULL");
 	}
 
 	for (size_t idx = 0; idx < handle->npoints; ++idx) {
@@ -155,7 +179,7 @@ int
 foo_count_submit(struct foo_handle *handle, foo_done_cb done, void *arg)
 {
 	if (handle->done) {
-		return -EBUSY;
+		return fail(-EBUSY, "the handle '%s' has a count submitted", handle->name);
 	}
 	handle->done = done;
 	handle->done_arg = arg;
@@ -243,7 +267,7 @@ foo_figure_fill(struct foo_figure *figure, uint32_t shape)
 		strcpy(figure->name, "rectangle");
 		break;
 	default:
-		return -EINVAL;
+		return fail(-EINVAL, "%u is none of enum foo_shape", shape);
 	}
 
 	figure->shape = shape;

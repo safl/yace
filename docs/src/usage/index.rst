@@ -64,6 +64,14 @@ The IR has no place in a C header for the name, prefix, license and so on of
 the API; give those in a YAML file with ``--meta``, of the fields of
 :py:class:`yace.ir.model.Meta`.
 
+``errmsg`` in the meta names the function of the API that returns the message
+of the call that failed last on the calling thread, a ``const char
+*f(void)``, such as ``foo_errmsg``. The C++ and the Python targets then put
+that message in the error of a function documented ``@errno``, see
+:ref:`sec-targets-cpp` and :ref:`sec-targets-python`. A name that is no such
+function is reported by the rule ``meta``. The Rust, Zig and Go targets do not
+use ``errmsg``.
+
 A target takes its options as ``--target-option <target>.<key>=<value>``:
 ``capi_pp.form``, see :ref:`sec-targets-capi`, and ``cpp.std``, see
 :ref:`sec-targets-cpp-std`.

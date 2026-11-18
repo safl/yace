@@ -84,6 +84,9 @@ breaking one is still parsed, and the run fails, unless ``--lenient``.
 ``handle-lifecycle``
   An opaque record a function creates through an [out] pointer must have a function that @destroys it, so other languages can release it.
 
+``meta``
+  What the meta names must be what the headers declare: 'errmsg' names a function that takes void and returns const char \*, the message of the call that failed last. A function that does not fit is not used.
+
 ``missing-doc``
   Declarations on the FFI boundary must be documented.
 

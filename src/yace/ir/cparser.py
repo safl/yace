@@ -1454,7 +1454,12 @@ class _HeaderParser(object):
         }
         meta.update(self.meta)
 
-        return Model(meta=Meta(**meta), entities=resolved), self.diagnostics
+        model = Model(meta=Meta(**meta), entities=resolved)
+        unfit = model.errmsg_unfit()
+        if unfit:
+            self.report("meta", unfit, self.cursors.get(model.meta.errmsg))
+
+        return model, self.diagnostics
 
     def inline_callback(self, typ, what: str, cursor):
         """Report a function pointer not named by a typedef, also one within a

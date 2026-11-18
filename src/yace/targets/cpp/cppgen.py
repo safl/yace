@@ -238,13 +238,34 @@ private:
 };""".splitlines()
 
 
+def failure(errmsg: str) -> List[str]:
+    """detail::failure(), which gives what the exception of a failed call says;
+    'errmsg' is the function of the library that returns its message"""
+
+    return [
+        "/// What the exception of a failed call says: the name of 'function', and",
+        f"/// the message that {errmsg}() gives of the failure, where it gives one",
+        "inline std::string",
+        "failure(const char *function)",
+        "{",
+        "\tstd::string what = function;",
+        f"\tconst char *msg = ::{errmsg}();",
+        "\tif (msg && *msg) {",
+        '\t\twhat += ": ";',
+        "\t\twhat += msg;",
+        "\t}",
+        "\treturn what;",
+        "}",
+    ]
+
+
 PARTIAL = [
     "/**",
     " * The error of a call that wrote its outputs before it failed",
     " */",
     "template <class T> class partial_error : public std::system_error {",
     "public:",
-    "\tpartial_error(int ev, const char *what, T value)",
+    "\tpartial_error(int ev, {what}, T value)",
     "\t\t: std::system_error(ev, std::generic_category(), what),",
     "\t\t  value(std::move(value))",
     "\t{",
@@ -390,6 +411,7 @@ class Renderer(object):
         self.model = model
         self.std = std
         self.span = "std::span" if std == "c++20" else "detail::span"
+        self.errmsg = model.errmsg()
         self.idioms = Idioms(model)
         self.prefix = model.meta.prefix
         self.typedefs = model.typedefs()
@@ -686,6 +708,13 @@ class Renderer(object):
             const,
         )
 
+    def what(self, function: str) -> str:
+        """The expression of what the exception of a failed call of 'function'
+        says: its name, with the message of the library where the meta names
+        the function that returns the message"""
+
+        return f'detail::failure("{function}")' if self.errmsg else f'"{function}"'
+
     def body(self, call: Call, null: bool = False) -> List[str]:
         """The statements of 'call'; with 'null', for no callback at all"""
 
@@ -779,14 +808,14 @@ class Renderer(object):
                 )
                 failed += [
                     f"\tthrow partial_error<{rtype}>(static_cast<int>(-ret),",
-                    f'\t\t\t\t"{call.function}", {value});',
+                    f"\t\t\t\t{self.what(call.function)}, {value});",
                     "}",
                 ]
             else:
                 failed += [
                     "\tthrow std::system_error(static_cast<int>(-ret),"
                     " std::generic_category(),",
-                    f'\t\t\t\t"{call.function}");',
+                    f"\t\t\t\t{self.what(call.function)});",
                     "}",
                 ]
         returned: Optional[str] = "ret" if call.returns == "count" else None
@@ -1069,7 +1098,7 @@ class Renderer(object):
             lines += [
                 "\t\tthrow std::system_error(static_cast<int>(-ret),"
                 " std::generic_category(),",
-                f'\t\t\t\t\t"{call.function}");',
+                f"\t\t\t\t\t{self.what(call.function)});",
                 "\t}",
             ]
             if self.keeps(record):
@@ -1117,6 +1146,8 @@ class Renderer(object):
         if self.std != "c++20":
             lines += SPAN + [""]
         lines += HELPERS
+        if self.errmsg:
+            lines += [""] + failure(self.errmsg.name)
         for record in records:
             raw = f"{cgen.tag(record)} ::{record.name}"
             lines += [
@@ -1230,7 +1261,8 @@ class Renderer(object):
     def render(self) -> str:
         out: List[str] = self.printers() + [""]
         if any(c.partial and self.usable(c) for c in self.idioms.calls):
-            out += PARTIAL + [""]
+            what = "const std::string &what" if self.errmsg else "const char *what"
+            out += [line.replace("{what}", what) for line in PARTIAL] + [""]
         for enum in [e for e in self.model.entities if isinstance(e, decls.Enum)]:
             out += self.enum(enum) + [""]
         for record in [e for e in self.model.entities if isinstance(e, decls.RECORDS)]:

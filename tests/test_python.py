@@ -17,6 +17,8 @@ import yaml
 
 from tests.conftest import (
     BITS,
+    ERRMSG,
+    ERRMSG_C,
     ESCAPED,
     ESCAPED_VALUE,
     HEADERS,
@@ -1016,3 +1018,37 @@ def test_functions_converting_no_argument_are_the_ctypes_functions(
     assert not isinstance(api["api_len"], ctypes._CFuncPtr)
     assert api["api_len"]("four") == 4
     assert api["api_len"](s="four") == 4
+
+
+@needs_cc
+@pytest.mark.parametrize("named", [True, False])
+def test_the_oserror_holds_the_message_of_the_function_the_meta_names(
+    parse, tmp_path, monkeypatch, named
+):
+    import os
+
+    from tests.test_rust import library
+
+    model, _ = parse(ERRMSG, meta={"errmsg": "api_errmsg"} if named else {})
+    assert process(model, ["python"], tmp_path) == []
+    monkeypatch.setenv("API_LIBRARY", str(library(tmp_path, ERRMSG + ERRMSG_C)))
+
+    api = module(tmp_path)
+    handle = api["open"]("name")
+    failed = []
+    for call in [
+        lambda: api["open"]("/run/api.sock"),
+        api["quiet"],
+        handle.close,
+        lambda: api["reap"](2),
+    ]:
+        with pytest.raises(OSError) as raised:
+            call()
+        failed.append((raised.value.errno, raised.value.strerror))
+    assert raised.value.partial == [7]
+
+    messages = ["no socket at /run/api.sock", "", "still in use", "reaped 1 of 3"]
+    assert failed == [
+        (code, message if named and message else os.strerror(code))
+        for code, message in zip([2, 5, 16, 11], messages)
+    ]

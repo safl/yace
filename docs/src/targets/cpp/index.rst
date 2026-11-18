@@ -77,7 +77,13 @@ Errors
   A function documented ``@errno`` throws ``std::system_error``, of the
   ``std::generic_category()``, when it returns a negative errno. One returning
   ``int`` returns nothing otherwise; one returning another integer, such as a
-  count, a ``std::size_t``.
+  count, a ``std::size_t``. Where the meta names the function of the library
+  that returns the message of the call that failed last, as ``errmsg:
+  foo_errmsg``, the layer calls it when a function has failed, and ``what()``
+  is then the name of the function, the message, and the text of the errno:
+  ``foo_point_add: the handle 'points' holds 8 points, as many as it can: No
+  space left on device``. ``code()`` is the errno either way. Where the
+  function returns NULL or ``""``, ``what()`` has no message.
 
 Results
   What a function writes through an ``[out]`` pointer is returned rather than

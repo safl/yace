@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 import functools
+import os
 import re
 import subprocess
 import sys
@@ -11,6 +12,8 @@ import pytest
 
 from tests.conftest import (
     BITS,
+    ERRMSG,
+    ERRMSG_C,
     HEADERS,
     PACKED,
     PACKED_C,
@@ -992,3 +995,76 @@ def test_a_span_is_given_as_a_container_an_array_or_a_pointer_and_a_length(
     run = subprocess.run([str(program)], capture_output=True, text=True)
     assert run.returncode == 0
     assert run.stdout == "6 9 13 38 19 0 42\n3 6 3 0 2 2 2 3 2 2\n"
+
+
+ERRMSG_MAIN = r"""#include <cstdio>
+#include <system_error>
+#include <vector>
+#include <api.hpp>
+static void show(const std::system_error &e) {
+	std::printf("%d %s\n", e.code().value(), e.what());
+}
+int main() {
+	try {
+		api::open("/run/api.sock");
+	} catch (const std::system_error &e) {
+		show(e);
+	}
+	try {
+		api::quiet();
+	} catch (const std::system_error &e) {
+		show(e);
+	}
+	auto h = api::open("name");
+	try {
+		h.close();
+	} catch (const std::system_error &e) {
+		show(e);
+	}
+	std::vector<int32_t> buf(2);
+	try {
+		api::reap(buf);
+	} catch (const api::partial_error<decltype(api::reap(buf))> &e) {
+		show(e);
+		std::printf("%zu %d\n", e.value.size(), e.value[0]);
+	}
+	return 0;
+}
+"""
+
+
+@pytest.mark.parametrize("named", [True, False])
+def test_the_exception_holds_the_message_of_the_function_the_meta_names(
+    parse, tmp_path, named
+):
+    model, diagnostics = parse(ERRMSG, meta={"errmsg": "api_errmsg"} if named else {})
+    assert [d for d in diagnostics if d.rule == "meta"] == []
+    assert process(model, ["cpp"], tmp_path) == []
+
+    (tmp_path / "api.c").write_text(ERRMSG + ERRMSG_C)
+    (tmp_path / "main.cpp").write_text(ERRMSG_MAIN)
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    api_o = str(tmp_path / "api.o")
+    subprocess.run(
+        ["cc", *include, "-c", str(tmp_path / "api.c"), "-o", api_o], check=True
+    )
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), api_o]
+        + ["-o", str(program)],
+        check=True,
+    )
+    run = subprocess.run([str(program)], capture_output=True, text=True)
+    failed = [
+        (2, "api_open", "no socket at /run/api.sock"),
+        (5, "api_quiet", ""),
+        (16, "api_close", "still in use"),
+        (11, "api_reap", "reaped 1 of 3"),
+    ]
+    expected = [
+        f"{code} {function}: "
+        + (f"{message}: " if named and message else "")
+        + os.strerror(code)
+        for code, function, message in failed
+    ]
+    assert run.stdout.splitlines() == expected + ["1 7"]
