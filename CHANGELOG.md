@@ -38,6 +38,10 @@ use `errmsg`.
 The fixture library, `examples/libfoo`, keeps a message for each failure and
 declares `foo_errmsg()`, which its meta names.
 
+An `[out]` pointer to `void` without a `@len` is reported by the rule
+`annotation` and bound as a pointer the function reads. The C++ layer declared
+a local of type `void` for it, which did not compile.
+
 ## 0.12.0
 
 In the Rust target, a member of a union reads without `unsafe` where that is

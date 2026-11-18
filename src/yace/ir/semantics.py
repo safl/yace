@@ -326,6 +326,20 @@ class Semantics(object):
                 )
                 param.count = None
 
+        # What an [out] void * points to has no size, so nothing says how much
+        # the function writes, and no binding can return what was written
+        for param in func.params:
+            if (
+                param.direction == "out"
+                and is_void_ptr(param.typ)
+                and param.length is None
+            ):
+                annotation(
+                    f"'{param.name}' is [out] but points to void without a @len;"
+                    " give its size in bytes with @len"
+                )
+                param.direction = "in"
+
         if "errno" in tags:
             if tags["errno"] not in ("", "partial"):
                 annotation("@errno takes nothing, or 'partial'")
