@@ -1257,6 +1257,7 @@ class _HeaderParser(object):
             t.kind == TokenKind.LITERAL and t.spelling.startswith('"') for t in values
         ):
             text = "".join(unescape(t.spelling[1:-1]) for t in values)
+            self.cursors[name] = cursor
             return decls.Define(
                 name=name,
                 value=decls.StrLiteral(value=text),
@@ -1424,7 +1425,7 @@ class _HeaderParser(object):
 
         for entity in resolved:
             if isinstance(entity, decls.Define):
-                self.check_doc(entity, "define", None)
+                self.check_doc(entity, "define", self.cursors.get(entity.name))
 
         # A record declared, then defined nested in another, is the definition
         nested = {
@@ -1591,14 +1592,19 @@ class _HeaderParser(object):
             " constants",
             cursor,
         )
+        members = [
+            child
+            for child in cursor.get_children()
+            if child.kind == CursorKind.ENUM_CONSTANT_DECL
+        ]
+        self.cursors.update({child.spelling: child for child in members})
         return [
             decls.Define(
                 name=child.spelling,
                 value=decls.IntLiteral(value=child.enum_value),
                 doc=self.doc_of(child),
             )
-            for child in cursor.get_children()
-            if child.kind == CursorKind.ENUM_CONSTANT_DECL
+            for child in members
         ]
 
 
