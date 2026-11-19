@@ -105,15 +105,15 @@ foo_point_add(struct foo_handle *handle, const struct foo_point *point)
 }
 
 ssize_t
-foo_point_add_many(struct foo_handle *handle, const struct foo_point *points, size_t npoints)
+foo_point_add_many(struct foo_handle *handle, const struct foo_point *points, size_t points_len)
 {
 	size_t added = 0;
 
-	while (added < npoints && !foo_point_add(handle, &points[added])) {
+	while (added < points_len && !foo_point_add(handle, &points[added])) {
 		added += 1;
 	}
 
-	return added || !npoints ? (ssize_t)added : -ENOSPC;
+	return added || !points_len ? (ssize_t)added : -ENOSPC;
 }
 
 size_t
@@ -129,9 +129,9 @@ foo_point_get(const struct foo_handle *handle, size_t idx)
 }
 
 ssize_t
-foo_point_copy(const struct foo_handle *handle, struct foo_point *points, size_t npoints)
+foo_point_copy(const struct foo_handle *handle, struct foo_point *points, size_t points_len)
 {
-	size_t copied = npoints < handle->npoints ? npoints : handle->npoints;
+	size_t copied = points_len < handle->npoints ? points_len : handle->npoints;
 
 	memcpy(points, handle->points, copied * sizeof(*points));
 

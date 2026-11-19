@@ -243,16 +243,15 @@ foo_point_add(struct foo_handle *handle, const struct foo_point *point);
  * Add points to the handle, as many as it has room for
  *
  * @param handle The handle
- * @param[in] points The points to add, copied
- * @param npoints The number of points
+ * @arrparam[in] points The points to add, copied
+ * @param points_len The number of points
  *
  * @return The number of points added, -ENOSPC when there was room for none
  *
- * @len points npoints
  * @errno
  */
 ssize_t
-foo_point_add_many(struct foo_handle *handle, const struct foo_point *points, size_t npoints);
+foo_point_add_many(struct foo_handle *handle, const struct foo_point *points, size_t points_len);
 
 /**
  * The number of points held
@@ -281,16 +280,15 @@ foo_point_get(const struct foo_handle *handle, size_t idx);
  * Copy the points held, as many as fit
  *
  * @param handle The handle
- * @param[out] points Where to copy the points to
- * @param npoints The number of points that fit
+ * @arrparam[out] points Where to copy the points to
+ * @param points_len The number of points that fit
  *
  * @return The number of points copied
  *
- * @len points npoints
  * @errno
  */
 ssize_t
-foo_point_copy(const struct foo_handle *handle, struct foo_point *points, size_t npoints);
+foo_point_copy(const struct foo_handle *handle, struct foo_point *points, size_t points_len);
 
 /**
  * Watch the points added to the handle, from now until it is closed

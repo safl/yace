@@ -332,7 +332,7 @@ def test_functions_named_as_internals_nullable_slices_and_callback_strings_work(
         + "int api_w(int x);\n"
         + doc("Err")
         + "int api_err(void);\n"
-        + doc("Sum", "@nullable v", "@len v n")
+        + doc("Sum", "@nullable v", "@arrparam v V @len_at{n}")
         + "int api_sum(const int *v, size_t n);\n"
         + doc("Seen", "@lifetime cb call")
         + "void api_seen(api_seen_cb cb, void *arg);\n"
@@ -384,7 +384,7 @@ def test_names_of_the_module_and_of_its_locals_are_made_distinct(parse, tmp_path
         + "int api_open(struct api_h **h);\n"
         + doc("Errno of")
         + "int api_errno_of(int x);\n"
-        + doc("Sum", "@nullable s", "@len s n")
+        + doc("Sum", "@nullable s", "@arrparam s S @len_at{n}")
         + "int api_sum(const int *s, size_t n);\n"
         + doc("Use", "@nullable h")
         + "int api_use(int context, struct api_h *h);\n"

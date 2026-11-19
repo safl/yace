@@ -28,6 +28,7 @@ import logging as log
 import subprocess
 import textwrap
 from pathlib import Path
+from typing import Sequence
 
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
@@ -61,8 +62,9 @@ def comment(text: str) -> str:
     return text.replace("/*", "/ *").replace("*/", "* /")
 
 
-def docblock(doc, indent: str = "") -> str:
-    """'doc' as a Doxygen comment, wrapped, or nothing when it is empty"""
+def docblock(doc, indent: str = "", params: Sequence[decls.Param] = ()) -> str:
+    """'doc' as a Doxygen comment, wrapped, or nothing when it is empty; of a
+    function, 'params' are its parameters"""
 
     if doc.is_empty():
         return ""
@@ -93,11 +95,27 @@ def docblock(doc, indent: str = "") -> str:
         body += [" *"] + (para(paragraph) if len(lines) == 1 else [])
         if len(lines) > 1:
             body += [line for text in lines for line in item(text)]
+
+    def param(name: str) -> str:
+        tag = "param"
+        if name in doc.records:
+            tag = "recparam"
+        elif name in doc.arrays:
+            tag = "arrparam"
+        return f"{tag}[{doc.directions[name]}]" if name in doc.directions else tag
+
+    def references(name: str) -> str:
+        found = dict(doc.references.get(name, {}))
+        param = next((p for p in params if p.name == name), None)
+        if param and cgen.param_name(name) != name:
+            # Renamed, the parameter's name no longer gives the conventional one
+            named = {"nbytes_at": param.size, "len_at": param.length}
+            named["nwritten_at"] = param.count
+            found.update({cmd: to for cmd, to in named.items() if to})
+        return "".join(f" @{cmd}{{{cgen.param_name(to)}}}" for cmd, to in found.items())
+
     tags = [
-        (
-            f"param[{doc.directions[name]}]" if name in doc.directions else "param",
-            f"{cgen.param_name(name)} {text}",
-        )
+        (param(name), f"{cgen.param_name(name)} {text}{references(name)}")
         for name, text in doc.params.items()
     ]
     tags += [("return", doc.returns)] if doc.returns else []
@@ -166,6 +184,8 @@ class CAPI(Target):
             define_value=define_value,
             field_decl=cgen.field_decl,
             signature=cgen.signature,
+            sized_call=cgen.sized_call,
+            unsized=cgen.unsized,
             pointer_type=cgen.pointer_type,
             tag=cgen.tag,
         )

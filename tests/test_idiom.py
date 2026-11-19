@@ -43,12 +43,12 @@ def test_parameters_are_given_returned_or_hidden():
     assert kinds(found["foo_point_add_many"]) == [
         ("handle", "self"),
         ("points", "sequence"),
-        ("npoints", "length"),
+        ("points_len", "length"),
     ]
     assert kinds(found["foo_point_copy"]) == [
         ("handle", "self"),
         ("points", "out"),
-        ("npoints", "capacity"),
+        ("points_len", "capacity"),
     ]
     assert kinds(found["foo_point_visit"]) == [
         ("handle", "self"),
@@ -168,10 +168,24 @@ def test_a_recparam_size_is_computed_and_the_call_named_as_c_calls_it(parse):
         ("args", "value"),
         ("args_nbytes", "size"),
         ("more", "value"),
-        ("more_nbytes", "size"),
+        ("nmore", "size"),
     ]
     assert [a.param for a in prep.given()] == ["args", "more"]
     size = prep.args[2]
     assert size.of == "args"
     assert (prep.sized(size).name, prep.sized(size).const) == ("args_t", False)
     assert prep.sized(prep.args[4]).name == "args"
+
+
+def test_a_recparam_call_named_as_the_prefix_keeps_the_prefix(parse):
+    model, diagnostics = parse(
+        "#include <stddef.h>\n"
+        "/**\n * A\n */\nstruct api_args {\n\tint x; ///< X\n};\n"
+        "/**\n * Run\n */\n"
+        "static inline int api(const struct api_args *args) { return args->x; }\n"
+        "/**\n * Run\n * @recparam args A\n */\n"
+        "int api_sized(const struct api_args *args, size_t args_nbytes);\n"
+    )
+    assert [d for d in diagnostics if d.rule == "annotation"] == []
+    (run,) = Idioms(model).calls
+    assert (run.function, run.name) == ("api_sized", "api")

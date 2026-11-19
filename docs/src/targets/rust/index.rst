@@ -132,12 +132,12 @@ Results
   it, an ``Option`` where ``@nullable``.
 
 Arguments
-  An array read through a pointer is a slice; slices sharing one ``@len`` count
-  must be as long, or the call panics; a ``@nullable`` one is an ``Option``,
-  ``None`` passing NULL. A ``void *`` with a ``@len`` is a slice of ``u8``. The
-  size of a ``@recparam`` record is not given; the layer passes ``size_of``
-  of the record's type. A handle given is a reference to its type. A callback is
-  a ``&mut dyn FnMut`` closure, called through a generated trampoline with the
+  An array read through a pointer is a slice; slices sharing one length must be
+  as long, or the call panics; a ``@nullable`` one is an ``Option``, ``None``
+  passing NULL. A ``void *`` ``@arrparam`` is a slice of ``u8``. The size of a
+  ``@recparam`` record is not given; the layer passes ``size_of`` of the
+  record's type. A handle given is a reference to its type. A callback is a
+  ``&mut dyn FnMut`` closure, called through a generated trampoline with the
   ``void *`` context; the pointers to records it receives are references. One of
   ``@lifetime once`` (see :ref:`sec-ir-lifetimes`) is a ``Box<dyn FnOnce>``,
   freed once called, or when the call fails, and ``Send`` where the function is

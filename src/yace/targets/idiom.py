@@ -14,12 +14,12 @@ From the semantics of the C subset, see :py:mod:`yace.ir.semantics`:
   taking it as their first parameter are its methods. The rest are functions.
 * What a function writes through an ``[out]`` pointer is returned, not passed:
   a record, a value, a handle, or the elements of an array, as many as the
-  function says it wrote: its ``[out]`` count, or else the count it returns,
+  function says it wrote: its count written, or else the count it returns,
   or else the capacity. Python allocates the array, of the capacity given;
   Rust, C++, Go and Zig take it from the caller, as a buffer whose length is
   the capacity, and return the part written.
-* An array read through a pointer is given as a sequence, its ``@len`` count
-  then known from the sequence, and not given.
+* An array read through a pointer is given as a sequence, its ``@arrparam``
+  length then known from the sequence, and not given.
 * A ``@recparam`` record is given, and its size is that of the record's type,
   as C's ``sizeof``, and not given.
 * A callback is given as a closure, kept for as long as its ``@lifetime`` says;
@@ -79,7 +79,7 @@ class Arg(BaseModel):
         "self",  # the handle the method is called on
         "value",  # given as is
         "string",  # a const char *, given as a string
-        "sequence",  # a pointer and @len count, given as a sequence
+        "sequence",  # an @arrparam and its length, given as a sequence
         "callback",  # a callback, given as a closure
         "length",  # the count of a sequence; not given
         "size",  # the size of a @recparam record; not given
@@ -406,9 +406,8 @@ class Idioms(object):
         prefixes = [self.prefix]
         if handle:
             prefixes.append(self.handle_name(handle))
-        name = strip(func.name, *prefixes)
-        if sizes:
-            name = name[: -len(SIZED)]
+        # The suffix goes first, so that 'foo_sized' of the prefix 'foo' is 'foo'
+        name = strip(func.name[: -len(SIZED)] if sizes else func.name, *prefixes)
 
         return Call(
             function=func.name,

@@ -50,12 +50,12 @@ A function taking several callbacks names each, as in
 function pointer taking one ``void *``, its context, and the function must
 take that context as the parameter right after it, see :ref:`sec-ir-csubset`.
 
-**yace** checks that the promise is well formed: that it names a callback,
-that the lifetime is one it knows, and that a lifetime tied to a handle is on
-a method of one. It cannot check that the promise is true. A wrong one is a
-bug in the header, as a wrong ``@param[out]`` or ``@len`` would be, and the
-bindings will free a closure the library still calls, or keep one it will
-never call.
+**yace** checks that the promise is well formed: that it names a callback, that
+the lifetime is one it knows, and that a lifetime tied to a handle is on a
+method of one. It cannot check that the promise is true. A wrong one is a bug in
+the header, as a wrong ``@param[out]`` or ``@arrparam`` would be, and the
+bindings will free a closure the library still calls, or keep one it will never
+call.
 
 A callback without a ``@lifetime`` breaks the ``callback-lifetime`` rule, see
 :ref:`sec-ir-rules`. It is still bound, but only raw: as the function pointer

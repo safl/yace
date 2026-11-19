@@ -61,8 +61,16 @@ typedef {{ entity.typ | decl(entity.name) }};
 };
 {%- endfor %}
 {%- for function in functions %}
-{{ function.doc | docblock }}
+{{ function.doc | docblock("", function.params) }}
 {{ function | signature }};
+{%- set inline = function | unsized %}
+{%- if inline %}
+{{ inline.doc | docblock("", inline.params) }}
+static inline {{ inline | signature }}
+{
+	{{ function | sized_call }}
+}
+{%- endif %}
 {%- endfor %}
 
 {% include "printers.h.template" %}

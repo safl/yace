@@ -136,12 +136,12 @@ VIOLATIONS = [
     (
         "annotation",
         "#include <stddef.h>\ntypedef int (*v_cb)(void *a);\n"
-        "/**\n * @len ctx n\n */\nint f(v_cb cb, void *ctx, size_t n);",
+        "/**\n * @arrparam ctx C @len_at{n}\n */\nint f(v_cb cb, void *ctx, size_t n);",
     ),
     ("annotation", "/**\n * @param[out] x X\n */\nint f(int x);"),
     (
         "annotation",
-        "/**\n * F\n * @len p n p m\n */\nint f(const int *p, int n, int m);",
+        "/**\n * F\n * @arrparam p P\n */\nint f(const int *p, int p_len);",
     ),
     ("annotation", "/**\n * @lifetime x call\n */\nint f(int x);"),
     (
@@ -176,11 +176,13 @@ VIOLATIONS = [
     ("annotation", "/**\n * @param y Y\n */\nint f(int x);"),
     ("annotation", "/**\n * @nullable x\n */\nint f(int x);"),
     ("annotation", "/**\n * @nullable return\n */\nint f(void);"),
-    ("annotation", "/**\n * @len p\n */\nint f(int *p);"),
-    ("annotation", "/**\n * @len p n\n */\nint f(int *p, float n);"),
+    ("annotation", "/**\n * @arrparam p P\n */\nint f(int *p);"),
+    ("annotation", "/**\n * @arrparam p P @len_at{m}\n */\nint f(int *p, float n);"),
+    ("annotation", "/**\n * @len p n\n */\nint f(int *p, unsigned n);"),
     (
         "annotation",
-        "/**\n * @len cb n\n */\nint f(int (*cb)(void *a, int v), void *a, int n);",
+        "/**\n * @arrparam cb C @len_at{n}\n */\n"
+        "int f(int (*cb)(void *a, int v), void *a, unsigned n);",
     ),
     ("annotation", "/**\n * @errno\n */\nunsigned int f(void);"),
     ("annotation", "/**\n * @destroys x\n */\nvoid f(int *x);"),

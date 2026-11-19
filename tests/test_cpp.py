@@ -157,6 +157,22 @@ def test_a_handle_named_as_the_prefix_builds(parse, tmp_path):
     assert "namespace api_cpp {" in hpp and "class api_handle {" in hpp
 
 
+def test_a_recparam_function_named_as_the_prefix_builds(parse, tmp_path):
+    """The C API header defines the static inline 'api', which takes the name of
+    the namespace"""
+
+    model, _ = parse(
+        "#include <stddef.h>\n"
+        "/**\n * A\n */\nstruct api_args {\n\tint x; ///< X\n};\n"
+        "/**\n * Run\n */\n"
+        "static inline int api(const struct api_args *args) { return args->x; }\n"
+        "/**\n * Run\n * @recparam args A\n */\n"
+        "int api_sized(const struct api_args *args, size_t args_nbytes);\n"
+    )
+    assert process(model, ["cpp"], tmp_path) == []
+    assert "namespace api_cpp {" in (tmp_path / "cpp" / "api.hpp").read_text()
+
+
 def test_names_that_are_keywords_are_usable(parse, tmp_path):
     model, _ = parse(
         "/** Kinds */\nenum api_kind { API_KIND_DEFAULT = 1, API_KIND_NEW = 2 };\n"
@@ -973,9 +989,9 @@ def test_a_span_is_given_as_a_container_an_array_or_a_pointer_and_a_length(
 
     header = (
         "#include <stddef.h>\n#include <stdint.h>\n"
-        + doc("Sum", "@len v n")
+        + doc("Sum", "@arrparam v V @len_at{n}")
         + "int64_t api_sum(const int32_t *v, size_t n);\n"
-        + doc("Fill", "@param[out] v V", "@len v n", "@errno")
+        + doc("Fill", "@arrparam[out] v V @len_at{n}", "@errno")
         + "int64_t api_fill(int32_t *v, size_t n);\n"
     )
     model, _ = parse(header)
@@ -1239,27 +1255,32 @@ def test_the_comment_says_what_the_signature_has_for_a_parameter_it_folds(
     from tests.test_rust import doc
 
     model, _ = parse(
-        "#include <stdint.h>\n"
+        "#include <stddef.h>\n#include <stdint.h>\n"
+        + doc("A")
+        + "struct api_args {\n\tint x; ///< X\n};\n"
+        + doc("Run")
+        + "static inline int api_run(const struct api_args *args) { return 0; }\n"
+        + doc("Run, with 'args_nbytes' bytes of arguments", "@recparam args A")
+        + "int api_run_sized(const struct api_args *args, size_t args_nbytes);\n"
         + doc(
             "List from 'offset', until 'remaining' is 0",
             "",
             "'count' may be less than 'max'.",
             "",
             "@param offset The entries to skip",
-            "@param[out] entries The entries, as many as 'count'",
+            "@arrparam[out] entries The entries, as many as 'count'"
+            " @len_at{max} @nwritten_at{count}",
             "@param max The room in 'entries'",
             "@param[out] count The entries written",
             "@param[out] remaining The entries after those",
             "@param[out] total The total",
             "@return 0, or a negative errno",
             "@note Not thread-safe.",
-            "@len entries max",
-            "@len entries count",
             "@errno",
         )
         + "int api_list(uint64_t offset, int32_t *entries, uint32_t max,"
         " uint32_t *count, uint64_t *remaining, uint64_t *total);\n"
-        + doc("Sum of the 'n' values", "@len v n")
+        + doc("Sum of the 'n' values", "@arrparam v V @len_at{n}")
         + "int api_sum(const int32_t *v, uint32_t n);\n"
         + doc("Get", "@param[out] value The value")
         + "void api_get(int *value);\n"
@@ -1277,6 +1298,11 @@ def test_the_comment_says_what_the_signature_has_for_a_parameter_it_folds(
     )
     assert (
         "/** Sum of the 'n' values @note In this signature: 'n' is the size of"
-        " 'v'. */ inline int sum(" in hpp
+        " 'v'. @param v V */ inline int sum(" in hpp
     )
     assert "/** Get */ inline int get()" in hpp
+    assert (
+        "/** Run, with 'args_nbytes' bytes of arguments @note In this signature:"
+        " 'args_nbytes' is the size of the type of 'args'. @param args A */"
+        " inline int run(" in hpp
+    )
