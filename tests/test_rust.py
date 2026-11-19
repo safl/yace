@@ -398,7 +398,7 @@ HANDLE_NAMED_AS_PREFIX = (
     + "int api_open(struct api **h);\n"
     + doc("Close", "@destroys h")
     + "void api_close(struct api *h);\n"
-    + doc("Pointers", "@param[out] ptrs P", "@len ptrs n", "@errno")
+    + doc("Pointers", "@arrparam[out] ptrs P @len_at{n}", "@errno")
     + "int api_ptrs(struct api *h, int **ptrs, size_t n);\n"
 )
 
@@ -427,9 +427,14 @@ MORE = (
     + "int api_copy(struct api_h *dst, const struct api_h *src);\n"
     + doc("Make", "@param[out] h H")
     + "void api_make(struct api_h **h);\n"
-    + doc("Dot", "@len a n", "@len b n")
+    + doc("Dot", "@arrparam a A @len_at{n}", "@arrparam b B @len_at{n}")
     + "long api_dot(const int *a, const int *b, size_t n);\n"
-    + doc("Map", "@param[out] out O", "@len in n", "@len out n", "@errno")
+    + doc(
+        "Map",
+        "@arrparam in I @len_at{n}",
+        "@arrparam[out] out O @len_at{n}",
+        "@errno",
+    )
     + "int api_map(const int *in, int *out, size_t n);\n"
     + doc("Label", "@param[out] label L", "@errno")
     + "int api_label(const struct api_h *h, const char **label);\n"
@@ -492,13 +497,17 @@ IO = (
     + "int api_close(struct api_h *h);\n"
     + doc("Clone", "@param[out] copy C", "@errno")
     + "int api_clone(const struct api_h *h, struct api_h **copy);\n"
-    + doc("Write", "@len buf n")
+    + doc("Write", "@arrparam buf B @len_at{n}")
     + "size_t api_write(const void *buf, size_t n);\n"
-    + doc("Read", "@param[out] buf B", "@len buf n", "@errno")
+    + doc("Read", "@arrparam[out] buf B @len_at{n}", "@errno")
     + "int64_t api_read(void *buf, size_t n);\n"
-    + doc("Pair", "@param[out] a A", "@param[out] b B", "@len a n", "@len b n")
+    + doc(
+        "Pair",
+        "@arrparam[out] a A @len_at{n}",
+        "@arrparam[out] b B @len_at{n}",
+    )
     + "void api_pair(int32_t *a, int32_t *b, size_t n);\n"
-    + doc("Twice", "@param[in,out] v V", "@len v n")
+    + doc("Twice", "@arrparam[in,out] v V @len_at{n}")
     + "void api_twice(int32_t *v, size_t n);\n"
     + doc("Default")
     + "struct api_x *api_default(void);\n"
@@ -540,10 +549,8 @@ REAP = (
     "#include <stdint.h>\n"
     + doc(
         "Reap",
-        "@param[out] done D",
+        "@arrparam[out] done D @len_at{max} @nwritten_at{n}",
         "@param[out] n N",
-        "@len done max",
-        "@len done n",
         "@errno partial",
     )
     + "int api_reap(int fail, int32_t *done, uint32_t max, uint32_t *n);\n"
@@ -728,7 +735,7 @@ def test_a_panic_in_a_closure_aborts(parse, tmp_path):
 def test_a_nullable_slice_passes_null(parse, tmp_path):
     header = (
         "#include <stddef.h>\n"
-        + doc("Sum", "@nullable v", "@len v n")
+        + doc("Sum", "@nullable v", "@arrparam v V @len_at{n}")
         + "int api_sum(const int *v, size_t n);\n"
     )
     model, _ = parse(header)
@@ -791,7 +798,7 @@ NAMES = (
     + "int api_ctx(int ctypes, int v);\n"
     + doc("Out", "@param[out] ret R")
     + "void api_outret(int *ret);\n"
-    + doc("In out", "@param[in,out] ret R", "@len ret n")
+    + doc("In out", "@arrparam[in,out] ret R @len_at{n}")
     + "void api_ioret(int *ret, size_t n);\n"
     + doc("Names", "@lifetime a1 call")
     + "int api_names(int a0, api_cb a1, void *arg);\n"
@@ -801,14 +808,14 @@ NAMES = (
     + f"int api_once(api_cb cb, void *arg, {LOCALS});\n"
     + doc("Keep", "@nullable cb", "@lifetime cb handle", "@errno")
     + f"int api_h_keep(struct api_h *h, api_cb cb, void *arg, {LOCALS});\n"
-    + doc("Sum", "@len xs n")
+    + doc("Sum", "@arrparam xs X @len_at{n}")
     + "int api_sum(const int *xs, size_t n, int xs_c, int xs_cb);\n"
-    + doc("Outs", "@param[out] x X", "@param[out] ys Y", "@len ys n")
+    + doc("Outs", "@param[out] x X", "@arrparam[out] ys Y @len_at{n}")
     + "void api_outs(int *x, int *ys, size_t n, int x_out, int ys_out);\n"
     + "typedef int (*api_x_cb)(void *arg, int v);\n"
     + doc("Two", "@lifetime api_x call other call")
     + "int api_two(api_x_cb api_x, void *arg, api_x_cb other, void *oarg);\n"
-    + doc("Count", "@len api n")
+    + doc("Count", "@arrparam api A @len_at{n}")
     + "size_t api_c(const int *api, size_t n);\n"
 )
 
@@ -847,7 +854,7 @@ HIDDEN = (
     + "int api_set(int api_mode_read, int ApiMode);\n"
     + doc("Locals")
     + "enum api_e { ret = 1, s, context, h, p, err, tag, field, self, a0 };\n"
-    + doc("Count", "@nullable xs", "@len xs n")
+    + doc("Count", "@nullable xs", "@arrparam xs X @len_at{n}")
     + "int api_count(const int *xs, size_t n);\n"
     + doc("Peer", "@nullable other")
     + "int api_dev_peer(struct api_dev *d, struct api_dev *other);\n"
@@ -1092,8 +1099,8 @@ def test_handles_named_as_std_types_get_a_handle_suffix(parse, tmp_path):
         + "void api_set(struct api_option *h, const char *name);\n"
         + doc("Make", "@param[out] v V", "@errno")
         + "int api_make(struct api_vec **v);\n"
-        + doc("Fill", "@param[in] vals V", "@len vals n")
-        + "void api_fill(struct api_vec *v, const int *vals, int n);\n"
+        + doc("Fill", "@arrparam[in] vals V @len_at{n}")
+        + "void api_fill(struct api_vec *v, const int *vals, unsigned n);\n"
     )
     assert process(model, ["rust"], tmp_path) == []
 
@@ -1530,7 +1537,7 @@ def test_a_packed_record_is_read_by_copies(parse, tmp_path):
 def test_a_nullable_out_array_is_a_buffer_always_given(parse, tmp_path):
     model, _ = parse(
         "#include <stddef.h>\n#include <stdint.h>\n"
-        + doc("Fill", "@param[out] v V", "@param n N", "@nullable v", "@len v n")
+        + doc("Fill", "@arrparam[out] v V @len_at{n}", "@param n N", "@nullable v")
         + "void api_fill(int32_t *v, size_t n);\n"
     )
     assert process(model, ["rust"], tmp_path) == []

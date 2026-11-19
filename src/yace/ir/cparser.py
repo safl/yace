@@ -402,6 +402,7 @@ class _HeaderParser(object):
         self.cursors: dict = {}  # functions and typedefs, by name
         self.inlines: set = set()  # static and inline functions, by name
         self.enum_cursors: dict = {}  # enums, by name
+        self.record_cursors: dict = {}  # records, by name
         self.skipped_enums: set = set()  # enums skipped, by name, as records
         self.included: set = set()  # the includes in the model, (name, system)
 
@@ -790,6 +791,8 @@ class _HeaderParser(object):
                 else:
                     hoisted += self.record(child, nested)
                 found = hoisted[-1] if hoisted else None
+                if getattr(found, "name", None) == nested:
+                    self.record_cursors[nested] = child
                 if not is_unnamed(child) and getattr(found, "name", None) == nested:
                     kind = "enum" if child.kind == CursorKind.ENUM_DECL else "struct"
                     if child.kind == CursorKind.UNION_DECL:
@@ -1446,7 +1449,8 @@ class _HeaderParser(object):
         resolved = self.drop_printer_names(resolved)
         resolved = self.drop_uses(resolved)
         self.share_docs(resolved)
-        Semantics(resolved, self.report, self.inlines).run(self.cursors)
+        cursors = {**self.record_cursors, **self.enum_cursors, **self.cursors}
+        Semantics(resolved, self.report, self.inlines).run(cursors)
         masks.link(resolved, self.report, self.cursors)
 
         meta = {
@@ -1543,6 +1547,7 @@ class _HeaderParser(object):
                 cls = decls.Union if kind == CursorKind.UNION_DECL else decls.Struct
                 opaque = cls(name=name, fields=[], doc=self.doc_of(cursor))
                 self.check_doc(opaque, what, cursor)
+                self.record_cursors.setdefault(name, cursor)
                 return [opaque]
 
             declared.add(name)
@@ -1555,6 +1560,7 @@ class _HeaderParser(object):
             found = self.record(cursor, name)
             if found and found[-1].name == name:
                 self.check_doc(found[-1], what, cursor)
+                self.record_cursors[name] = cursor
             return found
 
         if kind == CursorKind.TYPEDEF_DECL:

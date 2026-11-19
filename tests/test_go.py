@@ -677,9 +677,9 @@ def test_closures_are_kept_as_long_as_their_lifetime_says(parse, tmp_path):
 def test_a_string_with_a_count_is_counted_from_the_string(parse, tmp_path):
     header = (
         "#include <stddef.h>\n"
-        + doc("Write", "@nullable buf", "@len buf n")
+        + doc("Write", "@nullable buf", "@arrparam buf B @len_at{n}")
         + "int api_write(const char *buf, size_t n);\n"
-        + doc("Put", "@len buf n")
+        + doc("Put", "@arrparam buf B @len_at{n}")
         + "int api_put(const char *buf, size_t n);\n"
     )
     model, _ = parse(header)
@@ -704,7 +704,7 @@ def test_nullable_slices_strings_given_to_callbacks_and_parameters_named_ret_wor
         "#include <stddef.h>\ntypedef void (*api_seen_cb)(void *arg, const char *s);\n"
         + doc("Ret")
         + "int api_ret(int ret, int ret_val);\n"
-        + doc("Sum", "@nullable v", "@len v n")
+        + doc("Sum", "@nullable v", "@arrparam v V @len_at{n}")
         + "int api_sum(const int *v, size_t n);\n"
         + doc("Seen", "@lifetime cb call")
         + "void api_seen(api_seen_cb cb, void *arg);\n"

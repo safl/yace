@@ -21,19 +21,22 @@ comment of the function:
 
 ``@recparam name text``
   As ``@param``, of a record of arguments: ``name`` is a pointer to a const
-  struct, followed by its size, the ``size_t`` ``<name>_nbytes``. The function's
-  name ends in ``_sized``, and a static inline function of the name without it
-  passes ``sizeof``.
+  struct, and its size is the ``size_t`` ``<name>_nbytes``, or the parameter
+  that ``@nbytes_at{size}`` in the text names. The function's name ends in
+  ``_sized``, and a static inline function of the name without it passes
+  ``sizeof``.
+
+``@arrparam name text``
+  As ``@param``, of an array: its length is the unsigned integer ``<name>_len``,
+  or the parameter that ``@len_at{length}`` in the text names. Of an
+  [out] array, the length is the capacity, and an [out] pointer to an unsigned
+  integer ``<name>_nwritten``, or the one ``@nwritten_at{count}`` names, is the
+  number of elements the function wrote. Where ``<name>_len`` or
+  ``<name>_nwritten`` is a parameter, no reference names another.
 
 ``@nullable name ...``
   The named pointer parameters may be NULL; ``return`` names what the function
   returns. Every other pointer must not be NULL.
-
-``@len pointer count ...``
-  The parameter ``count`` holds the number of elements ``pointer`` points to;
-  the tag takes any number of such pairs. For an [out] array, a second pair may
-  name an [out] pointer to an integer, to which the function writes the number
-  of elements it wrote; the integer is then the capacity of the array.
 
 ``@errno``
   The function returns a negative errno on failure, and zero or more on
@@ -73,9 +76,14 @@ from . import decls, types
 from .doc import DIRECTIONS
 
 # The suffix of a function taking a @recparam, which the static inline function
-# passing the size has not, and the suffix of the size's name
+# passing the size has not
 SIZED = "_sized"
+
+# The suffixes of the parameters that are, by convention, the size of the
+# @recparam of their name, and the length and count written of the @arrparam
 NBYTES = "_nbytes"
+LEN = "_len"
+WRITTEN = "_nwritten"
 
 SIGNED = (
     "signed char",
@@ -91,7 +99,7 @@ SIGNED = (
     "ssize_t",
     "ptrdiff_t",
 )
-INTEGERS = SIGNED + (
+UNSIGNED = (
     "unsigned char",
     "unsigned short",
     "unsigned int",
@@ -104,6 +112,7 @@ INTEGERS = SIGNED + (
     "uintptr_t",
     "size_t",
 )
+INTEGERS = SIGNED + UNSIGNED
 
 
 def is_void_ptr(typ) -> bool:
@@ -179,41 +188,105 @@ class Semantics(object):
             isinstance(to, types.Record) and to.tag == "struct" and not self.opaque(to)
         )
 
-    def recparam(self, func: decls.Function, name: str, annotation):
-        """Apply the @recparam 'name' of 'func', a function taking its arguments
-        as a record: 'name' is a pointer to a const struct the headers define,
-        followed by its size, the size_t '<name>_nbytes'; the name of 'func'
-        ends in '_sized', and a static inline function of the name without it
-        passes the size. The record's parameter then holds the size's name"""
+    def paired(
+        self,
+        func: decls.Function,
+        name: str,
+        command: str,
+        suffix: str,
+        annotation,
+        required: bool = True,
+    ) -> Optional[decls.Param]:
+        """The parameter that the @<command>{} in the text of 'name' names, or
+        else the one named '<name><suffix>'; None, reported where 'required',
+        when there is neither, and reported when both are parameters and differ,
+        as the name of the one would mislead"""
 
-        params = func.params
-        idx = next((i for i, p in enumerate(params) if p.name == name), None)
-        if idx is None:
-            annotation(f"@recparam names '{name}', which is not a parameter")
+        params = {p.name: p for p in func.params if p.name}
+        conventional = f"{name}{suffix}"
+        named = func.doc.references.get(name, {}).get(command)
+        if named is None and conventional in params:
+            return params[conventional]
+        if named is None:
+            if required:
+                annotation(f"'{name}' has no '{conventional}', nor a @{command}{{}}")
+            return None
+        if named not in params:
+            annotation(f"@{command}{{{named}}} of '{name}' names no parameter")
+            return None
+        if named != conventional and conventional in params:
+            annotation(
+                f"@{command}{{{named}}} of '{name}', but '{conventional}' is a"
+                " parameter too; rename it"
+            )
+            return None
+        return params[named]
+
+    def arrparam(self, func: decls.Function, name: str, annotation, counted: set):
+        """Apply the @arrparam 'name' of 'func': a pointer, and its length, an
+        unsigned integer, by @len_at{} or '<name>_len'. An [out] one may
+        have a count written, an [out] pointer to an unsigned integer, by
+        @nwritten_at{} or '<name>_nwritten'; 'counted' holds those already taken"""
+
+        params = {p.name: p for p in func.params if p.name}
+        found = func.doc.references.get(name, {})
+        array = params.get(name)
+        if array is None:
+            annotation(f"@arrparam names '{name}', which is not a parameter")
             return
-        record = params[idx]
-        size = params[idx + 1] if idx + 1 < len(params) else None
-        nbytes = f"{name}{NBYTES}"
+        if name in func.doc.records:
+            annotation(f"'{name}' is documented by both @arrparam and @recparam")
+            return
+        if "nbytes_at" in found:
+            annotation(f"'{name}' has @nbytes_at, which is of a @recparam")
+            return
+        if self.callback(array.typ) is not None:
+            annotation(f"@arrparam names '{name}', which is a callback")
+            return
+        if not isinstance(array.typ, types.Pointer):
+            annotation(f"@arrparam names '{name}', which is not a pointer")
+            return
+
+        length = self.paired(func, name, "len_at", LEN, annotation)
+        if length is None:
+            return
+        if not is_integer(length.typ, UNSIGNED):
+            annotation(
+                f"the length '{length.name}' of '{name}' is not an unsigned integer"
+            )
+            return
+        array.length = length.name
+
+        written = self.paired(func, name, "nwritten_at", WRITTEN, annotation, False)
+        if written is None:
+            return
+        if array.direction != "out":
+            annotation(
+                f"'{written.name}' is the count written of '{name}', which is not"
+                " [out]"
+            )
+        elif not self.is_out_count(written):
+            annotation(
+                f"the count written '{written.name}' of '{name}' is not an [out]"
+                " pointer to an unsigned integer"
+            )
+        elif written.name in func.doc.arrays:
+            annotation(
+                f"the count written '{written.name}' of '{name}' is an @arrparam"
+            )
+        elif written.name in counted:
+            annotation(f"'{written.name}' is the count written of two arrays")
+        else:
+            array.count = written.name
+            counted.add(written.name)
+
+    def sized(self, func: decls.Function, annotation) -> bool:
+        """Whether the name of 'func', a function taking a @recparam, ends in
+        '_sized', and a static inline function of the name without it exists;
+        what that function passes is not checked"""
+
         wrapper = func.name[: -len(SIZED)]
-        if not self.points_to_struct(record.typ):
-            annotation(
-                f"@recparam names '{name}', which is not a pointer to a const"
-                " struct defined in the headers"
-            )
-        elif record.length is not None:
-            annotation(f"@recparam names '{name}', which has a @len")
-        elif (
-            size is None
-            or size.name != nbytes
-            or not (isinstance(size.typ, types.Builtin) and size.typ.name == "size_t")
-        ):
-            annotation(
-                f"@recparam names '{name}', which is not followed by the size_t"
-                f" '{nbytes}'"
-            )
-        elif any(p.length == nbytes for p in params):
-            annotation(f"@recparam names '{name}', but '{nbytes}' is a @len count")
-        elif not func.name.endswith(SIZED) or not wrapper:
+        if not func.name.endswith(SIZED) or not wrapper:
             annotation(f"@recparam, but the name does not end in '{SIZED}'")
         elif wrapper not in self.inlines:
             annotation(
@@ -221,7 +294,51 @@ class Semantics(object):
                 " that passes the size"
             )
         else:
-            record.size = nbytes
+            return True
+        return False
+
+    def recparam(self, func: decls.Function, name: str, annotation, sized: set):
+        """Apply the @recparam 'name' of 'func', a function taking its arguments
+        as a record: 'name' is an [in] pointer to a const struct the headers
+        define, and its size is a size_t, by @nbytes_at{} or '<name>_nbytes';
+        'sized' holds the sizes already taken. The record's parameter then holds
+        the size's name"""
+
+        params = {p.name: p for p in func.params if p.name}
+        found = func.doc.references.get(name, {})
+        record = params.get(name)
+        if record is None:
+            annotation(f"@recparam names '{name}', which is not a parameter")
+            return
+        if name in func.doc.arrays:
+            return  # reported by arrparam()
+        others = [f"@{command}" for command in found if command != "nbytes_at"]
+        if others:
+            annotation(f"'{name}' has {', '.join(others)}, which is of an @arrparam")
+            return
+        if not self.points_to_struct(record.typ):
+            annotation(
+                f"@recparam names '{name}', which is not a pointer to a const"
+                " struct defined in the headers"
+            )
+            return
+        if func.doc.directions.get(name, "in") != "in":
+            annotation(f"@recparam names '{name}', which is not [in]")
+            return
+        size = self.paired(func, name, "nbytes_at", NBYTES, annotation)
+        if size is None:
+            return
+        if not (isinstance(size.typ, types.Builtin) and size.typ.name == "size_t"):
+            annotation(f"the size '{size.name}' of '{name}' is not a size_t")
+        elif any(p.length == size.name for p in func.params):
+            annotation(
+                f"the size '{size.name}' of '{name}' is the length of an array too"
+            )
+        elif size.name in sized:
+            annotation(f"the size '{size.name}' is the size of two records")
+        else:
+            record.size = size.name
+            sized.add(size.name)
 
     def is_method(self, func: decls.Function) -> bool:
         """Whether the first parameter of 'func' is a handle, an opaque record"""
@@ -238,13 +355,13 @@ class Semantics(object):
         return declared and self.opaque(typ.to)
 
     def is_out_count(self, param: decls.Param) -> bool:
-        """Whether 'param' is an [out] pointer to an integer"""
+        """Whether 'param' is an [out] pointer to an unsigned integer"""
 
         typ = param.typ
         return (
             param.direction == "out"
             and isinstance(typ, types.Pointer)
-            and is_integer(typ.to)
+            and is_integer(typ.to, UNSIGNED)
         )
 
     def partial(self, func: decls.Function, annotation) -> bool:
@@ -283,9 +400,32 @@ class Semantics(object):
         for entity in self.entities:
             if isinstance(entity, decls.Function):
                 self.function(entity, cursors.get(entity.name))
-            elif isinstance(entity, decls.Typedef):
+                continue
+            if isinstance(entity, decls.Typedef):
                 self.typedef(entity, cursors.get(entity.name))
+            self.misplaced(entity, cursors.get(getattr(entity, "name", "")))
         self.lifecycle(cursors)
+
+    def misplaced(self, entity, cursor):
+        """Report the @arrparam, @recparam and references in the comments of
+        'entity', and of its fields or members, which is no function"""
+
+        docs = [getattr(entity, "doc", None)]
+        docs += [f.doc for f in getattr(entity, "fields", None) or []]
+        docs += [m.doc for m in getattr(entity, "members", None) or []]
+        name = getattr(entity, "name", None)
+        for doc in [d for d in docs if d is not None]:
+            found = list(doc.stray)
+            for references in doc.references.values():
+                found += [f"@{cmd}{{{to}}}" for cmd, to in references.items()]
+            found += [f"@arrparam {n}" for n in doc.arrays]
+            found += [f"@recparam {n}" for n in doc.records]
+            for text in found:
+                self.report(
+                    "annotation",
+                    f"'{name}': {text} is in the comment of no function",
+                    cursor,
+                )
 
     def typedef(self, typedef: decls.Typedef, cursor):
         func = self.callback(typedef.typ)
@@ -323,7 +463,7 @@ class Semantics(object):
             )
 
         for name in func.doc.params:
-            if name not in params and name not in func.doc.records:
+            if name not in params and name not in func.doc.records + func.doc.arrays:
                 annotation(f"@param names '{name}', which is not a parameter")
         for name, spelled in func.doc.directions.items():
             param = params.get(name)
@@ -358,47 +498,33 @@ class Semantics(object):
             else:
                 params[name].nullable = True
 
-        pairs = names("len")
-        if len(pairs) % 2:
-            annotation("@len takes pairs of a pointer and its count")
-        counted: Dict[str, str] = {}  # the [out] counts, and the array of each
-        for pointer, count in zip(pairs[::2], pairs[1::2]):
-            if pointer not in params or count not in params:
-                annotation(f"@len names '{pointer} {count}', not parameters")
-            elif self.callback(params[pointer].typ) is not None:
-                annotation(f"@len names '{pointer}', which is a callback")
-            elif not isinstance(params[pointer].typ, types.Pointer):
-                annotation(f"@len names '{pointer}', which is not a pointer")
-            elif is_integer(params[count].typ):
-                if params[pointer].length is not None:
-                    annotation(f"@len names '{pointer}' twice")
-                else:
-                    params[pointer].length = count
-            elif not self.is_out_count(params[count]):
-                annotation(
-                    f"@len names '{count}', which is not an integer, nor an [out]"
-                    " pointer to one"
-                )
-            elif params[pointer].count is not None:
-                annotation(f"@len names '{pointer}' with two [out] counts")
-            elif count in counted:
-                annotation(f"@len names '{count}' as the count of two arrays")
+        if "len" in tags:
+            annotation(
+                "@len is removed; document the array with @arrparam, its length"
+                " named '<array>_len' or by @len_at{}"
+            )
+        counted: set = set()  # the counts written, of any array
+        for name in func.doc.arrays:
+            self.arrparam(func, name, annotation, counted)
+        for marker in func.doc.stray:
+            if "{" in marker:
+                annotation(f"{marker} is not in the text of an @arrparam or @recparam")
             else:
-                params[pointer].count = count
-                counted[count] = pointer
-        for count, pointer in counted.items():
-            param = params[pointer]
-            if param.direction != "out":
+                annotation(f"{marker} names no parameter; name it in braces")
+        for name, command in func.doc.repeated:
+            annotation(f"'{name}' has @{command} twice")
+        for name in func.doc.twice:
+            annotation(
+                f"'{name}' is documented twice, by @arrparam or @recparam and"
+                " another tag"
+            )
+        for name, found in func.doc.references.items():
+            if name not in func.doc.arrays and name not in func.doc.records:
+                commands = ", ".join(f"@{command}" for command in found)
                 annotation(
-                    f"@len gives '{pointer}' an [out] count, but it is not [out]"
+                    f"'{name}' has {commands}, but is documented by @param, not by"
+                    " @arrparam or @recparam"
                 )
-                param.count = None
-            elif param.length is None:
-                annotation(
-                    f"@len gives '{pointer}' the [out] count '{count}', but no"
-                    " capacity"
-                )
-                param.count = None
 
         # What an [out] void * points to has no size, so nothing says how much
         # the function writes, and no binding can return what was written
@@ -409,13 +535,17 @@ class Semantics(object):
                 and param.length is None
             ):
                 annotation(
-                    f"'{param.name}' is [out] but points to void without a @len;"
-                    " give its size in bytes with @len"
+                    f"'{param.name}' is [out] but points to void without a length;"
+                    " document it with @arrparam, its length in bytes"
                 )
                 param.direction = "in"
 
+        sized: set = set()  # the sizes, of any record
         for name in func.doc.records:
-            self.recparam(func, name, annotation)
+            self.recparam(func, name, annotation, sized)
+        if func.doc.records and not self.sized(func, annotation):
+            for param in func.params:
+                param.size = None
 
         if "errno" in tags:
             if tags["errno"] not in ("", "partial"):
@@ -502,7 +632,7 @@ class Semantics(object):
                 if after.length:
                     annotation(
                         f"'{after.name}' is the context of '{param.name}', which"
-                        " the binding passes; a context takes no @len"
+                        " the binding passes; a context is no @arrparam"
                     )
                     after.length = None
 

@@ -140,8 +140,8 @@ ERRMSG = (
     "int api_open(const char *name, struct api_h **h);\n"
     "/**\n * Close\n * @destroys h\n * @errno\n */\nint api_close(struct api_h *h);\n"
     "/**\n * Quiet\n * @errno\n */\nint api_quiet(void);\n"
-    "/**\n * Reap\n * @param[out] done D\n * @param[out] n N\n * @len done max\n"
-    " * @len done n\n * @errno partial\n */\n"
+    "/**\n * Reap\n * @arrparam[out] done D @len_at{max} @nwritten_at{n}\n"
+    " * @param[out] n N\n * @errno partial\n */\n"
     "int api_reap(int32_t *done, uint32_t max, uint32_t *n);\n"
 )
 

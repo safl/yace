@@ -14,6 +14,7 @@ from typing import Dict, List, Optional
 from yace.ir import decls, types
 from yace.ir.cparser import CXX_KEYWORDS
 from yace.ir.model import Model
+from yace.ir.semantics import SIZED
 
 
 def param_name(name: str) -> str:
@@ -90,6 +91,58 @@ def signature(function: decls.Function) -> str:
     if ret.endswith("*" + mark):
         return f"{ret[:-1]}\n{declarator}"
     return decl(function.ret, declarator)
+
+
+def unsized(function: decls.Function) -> Optional[decls.Function]:
+    """The static inline function that C calls in place of 'function', which
+    takes @recparam records: of the name without '_sized', and without the
+    sizes of the records; None where 'function' takes none, or is variadic,
+    as C cannot pass on the arguments of its ellipsis. A parameter without a
+    name is named 'arg' and its index, as a definition must name what it
+    passes on"""
+
+    sizes = {p.size for p in function.params if p.size}
+    if not sizes or function.variadic:
+        return None
+    records = {p.name for p in function.params if p.size}
+    doc = function.doc.model_copy(
+        update={
+            "params": {k: v for k, v in function.doc.params.items() if k not in sizes},
+            "records": [],
+            "references": {
+                k: v for k, v in function.doc.references.items() if k not in records
+            },
+        }
+    )
+    return function.model_copy(
+        update={
+            "name": function.name[: -len(SIZED)],
+            "params": [
+                p.model_copy(update={"size": None, "name": p.name or f"arg{idx}"})
+                for idx, p in enumerate(function.params)
+                if p.name not in sizes
+            ],
+            "doc": doc,
+        }
+    )
+
+
+def sized_call(function: decls.Function) -> str:
+    """The statement of the function that unsized() describes: a call of
+    'function', passing the size of each record"""
+
+    records = {p.size: p.name for p in function.params if p.size}
+    args = [
+        (
+            f"sizeof(*{param_name(records[p.name])})"
+            if p.name in records
+            else param_name(p.name or f"arg{idx}")
+        )
+        for idx, p in enumerate(function.params)
+    ]
+    call = f"{function.name}({', '.join(args)});"
+    void = isinstance(function.ret, types.Builtin) and function.ret.name == "void"
+    return call if void else f"return {call}"
 
 
 def pointer_type(function: decls.Function, spelled: Dict[str, str]) -> str:

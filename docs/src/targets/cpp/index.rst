@@ -102,21 +102,20 @@ Results
 Arguments
   A string is a ``const std::string &``, or a ``const char *`` where
   ``@nullable``. An array read through a pointer is a ``std::span``; spans
-  sharing one ``@len`` count must be as long, or ``std::invalid_argument`` is
-  thrown; an empty one, ``{}``, gives NULL where ``@nullable``. A ``void *``
-  with a ``@len`` is a ``std::span`` of ``std::byte``. The size of a
-  ``@recparam`` record is not given; the layer passes ``sizeof`` of the
-  record's type. A handle given is a reference to its class, a pointer where
-  ``@nullable``, to ``const`` where the C parameter points to const. A pointer
-  to a record or value is a reference, or the pointer where ``@nullable``. A
-  callback is any callable, called through a ``noexcept`` trampoline with the
-  ``void *`` context, so an exception thrown by it terminates, as it cannot
-  cross C; the pointers to records it receives are references. A ``@nullable``
-  callback has an overload taking ``nullptr``. One of ``@lifetime once`` (see
-  :ref:`sec-ir-lifetimes`) is moved to the heap and deleted once called, or when
-  the call fails; one of ``@lifetime handle`` is kept by the handle, unless the
-  call fails, until it is closed, and for good where destroying it fails or
-  nothing destroys it, as C may still hold it.
+  sharing one length must be as long, or ``std::invalid_argument`` is thrown; an
+  empty one, ``{}``, gives NULL where ``@nullable``. A ``void *`` ``@arrparam``
+  is a ``std::span`` of ``std::byte``. The size of a ``@recparam`` record is not
+  given; the layer passes ``sizeof`` of the record's type. A handle given is a
+  reference to its class, a pointer where ``@nullable``, to ``const`` where the
+  C parameter points to const. A pointer to a record or value is a reference, or
+  the pointer where ``@nullable``. A callback is any callable, called through a
+  ``noexcept`` trampoline with the ``void *`` context, so an exception thrown by
+  it terminates, as it cannot cross C; the pointers to records it receives are
+  references. A ``@nullable`` callback has an overload taking ``nullptr``. One
+  of ``@lifetime once`` (see :ref:`sec-ir-lifetimes`) is moved to the heap and
+  deleted once called, or when the call fails; one of ``@lifetime handle`` is
+  kept by the handle, unless the call fails, until it is closed, and for good
+  where destroying it fails or nothing destroys it, as C may still hold it.
 
 Records and enums
   The records are named without the prefix, ``foo::point``, the C records
@@ -134,7 +133,8 @@ Records and enums
 
 The comment of a function is that of the C function, whose text may name a
 parameter that the signature does not have: a count that is the size of a
-span, or an ``[out]`` pointer whose value is returned. yace cannot reword the
+span, the size of a ``@recparam`` record, which is that of the record's type,
+or an ``[out]`` pointer whose value is returned. yace cannot reword the
 text, so the comment gets a ``@note`` that says what the signature has for
 each such parameter that the text names in quotes: ``In this signature: 'max'
 is the size of 'entries'; 'remaining' is returned.``

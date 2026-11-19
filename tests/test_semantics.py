@@ -39,13 +39,12 @@ void h_close(struct h *handle);
  * Read
  *
  * @param handle The handle
- * @param[out] buf Filled in
+ * @arrparam[out] buf Filled in @len_at{len}
  * @param len Of buf
  * @param[in,out] pos Where
  * @param visit Called
  * @param arg For visit
  *
- * @len buf len
  * @nullable return visit
  * @lifetime visit call
  * @errno
@@ -152,11 +151,9 @@ struct q;
 /**
  * Reap
  *
- * @param[out] done Done
+ * @arrparam[out] done Done @len_at{max} @nwritten_at{n}
  * @param[out] n How many
  *
- * @len done max
- * @len done n
  * @errno partial
  */
 int q_reap(struct q *queue, int *done, uint32_t max, uint32_t *n);
@@ -175,33 +172,35 @@ def test_an_out_count_and_a_partial_errno_are_in_the_ir(parse):
 
 WRONG = [
     (
-        "/**\n * @param[out] n N\n * @len v n\n */\nvoid f(int *v, uint32_t *n);",
-        "@len gives 'v' an [out] count, but it is not [out]",
+        "/**\n * @arrparam v V @nwritten_at{n}\n * @param[out] n N\n */\n"
+        "void f(const int *v, uint32_t v_len, uint32_t *n);",
+        "'n' is the count written of 'v', which is not [out]",
         {},
     ),
     (
-        "/**\n * @param[out] v V\n * @param[out] n N\n * @len v n\n */\n"
+        "/**\n * @arrparam[out] v V @nwritten_at{n}\n * @param[out] n N\n */\n"
         "void f(int *v, uint32_t *n);",
-        "@len gives 'v' the [out] count 'n', but no capacity",
+        "'v' has no 'v_len', nor a @len_at{}",
         {},
     ),
     (
-        "/**\n * @param[out] v V\n * @len v n\n */\nvoid f(int *v, uint32_t *n);",
-        "@len names 'n', which is not an integer, nor an [out] pointer to one",
+        "/**\n * @arrparam[out] v V @nwritten_at{n}\n * @param[out] n N\n */\n"
+        "void f(int *v, uint32_t v_len, int32_t *n);",
+        "the count written 'n' of 'v' is not an [out] pointer to an unsigned integer",
         {},
     ),
     (
-        "/**\n * @param[out] v V\n * @param[out] n N\n * @param[out] m M\n"
-        " * @len v c\n * @len v n\n * @len v m\n */\n"
-        "void f(int *v, uint32_t c, uint32_t *n, uint32_t *m);",
-        "@len names 'v' with two [out] counts",
-        {"v": "n"},
+        "/**\n * @arrparam[out] v V @nwritten_at{n}\n * @param[out] n N\n"
+        " * @param[out] v_nwritten W\n */\n"
+        "void f(int *v, uint32_t v_len, uint32_t *n, uint32_t *v_nwritten);",
+        "@nwritten_at{n} of 'v', but 'v_nwritten' is a parameter too",
+        {},
     ),
     (
-        "/**\n * @param[out] a A\n * @param[out] b B\n * @param[out] n N\n"
-        " * @len a c\n * @len b c\n * @len a n\n * @len b n\n */\n"
-        "void f(int *a, int *b, uint32_t c, uint32_t *n);",
-        "@len names 'n' as the count of two arrays",
+        "/**\n * @arrparam[out] a A @len_at{c} @nwritten_at{n}\n"
+        " * @arrparam[out] b B @len_at{c} @nwritten_at{n}\n * @param[out] n N\n"
+        " */\nvoid f(int *a, int *b, uint32_t c, uint32_t *n);",
+        "'n' is the count written of two arrays",
         {"a": "n"},
     ),
     (
@@ -217,7 +216,7 @@ WRONG = [
         {},
     ),
     (
-        "#include <sys/types.h>\n/**\n * @param[out] v V\n * @len v c\n"
+        "#include <sys/types.h>\n/**\n * @arrparam[out] v V @len_at{c}\n"
         " * @errno partial\n */\nssize_t f(int *v, uint32_t c);",
         "@errno partial, but it returns a count, which a failure does not give",
         {},
@@ -226,8 +225,8 @@ WRONG = [
 
 
 def test_a_wrong_out_count_or_partial_errno_is_reported(parse):
-    """Each wrong @len or @errno is reported and not applied, except that of two
-    [out] counts the first is kept"""
+    """Each wrong count written or @errno is reported and not applied, except
+    that of two arrays given one count written the first keeps it"""
 
     for source, message, kept in WRONG:
         model, diagnostics = parse("#include <stdint.h>\n" + source)
@@ -242,20 +241,20 @@ def test_an_out_pointer_to_void_without_a_len_is_reported_and_not_applied(
     parse, tmp_path
 ):
     """Nothing says how many bytes the function writes through 'p', so the
-    bindings cannot return them; 'buf' has a @len, and is returned"""
+    bindings cannot return them; 'buf' has a length, and is returned"""
 
     model, diagnostics = parse(
         "#include <stddef.h>\n"
         "/**\n * Fill\n * @param[out] p P\n * @errno\n */\nint api_fill(void *p);\n"
-        "/**\n * Read\n * @param[out] buf B\n * @len buf n\n * @errno\n */\n"
-        "int api_read(void *buf, size_t n);\n"
+        "/**\n * Read\n * @arrparam[out] buf B\n * @errno\n */\n"
+        "int api_read(void *buf, size_t buf_len);\n"
     )
     found = [d for d in diagnostics if d.rule == "annotation"]
     assert [(d.line, d.message) for d in found] == [
         (
             7,
-            "'api_fill': 'p' is [out] but points to void without a @len; give its"
-            " size in bytes with @len",
+            "'api_fill': 'p' is [out] but points to void without a length; document"
+            " it with @arrparam, its length in bytes",
         )
     ]
     funcs = functions(model)
@@ -290,13 +289,13 @@ typedef struct args args_t;
  * @param[out] cmd Set to the command
  * @recparam args The arguments
  * @param args_nbytes Size of args
- * @recparam more More arguments
- * @param more_nbytes Size of more
+ * @recparam more More arguments @nbytes_at{nmore}
+ * @param nmore Size of more
  *
  * @errno
  */
 int prep_sized(uint64_t *cmd, const args_t *args, size_t args_nbytes,
-               const struct args *more, size_t more_nbytes);
+               const struct args *more, size_t nmore);
 
 /**
  * Prepare, passing the sizes
@@ -314,9 +313,31 @@ def test_records_of_arguments_and_their_sizes_are_in_the_ir(parse):
     assert [d for d in diagnostics if d.rule == "annotation"] == []
 
     prep = functions(model)["prep_sized"]
-    assert prep.doc.params["args"] == "The arguments"
+    assert prep.doc.params["more"] == "More arguments"
     sizes = {p.name: p.size for p in prep.params if p.size}
-    assert sizes == {"args": "args_nbytes", "more": "more_nbytes"}
+    assert sizes == {"args": "args_nbytes", "more": "nmore"}
+
+
+def test_arrays_take_their_length_and_count_written_by_name_or_reference(parse):
+    model, diagnostics = parse(
+        "#include <stddef.h>\n#include <stdint.h>\n"
+        "/**\n * Fill\n * @arrparam ids I\n * @arrparam[out] out O\n"
+        " * @param[out] out_nwritten N\n */\n"
+        "void fill(const uint32_t *ids, size_t ids_len, int *out, uint32_t out_len,\n"
+        "          uint32_t *out_nwritten);\n"
+        "/**\n * Take\n * @arrparam[out] out O, of\n * @len_at{max} @nwritten_at{n}\n"
+        " * @param[out] n N\n */\n"
+        "void take(int *out, uint32_t max, uint32_t *n);\n"
+    )
+    assert [d for d in diagnostics if d.rule == "annotation"] == []
+
+    found = functions(model)
+    fill = {p.name: (p.length, p.count) for p in found["fill"].params}
+    assert fill["ids"] == ("ids_len", None)
+    assert fill["out"] == ("out_len", "out_nwritten")
+    take = found["take"]
+    assert (take.params[0].length, take.params[0].count) == ("max", "n")
+    assert take.doc.params["out"] == "O, of"
 
 
 WRONG_RECPARAM = [
@@ -341,29 +362,44 @@ WRONG_RECPARAM = [
         "@recparam names 'u', which is not a pointer to a const struct defined",
     ),
     (
-        "@recparam r R\n * @len r c",
+        "@recparam r R\n * @arrparam r R @len_at{c}",
         "int f_sized(size_t c, const struct r *r, size_t r_nbytes);",
-        "@recparam names 'r', which has a @len",
+        "'r' is documented by both @arrparam and @recparam",
+    ),
+    (
+        "@recparam r R @len_at{c}",
+        "int f_sized(size_t c, const struct r *r, size_t r_nbytes);",
+        "'r' has @len_at, which is of an @arrparam",
     ),
     (
         "@recparam r R",
         "int f_sized(const struct r *r, size_t n);",
-        "@recparam names 'r', which is not followed by the size_t 'r_nbytes'",
+        "'r' has no 'r_nbytes', nor a @nbytes_at{}",
+    ),
+    (
+        "@recparam r R @nbytes_at{m}",
+        "int f_sized(const struct r *r, size_t n);",
+        "@nbytes_at{m} of 'r' names no parameter",
+    ),
+    (
+        "@recparam r R @nbytes_at{n}",
+        "int f_sized(const struct r *r, size_t n, size_t r_nbytes);",
+        "@nbytes_at{n} of 'r', but 'r_nbytes' is a parameter too",
     ),
     (
         "@recparam r R",
         "int f_sized(const struct r *r, uint32_t r_nbytes);",
-        "@recparam names 'r', which is not followed by the size_t 'r_nbytes'",
+        "the size 'r_nbytes' of 'r' is not a size_t",
     ),
     (
-        "@recparam r R",
-        "int f_sized(size_t r_nbytes, const struct r *r);",
-        "@recparam names 'r', which is not followed by the size_t 'r_nbytes'",
-    ),
-    (
-        "@recparam r R\n * @len v r_nbytes",
+        "@recparam r R\n * @arrparam v V @len_at{r_nbytes}",
         "int f_sized(const int *v, const struct r *r, size_t r_nbytes);",
-        "@recparam names 'r', but 'r_nbytes' is a @len count",
+        "the size 'r_nbytes' of 'r' is the length of an array too",
+    ),
+    (
+        "@param r R @nbytes_at{n}",
+        "int f_sized(const struct r *r, size_t n);",
+        "'r' has @nbytes_at, but is documented by @param",
     ),
     (
         "@recparam r R",
@@ -371,16 +407,23 @@ WRONG_RECPARAM = [
         "@recparam, but the name does not end in '_sized'",
     ),
     (
-        "@recparam r R",
-        "int g_sized(const struct r *r, size_t r_nbytes);",
+        "@recparam a A\n * @recparam b B",
+        "int g_sized(const struct r *a, size_t a_nbytes, const struct r *b,"
+        " size_t b_nbytes);",
         "@recparam, but the headers have no static inline 'g' that passes the size",
+    ),
+    (
+        "@recparam[out] r R",
+        "int f_sized(const struct r *r, size_t r_nbytes);",
+        "@recparam names 'r', which is not [in]",
     ),
 ]
 
 
 def test_a_recparam_not_of_the_record_arguments_shape_is_reported(parse):
     """Each @recparam whose record, size or function does not have the shape of
-    the pattern is reported once, and its size is not recorded"""
+    the pattern is reported once, also for a function of two, and no size is
+    recorded"""
 
     for tag, decl, message in WRONG_RECPARAM:
         source = (
@@ -393,7 +436,136 @@ def test_a_recparam_not_of_the_record_arguments_shape_is_reported(parse):
         )
         model, diagnostics = parse(source)
         found = [d.message for d in diagnostics if d.rule == "annotation"]
-        assert any(message in m for m in found), (decl, found)
+        assert sum(message in m for m in found) == 1, (decl, found)
         assert not any("@param names" in m for m in found), (decl, found)
         (func,) = functions(model).values()
         assert [p.name for p in func.params if p.size] == []
+
+
+def test_two_records_of_one_size_are_reported_and_the_first_keeps_it(parse):
+    model, diagnostics = parse(
+        "#include <stddef.h>\n"
+        "/**\n * R\n */\nstruct r {\n\tint x; ///< X\n};\n"
+        "/**\n * F\n */\nstatic inline int f(void) { return 0; }\n"
+        "/**\n * F\n *\n * @recparam a A @nbytes_at{n}\n"
+        " * @recparam b B @nbytes_at{n}\n */\n"
+        "int f_sized(const struct r *a, const struct r *b, size_t n);\n"
+    )
+    found = [d.message for d in diagnostics if d.rule == "annotation"]
+    assert found == ["'f_sized': the size 'n' is the size of two records"]
+    assert {p.name: p.size for p in functions(model)["f_sized"].params} == {
+        "a": "n",
+        "b": None,
+        "n": None,
+    }
+
+
+WRONG_ARRPARAM = [
+    (
+        "@param v V\n * @len v n",
+        "void f(const int *v, size_t n);",
+        "@len is removed; document the array with @arrparam",
+    ),
+    (
+        "@arrparam x X",
+        "void f(const int *v, size_t v_len);",
+        "@arrparam names 'x', which is not a parameter",
+    ),
+    (
+        "@arrparam v V",
+        "void f(int v, size_t v_len);",
+        "@arrparam names 'v', which is not a pointer",
+    ),
+    (
+        "@arrparam v V @nbytes_at{n}",
+        "void f(const int *v, size_t v_len, size_t n);",
+        "'v' has @nbytes_at, which is of a @recparam",
+    ),
+    (
+        "@arrparam v V",
+        "void f(const int *v, int v_len);",
+        "the length 'v_len' of 'v' is not an unsigned integer",
+    ),
+    (
+        "@arrparam v V @len_at{n}",
+        "void f(const int *v, size_t n, size_t v_len);",
+        "@len_at{n} of 'v', but 'v_len' is a parameter too",
+    ),
+    (
+        "@param v V @len_at{n}",
+        "void f(const int *v, size_t n);",
+        "'v' has @len_at, but is documented by @param",
+    ),
+    (
+        "@param[out] v V @nwritten_at{n}",
+        "void f(int *v, uint32_t *n);",
+        "'v' has @nwritten_at, but is documented by @param",
+    ),
+    (
+        "@arrparam v V @len_at{n} and @len_at{m}",
+        "void f(const int *v, size_t n, size_t m);",
+        "'v' has @len_at twice",
+    ),
+    (
+        "@arrparam v V\n * @len_at n",
+        "void f(const int *v, size_t n);",
+        "@len_at names no parameter; name it in braces",
+    ),
+    (
+        "@arrparam v V\n * @param n N\n *\n * @len_at{n}",
+        "void f(const int *v, size_t n);",
+        "@len_at{n} is not in the text of an @arrparam or @recparam",
+    ),
+    (
+        "@return R @len_at{n}",
+        "int f(const int *v, size_t n);",
+        "@len_at{n} is not in the text of an @arrparam or @recparam",
+    ),
+    (
+        "@arrparam[out] a A\n * @arrparam[out] a_nwritten W",
+        "void f(int *a, size_t a_len, size_t *a_nwritten, size_t a_nwritten_len);",
+        "the count written 'a_nwritten' of 'a' is an @arrparam",
+    ),
+    (
+        "@param v V @len_at{n}\n * @arrparam v W",
+        "void f(const int *v, size_t n);",
+        "'v' is documented twice, by @arrparam or @recparam and another tag",
+    ),
+    (
+        "@arrparam v V @len_at{n}\n * @arrparam v W @len_at{m}",
+        "void f(const int *v, size_t n, size_t m);",
+        "'v' has @len_at twice",
+    ),
+]
+
+
+def test_an_arrparam_or_marker_in_the_comment_of_no_function_is_reported(parse):
+    _, diagnostics = parse(
+        "/**\n * A point @len_at{x}\n */\nstruct api_point {\n"
+        "\tint x; ///< The x @nbytes_at{y}\n\tint y; ///< The y\n};\n"
+        "/**\n * A callback\n *\n * @arrparam vals The values @len_at{n}\n"
+        " * @param n Count @nwritten_at\n * @param ctx Context\n */\n"
+        "typedef void (*api_cb)(const int *vals, unsigned n, void *ctx);\n"
+        "/**\n * Outer\n */\nstruct api_outer {\n"
+        "\tstruct {\n\t\tint a; ///< A @len_at{b}\n\t} in; ///< In\n};\n"
+    )
+    found = sorted((d.message, d.line) for d in diagnostics if d.rule == "annotation")
+    assert found == [
+        ("'api_cb': @arrparam vals is in the comment of no function", 15),
+        ("'api_cb': @len_at{n} is in the comment of no function", 15),
+        ("'api_cb': @nwritten_at is in the comment of no function", 15),
+        ("'api_outer_in': @len_at{b} is in the comment of no function", 20),
+        ("'api_point': @len_at{x} is in the comment of no function", 4),
+        ("'api_point': @nbytes_at{y} is in the comment of no function", 4),
+    ]
+
+
+def test_an_arrparam_or_marker_out_of_place_is_reported_once(parse):
+    for tag, decl, message in WRONG_ARRPARAM:
+        source = (
+            "#include <stddef.h>\n#include <stdint.h>\n"
+            f"/**\n * F\n *\n * {tag}\n */\n{decl}\n"
+        )
+        _, diagnostics = parse(source)
+        found = [d.message for d in diagnostics if d.rule == "annotation"]
+        assert sum(message in m for m in found) == 1, (decl, found)

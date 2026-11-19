@@ -200,6 +200,78 @@ def test_string_defines_keep_their_value(parse, tmp_path):
     assert run.stdout == ESCAPED_VALUE
 
 
+@needs_cc
+def test_records_and_arrays_parse_back_with_their_sizes_and_lengths(parse, tmp_path):
+    """The C API header defines the static inline function of a @recparam, and
+    names the size or length of a parameter it renames, as 'new' to 'new_'"""
+
+    model, diagnostics = parse(
+        "#include <stddef.h>\n#include <stdint.h>\n"
+        "/**\n * A\n */\nstruct api_args {\n\tint x; ///< X\n};\n"
+        "/**\n * Run\n * @recparam new N\n */\n"
+        "int api_run_sized(const struct api_args *new, size_t new_nbytes);\n"
+        "/**\n * Run\n */\nstatic inline int\n"
+        "api_run(const struct api_args *new)\n"
+        "{\n\treturn api_run_sized(new, sizeof(*new));\n}\n"
+        "/**\n * Fill\n * @arrparam[out] new N\n * @param[out] new_nwritten W\n */\n"
+        "void api_fill(int32_t *new, uint32_t new_len, uint32_t *new_nwritten);\n"
+        "/**\n * Put\n * @arrparam v V @len_at{n}\n */\n"
+        "void api_put(const int *v, size_t n);\n"
+        "/**\n * Two\n * @recparam a A\n * @param mid M\n"
+        " * @recparam b B @nbytes_at{nb}\n */\n"
+        "void api_two_sized(const struct api_args *a, size_t a_nbytes, int mid,\n"
+        "                   const struct api_args *b, size_t nb);\n"
+        "/**\n * Two\n */\nstatic inline void\n"
+        "api_two(const struct api_args *a, int mid, const struct api_args *b)\n"
+        "{\n\tapi_two_sized(a, sizeof(*a), mid, b, sizeof(*b));\n}\n"
+        "/**\n * Bare\n * @recparam a A\n */\n"
+        "void api_bare_sized(const struct api_args *a, size_t a_nbytes, int);\n"
+        "/**\n * Bare\n */\nstatic inline void\n"
+        "api_bare(const struct api_args *a, int b)\n"
+        "{\n\tapi_bare_sized(a, sizeof(*a), b);\n}\n"
+    )
+    assert [d for d in diagnostics if d.rule == "annotation"] == []
+    assert process(model, ["capi"], tmp_path) == []
+
+    header = (tmp_path / "capi" / "libapi.h").read_text()
+    # A definition names the parameter that the declaration leaves unnamed
+    assert "\tapi_bare_sized(a, sizeof(*a), arg2);\n" in header
+    assert "\tapi_two_sized(a, sizeof(*a), mid, b, sizeof(*b));\n" in header
+    assert "api_two(const struct api_args *a, int mid, const struct api_args *b)" in (
+        header
+    )
+    assert "return api_run_sized(new_, sizeof(*new_));" in header
+    assert header.count("@nbytes_at{new_nbytes}") == 1
+    again, diagnostics = parse(header, "again.h")
+    assert [d for d in diagnostics if d.rule == "annotation"] == []
+
+    def shape(model):
+        return {
+            e.name: [(p.length, p.count, p.size) for p in e.params]
+            for e in model.entities
+            if isinstance(e, decls.Function)
+        }
+
+    assert shape(again) == shape(model)
+
+
+def test_a_variadic_recparam_function_has_no_static_inline_function(parse):
+    from yace.targets.capi import cgen
+
+    model, _ = parse(
+        "#include <stddef.h>\n"
+        "/**\n * A\n */\nstruct api_args {\n\tint x; ///< X\n};\n"
+        "/**\n * Log\n */\n"
+        "static inline int api_log(const struct api_args *args) { return 0; }\n"
+        "/**\n * Log\n * @recparam args A\n */\n"
+        "int api_log_sized(const struct api_args *args, size_t args_nbytes,"
+        " const char *fmt, ...);\n"
+    )
+    (func,) = [e for e in model.entities if isinstance(e, decls.Function)]
+    assert func.variadic and func.params[0].size == "args_nbytes"
+    assert cgen.unsized(func) is None
+
+
 def test_the_generated_header_is_in_the_subset(parser, tmp_path):
     model, _ = parser.parse(HEADERS / "valid.h")
     emit(model, tmp_path)

@@ -272,24 +272,27 @@ The rest is said in the Doxygen comment of the function:
   Doxygen's own: whether the function reads what a pointer points to, writes
   it, or both. Without one, it is read.
 
+``@arrparam name text``
+  As ``@param``, for an array, with a direction as ``@param`` has. Its length
+  is the unsigned integer ``<name>_len``; of an ``[out]`` array, that is the
+  capacity, which the caller gives. An ``[out]`` array may also have a count of
+  the elements the function wrote, the ``[out]`` pointer to an unsigned integer
+  ``<name>_nwritten``; the bindings return the array cut to that count. Where
+  a parameter is named otherwise, ``@len_at{length}`` and
+  ``@nwritten_at{count}`` in the text name it.
+
 ``@recparam name text``
   As ``@param``, for a record of arguments, as the record arguments pattern
-  below describes: ``name`` is a pointer to a const struct, followed by its
-  size, the ``size_t`` ``<name>_nbytes``; the function's name ends in
-  ``_sized``, and a static inline function of the name without the suffix
-  passes ``sizeof``. Doxygen takes it as ``@param`` with the alias
-  ``ALIASES += recparam=@param``.
+  below describes: ``name`` is an ``[in]`` pointer to a const struct, and its
+  size is the ``size_t`` ``<name>_nbytes``, or the parameter that
+  ``@nbytes_at{size}`` in the text names. The function's name ends in
+  ``_sized``, and the headers define a static inline function of the name
+  without the suffix, which passes ``sizeof``; yace checks that the function
+  exists, not what it passes.
 
 ``@nullable name ...``
   The named pointers may be NULL; ``return`` names what the function returns.
   Every other pointer must not be.
-
-``@len pointer count ...``
-  ``count`` is the number of elements ``pointer`` points to; in pairs. An
-  ``[out]`` array may have a second pair, naming an ``[out]`` pointer to an
-  integer, to which the function writes how many elements it wrote. The
-  integer of the first pair is then the capacity, which the caller gives, and
-  the bindings return the array cut to the count written.
 
 ``@errno``
   The function returns a negative errno on failure, and zero or more on
@@ -312,7 +315,7 @@ The rest is said in the Doxygen comment of the function:
   a promise the author of the header makes, and the bindings keep the closure
   exactly as long as it says. A callback without one breaks the
   callback-lifetime rule, and is bound only as a raw function pointer. The
-  ``void *`` after the callback, its context, has no ``@len``. See
+  ``void *`` after the callback, its context, is no ``@arrparam``. See
   :ref:`sec-ir-lifetimes`, which describes each with the example library's
   callbacks.
 
@@ -341,14 +344,12 @@ For example::
    * Take the points that are ready, as many as fit
    *
    * @param handle The handle
-   * @param[out] points The points taken
+   * @arrparam[out] points The points taken @len_at{max} @nwritten_at{taken}
    * @param max The number of points that 'points' has room for
    * @param[out] taken Set to the number of points taken, also on failure
    *
    * @return 0 on success, a negative errno on failure
    *
-   * @len points max
-   * @len points taken
    * @errno partial
    */
   int
@@ -365,6 +366,24 @@ For example::
    */
   void
   foo_close(struct foo_handle *handle);
+
+Named ``points_len`` and ``points_nwritten``, the parameters of ``foo_take()``
+would need neither ``@len_at`` nor ``@nwritten_at``. Where a parameter has
+the conventional name, a reference naming another is reported, as the name
+would mislead. So is a reference outside the text of an ``@arrparam`` or
+``@recparam``, one without its parameter in braces, one given twice, and a
+parameter documented by ``@arrparam`` or ``@recparam`` and another tag. In the
+comment of anything but a function, the references, ``@arrparam`` and
+``@recparam`` are reported too.
+
+Doxygen reads ``@arrparam`` and ``@recparam`` as ``@param``, and the
+references inline, through aliases::
+
+  ALIASES += arrparam=@param
+  ALIASES += recparam=@param
+  ALIASES += "len_at{1}=(length: @p \1)"
+  ALIASES += "nwritten_at{1}=(count written: @p \1)"
+  ALIASES += "nbytes_at{1}=(size: @p \1)"
 
 Every tag is checked: one naming a parameter that does not exist, or one that
 does not fit it, such as ``@errno`` on a function returning a pointer, is
@@ -391,11 +410,11 @@ Callback and context
   its context, with a ``@lifetime``. The bindings take a closure, and pass the
   context themselves.
 
-Array and count
-  A pointer, and the integer that ``@len`` names. An array read is given as a
-  sequence, and its count is not given. Of an ``[out]`` array, the integer is
-  the capacity, and a second ``@len`` may name an ``[out]`` count of the
-  elements written; the bindings return the array cut to that count.
+Array and length
+  An ``@arrparam``, and its length. An array read is given as a sequence, and
+  its length is not given. Of an ``[out]`` array, the length is the capacity,
+  and the count written, where there is one, cuts the array the bindings
+  return.
 
 Record arguments
   A function taking its arguments as a record, so that arguments can be added
@@ -423,8 +442,8 @@ Record arguments
   of the record, and zero is the default of every member. C callers call the
   static inline function, which passes the size. The bindings cannot call it,
   so they pass the size of the record's type themselves, and take its name:
-  ``handle.read(args)``. A function may take more than one record, each
-  followed by its size, anywhere among its parameters.
+  ``handle.read(args)``. A function may take more than one record, each with
+  a size of its own, anywhere among its parameters.
 
 Documentation
 -------------

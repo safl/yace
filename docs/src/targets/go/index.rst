@@ -134,10 +134,10 @@ Results
 Arguments
   A string is a ``string``, a ``*string`` where ``@nullable``, nil passing NULL;
   it is copied to C memory for the call, up to its first NUL. An array read
-  through a pointer is a slice; slices sharing one ``@len`` count must be as
-  long, or the call panics; a nil slice passes NULL. A ``void *`` with a
-  ``@len`` is a ``[]byte``. The size of a ``@recparam`` record is not given;
-  the layer passes ``unsafe.Sizeof`` of the record's C type.
+  through a pointer is a slice; slices sharing one length must be as long, or
+  the call panics; a nil slice passes NULL. A ``void *`` ``@arrparam`` is a
+  ``[]byte``. The size of a ``@recparam`` record is not given; the layer passes
+  ``unsafe.Sizeof`` of the record's C type.
 
 Callbacks
   A callback is a Go function, of a type named for the callback typedef,

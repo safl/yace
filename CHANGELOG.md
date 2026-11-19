@@ -40,7 +40,21 @@ use `errmsg`.
 The fixture library, `examples/libfoo`, keeps a message for each failure and
 declares `foo_errmsg()`, which its meta names.
 
-An `[out]` pointer to `void` without a `@len` is reported by the rule
+`@arrparam` documents an array in place of `@param`. Its length is the
+unsigned integer `<name>_len`, the capacity of an `[out]` array, and an
+`[out]` array may have a count written, the `[out]` pointer to an unsigned
+integer `<name>_nwritten`, to which the bindings cut the array. `@recparam`
+documents a record of arguments, a pointer to a const struct whose size is the
+`size_t` `<name>_nbytes`; the function's name ends in `_sized`, the headers
+define a static inline function of the name without the suffix, and the
+bindings take that name and pass the size of the record's type. The C API
+header defines that static inline function too. Where a header names a
+parameter otherwise, `@len_at{}`, `@nwritten_at{}` and `@nbytes_at{}` in the
+text name it. `@len` is removed, and a header using it is reported by the rule
+`annotation`; a signed length or count written, accepted before, is reported
+too.
+
+An `[out]` pointer to `void` without a length is reported by the rule
 `annotation` and bound as a pointer the function reads. The C++ layer declared
 a local of type `void` for it, which did not compile.
 

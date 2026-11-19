@@ -8,13 +8,24 @@ style comment above, or trailing ('///<'), the declaration in the header
 """
 
 import re
-from typing import Dict, List, Literal
+from typing import Dict, List, Literal, Tuple
 
 from pydantic import BaseModel, ConfigDict
 
 TAG = re.compile(r"^[@\\](\w+)(?:\[([^\]]*)\])?\s*(.*)$")
 
-NAMED_TAGS = ("param", "recparam", "tparam", "retval")  # their first word is a name
+# Tags whose first word is a name; @recparam and @arrparam document a parameter
+# as @param does, as a record of arguments and an array
+NAMED_TAGS = ("param", "recparam", "arrparam", "tparam", "retval")
+PARAM_TAGS = ("param", "recparam", "arrparam")
+
+# The commands, inline in the text of a parameter, naming the parameter that is
+# its size, its length or the count written, as ``@len_at{n}``; Doxygen
+# renders them by an alias taking an argument
+REFERENCES = ("nbytes_at", "len_at", "nwritten_at")
+REFERENCE = re.compile(r"\s*[@\\](%s)\{([^}]*)\}" % "|".join(REFERENCES))
+# A command of REFERENCES, also one without the parameter in braces
+MARKER = re.compile(r"[@\\](%s)\b(?:\{([^}]*)\})?" % "|".join(REFERENCES))
 
 # The start of an item of a Doxygen list, which starts a line of its own in the
 # description; the text of a tag is one line, as the bindings show it in one
@@ -42,8 +53,13 @@ class Doc(BaseModel):
     The brief, the description after it, as paragraphs separated by a blank
     line, with each item of a list on a line of its own, the parameters by
     name, the direction of those documented with one, as ``@param[out]``, those
-    documented with ``@recparam``, what is returned, and any other tag, by tag
-    name, with its text
+    documented with ``@recparam`` and ``@arrparam``, the parameters that their
+    ``@nbytes_at``, ``@len_at`` and ``@nwritten_at`` name, what is returned,
+    and any other tag, by tag name, with its text. The commands of those three
+    that are not in the text of a parameter, or name no parameter in braces,
+    are stray, and a command given twice for one parameter is repeated. A
+    parameter documented by two tags, one of them ``@arrparam`` or
+    ``@recparam``, is documented twice
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -54,6 +70,11 @@ class Doc(BaseModel):
     directions: Dict[str, str] = {}
     returns: str = ""
     records: List[str] = []  # the parameters documented with @recparam
+    arrays: List[str] = []  # the parameters documented with @arrparam
+    references: Dict[str, Dict[str, str]] = {}  # by parameter, by command
+    stray: List[str] = []  # as written, such as '@len_at{n}'
+    repeated: List[Tuple[str, str]] = []  # (parameter, command)
+    twice: List[str] = []  # parameters of two tags, @arrparam or @recparam one
     tags: Dict[str, str] = {}
 
     def prose(self) -> List[str]:
@@ -110,11 +131,14 @@ def parse(raw) -> Doc:
         return Doc()
 
     paragraphs: List[str] = []  # untagged text, as paragraphs
-    tagged = []  # [tag, name, text]
+    tagged: List[List[str]] = []  # [tag, name, text]
     in_tag = False
     directions = {}
     for line in strip_markers(raw).splitlines():
         match = TAG.match(line.strip())
+        if match and match.group(1) in REFERENCES:
+            # A wrapped line of the tag before, or else a line of a paragraph
+            match = None
         if match:
             in_tag = True
             tag, attr, rest = match.group(1), match.group(2), match.group(3)
@@ -123,7 +147,7 @@ def parse(raw) -> Doc:
             elif tag in NAMED_TAGS:
                 name, _, text = rest.partition(" ")
                 tagged.append([tag, name, text.strip()])
-                if tag == "param" and attr is not None:
+                if tag in PARAM_TAGS and attr is not None:
                     directions[name] = re.sub(r"\s", "", attr)
             else:
                 tagged.append([tag, "", rest])
@@ -149,10 +173,26 @@ def parse(raw) -> Doc:
             continue
         if tag == "brief":
             doc.brief = text
-        elif tag in ("param", "recparam"):
-            doc.params[name] = text
-            if tag == "recparam":
+        elif tag in PARAM_TAGS:
+            special = tag != "param" or name in doc.records + doc.arrays
+            if name in doc.params and special and name not in doc.twice:
+                doc.twice.append(name)
+            found = dict(doc.references.get(name, {}))
+            for marker in MARKER.finditer(text):
+                command, named = marker.group(1), marker.group(2)
+                if named is None:
+                    doc.stray.append(marker.group(0))
+                elif command in found:
+                    doc.repeated.append((name, command))
+                else:
+                    found[command] = named.strip()
+            if found:
+                doc.references[name] = found
+            doc.params[name] = REFERENCE.sub("", text).strip()
+            if tag == "recparam" and name not in doc.records:
                 doc.records.append(name)
+            elif tag == "arrparam" and name not in doc.arrays:
+                doc.arrays.append(name)
         elif tag in ("return", "returns"):
             doc.returns = text
         elif tag in doc.tags and tag in PROSE_TAGS and doc.tags[tag] and text:
@@ -166,5 +206,7 @@ def parse(raw) -> Doc:
     if not doc.brief and paragraphs:
         doc.brief = paragraphs.pop(0)
     doc.description = "\n\n".join(paragraphs)
+    for text in [doc.brief, doc.description, doc.returns, *doc.tags.values()]:
+        doc.stray += [marker.group(0) for marker in MARKER.finditer(text)]
 
     return doc

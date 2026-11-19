@@ -427,10 +427,15 @@ class Renderer(object):
         self.idioms = Idioms(model)
         self.prefix = model.meta.prefix
         self.typedefs = model.typedefs()
+        # The C API header defines the static inline functions of the functions
+        # taking @recparam records, so their names are taken too
+        inlines = [
+            cgen.unsized(e) for e in model.entities if isinstance(e, decls.Function)
+        ]
         self.c_names = {getattr(e, "name", None) for e in model.entities}
+        self.c_names |= {f.name for f in inlines if f}
         ns = cgen.c_ident(self.prefix)
-        taken = {getattr(e, "name", None) for e in model.entities}
-        self.ns = f"{ns}_cpp" if ns in taken else ns
+        self.ns = f"{ns}_cpp" if ns in self.c_names else ns
         self.classes = [
             name for name in self.idioms.handles if any(self.idioms.of(name).values())
         ]
@@ -1029,8 +1034,9 @@ class Renderer(object):
         """A sentence for the comment of 'call', saying what the signature has
         in place of each parameter of the C function that the signature does not
         have and that the text of 'doc' or 'errors' names in quotes: a count is
-        the size of a span, and what is written through an [out] pointer is
-        returned. The text is the C function's, and yace cannot reword it"""
+        the size of a span, the size of a @recparam record is that of its type,
+        and what is written through an [out] pointer is returned. The text is
+        the C function's, and yace cannot reword it"""
 
         text = "\n".join(
             [
@@ -1051,6 +1057,10 @@ class Renderer(object):
                 said.append(
                     f"'{arg.param}' is the size of the part of"
                     f" '{self.pname(arg.of)}' returned"
+                )
+            elif arg.kind == "size":
+                said.append(
+                    f"'{arg.param}' is the size of the type of '{self.pname(arg.of)}'"
                 )
             elif arg.kind == "out" and call.out(arg.param).kind != "array":
                 said.append(f"'{arg.param}' is returned")

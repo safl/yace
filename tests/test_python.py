@@ -298,8 +298,8 @@ def test_an_out_pointer_is_returned_and_a_nullable_sequence_may_be_omitted(
         "#include <stddef.h>\n/** P */\nstruct api_p {\n\tint x; ///< X\n};\n"
         "/**\n * Get\n * @param[out] p P\n * @errno\n */\n"
         "int api_get(const struct api_p **p);\n"
-        "/**\n * Sum\n * @param buf B\n * @param n N\n * @nullable buf\n"
-        " * @len buf n\n */\nlong api_sum(const int *buf, size_t n);\n"
+        "/**\n * Sum\n * @arrparam buf B @len_at{n}\n * @param n N\n"
+        " * @nullable buf\n */\nlong api_sum(const int *buf, size_t n);\n"
     )
     model, _ = parse(header)
     assert process(model, ["python"], tmp_path) == []
@@ -431,7 +431,8 @@ def test_a_recparam_record_is_passed_with_its_size_by_the_c_name(
 def test_functions_named_as_builtins_do_not_shadow_them(parse, tmp_path, monkeypatch):
     header = (
         "#include <stddef.h>\n/** P */\nstruct api_p {\n\tdouble x; ///< X\n};\n"
-        "/**\n * Len\n * @len vals n\n */\nint api_len(const int *vals, size_t n);\n"
+        "/**\n * Len\n * @arrparam vals V\n */\n"
+        "int api_len(const int *vals, size_t vals_len);\n"
         "/**\n * Type\n */\nint api_type(int x);\n"
         "/**\n * Format\n */\nint api_format(int x);\n"
     )
@@ -571,7 +572,7 @@ def test_a_callback_gets_a_non_null_context_and_an_in_out_bytearray_is_written(
         "/**\n * Tag\n */\nint api_tag(int v);\n"
         "/**\n * Run\n * @lifetime cb call\n * @errno\n */\n"
         "int api_run(api_cb cb, void *arg);\n"
-        "/**\n * Invert\n * @param[in,out] buf B\n * @len buf n\n */\n"
+        "/**\n * Invert\n * @arrparam[in,out] buf B @len_at{n}\n */\n"
         "void api_invert(void *buf, size_t n);\n"
     )
     model, _ = parse(header)
