@@ -5,9 +5,9 @@
 """
 What C cannot say about an FFI boundary, taken from the documentation of its
 functions, and checked: which way each pointer goes, which may be NULL, which
-integer is the length of which pointer, which ``void *`` is the context of which
-callback, which functions report errors as a negative errno, and which destroy
-the handles others create.
+integer is the length of which pointer, which pointer is to a record of
+arguments, which ``void *`` is the context of which callback, which functions
+report errors as a negative errno, and which destroy the handles others create.
 
 The targets need this to bind the API idiomatically rather than only as raw
 calls: to return what a function writes through an [out] pointer, to raise or
@@ -18,6 +18,12 @@ comment of the function:
 ``@param[in]``, ``@param[out]``, ``@param[in,out]``
   Doxygen's own: whether the function reads what the pointer points to, writes
   it, or both. A pointer documented with neither is read, ``[in]``.
+
+``@recparam name text``
+  As ``@param``, of a record of arguments: ``name`` is a pointer to a const
+  struct, followed by its size, the ``size_t`` ``<name>_nbytes``. The function's
+  name ends in ``_sized``, and a static inline function of the name without it
+  passes ``sizeof``.
 
 ``@nullable name ...``
   The named pointer parameters may be NULL; ``return`` names what the function
@@ -61,10 +67,15 @@ callback-context rule requires; a returned ``const char *`` is borrowed, as the
 string-return rule requires.
 """
 
-from typing import Callable, Dict, List, Optional, cast
+from typing import Callable, Dict, Iterable, List, Optional, cast
 
 from . import decls, types
 from .doc import DIRECTIONS
+
+# The suffix of a function taking a @recparam, which the static inline function
+# passing the size has not, and the suffix of the size's name
+SIZED = "_sized"
+NBYTES = "_nbytes"
 
 SIGNED = (
     "signed char",
@@ -110,9 +121,15 @@ def is_integer(typ, kinds=INTEGERS) -> bool:
 class Semantics(object):
     """Applies the tags of the functions to the IR, reporting what is wrong"""
 
-    def __init__(self, entities: list, report: Callable[[str, str, object], None]):
+    def __init__(
+        self,
+        entities: list,
+        report: Callable[[str, str, object], None],
+        inlines: Iterable[str] = (),
+    ):
         self.entities = entities
         self.report = report
+        self.inlines = set(inlines)  # the static and inline functions, by name
         self.typedefs = {e.name: e for e in entities if isinstance(e, decls.Typedef)}
         self.records = {e.name: e for e in entities if isinstance(e, decls.RECORDS)}
 
@@ -148,6 +165,63 @@ class Semantics(object):
             and e.fields
             for e in self.entities
         )
+
+    def points_to_struct(self, typ) -> bool:
+        """Whether 'typ' is a pointer to a const struct the headers define, which
+        has a size, also by a typedef"""
+
+        if not isinstance(typ, types.Pointer) or not getattr(typ.to, "const", False):
+            return False
+        to = typ.to
+        while isinstance(to, types.TypedefRef) and to.name in self.typedefs:
+            to = self.typedefs[to.name].typ
+        return (
+            isinstance(to, types.Record) and to.tag == "struct" and not self.opaque(to)
+        )
+
+    def recparam(self, func: decls.Function, name: str, annotation):
+        """Apply the @recparam 'name' of 'func', a function taking its arguments
+        as a record: 'name' is a pointer to a const struct the headers define,
+        followed by its size, the size_t '<name>_nbytes'; the name of 'func'
+        ends in '_sized', and a static inline function of the name without it
+        passes the size. The record's parameter then holds the size's name"""
+
+        params = func.params
+        idx = next((i for i, p in enumerate(params) if p.name == name), None)
+        if idx is None:
+            annotation(f"@recparam names '{name}', which is not a parameter")
+            return
+        record = params[idx]
+        size = params[idx + 1] if idx + 1 < len(params) else None
+        nbytes = f"{name}{NBYTES}"
+        wrapper = func.name[: -len(SIZED)]
+        if not self.points_to_struct(record.typ):
+            annotation(
+                f"@recparam names '{name}', which is not a pointer to a const"
+                " struct defined in the headers"
+            )
+        elif record.length is not None:
+            annotation(f"@recparam names '{name}', which has a @len")
+        elif (
+            size is None
+            or size.name != nbytes
+            or not (isinstance(size.typ, types.Builtin) and size.typ.name == "size_t")
+        ):
+            annotation(
+                f"@recparam names '{name}', which is not followed by the size_t"
+                f" '{nbytes}'"
+            )
+        elif any(p.length == nbytes for p in params):
+            annotation(f"@recparam names '{name}', but '{nbytes}' is a @len count")
+        elif not func.name.endswith(SIZED) or not wrapper:
+            annotation(f"@recparam, but the name does not end in '{SIZED}'")
+        elif wrapper not in self.inlines:
+            annotation(
+                f"@recparam, but the headers have no static inline '{wrapper}'"
+                " that passes the size"
+            )
+        else:
+            record.size = nbytes
 
     def is_method(self, func: decls.Function) -> bool:
         """Whether the first parameter of 'func' is a handle, an opaque record"""
@@ -249,7 +323,7 @@ class Semantics(object):
             )
 
         for name in func.doc.params:
-            if name not in params:
+            if name not in params and name not in func.doc.records:
                 annotation(f"@param names '{name}', which is not a parameter")
         for name, spelled in func.doc.directions.items():
             param = params.get(name)
@@ -339,6 +413,9 @@ class Semantics(object):
                     " give its size in bytes with @len"
                 )
                 param.direction = "in"
+
+        for name in func.doc.records:
+            self.recparam(func, name, annotation)
 
         if "errno" in tags:
             if tags["errno"] not in ("", "partial"):

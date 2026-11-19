@@ -147,9 +147,10 @@ class Param(Node):
     """
     A parameter, with what C cannot say about it, from its documentation: whether
     the function reads it, writes it, or both, whether it may be NULL, which
-    parameter holds its length, which [out] parameter the function writes the
-    number of elements it wrote to, which callback a ``void *`` is the context
-    of, and how long a callback may be invoked
+    parameter holds its length, or the size of the record it points to, which
+    [out] parameter the function writes the number of elements it wrote to,
+    which callback a ``void *`` is the context of, and how long a callback may
+    be invoked
     """
 
     name: str = ""
@@ -158,6 +159,7 @@ class Param(Node):
     nullable: bool = False
     length: Optional[str] = None  # the parameter holding its number of elements
     count: Optional[str] = None  # the [out] parameter of the number written
+    size: Optional[str] = None  # the size of its record, with @recparam
     context: Optional[str] = None  # the callback parameter it is given back to
     lifetime: Optional[Lifetime] = None
 
