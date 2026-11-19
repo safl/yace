@@ -258,6 +258,33 @@ def test_an_out_count_bounds_the_result_and_the_error_holds_what_was_written(
 
 
 @needs_cc
+def test_a_recparam_record_is_passed_with_its_size_by_the_c_name(parse, tmp_path):
+    from tests.test_rust import SIZED, SIZED_C
+
+    model, _ = parse(SIZED)
+    assert process(model, ["zig"], tmp_path) == []
+    (tmp_path / "impl.c").write_text(SIZED + SIZED_C)
+    (tmp_path / "api.zig").write_text((tmp_path / "zig" / "api.zig").read_text())
+    main = tmp_path / "main.zig"
+    main.write_text(
+        'const std = @import("std");\nconst api = @import("api.zig");\n'
+        "pub fn main() !void {\n"
+        "    const args = api.ApiArgs{ .slba = 40, .nlb = 2 };\n"
+        '    std.debug.print("{}\\n", .{try api.prep(&args)});\n'
+        "}\n"
+    )
+    cache = str(tmp_path / ".cache")
+    run = subprocess.run(
+        ["zig", "run", str(main), str(tmp_path / "impl.c"), "-lc"]
+        + ["--cache-dir", cache, "--global-cache-dir", cache],
+        capture_output=True,
+        text=True,
+    )
+    assert run.returncode == 0, run.stderr
+    assert run.stderr == "42\n"
+
+
+@needs_cc
 def test_byte_slices_clones_and_an_out_named_retval_work(parse, tmp_path):
     from tests.test_rust import IO, IO_C, doc
 

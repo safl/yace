@@ -588,6 +588,9 @@ class Renderer(object):
             return f"{self.pname(arg.of)}.size()"
         if arg.kind == "capacity":
             return f"static_cast<{self.c(arg.typ)}>({self.pname(arg.of)}.size())"
+        if arg.kind == "size":
+            size = f"sizeof({self.c(call.sized(arg))})"
+            return f"static_cast<{self.c(arg.typ)}>({size})"
         if arg.kind == "count":
             return f"&{self.local(call, arg.param, 'out')}"
         if arg.kind == "out":

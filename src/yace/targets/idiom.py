@@ -20,6 +20,8 @@ From the semantics of the C subset, see :py:mod:`yace.ir.semantics`:
   the capacity, and return the part written.
 * An array read through a pointer is given as a sequence, its ``@len`` count
   then known from the sequence, and not given.
+* A ``@recparam`` record is given, and its size is that of the record's type,
+  as C's ``sizeof``, and not given.
 * A callback is given as a closure, kept for as long as its ``@lifetime`` says;
   its ``void *`` context is the binding's to pass, not given. A callback without
   a ``@lifetime`` is given as the raw function pointer, with its context.
@@ -31,7 +33,9 @@ From the semantics of the C subset, see :py:mod:`yace.ir.semantics`:
   ``@nullable`` is nothing when NULL.
 
 Names lose the prefix of the API, and methods also the name of their handle:
-``foo_handle_close()`` is the method ``close`` of ``handle``.
+``foo_handle_close()`` is the method ``close`` of ``handle``. A function taking
+a ``@recparam`` also loses the suffix ``_sized``: ``foo_read_sized()`` is
+``read``, the name of the static inline function that C calls it through.
 """
 
 from collections import Counter
@@ -52,6 +56,7 @@ from pydantic import BaseModel
 from yace.ir import decls, types
 from yace.ir.doc import Doc
 from yace.ir.model import Model
+from yace.ir.semantics import SIZED
 
 
 def is_lent(ret) -> bool:
@@ -77,6 +82,7 @@ class Arg(BaseModel):
         "sequence",  # a pointer and @len count, given as a sequence
         "callback",  # a callback, given as a closure
         "length",  # the count of a sequence; not given
+        "size",  # the size of a @recparam record; not given
         "context",  # the void * context of a callback; not given
         "capacity",  # the count of an [out] array; given, as how many to get
         "count",  # the [out] count of an [out] array; its length, not returned
@@ -84,7 +90,7 @@ class Arg(BaseModel):
     ]
     typ: types.Type
     nullable: bool = False
-    of: Optional[str] = None  # the param a length, context, capacity or count is of
+    of: Optional[str] = None  # the param a length, size, context, ... is of
     shared: List[str] = []  # the other sequences a length or capacity is of
     lifetime: Optional[str] = None  # of a callback
 
@@ -129,6 +135,15 @@ class Call(BaseModel):
             if (a.kind in GIVEN and not (buffers and a.kind == "capacity"))
             or (buffers and a.kind == "out" and self.out(a.param).kind == "array")
         ]
+
+    def sized(self, arg: Arg) -> types.Type:
+        """The type of the record whose size the 'size' argument 'arg' is,
+        without its const"""
+
+        typ = next(a.typ for a in self.args if a.param == arg.of)
+        # @recparam was checked to name a pointer to a struct
+        assert isinstance(typ, types.Pointer)
+        return typ.to.model_copy(update={"const": False})
 
     def out(self, param: str) -> "Out":
         """What the function writes through the [out] parameter 'param'"""
@@ -293,6 +308,7 @@ class Idioms(object):
             if p.length:
                 lengths.setdefault(p.length, []).append(p)
         counts = {p.count: p.name for p in params if p.count}
+        sizes = {p.size: p.name for p in params if p.size}
         bound = {p.name for p in params if self.closure(p, params)}
         contexts = {p.name for p in params if p.context in bound}
 
@@ -325,6 +341,9 @@ class Idioms(object):
                 continue
             if param.name in counts:
                 args.append(Arg(kind="count", of=counts[param.name], **arg))
+                continue
+            if param.name in sizes:
+                args.append(Arg(kind="size", of=sizes[param.name], **arg))
                 continue
 
             if param.direction == "out" and isinstance(typ, types.Pointer):
@@ -388,6 +407,8 @@ class Idioms(object):
         if handle:
             prefixes.append(self.handle_name(handle))
         name = strip(func.name, *prefixes)
+        if sizes:
+            name = name[: -len(SIZED)]
 
         return Call(
             function=func.name,

@@ -259,6 +259,8 @@ class Renderer(object):
             return f"@intCast({self.size(call, arg.of)})"
         if arg.kind == "capacity":
             return f"@intCast({self.pname(arg.of)}.len)"
+        if arg.kind == "size":
+            return f"@sizeOf({self.z(call.sized(arg))})"
         if arg.kind == "callback":
             return f"&{self.local(call, arg.param, 'trampoline')}.call"
         if arg.kind == "context":

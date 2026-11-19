@@ -561,6 +561,30 @@ int api_reap(int fail, int32_t *done, uint32_t max, uint32_t *n)
 """
 
 
+# Takes its arguments as a record, and fails with EINVAL unless given its size
+SIZED = (
+    "#include <stddef.h>\n#include <stdint.h>\n"
+    + doc("Arguments")
+    + "struct api_args {\n\tuint64_t slba; ///< First\n\tuint32_t nlb; ///< Count\n};\n"
+    + doc("Prepare", "@param[out] cmd C", "@recparam args A", "@errno")
+    + "int api_prep_sized(uint64_t *cmd, const struct api_args *args,"
+    + " size_t args_nbytes);\n"
+    + doc("Prepare, passing the size of args")
+    + "static inline int api_prep(uint64_t *cmd, const struct api_args *args)\n"
+    + "{\n\treturn api_prep_sized(cmd, args, sizeof(*args));\n}\n"
+)
+
+SIZED_C = """
+int api_prep_sized(uint64_t *cmd, const struct api_args *args, size_t args_nbytes)
+{
+\tif (args_nbytes != sizeof(*args))
+\t\treturn -22;
+\t*cmd = args->slba + args->nlb;
+\treturn 0;
+}
+"""
+
+
 def library(tmp_path, source: str):
     """Build 'source' as the shared library 'libapi.so' in 'tmp_path'"""
 
@@ -599,6 +623,25 @@ def test_an_out_count_bounds_the_result_and_the_error_holds_what_was_written(
     assert run_with_crate(tmp_path, main, env) == (
         f"[0, 10, 20]\nWouldBlock [0, 10]\nSome({errno.EAGAIN})\n"
     )
+
+
+@needs_cc
+def test_a_recparam_record_is_passed_with_its_size_by_the_c_name(parse, tmp_path):
+    model, _ = parse(SIZED)
+    assert process(model, ["rust"], tmp_path) == []
+    library(tmp_path, SIZED + SIZED_C)
+
+    main = (
+        "use api::safe::*;\nfn main() {\n"
+        "    let args = api::ApiArgs { slba: 40, nlb: 2 };\n"
+        '    println!("{}", prep(&args).unwrap());\n'
+        "}\n"
+    )
+    env = {
+        "API_LIB_DIR": str(tmp_path),
+        "RUSTFLAGS": f"-C link-arg=-Wl,-rpath,{tmp_path}",
+    }
+    assert run_with_crate(tmp_path, main, env) == "42\n"
 
 
 def test_void_buffers_are_byte_slices_and_api_clone_returns_a_new_handle(

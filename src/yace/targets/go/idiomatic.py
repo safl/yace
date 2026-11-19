@@ -378,6 +378,9 @@ class Renderer(object):
                 args.append(self.slice_ptr(typ, pname))
             elif arg.kind in ("length", "capacity"):
                 args.append(namer.to_c(typ, self.size(call, str(arg.of))))
+            elif arg.kind == "size":
+                record = namer.ctype(call.sized(arg))
+                args.append(namer.to_c(typ, f"unsafe.Sizeof({record}{{}})"))
             elif arg.kind == "callback":
                 fn = self.local(call, arg.param, "fn")
                 ctx = self.local(call, arg.param, "ctx")
