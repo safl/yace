@@ -414,6 +414,20 @@ def test_an_out_count_bounds_the_result_and_the_error_holds_what_was_written(
 
 
 @needs_cc
+def test_a_recparam_record_is_passed_with_its_size_by_the_c_name(
+    parse, tmp_path, monkeypatch
+):
+    from tests.test_rust import SIZED, SIZED_C, library
+
+    model, _ = parse(SIZED)
+    assert process(model, ["python"], tmp_path) == []
+    monkeypatch.setenv("API_LIBRARY", str(library(tmp_path, SIZED + SIZED_C)))
+
+    api = module(tmp_path)
+    assert api["prep"](api["ApiArgs"](slba=40, nlb=2)) == 42
+
+
+@needs_cc
 def test_functions_named_as_builtins_do_not_shadow_them(parse, tmp_path, monkeypatch):
     header = (
         "#include <stddef.h>\n/** P */\nstruct api_p {\n\tdouble x; ///< X\n};\n"

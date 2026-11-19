@@ -321,6 +321,9 @@ class Renderer(object):
             return f"{self.size(call, arg.of)} as {self.raw(typ)}"
         if arg.kind == "capacity":
             return f"{self.size(call, arg.of)} as {self.raw(typ)}"
+        if arg.kind == "size":
+            record = self.raw(call.sized(arg))
+            return f"core::mem::size_of::<{record}>() as {self.raw(typ)}"
         if arg.kind == "count":
             return f"&mut {name}"
         if arg.kind == "out":

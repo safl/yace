@@ -290,6 +290,33 @@ def test_an_out_count_bounds_the_result_and_the_error_holds_what_was_written(
     assert run.stdout == "3 20 1 2 10\n"
 
 
+def test_a_recparam_record_is_passed_with_its_size_by_the_c_name(parse, tmp_path):
+    from tests.test_rust import SIZED, SIZED_C
+
+    model, _ = parse(SIZED)
+    assert process(model, ["cpp"], tmp_path) == []
+    (tmp_path / "api.c").write_text(SIZED + SIZED_C)
+    (tmp_path / "main.cpp").write_text(
+        "#include <cstdio>\n#include <api.hpp>\nint main() {\n"
+        "\tapi::args args{40, 2};\n"
+        '\tstd::printf("%ju\\n", static_cast<uintmax_t>(api::prep(args)));\n'
+        "\treturn 0;\n}\n"
+    )
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    api_o = str(tmp_path / "api.o")
+    subprocess.run(
+        ["cc", *include, "-c", str(tmp_path / "api.c"), "-o", api_o], check=True
+    )
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), api_o]
+        + ["-o", str(program)],
+        check=True,
+    )
+    run = subprocess.run([str(program)], capture_output=True, text=True)
+    assert run.stdout == "42\n"
+
+
 def test_byte_buffers_two_callbacks_clones_and_an_out_named_retval_work(
     parse, tmp_path
 ):

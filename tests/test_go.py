@@ -635,6 +635,20 @@ def test_an_out_count_bounds_the_result_and_the_error_holds_what_was_written(
 
 
 @needs_cc
+def test_a_recparam_record_is_passed_with_its_size_by_the_c_name(parse, tmp_path):
+    from tests.test_rust import SIZED, SIZED_C
+
+    model, _ = parse(SIZED)
+    assert process(model, ["go"], tmp_path) == []
+
+    main = program(
+        "\tcmd, err := api.Prep(&api.ApiArgs{Slba: 40, Nlb: 2})\n"
+        "\tfmt.Println(cmd, err)\n"
+    )
+    assert run_go(tmp_path, main, SIZED + SIZED_C) == "42 <nil>\n"
+
+
+@needs_cc
 def test_closures_are_kept_as_long_as_their_lifetime_says(parse, tmp_path):
     model, _ = parse(KEPT)
     assert process(model, ["go"], tmp_path) == []

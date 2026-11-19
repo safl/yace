@@ -155,3 +155,23 @@ def test_an_out_count_is_the_length_of_its_array_and_partial_is_kept(parse):
 
     _, errors = call_doc(reap, model.entities[-1].doc, str, "Partial says so.")
     assert errors == "Partial says so."
+
+
+def test_a_recparam_size_is_computed_and_the_call_named_as_c_calls_it(parse):
+    from tests.test_semantics import RECPARAM
+
+    model, _ = parse(RECPARAM)
+    (prep,) = Idioms(model).calls
+    assert prep.name == "prep"
+    assert kinds(prep) == [
+        ("cmd", "out"),
+        ("args", "value"),
+        ("args_nbytes", "size"),
+        ("more", "value"),
+        ("more_nbytes", "size"),
+    ]
+    assert [a.param for a in prep.given()] == ["args", "more"]
+    size = prep.args[2]
+    assert size.of == "args"
+    assert (prep.sized(size).name, prep.sized(size).const) == ("args_t", False)
+    assert prep.sized(prep.args[4]).name == "args"

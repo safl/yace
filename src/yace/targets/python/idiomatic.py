@@ -230,6 +230,8 @@ class Renderer(object):
                 args.append(self.local(call, arg.param, "c"))
             elif arg.kind == "length":
                 args.append(self.size(call, arg.of))
+            elif arg.kind == "size":
+                args.append(f"ctypes.sizeof({self.namer.ctype(call.sized(arg))})")
             elif arg.kind == "callback" and arg.lifetime in ("once", "handle"):
                 pre += self.keep(call, arg)
                 cbtype = self.namer.ctype(typ, True)

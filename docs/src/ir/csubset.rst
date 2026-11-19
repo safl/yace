@@ -272,6 +272,14 @@ The rest is said in the Doxygen comment of the function:
   Doxygen's own: whether the function reads what a pointer points to, writes
   it, or both. Without one, it is read.
 
+``@recparam name text``
+  As ``@param``, for a record of arguments, as the record arguments pattern
+  below describes: ``name`` is a pointer to a const struct, followed by its
+  size, the ``size_t`` ``<name>_nbytes``; the function's name ends in
+  ``_sized``, and a static inline function of the name without the suffix
+  passes ``sizeof``. Doxygen takes it as ``@param`` with the alias
+  ``ALIASES += recparam=@param``.
+
 ``@nullable name ...``
   The named pointers may be NULL; ``return`` names what the function returns.
   Every other pointer must not be.
@@ -362,6 +370,61 @@ Every tag is checked: one naming a parameter that does not exist, or one that
 does not fit it, such as ``@errno`` on a function returning a pointer, is
 reported by the annotation rule. What the tags say is recorded in the IR, on
 the function and its parameters; see :py:mod:`yace.ir.semantics`.
+
+Patterns
+--------
+
+The rules and tags above describe a function one parameter at a time. Some
+functions combine them into a recurring shape, a pattern, which each binding
+turns into the idiom of its language. Each pattern is listed with its C shape
+and what the bindings make of it.
+
+Handle
+  An opaque record, created by a function that writes it through an ``[out]``
+  pointer to a pointer, and released by the function that ``@destroys`` it.
+  The functions taking it as their first parameter are its methods. The
+  bindings make it a type that owns the pointer and releases it when it goes
+  out of scope.
+
+Callback and context
+  A pointer to a function taking one ``void *``, followed by that ``void *``,
+  its context, with a ``@lifetime``. The bindings take a closure, and pass the
+  context themselves.
+
+Array and count
+  A pointer, and the integer that ``@len`` names. An array read is given as a
+  sequence, and its count is not given. Of an ``[out]`` array, the integer is
+  the capacity, and a second ``@len`` may name an ``[out]`` count of the
+  elements written; the bindings return the array cut to that count.
+
+Record arguments
+  A function taking its arguments as a record, so that arguments can be added
+  without changing its signature::
+
+    /**
+     * ...
+     * @param handle The handle
+     * @recparam args The arguments, see ::foo_read_args
+     * @param args_nbytes The size of the record the program was built with
+     */
+    int
+    foo_read_sized(struct foo_handle *handle, const struct foo_read_args *args,
+                   size_t args_nbytes);
+
+    static inline int
+    foo_read(struct foo_handle *handle, const struct foo_read_args *args)
+    {
+            return foo_read_sized(handle, args, sizeof(*args));
+    }
+
+  The library compares ``args_nbytes`` with the size of its own record to tell
+  a program built against an older header, whose record is smaller, and reads
+  the members that record lacks as zero. So members are only added at the end
+  of the record, and zero is the default of every member. C callers call the
+  static inline function, which passes the size. The bindings cannot call it,
+  so they pass the size of the record's type themselves, and take its name:
+  ``handle.read(args)``. A function may take more than one record, each
+  followed by its size, anywhere among its parameters.
 
 Documentation
 -------------
