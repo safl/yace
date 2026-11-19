@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict
 
 TAG = re.compile(r"^[@\\](\w+)(?:\[([^\]]*)\])?\s*(.*)$")
 
-NAMED_TAGS = ("param", "tparam", "retval")  # tags whose first word is a name
+NAMED_TAGS = ("param", "recparam", "tparam", "retval")  # their first word is a name
 
 # The start of an item of a Doxygen list, which starts a line of its own in the
 # description; the text of a tag is one line, as the bindings show it in one
@@ -41,9 +41,9 @@ class Doc(BaseModel):
     """
     The brief, the description after it, as paragraphs separated by a blank
     line, with each item of a list on a line of its own, the parameters by
-    name, the direction
-    of those documented with one, as ``@param[out]``, what is returned, and any
-    other tag, by tag name, with its text
+    name, the direction of those documented with one, as ``@param[out]``, those
+    documented with ``@recparam``, what is returned, and any other tag, by tag
+    name, with its text
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -53,6 +53,7 @@ class Doc(BaseModel):
     params: Dict[str, str] = {}
     directions: Dict[str, str] = {}
     returns: str = ""
+    records: List[str] = []  # the parameters documented with @recparam
     tags: Dict[str, str] = {}
 
     def prose(self) -> List[str]:
@@ -148,8 +149,10 @@ def parse(raw) -> Doc:
             continue
         if tag == "brief":
             doc.brief = text
-        elif tag == "param":
+        elif tag in ("param", "recparam"):
             doc.params[name] = text
+            if tag == "recparam":
+                doc.records.append(name)
         elif tag in ("return", "returns"):
             doc.returns = text
         elif tag in doc.tags and tag in PROSE_TAGS and doc.tags[tag] and text:

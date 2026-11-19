@@ -265,3 +265,135 @@ def test_an_out_pointer_to_void_without_a_len_is_reported_and_not_applied(
     # With [out] applied, the C++ layer declared a local of type void
     if shutil.which("cc"):
         assert process(model, ["cpp"], tmp_path / "out") == []
+
+
+RECPARAM = """
+#include <stddef.h>
+#include <stdint.h>
+
+/**
+ * Arguments
+ */
+struct args {
+	uint64_t slba; ///< First
+	uint32_t nlb;  ///< Count
+};
+
+/**
+ * Arguments, by a typedef
+ */
+typedef struct args args_t;
+
+/**
+ * Prepare
+ *
+ * @param[out] cmd Set to the command
+ * @recparam args The arguments
+ * @param args_nbytes Size of args
+ * @recparam more More arguments
+ * @param more_nbytes Size of more
+ *
+ * @errno
+ */
+int prep_sized(uint64_t *cmd, const args_t *args, size_t args_nbytes,
+               const struct args *more, size_t more_nbytes);
+
+/**
+ * Prepare, passing the sizes
+ */
+static inline int
+prep(uint64_t *cmd, const args_t *args, const struct args *more)
+{
+	return prep_sized(cmd, args, sizeof(*args), more, sizeof(*more));
+}
+"""
+
+
+def test_records_of_arguments_and_their_sizes_are_in_the_ir(parse):
+    model, diagnostics = parse(RECPARAM)
+    assert [d for d in diagnostics if d.rule == "annotation"] == []
+
+    prep = functions(model)["prep_sized"]
+    assert prep.doc.params["args"] == "The arguments"
+    sizes = {p.name: p.size for p in prep.params if p.size}
+    assert sizes == {"args": "args_nbytes", "more": "more_nbytes"}
+
+
+WRONG_RECPARAM = [
+    (
+        "@recparam x X",
+        "int f_sized(const struct r *r, size_t r_nbytes);",
+        "@recparam names 'x', which is not a parameter",
+    ),
+    (
+        "@recparam r R",
+        "int f_sized(struct r *r, size_t r_nbytes);",
+        "@recparam names 'r', which is not a pointer to a const struct defined",
+    ),
+    (
+        "@recparam o O",
+        "int f_sized(const struct o *o, size_t o_nbytes);",
+        "@recparam names 'o', which is not a pointer to a const struct defined",
+    ),
+    (
+        "@recparam u U",
+        "int f_sized(const union u *u, size_t u_nbytes);",
+        "@recparam names 'u', which is not a pointer to a const struct defined",
+    ),
+    (
+        "@recparam r R\n * @len r c",
+        "int f_sized(size_t c, const struct r *r, size_t r_nbytes);",
+        "@recparam names 'r', which has a @len",
+    ),
+    (
+        "@recparam r R",
+        "int f_sized(const struct r *r, size_t n);",
+        "@recparam names 'r', which is not followed by the size_t 'r_nbytes'",
+    ),
+    (
+        "@recparam r R",
+        "int f_sized(const struct r *r, uint32_t r_nbytes);",
+        "@recparam names 'r', which is not followed by the size_t 'r_nbytes'",
+    ),
+    (
+        "@recparam r R",
+        "int f_sized(size_t r_nbytes, const struct r *r);",
+        "@recparam names 'r', which is not followed by the size_t 'r_nbytes'",
+    ),
+    (
+        "@recparam r R\n * @len v r_nbytes",
+        "int f_sized(const int *v, const struct r *r, size_t r_nbytes);",
+        "@recparam names 'r', but 'r_nbytes' is a @len count",
+    ),
+    (
+        "@recparam r R",
+        "int f_whole(const struct r *r, size_t r_nbytes);",
+        "@recparam, but the name does not end in '_sized'",
+    ),
+    (
+        "@recparam r R",
+        "int g_sized(const struct r *r, size_t r_nbytes);",
+        "@recparam, but the headers have no static inline 'g' that passes the size",
+    ),
+]
+
+
+def test_a_recparam_not_of_the_record_arguments_shape_is_reported(parse):
+    """Each @recparam whose record, size or function does not have the shape of
+    the pattern is reported once, and its size is not recorded"""
+
+    for tag, decl, message in WRONG_RECPARAM:
+        source = (
+            "#include <stddef.h>\n#include <stdint.h>\n"
+            "/**\n * R\n */\nstruct r {\n\tint x; ///< X\n};\n"
+            "/**\n * U\n */\nunion u {\n\tint x; ///< X\n};\n"
+            "struct o;\n"
+            "/**\n * F\n */\nstatic inline int f(void) { return 0; }\n"
+            f"/**\n * F\n *\n * {tag}\n */\n{decl}\n"
+        )
+        model, diagnostics = parse(source)
+        found = [d.message for d in diagnostics if d.rule == "annotation"]
+        assert any(message in m for m in found), (decl, found)
+        assert not any("@param names" in m for m in found), (decl, found)
+        (func,) = functions(model).values()
+        assert [p.name for p in func.params if p.size] == []

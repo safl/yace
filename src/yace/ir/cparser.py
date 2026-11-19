@@ -400,6 +400,7 @@ class _HeaderParser(object):
         self.typedefs: set = set()  # typedef names declared in the header
         self.defined: set = set()  # records defined in the header, by name
         self.cursors: dict = {}  # functions and typedefs, by name
+        self.inlines: set = set()  # static and inline functions, by name
         self.enum_cursors: dict = {}  # enums, by name
         self.skipped_enums: set = set()  # enums skipped, by name, as records
         self.included: set = set()  # the includes in the model, (name, system)
@@ -1093,6 +1094,8 @@ class _HeaderParser(object):
     def function(self, cursor) -> Optional[decls.Function]:
         name = cursor.spelling
         self.keyword(name, "a function", cursor)
+        if cursor.storage_class == StorageClass.STATIC or cursor.is_definition():
+            self.inlines.add(name)
         # @nobind is read before the note on static and inline functions, and
         # before the types of the function, which may be outside the subset
         nobind = doc.parse(cursor.raw_comment).tags.get("nobind")
@@ -1443,7 +1446,7 @@ class _HeaderParser(object):
         resolved = self.drop_printer_names(resolved)
         resolved = self.drop_uses(resolved)
         self.share_docs(resolved)
-        Semantics(resolved, self.report).run(self.cursors)
+        Semantics(resolved, self.report, self.inlines).run(self.cursors)
         masks.link(resolved, self.report, self.cursors)
 
         meta = {
