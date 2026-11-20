@@ -5,12 +5,11 @@
 
 name: verify_and_publish
 
+# Every pull request runs this workflow, as main requires its job 'ci-result'.
+# A change of only docs/ and Markdown files skips the jobs that build and test.
 on:
   workflow_dispatch:
   pull_request:
-    paths-ignore:
-    - "docs/**"
-    - "**.md"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -21,6 +20,30 @@ defaults:
     shell: bash
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      docs-only: ${{ steps.classify.outputs.docs-only }}
+    steps:
+    - name: Grab source
+      uses: actions/checkout@v5.0.1
+      with:
+        fetch-depth: 0
+
+    - name: Classify the change as docs only, or not
+      id: classify
+      env:
+        BASE: ${{ github.event.pull_request.base.sha }}
+      run: |
+        docs_only=false
+        if [ -n "$BASE" ]; then
+          git diff --name-only --no-renames "$BASE...HEAD" | tee changed.txt
+          if [ -s changed.txt ] && ! grep -qvE '^docs/|\.md$' changed.txt; then
+            docs_only=true
+          fi
+        fi
+        echo "docs-only=$docs_only" | tee -a "$GITHUB_OUTPUT"
+
   # A release pull request must bump completely and hold all of its base, as
   # the release is made only from the tree these checks ran on
   release-ready:
@@ -37,6 +60,8 @@ jobs:
         version-pattern: '^__version__ = "([^"]+)"$'
 
   format:
+    needs: changes
+    if: needs.changes.outputs.docs-only != 'true'
     runs-on: ubuntu-24.04
     steps:
     - name: Grab source
@@ -57,6 +82,8 @@ jobs:
         make format-all
 
   build:
+    needs: changes
+    if: needs.changes.outputs.docs-only != 'true'
     runs-on: ubuntu-24.04
     steps:
     - name: Grab source
@@ -84,6 +111,8 @@ jobs:
         if-no-files-found: error
 
   devenv:
+    needs: changes
+    if: needs.changes.outputs.docs-only != 'true'
     permissions:
       contents: read
       packages: write
@@ -188,3 +217,28 @@ jobs:
         name: example-output
         path: output/
         if-no-files-found: ignore
+
+  # The one check that main requires. It fails unless every job succeeded or
+  # was skipped: release-ready outside a pull request, the rest for docs only.
+  ci-result:
+    needs: [changes, release-ready, format, build, devenv, unittest-linux, unittest-macos, example]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+    - name: Check the result of every job
+      env:
+        RESULTS: ${{ toJSON(needs) }}
+        DOCS_ONLY: ${{ needs.changes.outputs.docs-only }}
+      run: |
+        jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$RESULTS"
+        skippable='"release-ready"'
+        if [ "$DOCS_ONLY" = "true" ]; then
+          skippable='"release-ready", "format", "build", "devenv", "unittest-linux", "unittest-macos", "example"'
+        fi
+        bad=$(jq -r "[to_entries[] | select(.value.result != \"success\")
+          | select(.value.result != \"skipped\" or (.key | IN($skippable) | not))
+          | .key] | join(\" \")" <<< "$RESULTS")
+        if [ -n "$bad" ]; then
+          echo "::error::Did not succeed: $bad"
+          exit 1
+        fi
