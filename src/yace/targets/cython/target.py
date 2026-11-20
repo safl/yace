@@ -4,8 +4,8 @@
 
 """
 The Cython target emits the idiomatic API of the Python target as a module
-compiled with Cython for Python's limited API, and the C API for Cython as a
-``.pxd``. The target also checks what it emitted.
+compiled with Cython, and the C API for Cython as a ``.pxd``. The target also
+checks what it emitted.
 
 Emits, into ``<output>/cython``:
 
@@ -20,12 +20,11 @@ Emits, into ``<output>/cython``:
   each type
 * ``<prefix>_check.pyx``, the check of the ``.pxd``
 
-The check translates the module with Cython, compiles the module for the
-limited API of Python 3.12 without linking the library, and runs the check
-program. The check program calls no function of the library. The check also
-compiles the C that Cython generates from ``<prefix>_check.pyx`` with the
-header, so a declaration in the ``.pxd`` that disagrees with the header fails
-to compile.
+The check translates the module with Cython, compiles the module without
+linking the library, and runs the check program. The check program calls no
+function of the library. The check also compiles the C that Cython generates
+from ``<prefix>_check.pyx`` with the header, so a declaration in the ``.pxd``
+that disagrees with the header fails to compile.
 """
 
 import functools
@@ -66,11 +65,8 @@ CHECK_CFLAGS = [
 # incompatible pointer type and does not know the option.
 DISCARDED_QUALIFIERS = "-Werror=discarded-qualifiers"
 
-# The module is compiled for the limited API of Python 3.12
-LIMITED_API = ["-DPy_LIMITED_API=0x030C0000", "-DCYTHON_LIMITED_API=1"]
-
-# The file suffix of an extension module built for the limited API
-SUFFIX = ".abi3.so"
+# The file suffix of an extension module of the Python running yace
+SUFFIX = sysconfig.get_config_var("EXT_SUFFIX")
 
 
 def define_type(value) -> str:
@@ -133,7 +129,7 @@ def build(
     proc = run([*cython, f"{prefix}.pyx", "-o", f"{prefix}.c"], log, out)
     if proc.returncode:
         return [f"Cython failed on the module:\n{proc.stdout}{proc.stderr}"]
-    cmd = [cc, "-shared", "-fPIC", *LIMITED_API, *flags, f"{prefix}.c"]
+    cmd = [cc, "-shared", "-fPIC", *flags, f"{prefix}.c"]
     cmd += [*link_args(link), "-o", f"{prefix}{SUFFIX}"]
     proc = run(cmd, log, out)
     if proc.returncode:

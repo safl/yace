@@ -15,6 +15,7 @@ import json
 import os
 import subprocess
 import sys
+import sysconfig
 import weakref
 
 import pytest
@@ -35,6 +36,7 @@ from tests.test_python import compiled, json_lines
 from yace.compiler import process
 from yace.ir import types
 from yace.targets.cython import cygen
+from yace.targets.cython import target as cython_target
 
 pytestmark = [needs_cc, needs_cython]
 
@@ -399,6 +401,16 @@ def test_skipped_records_padding_bits_and_string_defines_build(parse, tmp_path):
     model, _ = parse(ESCAPED)
     assert process(model, ["cython"], tmp_path) == []
     assert compiled(tmp_path)["API_S"] == ESCAPED_VALUE
+
+
+def test_the_module_is_built_for_the_full_api(parse, tmp_path):
+    model, _ = parse("int api_add(int a, int b);\n")
+    assert process(model, ["cython"], tmp_path) == []
+    log: list = []
+    assert cython_target.build(tmp_path / "cython", "api", log) == []
+    assert "Py_LIMITED_API" not in "\n".join(log)
+    made = tmp_path / "cython" / f"api{sysconfig.get_config_var('EXT_SUFFIX')}"
+    assert made.is_file() and "add" in compiled(tmp_path)
 
 
 def test_typedefs_alias_their_class_and_fields_named_as_printers_print(parse, tmp_path):
