@@ -244,6 +244,9 @@ class Stub(object):
                     found.append(self.t("{list}[{cls}]", cls=cls))
                 elif types.is_string(self.r.resolve(elem)):
                     found.append(self.t("{list}[{str} | None]"))
+                elif self.r.converted(elem):
+                    view = self.r.record_class(self.r.resolve(elem).to)
+                    found.append(self.t("{list}[{cls} | None]", cls=view))
                 else:
                     # array.array has no bool code, so an array of bool has int
                     # elements

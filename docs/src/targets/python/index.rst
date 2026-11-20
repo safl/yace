@@ -107,7 +107,9 @@ Errors
 Results
   What a function writes through an ``[out]`` pointer is returned rather than
   passed: ``foo.figure_fill(shape)`` returns the figure. An ``[out]`` array is
-  returned as a list of as many elements as the function says it wrote.
+  returned as a list of as many elements as the function says it wrote; one of
+  pointers to records as the records, which C is given back as the same
+  records.
 
 Arguments
   A string with a length is a ``str``, and the length is that of its UTF-8

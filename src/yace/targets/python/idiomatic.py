@@ -318,11 +318,27 @@ class Renderer(object):
         counted: Optional[str] = "ret" if call.returns == "count" else None
         for out in call.outs:
             name = self.pname(out.param)
-            if out.kind == "array" and out.count:
-                results.append(f"{name}[: {self.pname(out.count)}.value]")
-            elif out.kind == "array":
-                results.append(f"{name}[: {counted or self.pname(out.capacity)}]")
-                counted = None  # the count is that of the array, not returned too
+            if out.kind == "array":
+                if out.count:
+                    items = f"{name}[: {self.pname(out.count)}.value]"
+                else:
+                    items = f"{name}[: {counted or self.pname(out.capacity)}]"
+                    counted = None  # the count is that of the array, not returned too
+                elem = self.idioms.resolve(out.typ)
+                to = self.idioms.resolve(getattr(elem, "to", None))
+                if (
+                    isinstance(elem, types.Pointer)
+                    and isinstance(to, types.Record)
+                    and not is_opaque_ptr(elem, self.idioms.handles)
+                ):
+                    # The records are the library's: views, which C is given
+                    # back, or copies of const records
+                    item = "p.contents"
+                    const = elem.to.const or to.const
+                    if const and copyable(self.idioms.model, to):
+                        item = self.copy(types.Pointer(to=to), "p")
+                    items = f"[{item} if p else None for p in {items}]"
+                results.append(items)
             elif out.kind == "handle":
                 results.append(f"{self.class_name(out.typ.to.name)}({name})")
             elif out.kind == "record":
