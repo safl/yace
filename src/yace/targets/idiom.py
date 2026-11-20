@@ -356,7 +356,7 @@ class Idioms(object):
 
             if param.direction == "out" and isinstance(typ, types.Pointer):
                 made = is_opaque_ptr(typ.to, self.handles)
-                if made:
+                if made and not param.length:
                     outs.append(Out(param=pname, kind="handle", typ=typ.to))
                     if kind == "function":
                         kind, handle = "constructor", made

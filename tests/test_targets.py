@@ -239,3 +239,17 @@ def test_every_target_builds_an_api_whose_own_printers_are_tagged_nobind(
     assert [
         f for f in failures if "toolchain" not in f and "no compiler" not in f
     ] == []
+
+
+def test_every_target_builds_an_out_array_of_handles(parse, tmp_path):
+    """An @arrparam[out] of handle pointers is an array of the pointers, as one
+    of any other pointer is, not one handle"""
+    from tests.test_idiom import HANDLES
+
+    model, _ = parse(HANDLES)
+    failures = process(
+        model, sorted(targets.targets()), tmp_path / "out", include=[tmp_path]
+    )
+    assert [
+        f for f in failures if "toolchain" not in f and "no compiler" not in f
+    ] == []
