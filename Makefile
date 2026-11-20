@@ -9,6 +9,8 @@ PYTEST=$(PIPX_LOCAL_VENVS)/$(PROJECT)/bin/pytest
 PYTHON ?= python3
 # What the tests, the example and the docs build Cython code with
 CYTHON ?= 3.3.1
+# What the tests check the stub of the Cython target with, as pre-commit pins it
+MYPY ?= 2.4.1
 # What runs the benchmark of examples/libfoo/bench
 CIJOE ?= 0.9.70
 CONTAINER ?= $(shell command -v podman >/dev/null && echo podman || echo docker)
@@ -100,7 +102,7 @@ endef
 install:
 	@echo "## ${PROJECT}: make install"
 	@pipx install --python $(PYTHON) --force dist/*.whl
-	@pipx inject yace pytest pytest-cov coverage cython==$(CYTHON) setuptools --force
+	@pipx inject yace pytest pytest-cov coverage cython==$(CYTHON) setuptools mypy==$(MYPY) --force
 	@pipx install --force cijoe==$(CIJOE)
 	@echo "## ${PROJECT}: make install [DONE]"
 
@@ -116,7 +118,7 @@ install-source:
 	@pipx inject yace ipdb --include-deps
 	@pipx inject yace isort --include-deps
 	@pipx inject yace pytest pytest-cov --include-deps
-	@pipx inject yace cython==$(CYTHON) setuptools --include-deps
+	@pipx inject yace cython==$(CYTHON) mypy==$(MYPY) --force
 	@pipx install --force cijoe==$(CIJOE)
 	@echo "## ${PROJECT}: make install-source [DONE]"
 
