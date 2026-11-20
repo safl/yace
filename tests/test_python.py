@@ -9,6 +9,7 @@ import importlib.util
 import inspect
 import io
 import json
+import os
 import subprocess
 import sys
 
@@ -29,8 +30,7 @@ from tests.conftest import (
     needs_cython,
 )
 from yace.compiler import process
-from yace.ir import types
-from yace.targets.python import cygen
+from yace.targets.cython import target as cython_target
 
 
 def module(tmp_path, name="api"):
@@ -45,6 +45,54 @@ def module(tmp_path, name="api"):
 
 def json_lines(text):
     return [json.loads(line) for line in text.splitlines()]
+
+
+def compiled(tmp_path, library=None, name="api"):
+    """Import the Cython module 'name' generated into 'tmp_path' and return its
+    namespace. With 'library', first build the module linking that shared
+    library. Without 'library', import the module that the check built, with
+    RTLD_LAZY, because that module does not link the library."""
+
+    out = tmp_path / "cython"
+    if library is not None:
+        log: list = []
+        failures = cython_target.build(out, name, log, link=[str(library)])
+        assert failures == [], "\n".join(log)
+    path = out / f"{name}{cython_target.SUFFIX}"
+    spec = importlib.util.spec_from_file_location(name, path)
+    flags = sys.getdlopenflags()
+    if library is None:
+        sys.setdlopenflags(os.RTLD_LAZY)
+    try:
+        made = importlib.util.module_from_spec(spec)  # loads the shared object
+        spec.loader.exec_module(made)
+    finally:
+        sys.setdlopenflags(flags)
+    return vars(made)
+
+
+@pytest.fixture(params=["python", pytest.param("cython", marks=needs_cython)])
+def bind(request, tmp_path, monkeypatch):
+    """Return a function that binds a model to the shared library built from
+    the C source given, and returns the namespace of the module. The parameter
+    selects the target: the ctypes module or the Cython module."""
+
+    from tests.test_rust import library
+
+    target = request.param
+
+    def bind(model, source):
+        built = library(tmp_path, source)
+        # compiled() builds the Cython module linking the library, so process()
+        # skips the check of the Cython target
+        assert process(model, [target], tmp_path, check=target == "python") == []
+        if target == "python":
+            monkeypatch.setenv("API_LIBRARY", str(built))
+            return module(tmp_path)
+        return compiled(tmp_path, built)
+
+    bind.target = target
+    return bind
 
 
 def test_the_subset_binds_and_prints(parser, tmp_path):
@@ -256,7 +304,7 @@ def test_a_nullable_parameter_before_a_required_one_has_no_default(parse, tmp_pa
 
 
 @needs_cc
-def test_handles_are_released_when_collected(parse, tmp_path, monkeypatch):
+def test_handles_are_released_when_collected(parse, bind):
     header = (
         "struct api_h;\n/** P */\nstruct api_p {\n\tint x; ///< X\n};\n"
         "typedef struct api_p api_p_t;\n"
@@ -267,22 +315,15 @@ def test_handles_are_released_when_collected(parse, tmp_path, monkeypatch):
         "/**\n * Get\n * @param[out] p P\n */\nvoid api_get(api_p_t *p);\n"
     )
     model, _ = parse(header)
-    assert process(model, ["python"], tmp_path) == []
-
-    (tmp_path / "api.c").write_text(
+    api = bind(
+        model,
         header + "static int opened;\nstatic int h;\n"
         "int api_open(struct api_h **p)\n"
         "{ *p = (struct api_h *)&h; opened++; return 0; }\n"
         "void api_close(struct api_h *p) { (void)p; opened--; }\n"
         "int api_opened(void) { return opened; }\n"
-        "void api_get(api_p_t *p) { p->x = 3; }\n"
+        "void api_get(api_p_t *p) { p->x = 3; }\n",
     )
-    library = tmp_path / "libapi.so"
-    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
-    subprocess.run(cmd, check=True)
-    monkeypatch.setenv("API_LIBRARY", str(library))
-
-    api = module(tmp_path)
     handle = api["open"]()
     assert api["opened"]() == 1
     del handle
@@ -291,9 +332,7 @@ def test_handles_are_released_when_collected(parse, tmp_path, monkeypatch):
 
 
 @needs_cc
-def test_an_out_pointer_is_returned_and_a_nullable_sequence_may_be_omitted(
-    parse, tmp_path, monkeypatch
-):
+def test_an_out_pointer_is_returned_and_a_nullable_sequence_may_be_omitted(parse, bind):
     header = (
         "#include <stddef.h>\n/** P */\nstruct api_p {\n\tint x; ///< X\n};\n"
         "/**\n * Get\n * @param[out] p P\n * @errno\n */\n"
@@ -302,37 +341,24 @@ def test_an_out_pointer_is_returned_and_a_nullable_sequence_may_be_omitted(
         " * @nullable buf\n */\nlong api_sum(const int *buf, size_t n);\n"
     )
     model, _ = parse(header)
-    assert process(model, ["python"], tmp_path) == []
-
-    source = tmp_path / "api.c"
-    source.write_text(
+    api = bind(
+        model,
         header + "static const struct api_p P = {7};\n"
         "int api_get(const struct api_p **p) { *p = &P; return 0; }\n"
         "long api_sum(const int *buf, size_t n)\n"
-        "{ long s = 0; for (size_t i = 0; i < n; i++) s += buf[i]; return s; }\n"
+        "{ long s = 0; for (size_t i = 0; i < n; i++) s += buf[i]; return s; }\n",
     )
-    library = tmp_path / "libapi.so"
-    cmd = ["cc", "-shared", "-fPIC", str(source), "-o", str(library)]
-    subprocess.run(cmd, check=True)
-    monkeypatch.setenv("API_LIBRARY", str(library))
-
-    api = module(tmp_path)
     assert api["get"]().x == 7
     assert api["sum"]([1, 2, 3]) == 6
     assert api["sum"]() == 0
 
 
 @needs_cc
-def test_a_string_with_a_length_passes_the_length_of_its_bytes(
-    parse, tmp_path, monkeypatch
-):
-    from tests.test_rust import COUNTED, COUNTED_C, library
+def test_a_string_with_a_length_passes_the_length_of_its_bytes(parse, bind):
+    from tests.test_rust import COUNTED, COUNTED_C
 
     model, _ = parse(COUNTED)
-    assert process(model, ["python"], tmp_path) == []
-    monkeypatch.setenv("API_LIBRARY", str(library(tmp_path, COUNTED + COUNTED_C)))
-
-    api = module(tmp_path)
+    api = bind(model, COUNTED + COUNTED_C)
     assert api["put"]("é") == 2
     assert api["pair"]("ab", [1, 2]) == ord("b") + 2
     assert list(api["read"](3)) == [0, 1, 2]
@@ -340,23 +366,16 @@ def test_a_string_with_a_length_passes_the_length_of_its_bytes(
 
 @needs_cc
 def test_shared_counts_raise_on_unequal_lengths_and_handles_pass_as_arguments(
-    parse, tmp_path, monkeypatch
+    parse, bind
 ):
-    from tests.test_rust import HANDLE_NAMED_AS_PREFIX, MORE, MORE_C
+    from tests.test_rust import MORE, MORE_C
 
     model, _ = parse(MORE)
-    assert process(model, ["python"], tmp_path) == []
-    (tmp_path / "api.c").write_text(MORE + MORE_C)
-    library = tmp_path / "libapi.so"
-    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
-    subprocess.run(cmd, check=True)
-    monkeypatch.setenv("API_LIBRARY", str(library))
-
-    api = module(tmp_path)
+    api = bind(model, MORE + MORE_C)
     handle = api["open"]()
     handle.copy(api["make"]())
     assert api["dot"]([1, 2], [3, 4]) == 11
-    assert api["map"]([1, 2, 3], 3) == [2, 4, 6]
+    assert list(api["map"]([1, 2, 3], 3)) == [2, 4, 6]
     for call, args in (("dot", ([1], [1, 2])), ("map", ([1, 2], 3))):
         try:
             api[call](*args)
@@ -366,6 +385,10 @@ def test_shared_counts_raise_on_unequal_lengths_and_handles_pass_as_arguments(
         assert raised, call
     assert handle.label() == "lbl"
     assert api["raw"]() == 16
+
+
+def test_a_handle_named_as_the_prefix_is_a_class_of_its_own(parse, tmp_path):
+    from tests.test_rust import HANDLE_NAMED_AS_PREFIX
 
     model, _ = parse(HANDLE_NAMED_AS_PREFIX, "prefixed.h")
     model.meta.prefix = "api"
@@ -377,23 +400,14 @@ def test_shared_counts_raise_on_unequal_lengths_and_handles_pass_as_arguments(
 
 
 @needs_cc
-def test_void_buffers_are_bytes_and_a_failing_destructor_raises_oserror(
-    parse, tmp_path, monkeypatch
-):
+def test_void_buffers_are_bytes_and_a_failing_destructor_raises_oserror(parse, bind):
     from tests.test_rust import IO, IO_C
 
     model, _ = parse(IO)
-    assert process(model, ["python"], tmp_path) == []
-    (tmp_path / "api.c").write_text(IO + IO_C)
-    library = tmp_path / "libapi.so"
-    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
-    subprocess.run(cmd, check=True)
-    monkeypatch.setenv("API_LIBRARY", str(library))
-
-    api = module(tmp_path)
+    api = bind(model, IO + IO_C)
     assert api["write"](b"abcd") == 4
     assert api["read"](8) == b"xyz"
-    assert api["pair"](3) == ([0, 1, 2], [0, 10, 20])
+    assert [list(each) for each in api["pair"](3)] == [[0, 1, 2], [0, 10, 20]]
     values = [1, 2, 3]
     api["twice"](values)
     assert values == [2, 4, 6]
@@ -412,39 +426,31 @@ def test_void_buffers_are_bytes_and_a_failing_destructor_raises_oserror(
 
 @needs_cc
 def test_an_out_count_bounds_the_result_and_the_error_holds_what_was_written(
-    parse, tmp_path, monkeypatch
+    parse, bind
 ):
-    from tests.test_rust import REAP, REAP_C, library
+    from tests.test_rust import REAP, REAP_C
 
     model, _ = parse(REAP)
-    assert process(model, ["python"], tmp_path) == []
-    monkeypatch.setenv("API_LIBRARY", str(library(tmp_path, REAP + REAP_C)))
-
-    api = module(tmp_path)
-    assert api["reap"](0, 4) == [0, 10, 20]
-    assert api["reap"](0, 2) == [0, 10]
+    api = bind(model, REAP + REAP_C)
+    assert list(api["reap"](0, 4)) == [0, 10, 20]
+    assert list(api["reap"](0, 2)) == [0, 10]
     with pytest.raises(BlockingIOError) as failed:
         api["reap"](errno.EAGAIN, 2)
     assert failed.value.errno == errno.EAGAIN
-    assert failed.value.partial == [0, 10]
+    assert list(failed.value.partial) == [0, 10]
 
 
 @needs_cc
-def test_a_recparam_record_is_passed_with_its_size_by_the_c_name(
-    parse, tmp_path, monkeypatch
-):
-    from tests.test_rust import SIZED, SIZED_C, library
+def test_a_recparam_record_is_passed_with_its_size_by_the_c_name(parse, bind):
+    from tests.test_rust import SIZED, SIZED_C
 
     model, _ = parse(SIZED)
-    assert process(model, ["python"], tmp_path) == []
-    monkeypatch.setenv("API_LIBRARY", str(library(tmp_path, SIZED + SIZED_C)))
-
-    api = module(tmp_path)
+    api = bind(model, SIZED + SIZED_C)
     assert api["prep"](api["ApiArgs"](slba=40, nlb=2)) == 42
 
 
 @needs_cc
-def test_functions_named_as_builtins_do_not_shadow_them(parse, tmp_path, monkeypatch):
+def test_functions_named_as_builtins_do_not_shadow_them(parse, bind):
     header = (
         "#include <stddef.h>\n/** P */\nstruct api_p {\n\tdouble x; ///< X\n};\n"
         "/**\n * Len\n * @arrparam vals V\n */\n"
@@ -453,26 +459,32 @@ def test_functions_named_as_builtins_do_not_shadow_them(parse, tmp_path, monkeyp
         "/**\n * Format\n */\nint api_format(int x);\n"
     )
     model, _ = parse(header)
-    assert process(model, ["python"], tmp_path) == []
-    (tmp_path / "api.c").write_text(
+    api = bind(
+        model,
         header + "int api_len(const int *vals, size_t n)\n"
         "{ int s = 0; for (size_t i = 0; i < n; i++) s += vals[i]; return s; }\n"
-        "int api_type(int x) { return x; }\nint api_format(int x) { return x; }\n"
+        "int api_type(int x) { return x; }\nint api_format(int x) { return x; }\n",
     )
-    library = tmp_path / "libapi.so"
-    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
-    subprocess.run(cmd, check=True)
-    monkeypatch.setenv("API_LIBRARY", str(library))
-
-    api = module(tmp_path)
     assert api["len"]([1, 2, 3]) == 6
     assert str(api["ApiP"](x=1.5)) == "api_p:\n  x: 1.5\n"
 
 
 @needs_cc
-def test_shared_and_global_names_bind_and_a_callback_receives_a_str(
-    parse, tmp_path, monkeypatch
-):
+def test_a_c_function_named_as_a_builtin_is_called_by_its_name(parse, bind):
+    header = (
+        "/** P */\nstruct api_p {\n\tint x; ///< X\n};\n"
+        "/**\n * Len, without the prefix\n */\nint len(int x);\n"
+    )
+    model, _ = parse(header)
+    api = bind(model, header + "int len(int x) { return x + 1; }\n")
+    assert api["len"](3) == 4
+    stream = io.StringIO()
+    # The printers call the builtin len()
+    assert api["ApiP"].fpr(stream, api["ApiP"](x=1)) == len("api_p:\n  x: 1\n")
+
+
+@needs_cc
+def test_shared_and_global_names_bind_and_a_callback_receives_a_str(parse, bind):
     header = (
         "typedef void (*api_seen_cb)(void *arg, const char *s);\n"
         "/**\n * Bar\n */\nint bar(int x);\n"
@@ -482,18 +494,12 @@ def test_shared_and_global_names_bind_and_a_callback_receives_a_str(
         "void api_seen(api_seen_cb cb, void *arg);\n"
     )
     model, _ = parse(header)
-    assert process(model, ["python"], tmp_path) == []
-    (tmp_path / "api.c").write_text(
+    api = bind(
+        model,
         header + "int bar(int x) { return x; }\nint api_bar(int x) { return 2 * x; }\n"
         "int api_ctypes(int x) { return x; }\n"
-        'void api_seen(api_seen_cb cb, void *arg) { cb(arg, "done"); }\n'
+        'void api_seen(api_seen_cb cb, void *arg) { cb(arg, "done"); }\n',
     )
-    library = tmp_path / "libapi.so"
-    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
-    subprocess.run(cmd, check=True)
-    monkeypatch.setenv("API_LIBRARY", str(library))
-
-    api = module(tmp_path)
     assert (api["bar"](3), api["api_bar"](3), api["ctypes_"](4)) == (3, 6, 4)
     seen = []
     api["seen"](seen.append)
@@ -501,20 +507,11 @@ def test_shared_and_global_names_bind_and_a_callback_receives_a_str(
 
 
 @needs_cc
-def test_parameters_named_as_what_the_body_uses_pass_their_values_to_c(
-    parse, tmp_path, monkeypatch
-):
+def test_parameters_named_as_what_the_body_uses_pass_their_values_to_c(parse, bind):
     from tests.test_rust import HIDDEN, HIDDEN_C
 
     model, _ = parse(HIDDEN)
-    assert process(model, ["python"], tmp_path) == []
-    (tmp_path / "api.c").write_text(HIDDEN + HIDDEN_C)
-    library = tmp_path / "libapi.so"
-    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
-    subprocess.run(cmd, check=True)
-    monkeypatch.setenv("API_LIBRARY", str(library))
-
-    api = module(tmp_path)
+    api = bind(model, HIDDEN + HIDDEN_C)
     assert (api["add"](1), api["got"]()) == (2, 2)
     assert (api["set"](5, 2), api["u8"](1)) == (3, 9)
     assert (api["count"]([1, 2]), api["count"](None)) == (2, -1)
@@ -528,7 +525,9 @@ def test_parameters_named_as_what_the_body_uses_pass_their_values_to_c(
     assert (dev.peer(dev), dev.peer(None)) == (1, 0)
     # api_msg ends in a flexible array, so msg() returns the pointer, not a copy
     message = dev.msg()
-    assert message.contents.len == 3 and api["take_"](1) == 2
+    if bind.target == "python":
+        message = message.contents
+    assert message.len == 3 and api["take_"](1) == 2
     seen = []
     dev.keep(lambda v: seen.append(v) or 0, 6)
     assert seen == [6] and dev.ptr(9, 2) == 7
@@ -542,20 +541,11 @@ def test_parameters_named_as_what_the_body_uses_pass_their_values_to_c(
 
 
 @needs_cc
-def test_constructors_sharing_a_name_and_parameters_named_as_locals_bind(
-    parse, tmp_path, monkeypatch
-):
+def test_constructors_sharing_a_name_and_parameters_named_as_locals_bind(parse, bind):
     from tests.test_rust import NAMES, NAMES_C
 
     model, _ = parse(NAMES)
-    assert process(model, ["python"], tmp_path) == []
-    (tmp_path / "api.c").write_text(NAMES + NAMES_C)
-    library = tmp_path / "libapi.so"
-    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
-    subprocess.run(cmd, check=True)
-    monkeypatch.setenv("API_LIBRARY", str(library))
-
-    api = module(tmp_path)
+    api = bind(model, NAMES + NAMES_C)
     handle = api["api_h_open_"]()
     assert api["api_g_open_"]() is not None
     assert handle.me(3) == 3
@@ -575,12 +565,13 @@ def test_constructors_sharing_a_name_and_parameters_named_as_locals_bind(
     assert api["two"](lambda v: 10 * v, lambda v: v) == 12
     assert api["c"]([1, 2, 3]) == 3
     assert api["sum"]([1, 2], 10, 20) == 33
-    assert api["outs"](2, 4, 5) == (4, [5, 5])
+    count, values = api["outs"](2, 4, 5)
+    assert (count, list(values)) == (4, [5, 5])
 
 
 @needs_cc
 def test_a_callback_gets_a_non_null_context_and_an_in_out_bytearray_is_written(
-    parse, tmp_path, monkeypatch
+    parse, bind
 ):
     header = (
         "#include <stddef.h>\ntypedef int (*api_cb)(void *arg, int v);\n"
@@ -592,19 +583,13 @@ def test_a_callback_gets_a_non_null_context_and_an_in_out_bytearray_is_written(
         "void api_invert(void *buf, size_t n);\n"
     )
     model, _ = parse(header)
-    assert process(model, ["python"], tmp_path) == []
-    (tmp_path / "api.c").write_text(
+    api = bind(
+        model,
         header + "#include <errno.h>\nint api_tag(int v) { return v; }\n"
         "int api_run(api_cb cb, void *arg) { return arg ? cb(arg, 2) : -EINVAL; }\n"
         "void api_invert(void *buf, size_t n)\n"
-        "{ unsigned char *b = buf; for (size_t i = 0; i < n; i++) b[i] ^= 0xff; }\n"
+        "{ unsigned char *b = buf; for (size_t i = 0; i < n; i++) b[i] ^= 0xff; }\n",
     )
-    library = tmp_path / "libapi.so"
-    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
-    subprocess.run(cmd, check=True)
-    monkeypatch.setenv("API_LIBRARY", str(library))
-
-    api = module(tmp_path)
     assert api["tag"](4) == 4
     seen = []
     api["run"](lambda v: seen.append(v) or 0)
@@ -615,18 +600,11 @@ def test_a_callback_gets_a_non_null_context_and_an_in_out_bytearray_is_written(
 
 
 @needs_cc
-def test_kept_closures_are_called_and_released(parse, tmp_path, monkeypatch):
+def test_kept_closures_are_called_and_released(parse, bind):
     from tests.test_rust import KEPT, KEPT_C
 
     model, _ = parse(KEPT)
-    assert process(model, ["python"], tmp_path) == []
-    (tmp_path / "api.c").write_text(KEPT + KEPT_C)
-    library = tmp_path / "libapi.so"
-    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
-    subprocess.run(cmd, check=True)
-    monkeypatch.setenv("API_LIBRARY", str(library))
-
-    api = module(tmp_path)
+    api = bind(model, KEPT + KEPT_C)
     seen = []
     handle = api["open"]()
     handle.on(lambda v: seen.append(v) or 0)
@@ -648,18 +626,11 @@ def test_kept_closures_are_called_and_released(parse, tmp_path, monkeypatch):
 
 
 @needs_cc
-def test_a_kept_callback_given_none_passes_null(parse, tmp_path, monkeypatch):
+def test_a_kept_callback_given_none_passes_null(parse, bind):
     from tests.test_rust import KEPT, KEPT_C
 
     model, _ = parse(KEPT)
-    assert process(model, ["python"], tmp_path) == []
-    (tmp_path / "api.c").write_text(KEPT + KEPT_C)
-    library = tmp_path / "libapi.so"
-    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
-    subprocess.run(cmd, check=True)
-    monkeypatch.setenv("API_LIBRARY", str(library))
-
-    api = module(tmp_path)
+    api = bind(model, KEPT + KEPT_C)
     handle = api["open"]()
     handle.on(None)
     assert api["_KEPT"] == {}
@@ -713,9 +684,7 @@ def test_closures_kept_by_a_handle_whose_destructor_fails_are_kept(
 
 
 @needs_cc
-def test_closures_kept_by_a_handle_nothing_destroys_are_kept(
-    parse, tmp_path, monkeypatch
-):
+def test_closures_kept_by_a_handle_nothing_destroys_are_kept(parse, bind):
     from tests.test_rust import doc
 
     header = (
@@ -728,20 +697,14 @@ def test_closures_kept_by_a_handle_nothing_destroys_are_kept(
         + "int api_fire(int v);\n"
     )
     model, _ = parse(header)
-    assert process(model, ["python"], tmp_path) == []
-    (tmp_path / "api.c").write_text(
+    api = bind(
+        model,
         header + "static int h;\nstatic api_cb kept;\nstatic void *kept_arg;\n"
         "int api_open(struct api_h **p) { *p = (struct api_h *)&h; return 0; }\n"
         "void api_on(struct api_h *p, api_cb cb, void *arg)\n"
         "{ (void)p; kept = cb; kept_arg = arg; }\n"
-        "int api_fire(int v) { return kept(kept_arg, v); }\n"
+        "int api_fire(int v) { return kept(kept_arg, v); }\n",
     )
-    library = tmp_path / "libapi.so"
-    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
-    subprocess.run(cmd, check=True)
-    monkeypatch.setenv("API_LIBRARY", str(library))
-
-    api = module(tmp_path)
     handle = api["open"]()
     handle.on(lambda v: v + 1)
     del handle
@@ -750,18 +713,11 @@ def test_closures_kept_by_a_handle_nothing_destroys_are_kept(
 
 
 @needs_cc
-def test_a_closed_handle_keeps_no_closure(parse, tmp_path, monkeypatch):
+def test_a_closed_handle_keeps_no_closure(parse, bind):
     from tests.test_rust import KEPT, KEPT_C
 
     model, _ = parse(KEPT)
-    assert process(model, ["python"], tmp_path) == []
-    (tmp_path / "api.c").write_text(KEPT + KEPT_C)
-    library = tmp_path / "libapi.so"
-    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
-    subprocess.run(cmd, check=True)
-    monkeypatch.setenv("API_LIBRARY", str(library))
-
-    api = module(tmp_path)
+    api = bind(model, KEPT + KEPT_C)
     handle = api["open"]()
     handle.close()
     with pytest.raises(ValueError):
@@ -828,116 +784,9 @@ def test_the_parts_of_a_field_of_bits_are_properties(parse, tmp_path):
     }
 
 
-# C names that Cython reserves, and a name that Cython would give both to a
-# struct tag and to a function, which C keeps in separate namespaces
-RESERVED = (
-    "/** S */\nstruct api_s {\n\tint class; ///< C\n\tint include; ///< I\n};\n"
-    "/** Tag */\nstruct tag { int a; };\n"
-    "/** Kinds */\nenum kind { None = 1, DEF = 2 };\n"
-    "/** Include */\nint include(int cdef);\n"
-    "/** Tag */\nint tag(const struct tag *t, const struct api_s *s);\n"
-)
-
-
-@needs_cc
-@needs_cython
-def test_names_cython_reserves_are_declared_by_their_c_names(parse, tmp_path):
-    model, _ = parse(RESERVED)
-    # process() compiles the check of the .pxd
-    assert process(model, ["python"], tmp_path) == []
-
-    pxd = (tmp_path / "python" / "api.pxd").read_text().splitlines()
-    for line in (
-        '        int class_ "class"',
-        '        int include_ "include"',
-        '    struct tag_ "tag":',
-        '        None_ "None"',
-        '        DEF_ "DEF"',
-        '    int include_ "include"(int cdef_)',
-        "    int tag(const tag_ *t, const api_s *s)",
-    ):
-        assert line in pxd
-    ns = module(tmp_path)  # the ctypes module keeps the C names
-    assert "include" in ns and "tag" in ns and ns["Kind"].DEF == 2
-
-
-@needs_cc
-@needs_cython
-def test_a_declaration_that_disagrees_with_the_header_fails_the_check(
-    parser, tmp_path, monkeypatch
-):
-    model, _ = parser.parse(HEADERS / "valid.h")
-    decl = cygen.Names.decl
-
-    def signed(self, typ, *args):
-        if isinstance(typ, types.Builtin) and typ.name == "uint32_t":
-            typ = typ.model_copy(update={"name": "int32_t"})
-        return decl(self, typ, *args)
-
-    # signed() declares uint32_t as int32_t, in the .pxd and in its check alike
-    monkeypatch.setattr(cygen.Names, "decl", signed)
-    failures = process(model, ["python"], tmp_path)
-    assert len(failures) == 1
-    assert failures[0].startswith("python: compiling the check of the .pxd failed")
-
-
-# Declarations that Cython spells otherwise than C: fields of a function pointer
-# type, which Cython does not declare nogil, and const pointers
-SPELLED = (
-    "#include <stddef.h>\n"
-    "/** P */\nstruct api_p {\n\tint x; ///< X\n};\n"
-    "/** Cb */\ntypedef int (*api_cb)(void *arg, int v);\n"
-    "/** F */\nstruct api_f {\n"
-    "\tint (*fp)(int, ...); ///< Fp\n"
-    "\tvoid *(*alloc)(size_t); ///< Alloc\n"
-    "\tconst struct api_p *const *pp; ///< Pp\n"
-    "\tapi_cb cb; ///< Cb\n};\n"
-    "/** Run */\nint api_run(int argc, char *const argv[]);\n"
-    "/** Ptr */\nvoid api_ptr(int *const p);\n"
-)
-
-
-@needs_cc
-@needs_cython
-def test_function_pointer_fields_and_const_pointers_pass_the_check(parse, tmp_path):
-    model, _ = parse(SPELLED)
-    assert process(model, ["python"], tmp_path) == []
-
-    pxd = (tmp_path / "python" / "api.pxd").read_text()
-    assert "    int api_run(int argc, char *const *argv)" in pxd
-    assert "        const api_p *const *pp" in pxd
-    assert (
-        "referenced before assignment"
-        not in (tmp_path / "python" / "cython.log").read_text()
-    )
-
-
-@needs_cython
-def test_the_check_of_the_pxd_needs_a_c_compiler(parse, tmp_path, monkeypatch):
-    model, _ = parse(SPELLED)
-    monkeypatch.setenv("CC", "/nonexistent/cc")
-
-    failures = process(model, ["python"], tmp_path)
-    assert failures == ["python: no C compiler ('/nonexistent/cc'); set CC"]
-
-
-def test_without_cython_the_log_says_the_pxd_is_not_checked(
-    parse, tmp_path, monkeypatch, caplog
-):
-    model, _ = parse(SPELLED)
-    find_spec = importlib.util.find_spec
-    monkeypatch.setattr(
-        importlib.util,
-        "find_spec",
-        lambda name, *args: None if name == "Cython" else find_spec(name, *args),
-    )
-
-    assert process(model, ["python"], tmp_path) == []
-    assert "the .pxd is not checked: no Cython" in caplog.text
-    assert "not checked" in (tmp_path / "python" / "cython.log").read_text()
-
-
 def test_only_the_python_target_is_emitted(parse, tmp_path):
+    from tests.test_cython import SPELLED
+
     model, _ = parse(SPELLED)
     assert process(model, ["python"], tmp_path / "out", check=False) == []
     assert [path.name for path in (tmp_path / "out").iterdir()] == ["python"]
@@ -974,37 +823,24 @@ def test_a_packed_record_is_laid_out_and_printed_as_in_c(parse, tmp_path):
 
 
 @needs_cc
-@needs_cython
-def test_the_check_of_the_pxd_takes_no_address_of_a_packed_field(parse, tmp_path):
-    model, _ = parse(PACKED)
-    assert process(model, ["python"], tmp_path) == []
-
-    assert "packed struct api_k:" in (tmp_path / "python" / "api.pxd").read_text()
-    log = (tmp_path / "python" / "cython.log").read_text()
-    assert "pxd_check.c" in log and "address-of-packed-member" not in log
-
-
-@needs_cc
-def test_a_record_the_caller_may_write_is_not_copied(parse, tmp_path, monkeypatch):
+def test_a_record_the_caller_may_write_is_not_copied(parse, bind):
     from tests.test_rust import POOL, POOL_C
 
     model, _ = parse(POOL)
-    assert process(model, ["python"], tmp_path) == []
-    (tmp_path / "api.c").write_text(POOL + POOL_C)
-    library = tmp_path / "libapi.so"
-    cmd = ["cc", "-shared", "-fPIC", str(tmp_path / "api.c"), "-o", str(library)]
-    subprocess.run(cmd, check=True)
-    monkeypatch.setenv("API_LIBRARY", str(library))
-
-    api = module(tmp_path)
+    api = bind(model, POOL + POOL_C)
     queue = api["open"]()
+    # The ctypes module returns a pointer to the record. The Cython module
+    # returns a record that is a view of the C memory.
+    contents = (lambda p: p.contents) if bind.target == "python" else (lambda p: p)
     cmd_ = queue.get()
-    cmd_.contents.opc = 7
+    contents(cmd_).opc = 7
     queue.put(cmd_)
     peeked = queue.peek()
     again = queue.get()
-    assert ctypes.addressof(again.contents) == ctypes.addressof(cmd_.contents)
-    assert again.contents.opc == 7 and peeked.opc == 7
+    assert again.contents.opc == 7 if bind.target == "python" else again.opc == 7
+    assert peeked.opc == 7
+    contents(again).opc = 9
+    assert contents(cmd_).opc == 9 and peeked.opc == 7
     queue.close()
 
 
@@ -1054,17 +890,12 @@ def test_functions_converting_no_argument_are_the_ctypes_functions(
 @needs_cc
 @pytest.mark.parametrize("named", [True, False])
 def test_the_oserror_holds_the_message_of_the_function_the_meta_names(
-    parse, tmp_path, monkeypatch, named
+    parse, bind, named
 ):
     import os
 
-    from tests.test_rust import library
-
     model, _ = parse(ERRMSG, meta={"errmsg": "api_errmsg"} if named else {})
-    assert process(model, ["python"], tmp_path) == []
-    monkeypatch.setenv("API_LIBRARY", str(library(tmp_path, ERRMSG + ERRMSG_C)))
-
-    api = module(tmp_path)
+    api = bind(model, ERRMSG + ERRMSG_C)
     handle = api["open"]("name")
     failed = []
     for call in [
@@ -1076,7 +907,7 @@ def test_the_oserror_holds_the_message_of_the_function_the_meta_names(
         with pytest.raises(OSError) as raised:
             call()
         failed.append((raised.value.errno, raised.value.strerror))
-    assert raised.value.partial == [7]
+    assert list(raised.value.partial) == [7]
 
     messages = ["no socket at /run/api.sock", "", "still in use", "reaped 1 of 3"]
     assert failed == [

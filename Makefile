@@ -7,7 +7,7 @@ AUX_PATH=toolbox
 PIPX_LOCAL_VENVS=$(shell pipx environment --value PIPX_LOCAL_VENVS)
 PYTEST=$(PIPX_LOCAL_VENVS)/$(PROJECT)/bin/pytest
 PYTHON ?= python3
-# What the tests build Cython code against the .pxd of the Python target with
+# What the tests, the example and the docs build Cython code with
 CYTHON ?= 3.3.1
 # What runs the benchmark of examples/libfoo/bench
 CIJOE ?= 0.9.70
@@ -116,6 +116,7 @@ install-source:
 	@pipx inject yace ipdb --include-deps
 	@pipx inject yace isort --include-deps
 	@pipx inject yace pytest pytest-cov --include-deps
+	@pipx inject yace cython==$(CYTHON) setuptools --include-deps
 	@pipx install --force cijoe==$(CIJOE)
 	@echo "## ${PROJECT}: make install-source [DONE]"
 
@@ -151,7 +152,7 @@ define example-help
 endef
 .PHONY: example
 example:
-	yace examples/libfoo/include/foo.h --meta examples/libfoo/meta.yaml --output output --emit capi python rust cpp zig go
+	yace examples/libfoo/include/foo.h --meta examples/libfoo/meta.yaml --output output --emit capi python cython rust cpp zig go
 
 define docs-build-prep-help
 # Install docs tooling and dependencies
@@ -171,6 +172,7 @@ docs-kmdo: example
 	kmdo docs/src/install
 	kmdo docs/src/targets/capi
 	kmdo docs/src/targets/python
+	kmdo docs/src/targets/cython
 	kmdo docs/src/targets/rust
 	kmdo docs/src/targets/cpp
 	kmdo docs/src/targets/zig

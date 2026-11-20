@@ -12,7 +12,7 @@ version each, so their output is that of the **yace** installed. gofmt, go mod
 edit, rustfmt and zig fmt ship with the toolchains of their languages, and
 their version is that of the toolchain found. C and C++ are formatted in the
 style of xNVMe, which 'xnvme.clang-format' gives. Cython has no formatter, so
-the '.pyx' and '.pxd' files keep the layout the Python target writes.
+the '.pyx' and '.pxd' files keep the layout the Cython target writes.
 """
 
 import os

@@ -70,6 +70,7 @@ yace = "yace.cli.yace:main"
 [project.entry-points."yace.targets"]
 capi = "yace.targets.capi.target:CAPI"
 capi_pp = "yace.targets.capi.target:CAPIPP"
+cython = "yace.targets.cython.target:Cython"
 python = "yace.targets.python.target:Python"
 rust = "yace.targets.rust.target:Rust"
 cpp = "yace.targets.cpp.target:CPP"
@@ -104,6 +105,7 @@ ignore_missing_imports = true
 module = [
     "yace.targets.capi.*",
     "yace.targets.cpp.*",
+    "yace.targets.cython.*",
     "yace.targets.go.*",
     "yace.targets.python.*",
     "yace.targets.rust.*",
