@@ -524,10 +524,8 @@ def test_parameters_named_as_what_the_body_uses_pass_their_values_to_c(parse, bi
     dev = api["api_dev_open_"](1, 2)
     assert dev.me(4) == 4 and api["make"](5)[1] == 5
     assert (dev.peer(dev), dev.peer(None)) == (1, 0)
-    # api_msg ends in a flexible array, so msg() returns the pointer, not a copy
+    # api_msg ends in a flexible array, so msg() returns the record, not a copy
     message = dev.msg()
-    if bind.target == "python":
-        message = message.contents
     assert message.len == 3 and api["take_"](1) == 2
     seen = []
     dev.keep(lambda v: seen.append(v) or 0, 6)
@@ -830,18 +828,14 @@ def test_a_record_the_caller_may_write_is_not_copied(parse, bind):
     model, _ = parse(POOL)
     api = bind(model, POOL + POOL_C)
     queue = api["open"]()
-    # The ctypes module returns a pointer to the record. The Cython module
-    # returns a record that is a view of the C memory.
-    contents = (lambda p: p.contents) if bind.target == "python" else (lambda p: p)
     cmd_ = queue.get()
-    contents(cmd_).opc = 7
+    cmd_.opc = 7
     queue.put(cmd_)
     peeked = queue.peek()
     again = queue.get()
-    assert again.contents.opc == 7 if bind.target == "python" else again.opc == 7
-    assert peeked.opc == 7
-    contents(again).opc = 9
-    assert contents(cmd_).opc == 9 and peeked.opc == 7
+    assert again.opc == 7 and peeked.opc == 7
+    again.opc = 9
+    assert cmd_.opc == 9 and peeked.opc == 7
     queue.close()
 
 
@@ -965,6 +959,7 @@ REAPED = (
     "/**\n * Reap\n * @arrparam[out] cs Cs @nwritten_at{n}\n * @param[out] n N\n */\n"
     "void api_reap(struct api_c **cs, uint32_t cs_len, uint32_t *n);\n"
     "/**\n * Submit\n */\nint api_submit(struct api_c *c);\n"
+    "/**\n * Get\n */\nstruct api_c *api_get(void);\n"
 )
 
 
@@ -978,13 +973,17 @@ def test_an_out_array_of_record_pointers_is_returned_as_views(parse, bind):
         REAPED + "static struct api_c cs[3] = {{1, 0}, {2, 0}, {3, 0}};\n"
         "void api_reap(struct api_c **out, uint32_t cap, uint32_t *n)\n"
         "{ *n = 0; while (*n < cap && *n < 2) { out[*n] = &cs[*n]; (*n)++; } }\n"
-        "int api_submit(struct api_c *c) { return (int)(c - cs); }\n",
+        "int api_submit(struct api_c *c) { return (int)(c - cs); }\n"
+        "struct api_c *api_get(void) { return &cs[2]; }\n",
     )
     found = api["reap"](4)
     assert [c.id for c in found] == [1, 2]
     found[1].status = 7
     assert [api["submit"](c) for c in found] == [0, 1]
     assert api["reap"](4)[1].status == 7
+    got = api["get"]()
+    got.status = 9
+    assert (got.id, api["submit"](got), api["get"]().status) == (3, 2, 9)
     if bind.target == "cython":
         stub = (bind.out / "api.pyi").read_text()
         assert "def reap(cs_len: int) -> list[ApiC | None]:" in stub
@@ -1012,3 +1011,30 @@ def test_an_out_array_of_pointers_to_const_records_is_returned_as_copies(parse, 
     found[0].status = 7
     assert api["list"](1)[0].status == 0
 
+
+def test_a_const_record_ending_in_a_flexible_array_is_returned_as_a_view(parse, bind):
+    """A copy would not hold the elements, so the record is the library's,
+    returned alone and in an [out] array, and C is given back the same record"""
+
+    header = (
+        "#include <stdint.h>\n"
+        "/** F */\nstruct api_f { uint32_t len; uint8_t data[]; };\n"
+        "/**\n * Get\n */\nconst struct api_f *api_get(void);\n"
+        "/**\n * List\n * @arrparam[out] fs Fs\n */\n"
+        "void api_list(const struct api_f **fs, uint32_t fs_len);\n"
+        "/**\n * Same\n */\nint api_same(const struct api_f *f);\n"
+    )
+    model, _ = parse(header)
+    api = bind(
+        model,
+        header + "static struct { uint32_t len; uint8_t d[4]; } f = {4, {0}};\n"
+        "#define F ((const struct api_f *)&f)\n"
+        "const struct api_f *api_get(void) { return F; }\n"
+        "void api_list(const struct api_f **out, uint32_t cap)\n"
+        "{ while (cap--) out[cap] = F; }\n"
+        "int api_same(const struct api_f *p) { return p == F; }\n",
+    )
+    got = api["get"]()
+    listed = api["list"](2)
+    assert (got.len, api["same"](got)) == (4, 1)
+    assert [(f.len, api["same"](f)) for f in listed] == [(4, 1), (4, 1)]

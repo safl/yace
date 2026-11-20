@@ -358,6 +358,11 @@ class Renderer(object):
         elif call.returns == "handle" and call.ret.to.name in self.classes:
             cls = self.class_name(call.ret.to.name)
             results.append(f"None if not ret else {cls}(ret, owned=False)")
+        elif call.returns == "handle" and not is_opaque_ptr(
+            call.ret, self.idioms.handles
+        ):
+            # A record lent to the caller: a view of the library's memory
+            results.append("None if not ret else ret.contents")
         elif call.returns == "handle":
             results.append("ret")
         elif (
@@ -366,6 +371,9 @@ class Renderer(object):
             and copyable(self.idioms.model, call.ret.to)
         ):
             results.append(f"None if not ret else {self.copy(call.ret, 'ret')}")
+        elif call.returns == "pointer" and isinstance(call.ret.to, types.Record):
+            # A copy would not hold all of the record: a view
+            results.append("None if not ret else ret.contents")
         elif call.returns == "pointer":
             results.append("ret")
 
