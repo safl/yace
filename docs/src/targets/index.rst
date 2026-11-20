@@ -26,10 +26,11 @@ beyond C, see :ref:`sec-ir-csubset`, as derived in :py:mod:`yace.targets.idiom`,
 the same for every language.
 
 The targets are C, :ref:`sec-targets-capi`, Python, :ref:`sec-targets-python`,
-Rust, :ref:`sec-targets-rust`, C++, :ref:`sec-targets-cpp`, Zig,
-:ref:`sec-targets-zig`, and Go, :ref:`sec-targets-go`. The C target has a
-narrower sibling, ``capi_pp``, which generates only its pretty-printers, for
-an API to compile into its own library.
+Cython, :ref:`sec-targets-cython`, Rust, :ref:`sec-targets-rust`, C++,
+:ref:`sec-targets-cpp`, Zig, :ref:`sec-targets-zig`, and Go,
+:ref:`sec-targets-go`. The C target has a narrower sibling, ``capi_pp``,
+which generates only its pretty-printers, for an API to compile into its own
+library.
 
 The fixture
 ===========
@@ -58,6 +59,7 @@ values, which differ between runs.
 
    capi/index.rst
    python/index.rst
+   cython/index.rst
    rust/index.rst
    cpp/index.rst
    zig/index.rst

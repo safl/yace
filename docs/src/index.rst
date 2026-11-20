@@ -32,10 +32,11 @@ for every struct, union and enum.
 The project is hosted on `GitHub`_, and its documentation is at
 `safl.dk/yace`_.
 
-Bindings are generated for C, C++, Python (ctypes, with a ``.pxd`` for
-Cython), Rust, Zig and Go. Each target builds and runs a check of what it
-generated against the layout the C compiler gives every record, and the C API
-and Zig check every function's signature against the header too.
+Bindings are generated for C, C++, Python (ctypes), Cython (a compiled module,
+and a ``.pxd`` of the C API), Rust, Zig and Go. Each target builds and runs a
+check of what it generated against the layout the C compiler gives every
+record, and the C API and Zig check every function's signature against the
+header too.
 
 A header can also be written by a generator, from something other than C, and
 taken as one written by hand: ``yace --generate file.py:Class``, or a
