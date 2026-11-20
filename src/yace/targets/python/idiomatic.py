@@ -134,6 +134,8 @@ class Renderer(object):
 
         arg = next(a for a in call.args if a.param == param)
         seq = self.pname(param)
+        if arg.kind == "string":
+            seq = f"_str_in({seq})"  # C counts the bytes of the encoded string
         return (
             f"0 if {seq} is None else _builtins.len({seq})"
             if arg.nullable

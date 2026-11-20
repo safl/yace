@@ -1534,6 +1534,44 @@ def test_a_packed_record_is_read_by_copies(parse, tmp_path):
     )
 
 
+# Strings with a length, which C reads as bytes, one sharing its length with an
+# array, and an [out] array of bytes that is no void *
+COUNTED = (
+    "#include <stddef.h>\n#include <stdint.h>\n"
+    + doc("Put", "@arrparam buf B @len_at{n}")
+    + "size_t api_put(const char *buf, size_t n);\n"
+    + doc("Pair", "@arrparam w W @len_at{n}", "@arrparam v V @len_at{n}")
+    + "size_t api_pair(const char *w, const int *v, size_t n);\n"
+    + doc("Read", "@arrparam[out] buf B", "@errno")
+    + "int api_read(uint8_t *buf, size_t buf_len);\n"
+)
+
+COUNTED_C = """
+size_t api_put(const char *buf, size_t n) { (void)buf; return n; }
+size_t api_pair(const char *w, const int *v, size_t n)
+{
+\treturn (size_t)(unsigned char)w[n - 1] + (size_t)v[n - 1];
+}
+int api_read(uint8_t *buf, size_t buf_len)
+{
+\tfor (size_t i = 0; i < buf_len; i++)
+\t\tbuf[i] = (uint8_t)i;
+\treturn 0;
+}
+"""
+
+
+def test_strings_with_a_length_and_byte_arrays_build(parse, tmp_path):
+    model, _ = parse(COUNTED)
+    assert process(model, ["rust"], tmp_path) == []
+
+    lib = flat((tmp_path / "rust" / "bindings.rs").read_text())
+    assert "pub fn put(buf: &str) -> usize" in lib
+    assert "buf.as_ptr() as *const c_char, buf.len() as usize" in lib
+    assert "pub fn pair(w: &str, v: &[c_int]) -> usize" in lib
+    assert "super::api_read(buf.as_mut_ptr(), buf.len() as usize)" in lib
+
+
 def test_a_nullable_out_array_is_a_buffer_always_given(parse, tmp_path):
     model, _ = parse(
         "#include <stddef.h>\n#include <stdint.h>\n"

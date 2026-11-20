@@ -181,7 +181,8 @@ class Renderer(object):
                 found.append(f"self: {self.struct_name(call.handle)}")
             elif arg.kind == "string":
                 opt = "?" if arg.nullable else ""
-                found.append(f"{name}: {opt}[*:0]const u8")
+                string = "[]const u8" if call.counted(arg) else "[*:0]const u8"
+                found.append(f"{name}: {opt}{string}")
             elif arg.kind == "sequence":
                 const = "const " if getattr(typ.to, "const", False) else ""
                 opt = "?" if arg.nullable else ""
@@ -250,6 +251,8 @@ class Renderer(object):
             return f"if ({name}) |h| h.ptr else null" if arg.nullable else f"{name}.ptr"
         if arg.kind == "self":
             return "self.ptr"
+        if arg.kind == "string" and call.counted(arg):
+            return f"if ({name}) |s| s.ptr else null" if arg.nullable else f"{name}.ptr"
         if arg.kind == "sequence":
             ptr = "@ptrCast(s.ptr)" if is_void_ptr(arg.typ) else "s.ptr"
             if arg.nullable:

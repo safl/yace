@@ -271,7 +271,7 @@ class Renderer(object):
         if arg.kind == "context" and self.raw_callback(call, arg):
             return self.raw(typ, True)
         if arg.kind == "string":
-            return opt("&CStr")
+            return opt("&str" if call.counted(arg) else "&CStr")
         if arg.kind == "sequence":
             mut = "" if getattr(typ.to, "const", False) else "mut "
             return opt(f"&{mut}[{self.elem(typ.to)}]")
@@ -306,9 +306,10 @@ class Renderer(object):
         if arg.kind == "self":
             return "self.ptr.as_ptr()"
         if arg.kind == "string":
+            ptr = "s.as_ptr() as *const c_char" if call.counted(arg) else "s.as_ptr()"
             if arg.nullable:
-                return f"{name}.map_or(std::ptr::null(), |s| s.as_ptr())"
-            return f"{name}.as_ptr()"
+                return f"{name}.map_or(std::ptr::null(), |s| {ptr})"
+            return ptr.replace("s.", f"{name}.", 1)
         if arg.kind == "sequence":
             mut = "" if getattr(typ.to, "const", False) else "_mut"
             ptr = f"s.as{mut}_ptr()"
@@ -328,7 +329,7 @@ class Renderer(object):
             return f"&mut {name}"
         if arg.kind == "out":
             out = next(o for o in call.outs if o.param == arg.param)
-            if out.kind == "array" and self.elem(out.typ) == "u8":
+            if out.kind == "array" and is_void_ptr(arg.typ):
                 return f"{name}.as_mut_ptr() as *mut c_void"
             if out.kind == "array":
                 return f"{name}.as_mut_ptr()"

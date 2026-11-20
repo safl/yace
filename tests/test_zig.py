@@ -106,6 +106,18 @@ def test_the_idiomatic_layer_compiles_for_every_kind_of_parameter(parse, tmp_pat
     assert misindented_docs(module) == []
 
 
+def test_strings_with_a_length_are_slices_of_bytes(parse, tmp_path):
+    from tests.test_rust import COUNTED
+
+    model, _ = parse(COUNTED)
+    assert process(model, ["zig"], tmp_path) == []
+
+    module = (tmp_path / "zig" / "api.zig").read_text()
+    assert "pub fn put(buf: []const u8) usize {" in module
+    assert "api_put(buf.ptr, @intCast(buf.len))" in module
+    assert "pub fn pair(w: []const u8, v: []const c_int) usize {" in module
+
+
 def test_names_that_clash_in_zig_are_made_distinct(parse, tmp_path):
     model, _ = parse(
         HANDLE_NAMED_AS_PREFIX
