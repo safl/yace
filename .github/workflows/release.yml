@@ -48,7 +48,7 @@ jobs:
 
     - name: Download the build the pull request tested
       env:
-        RUN: ${{ fromJSON(steps.check.outputs.runs)['verify_and_publish.yml'] }}
+        RUN: ${{ fromJSON(steps.check.outputs.runs || '{}')['verify_and_publish.yml'] }}
         VERSION: ${{ steps.check.outputs.version }}
       run: |
         gh run download "$RUN" --repo "$REPO" --name dist --dir "$RUNNER_TEMP/dist"
