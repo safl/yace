@@ -914,3 +914,29 @@ def test_the_oserror_holds_the_message_of_the_function_the_meta_names(
         (code, message if named and message else os.strerror(code))
         for code, message in zip([2, 5, 16, 11], messages)
     ]
+
+
+def test_a_length_or_capacity_its_type_cannot_hold_raises_overflowerror(parse, bind):
+    """ctypes and a C cast would truncate 300 to 44 in a uint8_t"""
+
+    from tests.test_rust import doc
+
+    header = (
+        "#include <stdint.h>\n"
+        + doc("Count", "@arrparam vals V")
+        + "int api_count(const int *vals, uint8_t vals_len);\n"
+        + doc("Fill", "@arrparam[out] vals V")
+        + "void api_fill(int *vals, uint8_t vals_len);\n"
+    )
+    model, _ = parse(header)
+    api = bind(
+        model,
+        header + "int api_count(const int *v, uint8_t n) { (void)v; return n; }\n"
+        "void api_fill(int *v, uint8_t n) { while (n--) v[n] = 1; }\n",
+    )
+    assert api["count"](list(range(255))) == 255
+    assert list(api["fill"](255)) == [1] * 255
+    with pytest.raises(OverflowError):
+        api["count"](list(range(300)))
+    with pytest.raises(OverflowError):
+        api["fill"](300)

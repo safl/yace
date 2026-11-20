@@ -71,6 +71,15 @@ def _str_in(value):
     return value.encode() if _builtins.isinstance(value, _builtins.str) else value
 
 
+def _fits(value, ctype):
+    """Return 'value', or raise OverflowError where the C integer type 'ctype'
+    cannot hold it, as ctypes truncates an argument"""
+
+    if ctype(value).value != value:
+        raise OverflowError(f"{value} does not fit in {ctype.__name__}")
+    return value
+
+
 def _str_out(value):
     return None if value is None else value.decode(errors="replace")
 
