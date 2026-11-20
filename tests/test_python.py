@@ -940,3 +940,19 @@ def test_a_length_or_capacity_its_type_cannot_hold_raises_overflowerror(parse, b
         api["count"](list(range(300)))
     with pytest.raises(OverflowError):
         api["fill"](300)
+
+
+def test_an_out_array_of_handles_is_returned_as_its_pointers(parse, bind):
+    from tests.test_idiom import HANDLES
+
+    model, _ = parse(HANDLES)
+    api = bind(
+        model,
+        HANDLES + "static char objs[4];\n"
+        "int api_open(struct api_o **o) { *o = (struct api_o *)objs; return 0; }\n"
+        "void api_close(struct api_o *o) { (void)o; }\n"
+        "void api_fill(struct api_o **os, size_t n)\n"
+        "{ while (n--) os[n] = (struct api_o *)&objs[n]; }\n",
+    )
+    found = api["fill"](4)
+    assert len(found) == 4 and all(found)

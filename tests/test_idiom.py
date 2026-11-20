@@ -189,3 +189,22 @@ def test_a_recparam_call_named_as_the_prefix_keeps_the_prefix(parse):
     assert [d for d in diagnostics if d.rule == "annotation"] == []
     (run,) = Idioms(model).calls
     assert (run.function, run.name) == ("api_sized", "api")
+
+
+HANDLES = (
+    "#include <stddef.h>\n"
+    "/** O */\nstruct api_o;\n"
+    "/**\n * Open\n * @param[out] o O\n * @errno\n */\n"
+    "int api_open(struct api_o **o);\n"
+    "/**\n * Close\n * @destroys o\n */\nvoid api_close(struct api_o *o);\n"
+    "/**\n * Fill\n * @arrparam[out] os Os\n */\n"
+    "void api_fill(struct api_o **os, size_t os_len);\n"
+)
+
+
+def test_an_out_array_of_handles_is_an_array_and_no_constructor(parse):
+    model, _ = parse(HANDLES)
+    found = {c.function: c for c in Idioms(model).calls}
+    fill = found["api_fill"]
+    assert fill.kind == "function"
+    assert [(o.kind, o.capacity) for o in fill.outs] == [("array", "os_len")]
