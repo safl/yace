@@ -12,6 +12,9 @@ import gc
 import importlib.util
 import io
 import json
+import os
+import subprocess
+import sys
 import weakref
 
 import pytest
@@ -35,8 +38,26 @@ from yace.targets.cython import cygen
 
 pytestmark = [needs_cc, needs_cython]
 
-# C names that Cython reserves, and a name that Cython would give both to a
-# struct tag and to a function, which C keeps in separate namespaces
+needs_mypy = pytest.mark.skipif(
+    importlib.util.find_spec("mypy") is None, reason="no mypy"
+)
+
+# Records, enums, defines and functions whose names Python, Cython or the
+# generated module already uses
+NAMED = (
+    "#include <stdint.h>\n"
+    "struct foo_bar { int class; };\nstruct foo__bar { int x; };\n"
+    "struct api_buf { int len; };\ntypedef struct api_buf api_buf;\n"
+    "struct api_rec { int pr, fpr, to_dict; char name[4]; int16_t grid[2][2];"
+    " const char *label; void *nil; struct api_buf at; struct api_buf two[2]; };\n"
+    "enum kind { None = 1, DEF = 2 };\ntypedef enum kind kind_t;\n"
+    '#define API_S "s"\n#define API_N 3\n'
+    "int pass(int lambda);\nint json(int sys);\nint include(int cdef);\n"
+    "int len(const struct api_buf *b, kind_t k);\n"
+)
+
+# C names that Cython reserves, and the name 'tag' for both a struct tag and a
+# function. C keeps the two in separate namespaces; Cython does not.
 RESERVED = (
     "/** S */\nstruct api_s {\n\tint class; ///< C\n\tint include; ///< I\n};\n"
     "/** Tag */\nstruct tag { int a; };\n"
@@ -222,6 +243,8 @@ def test_a_field_named_self_is_given_to_the_constructor_by_its_name(parse, tmp_p
 
     record = compiled(tmp_path)["ApiS"]
     assert (record(self=16).self, record(32).self, record().self) == (16, 32, None)
+    stub = (tmp_path / "cython" / "api.pyi").read_text()
+    assert "def __init__(_self, self: int | None = None) -> None: ..." in stub
 
 
 def test_records_are_views_of_c_memory_and_arrays_are_buffers(parse, tmp_path):
@@ -453,6 +476,9 @@ def test_arrays_of_strings_are_given_and_returned_as_strings(parse, tmp_path):
 
     assert api["join"](["a", b"bc", "é"]) == 5
     assert api["names"](3) == [None, "name", "name"]
+    stub = (tmp_path / "cython" / "api.pyi").read_text()
+    assert "def join(words: Sequence[str | bytes]) -> int:" in stub
+    assert "def names(names_len: int) -> list[str | None]:" in stub
 
 
 def test_a_capacity_whose_size_in_bytes_overflows_raises(parse, tmp_path):
@@ -512,3 +538,99 @@ def test_parameters_named_as_what_a_body_calls_pass_their_values_to_c(parse, tmp
     assert [each.x for each in api["recs"](2, 3, 4)] == [7, 7]
     assert api["raw"](2, 5) == (bytearray(2), 7)
     assert api["sum"]([1, 2], "abc", 10, 20, 30, 40) == 105
+
+
+# Parameters and results that the stub must type as the module converts them:
+# an [out] array of bool, a 'char *' parameter, and a callback returning a string
+TYPED = (
+    "#include <stdbool.h>\n#include <stddef.h>\n"
+    "typedef const char *(*api_name_cb)(void *arg);\n"
+    "/**\n * Flags\n * @arrparam[out] flags F\n */\n"
+    "void api_flags(bool *flags, size_t flags_len);\n"
+    "/**\n * Fill\n */\nint api_fill(char *buf);\n"
+    "/**\n * Name\n * @lifetime cb call\n */\n"
+    "int api_name(api_name_cb cb, void *arg);\n"
+    "/**\n * Buf\n */\nvoid *api_buf(void);\n"
+)
+
+
+def test_the_stub_types_a_pointer_given_as_its_address(parse, tmp_path):
+    from tests.test_rust import library
+
+    model, _ = parse(TYPED)
+    assert process(model, ["cython"], tmp_path, check=False) == []
+    built = library(
+        tmp_path,
+        TYPED + "static char buf[4];\n"
+        "void api_flags(bool *flags, size_t n) { while (n--) flags[n] = n & 1; }\n"
+        "int api_fill(char *p) { return p == buf; }\n"
+        "int api_name(api_name_cb cb, void *arg) { return cb(arg) == buf; }\n"
+        "void *api_buf(void) { return buf; }\n",
+    )
+    api = compiled(tmp_path, built)
+
+    address = api["buf"]()
+    assert api["fill"](address) == 1 and api["name"](lambda: address) == 1
+    assert api["flags"](3).tolist() == [0, 1, 0]
+    stub = (tmp_path / "cython" / "api.pyi").read_text()
+    assert "def fill(buf: int) -> int:" in stub
+    assert "def name(cb: Callable[[], int]) -> int:" in stub
+    assert "def flags(flags_len: int) -> array.array[int]:" in stub
+
+
+# Functions, methods, fields and a handle with the Python names that the stub
+# uses in its annotations and decorators
+SHADOWING = (
+    "#include <stddef.h>\n#include <stdint.h>\nstruct api_buffer;\n"
+    "struct api_r { uint32_t bytes, list, str, property, Any; char name[4];"
+    " const char *label; int vals[3]; struct api_r *next; };\n"
+    "struct api_s { void *self; };\n"
+    "/**\n * Open\n * @param[out] b B\n * @errno\n */\n"
+    "int api_buffer_open(struct api_buffer **b);\n"
+    "/**\n * Close\n * @destroys b\n */\nvoid api_buffer_close(struct api_buffer *b);\n"
+    "/**\n * List\n * @arrparam[out] vals V\n */\n"
+    "void api_buffer_list(struct api_buffer *b, int *vals, size_t vals_len);\n"
+    "/**\n * Bytes\n * @arrparam vals V\n */\n"
+    "void api_buffer_bytes(struct api_buffer *b, const int *vals, size_t vals_len);\n"
+    "/**\n * Int\n */\nint api_buffer_int(struct api_buffer *b, const char *s);\n"
+    "/**\n * List\n * @arrparam[out] recs R\n */\n"
+    "void api_list(struct api_r *recs, size_t recs_len);\n"
+    "/**\n * Array\n * @arrparam[out] vals V\n */\n"
+    "void api_array(int *vals, size_t vals_len);\n"
+    "/**\n * Int\n * @arrparam vals V\n */\n"
+    "int api_int(const int *vals, size_t vals_len);\n"
+    "/**\n * Str\n */\nint api_str(const char *s);\n"
+    "/**\n * Tuple\n * @param[out] a A\n * @param[out] b B\n */\n"
+    "void api_tuple(int *a, int *b);\n"
+    "/**\n * Float\n */\ndouble api_float(double d, _Bool b);\n"
+)
+
+
+@needs_mypy
+@pytest.mark.parametrize(
+    "header",
+    [NAMED, RESERVED, BITS, PACKED, TYPED, SHADOWING],
+    ids=["named", "reserved", "bits", "packed", "typed", "shadowing"],
+)
+def test_the_stub_is_that_of_the_module(parse, tmp_path, header):
+    """stubtest compares the stub with the module, and mypy checks the stub on
+    its own. The module is imported with RTLD_LAZY, because the check built the
+    module without linking the library. The allowlist names the __init__ of the
+    handle of SHADOWING, a slot without a signature."""
+
+    model, _ = parse(header)
+    assert process(model, ["cython"], tmp_path) == []
+    out = tmp_path / "cython"
+    (tmp_path / "allowlist.txt").write_text("api.Buffer.__init__\n")
+    env = {**os.environ, "PYTHONPATH": str(out), "MYPYPATH": str(out)}
+    lazy = (
+        "import os, sys; sys.setdlopenflags(os.RTLD_LAZY);"
+        " from mypy.stubtest import main; sys.exit(main())"
+    )
+    stubtest = [sys.executable, "-c", lazy, "api", "--allowlist", "allowlist.txt"]
+    run = dict(capture_output=True, text=True, env=env, cwd=tmp_path)
+    proc = subprocess.run([*stubtest, "--ignore-unused-allowlist"], **run)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    mypy = [sys.executable, "-m", "mypy", "--strict", "--no-incremental"]
+    proc = subprocess.run([*mypy, str(out / "api.pyi")], **run)
+    assert proc.returncode == 0, proc.stdout + proc.stderr

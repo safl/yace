@@ -197,6 +197,38 @@ def test_the_cython_module_prints_the_expected_documents(model, library, tmp_pat
     assert documents(proc.stdout, fmt) == expected
 
 
+@needs_cc
+@needs_cython
+@pytest.mark.skipif(importlib.util.find_spec("mypy") is None, reason="no mypy")
+def test_the_stub_of_the_cython_module_is_that_of_the_module(model, library, tmp_path):
+    """stubtest compares the stub with the module it imports, and mypy checks
+    the stub on its own. The allowlist names the __init__ of the handle: a slot
+    without a signature, which raises because only the API makes a handle."""
+
+    assert process(model, ["cython"], tmp_path, check=False) == []
+    out = tmp_path / "cython"
+    lib = next(path for path in library.iterdir() if path.stem == "libfoo")
+    log: list = []
+    link = [str(lib), f"-Wl,-rpath,{library}"]
+    assert cython_target.build(out, "foo", log, link=link) == [], log
+    allowlist = tmp_path / "allowlist.txt"
+    allowlist.write_text("foo.Handle.__init__\n")
+
+    env = {**os.environ, "PYTHONPATH": str(out), "MYPYPATH": str(out)}
+    stubtest = [sys.executable, "-m", "mypy.stubtest", "foo"]
+    proc = subprocess.run(
+        [*stubtest, "--allowlist", str(allowlist)],
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=tmp_path,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    mypy = [sys.executable, "-m", "mypy", "--strict", "--no-incremental"]
+    proc = subprocess.run([*mypy, str(out / "foo.pyi")], capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
 # Each target of the benchmark, the tool that builds it, and the names of the
 # results that its program prints
 BENCH = {

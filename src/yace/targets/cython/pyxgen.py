@@ -657,14 +657,21 @@ class Renderer(object):
             found.append(self.pname(arg.param) + ("=None" if default else ""))
         return list(reversed(found))
 
-    def function(self, call: Call, indent: str = "", self_: bool = False) -> str:
-        params = (["self"] if self_ else []) + self.params(call)
+    def public(self, call: Call, self_: bool = False) -> str:
+        """Return the name of the function of 'call', or with 'self_' of the
+        method, as the ctypes module names it"""
+
         name = pygen.ident(call.name)
         own = call.kind == "constructor" and call.name == call.function
         if not self_ and (
             own or name in ("ctypes", "enum", "cython") or name.startswith("_")
         ):
             name += "_"
+        return name
+
+    def function(self, call: Call, indent: str = "", self_: bool = False) -> str:
+        params = (["self"] if self_ else []) + self.params(call)
+        name = self.public(call, self_)
         defined = name if self_ else self.pyname(name)
         lines = [
             f"def {defined}({', '.join(params)}):",

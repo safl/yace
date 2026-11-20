@@ -1,4 +1,4 @@
-# cython: language_level=3, binding=True, auto_pickle=False
+# cython: language_level=3, binding=True, auto_pickle=False, autotestdict=False
 """
 {{ meta.name }}{% if meta.description %}: {{ meta.description | oneline | pysafe }}{% endif %}
 

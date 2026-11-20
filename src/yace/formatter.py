@@ -118,7 +118,7 @@ class Command(Formatter):
 
 GOFMT = toolchain.Toolchain("gofmt of the Go toolchain", "GOFMT", "gofmt")
 
-BLACK = Black("Python formatter, black", (".py",))
+BLACK = Black("Python formatter, black", (".py", ".pyi"))
 CLANG_FORMAT = Command(
     "C formatter, clang-format",
     (".c", ".h", ".cpp", ".hpp"),

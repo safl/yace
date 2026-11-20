@@ -11,11 +11,13 @@ Emits, into ``<output>/cython``:
 
 * ``<prefix>.pyx``, the module, or ``<prefix>_.pyx`` where the prefix names a
   module of Python's standard library, such as ``zlib``
-* ``<prefix>.pxd``, the C API for Cython, of the same name, so the module has
-  the declarations of the C API, and Cython code cimporting it calls C
-* ``lib<prefix>.h``, the C API, as the C target emits it, which the ``.pxd``
-  declares
-* ``<prefix>_check.py``, the check program, printing a record of each type
+* ``<prefix>.pyi``, the stub of the module: the types of what it defines
+* ``<prefix>.pxd``, the C API for Cython. The module uses the declarations of
+  the ``.pxd``, and other Cython code cimports the ``.pxd`` to call C
+* ``lib<prefix>.h``, the C header that the ``.pxd`` declares, as the C target
+  emits it
+* ``<prefix>_check.py``, the check program, which prints a zeroed record of
+  each type
 * ``<prefix>_check.pyx``, the check of the ``.pxd``
 
 The check translates the module with Cython, compiles the module for the
@@ -49,7 +51,7 @@ from yace.targets.python import pygen
 from yace.targets.python.target import define_value, module_name, oneline, pysafe
 from yace.targets.target import Target
 
-from . import cygen, pyxgen
+from . import cygen, pyigen, pyxgen
 
 # Warnings made errors when compiling the C that Cython generates, so that a
 # declaration that disagrees with the header, or a wrong cast, fails the check
@@ -69,6 +71,12 @@ LIMITED_API = ["-DPy_LIMITED_API=0x030C0000", "-DCYTHON_LIMITED_API=1"]
 
 # The file suffix of an extension module built for the limited API
 SUFFIX = ".abi3.so"
+
+
+def define_type(value) -> str:
+    """The Python type of the value of a define"""
+
+    return "str" if isinstance(value, decls.StrLiteral) else "int"
 
 
 @functools.lru_cache(maxsize=None)
@@ -145,6 +153,7 @@ class Cython(Target):
             keep_trailing_newline=True,
         )
         env.filters.update(
+            define_type=define_type,
             define_value=define_value,
             docstring=pygen.docstring,
             ident=pygen.ident,
@@ -165,6 +174,8 @@ class Cython(Target):
         rendered = renderer.render()
         entities = model.entities
         functions = [e for e in entities if isinstance(e, decls.Function)]
+        defines = [e for e in entities if isinstance(e, decls.Define)]
+        enums = [e for e in entities if isinstance(e, decls.Enum)]
 
         # Where the .pxd declares the name that the ctypes module gives a class,
         # the class is defined under another name and also bound to that name
@@ -187,14 +198,21 @@ class Cython(Target):
             if cls and namer(typedef.name) != cls:
                 aliases.append((namer(typedef.name), cls))
 
+        # The names the module defines besides the rendered functions and classes
+        names = [pygen.ident(e.name) for e in defines] + [name for name, _ in aliases]
+        for enum in enums:
+            names.append(namer(enum.name))
+            names += [pygen.ident(member.name) for member in enum.members]
+        stub = pyigen.Stub(renderer, names).render()
+
         return {
             "meta": model.meta,
             "module": module_name(model),
             "PREFIX": prefix.upper(),
             "Prefix": pygen.camel(prefix),
             "namer": namer,
-            "defines": [e for e in entities if isinstance(e, decls.Define)],
-            "enums": [e for e in entities if isinstance(e, decls.Enum)],
+            "defines": defines,
+            "enums": enums,
             "aliases": aliases,
             "variadic": [f for f in functions if f.variadic],
             "value_key": VALUE_KEY,
@@ -203,6 +221,7 @@ class Cython(Target):
             "check": cygen.Check(pxd).render(),
             "printable": list(renderer.records.values()),
             "class_of": renderer.class_of,
+            "stub": stub,
             **rendered,
         }
 
@@ -214,6 +233,7 @@ class Cython(Target):
         paths = []
         for filename, template in [
             (f"{prefix}.pyx", "module.pyx.template"),
+            (f"{prefix}.pyi", "module.pyi.template"),
             (f"{prefix}.pxd", "module.pxd.template"),
             (f"{prefix}_check.py", "check.py.template"),
             (f"{prefix}_check.pyx", "check.pyx.template"),
