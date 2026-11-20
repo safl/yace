@@ -59,8 +59,8 @@ TARGETS = {
         "toolchains": {"python": "--version"},
     },
     "cython": {
-        "emit": ["python"],
-        "results": ["cython"],
+        "emit": ["cython"],
+        "results": ["cython-raw", "cython-idiomatic"],
         "toolchains": {
             "python": "--version",
             "cython": "-c 'import Cython; print(\"Cython\", Cython.__version__)'",
@@ -239,7 +239,7 @@ def build_commands(cijoe, target: str) -> list:
         return [
             (f"cp {p['programs']}/cython/* .", out),
             (
-                f"FOO_BINDINGS={p['gen']}/python FOO_LIBRARY={p['lib']}"
+                f"FOO_BINDINGS={p['gen']}/cython FOO_LIBRARY={p['lib']}"
                 f" FOO_CFLAGS={OPT} {python} setup.py build_ext --inplace",
                 out,
             ),

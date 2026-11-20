@@ -54,7 +54,7 @@ cdef run(c.foo_handle *handle, str way, size_t rounds, size_t repeat):
         elapsed = time.perf_counter_ns() - start
         best = elapsed if best is None else min(best, elapsed)
     ns = best / (rounds * c.foo_point_count(handle))
-    print(json.dumps({"target": "cython", "way": way, "ns": round(ns, 3), "sum": total}))
+    print(json.dumps({"target": "cython-raw", "way": way, "ns": round(ns, 3), "sum": total}))
 
 
 def main(size_t rounds, size_t repeat):

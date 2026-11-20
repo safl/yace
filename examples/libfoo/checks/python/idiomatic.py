@@ -5,6 +5,7 @@ the negative errno the C function returned, so the documents printed are those
 of 'expected.yaml', as for the raw layer.
 """
 
+import ctypes
 import sys
 
 import foo
@@ -71,8 +72,20 @@ def main():
         calls["visit_stopped"] = handle.point_visit(lambda point: point.x == 3)
         calls["visit_without_callback"] = errno_of(handle.point_visit, None)
         with_visitor = []
-        callback = foo.FooVisitCb(lambda arg, p: with_visitor.append(p.contents.x) or 0)
-        calls["visit_with"] = handle.point_visit_with(foo.FooVisitor(visit=callback))
+        if hasattr(foo, "FooVisitCb"):
+            callback = foo.FooVisitCb(
+                lambda arg, p: with_visitor.append(p.contents.x) or 0
+            )
+            visitor = foo.FooVisitor(visit=callback)
+        else:
+            # The Cython module takes a function pointer as its address
+            cbtype = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p)
+            callback = cbtype(
+                lambda arg, p: with_visitor.append(ctypes.c_int.from_address(p).value)
+                or 0
+            )
+            visitor = foo.FooVisitor(visit=ctypes.cast(callback, ctypes.c_void_p).value)
+        calls["visit_with"] = handle.point_visit_with(visitor)
         calls["visit_with_sum_x"] = sum(with_visitor)
         calls["figure_of_unknown_shape"] = errno_of(foo.figure_fill, 3)
         calls["add_many"] = handle.point_add_many(points)

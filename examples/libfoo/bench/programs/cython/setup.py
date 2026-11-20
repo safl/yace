@@ -3,11 +3,13 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-Builds fast, the Cython benchmark, against the Python bindings of libfoo in
-FOO_BINDINGS, where foo.pxd and libfoo.h are, linked to the library at
-FOO_LIBRARY, compiled with the flags of FOO_CFLAGS, after those of the Python:
+Builds the Cython benchmark against the Cython bindings of libfoo in
+FOO_BINDINGS, where foo.pyx, foo.pxd and libfoo.h are, linked to the library
+at FOO_LIBRARY, compiled with the flags of FOO_CFLAGS, after those of the
+Python: fast, calling C through foo.pxd, and foo, the module of the bindings,
+for the limited API of Python 3.12
 
-  FOO_BINDINGS=output/python FOO_LIBRARY=/path/to/libfoo.so FOO_CFLAGS=-O3 \
+  FOO_BINDINGS=output/cython FOO_LIBRARY=/path/to/libfoo.so FOO_CFLAGS=-O3 \
     python setup.py build_ext --inplace
 """
 
@@ -18,12 +20,20 @@ from setuptools import Extension, setup
 
 bindings = os.path.abspath(os.environ["FOO_BINDINGS"])
 library = os.path.abspath(os.environ["FOO_LIBRARY"])
-
-extension = Extension(
-    "fast",
-    ["fast.pyx"],
+common = dict(
     include_dirs=[bindings],
     extra_compile_args=os.environ.get("FOO_CFLAGS", "-O3").split(),
     extra_link_args=[library, f"-Wl,-rpath,{os.path.dirname(library)}"],
 )
-setup(ext_modules=cythonize([extension], include_path=[bindings]))
+
+extensions = [
+    Extension("fast", ["fast.pyx"], **common),
+    Extension(
+        "foo",
+        [os.path.join(bindings, "foo.pyx")],
+        define_macros=[("Py_LIMITED_API", "0x030C0000"), ("CYTHON_LIMITED_API", "1")],
+        py_limited_api=True,
+        **common,
+    ),
+]
+setup(ext_modules=cythonize(extensions, include_path=[bindings]))

@@ -27,6 +27,7 @@ from yace.compiler import process
 from yace.ir.cparser import CParser
 from yace.targets.capi.target import CFLAGS
 from yace.targets.cpp.target import CPP, cxxflags
+from yace.targets.cython import target as cython_target
 from yace.targets.go.target import GO_VERSION
 from yace.targets.rust import target as rust_target
 
@@ -134,10 +135,10 @@ def test_the_python_checks_print_the_expected_documents(
 @needs_cython
 @pytest.mark.parametrize("fmt", ["yaml", "json"])
 def test_the_cython_check_prints_the_expected_documents(model, library, tmp_path, fmt):
-    assert process(model, ["python"], tmp_path) == []
+    assert process(model, ["cython"], tmp_path, check=False) == []
 
     lib = next(path for path in library.iterdir() if path.stem == "libfoo")
-    python = tmp_path / "python"
+    python = tmp_path / "cython"
     project = tmp_path / "check"
     project.mkdir()
     (project / "check.pyx").write_text(
@@ -171,6 +172,31 @@ def test_the_cython_check_prints_the_expected_documents(model, library, tmp_path
     assert documents(proc.stdout, fmt) == expected
 
 
+@needs_cc
+@needs_cython
+@pytest.mark.parametrize("fmt", ["yaml", "json"])
+def test_the_cython_module_prints_the_expected_documents(model, library, tmp_path, fmt):
+    """Run the idiomatic check program of the Python target against the Cython
+    module"""
+
+    assert process(model, ["cython"], tmp_path, check=False) == []
+
+    lib = next(path for path in library.iterdir() if path.stem == "libfoo")
+    log: list = []
+    link = [str(lib), f"-Wl,-rpath,{library}"]
+    assert cython_target.build(tmp_path / "cython", "foo", log, link=link) == [], log
+    proc = subprocess.run(
+        [sys.executable, FIXTURE / "checks" / "python" / "idiomatic.py", fmt],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONPATH": str(tmp_path / "cython")},
+    )
+    assert proc.returncode == 0, proc.stderr
+    expected = list(yaml.safe_load_all((FIXTURE / "expected.yaml").read_text()))
+
+    assert documents(proc.stdout, fmt) == expected
+
+
 # Each target of the benchmark, the tool that builds it, and the names of the
 # results that its program prints
 BENCH = {
@@ -180,7 +206,7 @@ BENCH = {
     "zig": ("zig", ["zig"]),
     "go": ("go", ["go"]),
     "python": (sys.executable, ["python-raw", "python-idiomatic"]),
-    "cython": ("cython", ["cython"]),
+    "cython": ("cython", ["cython-raw", "cython-idiomatic"]),
 }
 
 

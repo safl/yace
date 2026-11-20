@@ -9,6 +9,7 @@ header does, so Cython code cimports it and calls C directly; the check, a
 ``.pyx`` cimporting every name, checks each declaration against the header.
 """
 
+import builtins
 import keyword
 from typing import Dict, List
 
@@ -110,14 +111,20 @@ class Names(object):
         self.tags = {name: self.unique(name) for name in [*self.enums, *self.records]}
 
     def unique(self, name: str, own: bool = False) -> str:
-        """'name', or with '_' until it is neither reserved nor taken by another;
-        an 'own' name is taken by itself"""
+        """Return 'name', with '_' appended until the name is not reserved, not
+        a builtin and not taken. With 'own', 'name' is already among the taken
+        names as itself and is kept. A builtin is avoided because the names of
+        the .pxd are names of the module paired with the .pxd: a .pxd name
+        'len' would hide the builtin len() from the code of the module."""
 
-        if not reserved(name) and (own or name not in self.taken):
+        def usable(name: str) -> bool:
+            return not (reserved(name) or hasattr(builtins, name))
+
+        if usable(name) and (own or name not in self.taken):
             self.taken.add(name)
             return name
         found = f"{name}_"
-        while reserved(found) or found in self.taken:
+        while not usable(found) or found in self.taken:
             found += "_"
         self.taken.add(found)
         return found
