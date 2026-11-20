@@ -107,9 +107,14 @@ Errors
 Results
   What a function writes through an ``[out]`` pointer is returned rather than
   passed: ``foo.figure_fill(shape)`` returns the figure. An ``[out]`` array is
-  returned as a list of as many elements as the function says it wrote; one of
-  pointers to records as the records, which C is given back as the same
-  records.
+  returned as a list of as many elements as the function says it wrote. A
+  function returning a pointer to a record that the caller may write returns
+  that record, which C is given back as the same record. A function returning
+  a pointer to a ``const`` record returns a copy of the record. Where the
+  ``const`` record ends in a flexible array, a copy would not hold the
+  elements, and the function returns the record of the library. An ``[out]``
+  array of pointers to records is returned as a list of the records, by the
+  same rule.
 
 Arguments
   A string with a length is a ``str``, and the length is that of its UTF-8
