@@ -16,7 +16,7 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
-## Unreleased
+## 0.13.1
 
 A string with a length, a `const char *` documented with `@arrparam`, is a
 `&str` in the Rust layer and a `[]const u8` in the Zig layer, which pass the
