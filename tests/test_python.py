@@ -92,6 +92,7 @@ def bind(request, tmp_path, monkeypatch):
         return compiled(tmp_path, built)
 
     bind.target = target
+    bind.out = tmp_path / target
     return bind
 
 
@@ -956,3 +957,58 @@ def test_an_out_array_of_handles_is_returned_as_its_pointers(parse, bind):
     )
     found = api["fill"](4)
     assert len(found) == 4 and all(found)
+
+
+REAPED = (
+    "#include <stddef.h>\n#include <stdint.h>\n"
+    "/** C */\nstruct api_c { uint32_t id; int status; };\n"
+    "/**\n * Reap\n * @arrparam[out] cs Cs @nwritten_at{n}\n * @param[out] n N\n */\n"
+    "void api_reap(struct api_c **cs, uint32_t cs_len, uint32_t *n);\n"
+    "/**\n * Submit\n */\nint api_submit(struct api_c *c);\n"
+)
+
+
+def test_an_out_array_of_record_pointers_is_returned_as_views(parse, bind):
+    """The records are the library's, so a view of one is given back to C as
+    the same record, as a command context is resubmitted"""
+
+    model, _ = parse(REAPED)
+    api = bind(
+        model,
+        REAPED + "static struct api_c cs[3] = {{1, 0}, {2, 0}, {3, 0}};\n"
+        "void api_reap(struct api_c **out, uint32_t cap, uint32_t *n)\n"
+        "{ *n = 0; while (*n < cap && *n < 2) { out[*n] = &cs[*n]; (*n)++; } }\n"
+        "int api_submit(struct api_c *c) { return (int)(c - cs); }\n",
+    )
+    found = api["reap"](4)
+    assert [c.id for c in found] == [1, 2]
+    found[1].status = 7
+    assert [api["submit"](c) for c in found] == [0, 1]
+    assert api["reap"](4)[1].status == 7
+    if bind.target == "cython":
+        stub = (bind.out / "api.pyi").read_text()
+        assert "def reap(cs_len: int) -> list[ApiC | None]:" in stub
+
+
+def test_an_out_array_of_pointers_to_const_records_is_returned_as_copies(parse, bind):
+    """The caller may not write a const record, so writing what is returned
+    does not write the record of the library"""
+
+    header = (
+        "#include <stdint.h>\n"
+        "/** C */\nstruct api_c { uint32_t id; int status; };\n"
+        "/**\n * List\n * @arrparam[out] cs Cs\n */\n"
+        "void api_list(const struct api_c **cs, uint32_t cs_len);\n"
+    )
+    model, _ = parse(header)
+    api = bind(
+        model,
+        header + "static const struct api_c cs[2] = {{1, 0}, {2, 0}};\n"
+        "void api_list(const struct api_c **out, uint32_t cap)\n"
+        "{ for (uint32_t i = 0; i < cap; i++) out[i] = i < 2 ? &cs[i] : 0; }\n",
+    )
+    found = api["list"](3)
+    assert [c and c.id for c in found] == [1, 2, None]
+    found[0].status = 7
+    assert api["list"](1)[0].status == 0
+

@@ -565,7 +565,7 @@ class Renderer(object):
                 cdefs.append(f"cdef bytearray {name}")
                 pre.append(f"{name} = bytearray({cap})")
                 return f"<void *><char *>{name}"
-            if self.record_class(elem) or types.is_string(self.resolve(elem)):
+            if self.converted(elem):
                 cdefs.append(f"cdef {self.decl(self.mutable(elem), '*' + name)} = NULL")
                 size = f"sizeof({self.decl(self.mutable(elem))})"
                 pre += [
@@ -596,6 +596,27 @@ class Renderer(object):
         cdefs.append(f"memset(&{name}, 0, sizeof({name}))")
         return f"&{name}"
 
+    def converted(self, elem) -> bool:
+        """Whether an [out] array of 'elem' is returned as a list of Python
+        values, converted element by element: records, strings, and pointers
+        to records, which are views of the records"""
+
+        if self.record_class(elem) or types.is_string(self.resolve(elem)):
+            return True
+        typ = self.resolve(elem)
+        return isinstance(typ, types.Pointer) and bool(self.record_class(typ.to))
+
+    def copied_view(self, elem) -> bool:
+        """Whether an [out] array of 'elem', pointers to records, is returned
+        as copies of the records: of const records, where a copy holds all of
+        the record"""
+
+        typ = self.resolve(elem)
+        if not isinstance(typ, types.Pointer):
+            return False
+        to = self.resolve(typ.to)
+        return (typ.to.const or to.const) and copyable(self.model, to)
+
     def results(self, call: Call, lines: List[str]) -> List[str]:
         results = []
         counted: Optional[str] = "ret" if call.returns == "count" else None
@@ -610,14 +631,12 @@ class Renderer(object):
                     counted = None  # 'ret' counts this array and is not returned too
                 written = f"_bound({count}, {cap})"
                 elem = out.typ
-                if is_void_ptr(types.Pointer(to=elem)) or not (
-                    self.record_class(elem) or types.is_string(self.resolve(elem))
-                ):
+                if is_void_ptr(types.Pointer(to=elem)) or not self.converted(elem):
                     lines.append(f"del {name}[{written}:]")
                     results.append(name)
                     continue
                 # Converted in the try, before the array is freed
-                value = self.to_py(elem, f"{name}[i]", copy=True)
+                value = self.to_py(elem, f"{name}[i]", copy=self.copied_view(elem))
                 if self.record_class(elem):
                     value = f"{self.record_class(elem)}._copy({name}[i])"
                 made = self.local(call, out.param, "items")
