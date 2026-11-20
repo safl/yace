@@ -67,9 +67,10 @@ the repository itself.
 The macOS jobs of CI cannot run containers. They use the toolchains of the
 runner, with Python, Zig and Go installed by their actions.
 
-The tests build Cython code against the .pxd of the Python target with Cython,
-which ``make install`` adds to the environment of **yace**, with setuptools, at
-the version the ``Makefile`` pins, so the Linux and macOS jobs alike have it.
+The tests build the module and the ``.pxd`` of the Cython target with Cython,
+and check the stub with mypy. ``make install`` installs Cython, setuptools and
+mypy into the environment of **yace** at the versions the ``Makefile`` pins, so
+the Linux and macOS jobs both have them.
 
 TOC
 ===

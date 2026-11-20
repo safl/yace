@@ -49,7 +49,7 @@ target, by clang-format in the style of xNVMe, ``src/yace/xnvme.clang-format``.
 black, clang-format and taplo are dependencies of **yace**, pinned to one
 version each; gofmt, rustfmt and ``zig fmt`` come with the toolchain of their
 language, named by ``GOFMT``, ``RUSTFMT``, ``GO`` and ``ZIG`` where set.
-Cython has no formatter, so the ``.pyx`` and ``.pxd`` files of the Python
+Cython has no formatter, so the ``.pyx`` and ``.pxd`` files of the Cython
 target keep the layout **yace** writes. The Rust target also writes the
 ``rustfmt.toml`` it is formatted with. The same headers then give the same
 bytes for the same versions of **yace** and of those toolchains. A target whose formatter is missing is not

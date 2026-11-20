@@ -62,10 +62,11 @@ them:
   ``FooVisitCb``, and its idiomatic layer, ``handle.point_get()`` and a
   function, through ctypes.
 
-``cython``
-  Cython through the ``.pxd`` of the Python target, ``foo_point_get()`` and a
-  callback of Cython, in loops without the GIL, built with ``-O2``; see
-  :ref:`sec-targets-python-cython`.
+``cython-raw``, ``cython-idiomatic``
+  A loop in Cython calling ``foo_point_get()`` and a Cython callback through
+  the ``.pxd`` of the Cython target, without the GIL; and the loops of
+  ``python-idiomatic`` against the module of the Cython target, compiled for
+  the limited API; see :ref:`sec-targets-cython`.
 
 Running it
 ----------
@@ -138,5 +139,7 @@ callback, which crosses back into Go, about thirty times.
 
 ctypes, whose every call goes through the interpreter, costs two orders of
 magnitude more than C, and its idiomatic layer about two thirds again as much
-as its raw one. The ``.pxd`` of the Python target avoids that cost, see
-:ref:`sec-targets-python-cython`.
+as its raw one. Cython code calling C through the ``.pxd`` of the Cython
+target has the cost of C, and the compiled module of the Cython target costs
+about 84 ns a call where the idiomatic layer of ctypes costs 580 ns, see
+:ref:`sec-targets-cython`.
