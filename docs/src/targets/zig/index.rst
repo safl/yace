@@ -101,17 +101,19 @@ Results
   record a copy of it, optional where ``@nullable``.
 
 Arguments
-  A string is a ``[*:0]const u8``, optional where ``@nullable``. An array read
-  through a pointer is a slice; slices sharing one length must be as long, or
-  the call panics; a ``@nullable`` one is optional, ``null`` passing NULL. A
-  ``void *`` ``@arrparam`` is a slice of ``u8``. The size of a ``@recparam``
-  record is not given; the layer passes ``@sizeOf`` of the record's type. A
-  pointer to a record or value is a pointer to one, optional where
-  ``@nullable``. A callback is a context pointer and a comptime function taking
-  it, called through a generated trampoline with the ``void *``; the caller
-  keeps the context as long as the callback's ``@lifetime`` says (see
-  :ref:`sec-ir-lifetimes`), which its documentation repeats. One that is
-  ``@nullable`` is not optional here, the raw function passing NULL.
+  A string is a ``[*:0]const u8``, optional where ``@nullable``; a string with a
+  length, which C reads as bytes rather than to a NUL, is a ``[]const u8``, and
+  the length is that of the slice. An array read through a pointer is a slice;
+  slices sharing one length must be as long, or the call panics; a ``@nullable``
+  one is optional, ``null`` passing NULL. A ``void *`` ``@arrparam`` is a slice
+  of ``u8``. The size of a ``@recparam`` record is not given; the layer passes
+  ``@sizeOf`` of the record's type. A pointer to a record or value is a pointer
+  to one, optional where ``@nullable``. A callback is a context pointer and a
+  comptime function taking it, called through a generated trampoline with the
+  ``void *``; the caller keeps the context as long as the callback's
+  ``@lifetime`` says (see :ref:`sec-ir-lifetimes`), which its documentation
+  repeats. One that is ``@nullable`` is not optional here, the raw function
+  passing NULL.
 
 A function named as a declaration of the module, such as ``std``, as a
 parameter of its own functions, such as ``flags``, or as a primitive type, such

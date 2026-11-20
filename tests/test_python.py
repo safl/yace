@@ -323,6 +323,22 @@ def test_an_out_pointer_is_returned_and_a_nullable_sequence_may_be_omitted(
 
 
 @needs_cc
+def test_a_string_with_a_length_passes_the_length_of_its_bytes(
+    parse, tmp_path, monkeypatch
+):
+    from tests.test_rust import COUNTED, COUNTED_C, library
+
+    model, _ = parse(COUNTED)
+    assert process(model, ["python"], tmp_path) == []
+    monkeypatch.setenv("API_LIBRARY", str(library(tmp_path, COUNTED + COUNTED_C)))
+
+    api = module(tmp_path)
+    assert api["put"]("é") == 2
+    assert api["pair"]("ab", [1, 2]) == ord("b") + 2
+    assert list(api["read"](3)) == [0, 1, 2]
+
+
+@needs_cc
 def test_shared_counts_raise_on_unequal_lengths_and_handles_pass_as_arguments(
     parse, tmp_path, monkeypatch
 ):

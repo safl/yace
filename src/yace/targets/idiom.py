@@ -145,6 +145,14 @@ class Call(BaseModel):
         assert isinstance(typ, types.Pointer)
         return typ.to.model_copy(update={"const": False})
 
+    def counted(self, arg: Arg) -> bool:
+        """Whether 'arg' is a string with a length, which C reads as bytes, not
+        to a NUL; the binding takes a string that has a length of its own"""
+
+        return arg.kind == "string" and any(
+            a.kind == "length" and arg.param in [a.of, *a.shared] for a in self.args
+        )
+
     def out(self, param: str) -> "Out":
         """What the function writes through the [out] parameter 'param'"""
 

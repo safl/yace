@@ -16,6 +16,16 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## Unreleased
+
+A string with a length, a `const char *` documented with `@arrparam`, is a
+`&str` in the Rust layer and a `[]const u8` in the Zig layer, which pass the
+length of their bytes; both layers took a NUL-terminated string, which has no
+length, and did not compile. The Python layer passes the length of the UTF-8
+bytes of the `str`, not the number of its characters. The Rust layer passes an
+`[out]` array of `uint8_t` as a `*mut u8`; it cast it to `*mut c_void`, which
+did not compile.
+
 ## 0.13.0
 
 The C++ target generates its layer for C++17 as well as for C++20, chosen

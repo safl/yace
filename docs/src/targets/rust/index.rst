@@ -132,9 +132,11 @@ Results
   it, an ``Option`` where ``@nullable``.
 
 Arguments
-  An array read through a pointer is a slice; slices sharing one length must be
-  as long, or the call panics; a ``@nullable`` one is an ``Option``, ``None``
-  passing NULL. A ``void *`` ``@arrparam`` is a slice of ``u8``. The size of a
+  A string is a ``&CStr``; a string with a length, which C reads as bytes rather
+  than to a NUL, is a ``&str``, and the length is that of its bytes. An array
+  read through a pointer is a slice; slices sharing one length must be as long,
+  or the call panics; a ``@nullable`` one is an ``Option``, ``None`` passing
+  NULL. A ``void *`` ``@arrparam`` is a slice of ``u8``. The size of a
   ``@recparam`` record is not given; the layer passes ``size_of`` of the
   record's type. A handle given is a reference to its type. A callback is a
   ``&mut dyn FnMut`` closure, called through a generated trampoline with the
