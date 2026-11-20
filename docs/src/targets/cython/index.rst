@@ -109,20 +109,44 @@ Names
   ``foo_list()``, the stub imports that name as ``_list``.
 
 The module is built as a Cython extension, linked against the library. With
-setuptools:
+meson-python, the ``pyproject.toml`` of the package names the build backend:
 
-.. code-block:: python
+.. code-block:: toml
 
-   from Cython.Build import cythonize
-   from setuptools import Extension, setup
+   [build-system]
+   build-backend = "mesonpy"
+   requires = ["meson-python", "Cython"]
 
-   extension = Extension(
-       "foo",
-       ["output/cython/foo.pyx"],
-       include_dirs=["output/cython"],
-       libraries=["foo"],
+   [project]
+   name = "foo"
+   version = "1.0.0"
+
+The ``meson.build`` beside it builds the module, finds the library through its
+pkg-config file, and installs the stub, the ``.pxd`` and the header beside the
+module, so type checkers find the types and Cython code can cimport the C API:
+
+.. code-block:: meson
+
+   project('foo', 'c', 'cython')
+
+   py = import('python').find_installation(pure: false)
+   foo = dependency('foo')
+
+   py.extension_module(
+     'foo',
+     'output/cython/foo.pyx',
+     dependencies: foo,
+     include_directories: 'output/cython',
+     install: true,
    )
-   setup(ext_modules=cythonize([extension], include_path=["output/cython"]))
+   py.install_sources(
+     'output/cython/foo.pyi',
+     'output/cython/foo.pxd',
+     'output/cython/libfoo.h',
+   )
+
+``pip install .`` builds and installs the package, and ``python -m build``
+makes its sdist and wheel.
 
 The module is not built for the limited API of Python, which would let one
 build run on every CPython from 3.12. Under the limited API of 3.12, every
@@ -130,10 +154,6 @@ change of a reference count and every conversion of an integer is a function
 call into Python. Built for it, ``cython-idiomatic`` in the table under
 :ref:`sec-targets-cython-performance` takes 84.0 ns per point for calls and
 111.8 ns with a callback.
-
-A package that ships the module should also ship ``<prefix>.pyi``,
-``<prefix>.pxd`` and ``lib<prefix>.h`` as package data, so type checkers find
-the types and Cython code can cimport the C API.
 
 .. _sec-targets-cython-pxd:
 
@@ -169,16 +189,22 @@ Cython has none, and a comment says so.
 
 An extension that uses the ``.pxd`` is built with ``<output>/cython`` on the
 include path of both Cython and the C compiler, and linked against the
-library:
+library. meson does not pass ``include_directories`` to Cython, so the
+``meson.build`` gives Cython the path too:
 
-.. code-block:: python
+.. code-block:: meson
 
-   extension = Extension(
-       "loop", ["loop.pyx"], include_dirs=["output/cython"], libraries=["foo"]
+   py.extension_module(
+     'loop',
+     'loop.pyx',
+     dependencies: foo,
+     include_directories: 'output/cython',
+     cython_args: ['-I', meson.current_source_dir() / 'output/cython'],
+     install: true,
    )
-   setup(ext_modules=cythonize([extension], include_path=["output/cython"]))
 
-``examples/libfoo/checks/cython/check.pyx`` calls libfoo this way.
+``examples/libfoo/checks/cython`` builds ``check.pyx``, which calls libfoo
+this way.
 
 .. _sec-targets-cython-performance:
 

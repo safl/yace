@@ -57,8 +57,10 @@ dev = [
     "coverage",
     "cython>=3.0",
     "kmdo",
+    "meson",
+    "meson-python",
+    "ninja",
     "pudb",
-    "setuptools",
     "sphinx",
     "wheel",
 ]

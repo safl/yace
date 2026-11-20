@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
+option('bindings', type: 'string', description: 'where foo.pxd and libfoo.h are')
+option('library', type: 'string', description: 'the path of libfoo')

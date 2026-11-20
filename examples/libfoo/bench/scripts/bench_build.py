@@ -11,9 +11,9 @@ target in 'bench.targets', against the bindings and the library that
 bench_prepare made, each at the optimisation level of benchlib.OPT for the
 baseline CPU: C, C++ and Cython with -O3, Rust in release at opt-level 3, Zig
 ReleaseFast with '-mcpu baseline', and Go as 'go build' does; Python needs no
-building. Fails at the first that does not build. setuptools adds the compiler
-flags of the Python to Cython's, and prints the command it compiles with, which
-the run records.
+building. Fails at the first that does not build. pip builds the Cython
+program with meson-python, which prints the commands it compiles with, and the
+run records them.
 
 Config Arguments
 ----------------
