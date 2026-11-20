@@ -26,6 +26,13 @@ bytes of the `str`, not the number of its characters. The Rust layer passes an
 `[out]` array of `uint8_t` as a `*mut u8`; it cast it to `*mut c_void`, which
 did not compile.
 
+An `[out]` or `[in,out]` pointer to const is reported by the rule
+`annotation`. Of a function taking two `@recparam` records, a record whose
+check fails leaves the other without its size as well, as the static inline
+function takes none; a `void *` context documented with `@arrparam` keeps
+neither its length nor its count written; and a function named `_sized` alone
+is reported as such.
+
 ## 0.13.0
 
 The C++ target generates its layer for C++17 as well as for C++20, chosen

@@ -286,8 +286,10 @@ class Semantics(object):
         what that function passes is not checked"""
 
         wrapper = func.name[: -len(SIZED)]
-        if not func.name.endswith(SIZED) or not wrapper:
+        if not func.name.endswith(SIZED):
             annotation(f"@recparam, but the name does not end in '{SIZED}'")
+        elif not wrapper:
+            annotation(f"@recparam, but the name has nothing before '{SIZED}'")
         elif wrapper not in self.inlines:
             annotation(
                 f"@recparam, but the headers have no static inline '{wrapper}'"
@@ -477,6 +479,12 @@ class Semantics(object):
                 annotation(f"'{name}' is [{direction}] but is not a pointer")
                 continue
             to = param.typ.to if isinstance(param.typ, types.Pointer) else None
+            if direction != "in" and getattr(to, "const", False):
+                annotation(
+                    f"'{name}' is [{direction}] but points to const, which the"
+                    " function cannot write"
+                )
+                continue
             if direction != "in" and isinstance(to, types.Record) and self.opaque(to):
                 annotation(
                     f"'{name}' is [{direction}] but points to an opaque record;"
@@ -543,7 +551,10 @@ class Semantics(object):
         sized: set = set()  # the sizes, of any record
         for name in func.doc.records:
             self.recparam(func, name, annotation, sized)
-        if func.doc.records and not self.sized(func, annotation):
+        # Of the pattern only as a whole: the static inline function C callers
+        # call takes no size, so the bindings pass every size or none
+        whole = all(params.get(n) and params[n].size for n in func.doc.records)
+        if func.doc.records and not (self.sized(func, annotation) and whole):
             for param in func.params:
                 param.size = None
 
@@ -634,7 +645,7 @@ class Semantics(object):
                         f"'{after.name}' is the context of '{param.name}', which"
                         " the binding passes; a context is no @arrparam"
                     )
-                    after.length = None
+                    after.length = after.count = None
 
     def lifecycle(self, cursors: Dict[str, object]):
         """Report the records created through an [out] pointer, never destroyed"""

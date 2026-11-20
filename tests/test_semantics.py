@@ -417,6 +417,17 @@ WRONG_RECPARAM = [
         "int f_sized(const struct r *r, size_t r_nbytes);",
         "@recparam names 'r', which is not [in]",
     ),
+    (
+        "@recparam a A\n * @recparam b B",
+        "int f_sized(const struct r *a, size_t a_nbytes, const struct r *b,"
+        " uint32_t b_nbytes);",
+        "the size 'b_nbytes' of 'b' is not a size_t",
+    ),
+    (
+        "@recparam r R",
+        "int _sized(const struct r *r, size_t r_nbytes);",
+        "@recparam, but the name has nothing before '_sized'",
+    ),
 ]
 
 
@@ -442,7 +453,7 @@ def test_a_recparam_not_of_the_record_arguments_shape_is_reported(parse):
         assert [p.name for p in func.params if p.size] == []
 
 
-def test_two_records_of_one_size_are_reported_and_the_first_keeps_it(parse):
+def test_two_records_of_one_size_are_reported_and_no_size_is_kept(parse):
     model, diagnostics = parse(
         "#include <stddef.h>\n"
         "/**\n * R\n */\nstruct r {\n\tint x; ///< X\n};\n"
@@ -453,11 +464,7 @@ def test_two_records_of_one_size_are_reported_and_the_first_keeps_it(parse):
     )
     found = [d.message for d in diagnostics if d.rule == "annotation"]
     assert found == ["'f_sized': the size 'n' is the size of two records"]
-    assert {p.name: p.size for p in functions(model)["f_sized"].params} == {
-        "a": "n",
-        "b": None,
-        "n": None,
-    }
+    assert [p.size for p in functions(model)["f_sized"].params] == [None] * 3
 
 
 WRONG_ARRPARAM = [
@@ -522,6 +529,16 @@ WRONG_ARRPARAM = [
         "@len_at{n} is not in the text of an @arrparam or @recparam",
     ),
     (
+        "@arrparam[out] v V",
+        "void f(const int *v, size_t v_len);",
+        "'v' is [out] but points to const, which the function cannot write",
+    ),
+    (
+        "@param[in,out] v V",
+        "void f(const int *v);",
+        "'v' is [inout] but points to const, which the function cannot write",
+    ),
+    (
         "@arrparam[out] a A\n * @arrparam[out] a_nwritten W",
         "void f(int *a, size_t a_len, size_t *a_nwritten, size_t a_nwritten_len);",
         "the count written 'a_nwritten' of 'a' is an @arrparam",
@@ -558,6 +575,24 @@ def test_an_arrparam_or_marker_in_the_comment_of_no_function_is_reported(parse):
         ("'api_point': @len_at{x} is in the comment of no function", 4),
         ("'api_point': @nbytes_at{y} is in the comment of no function", 4),
     ]
+
+
+def test_a_context_documented_as_an_array_keeps_no_length_nor_count(parse):
+    model, diagnostics = parse(
+        "#include <stdint.h>\n"
+        "/**\n * C\n */\ntypedef void (*api_cb)(void *arg, int v);\n"
+        "/**\n * Run\n * @arrparam[out] arg A\n * @param[out] arg_nwritten W\n"
+        " * @lifetime cb call\n */\n"
+        "void api_run(api_cb cb, void *arg, uint32_t arg_len,\n"
+        "             uint32_t *arg_nwritten);\n"
+    )
+    found = [d.message for d in diagnostics if d.rule == "annotation"]
+    assert found == [
+        "'api_run': 'arg' is the context of 'cb', which the binding passes; a"
+        " context is no @arrparam"
+    ]
+    arg = functions(model)["api_run"].params[1]
+    assert (arg.length, arg.count) == (None, None)
 
 
 def test_an_arrparam_or_marker_out_of_place_is_reported_once(parse):
