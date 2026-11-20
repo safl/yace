@@ -115,6 +115,7 @@ Arguments
   given; sequences sharing one length must be as long, or ``ValueError`` is
   raised. One that is ``[in,out]`` is a list, written back. A ``void *``
   ``@arrparam`` is bytes, a ``bytearray`` written in place where ``[in,out]``.
+  A length or a capacity that its C type cannot hold raises ``OverflowError``.
   The size of a ``@recparam`` record is not given; the layer passes
   ``ctypes.sizeof()`` of the record's type. A handle given is its class. A
   callback is given as any callable, without the ``void *`` context, which the

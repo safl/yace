@@ -208,8 +208,10 @@ class Renderer(object):
                 args.append(
                     f"None if {name} is None else {ptr}" if arg.nullable else ptr
                 )
-            elif arg.kind in ("value", "string", "capacity"):
+            elif arg.kind in ("value", "string"):
                 args.append(name)
+            elif arg.kind == "capacity":
+                args.append(f"_fits({name}, {self.namer.ctype(typ)})")
             elif arg.kind == "sequence" and is_void_ptr(typ):
                 array = (
                     f"(ctypes.c_char * _builtins.len({name}))"
@@ -231,7 +233,8 @@ class Renderer(object):
                 pre.append(f"{self.local(call, arg.param, 'c')} = {array}")
                 args.append(self.local(call, arg.param, "c"))
             elif arg.kind == "length":
-                args.append(self.size(call, arg.of))
+                size = self.size(call, arg.of)
+                args.append(f"_fits({size}, {self.namer.ctype(typ)})")
             elif arg.kind == "size":
                 args.append(f"ctypes.sizeof({self.namer.ctype(call.sized(arg))})")
             elif arg.kind == "callback" and arg.lifetime in ("once", "handle"):
