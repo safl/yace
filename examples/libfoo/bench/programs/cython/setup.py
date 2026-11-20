@@ -6,8 +6,7 @@
 Builds the Cython benchmark against the Cython bindings of libfoo in
 FOO_BINDINGS, where foo.pyx, foo.pxd and libfoo.h are, linked to the library
 at FOO_LIBRARY, compiled with the flags of FOO_CFLAGS, after those of the
-Python: fast, calling C through foo.pxd, and foo, the module of the bindings,
-for the limited API of Python 3.12
+Python: fast, calling C through foo.pxd, and foo, the module of the bindings
 
   FOO_BINDINGS=output/cython FOO_LIBRARY=/path/to/libfoo.so FOO_CFLAGS=-O3 \
     python setup.py build_ext --inplace
@@ -28,12 +27,6 @@ common = dict(
 
 extensions = [
     Extension("fast", ["fast.pyx"], **common),
-    Extension(
-        "foo",
-        [os.path.join(bindings, "foo.pyx")],
-        define_macros=[("Py_LIMITED_API", "0x030C0000"), ("CYTHON_LIMITED_API", "1")],
-        py_limited_api=True,
-        **common,
-    ),
+    Extension("foo", [os.path.join(bindings, "foo.pyx")], **common),
 ]
 setup(ext_modules=cythonize(extensions, include_path=[bindings]))

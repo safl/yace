@@ -38,9 +38,8 @@ It runs these steps:
 1. Translate ``<prefix>_check.pyx`` and compile the C with the header. A
    declaration of the ``.pxd`` that disagrees with the header fails to compile.
    The type of a bit-field is not checked, as a bit-field has no address.
-2. Translate the module and compile it for the limited API of Python 3.12,
-   without linking the library. A wrong conversion of a pointer or an integer
-   is an error.
+2. Translate the module and compile it, without linking the library. A wrong
+   conversion of a pointer or an integer is an error.
 3. Run the check program. It imports the module, with the functions of the
    library resolved only when called, and calls none of them. **yace** parses
    the output as YAML and as JSON.
@@ -54,9 +53,8 @@ The module
 The module has the same API as the idiomatic layer of the Python target, see
 :ref:`sec-targets-python`: the same names, parameters, results and errors. Code
 written against one runs against the other. The module has no raw layer;
-Cython code calls C through the ``.pxd``. The module is compiled for the
-limited API, so one build runs on CPython 3.12 and later. The two modules
-differ in these ways:
+Cython code calls C through the ``.pxd``. The two modules differ in these
+ways:
 
 Records
   A struct or union with fields is an extension type that holds the C struct.
@@ -88,9 +86,8 @@ Arrays
 
 Handles
   A handle is an extension type. Its destructor is called from
-  ``__dealloc__`` when the last reference goes, as the limited API does not
-  run ``__del__`` of an extension type. A handle is made by the API only, not
-  by calling its class.
+  ``__dealloc__`` when the last reference goes. A handle is made by the API
+  only, not by calling its class.
 
 Pointers
   A pointer to a type the module has no class for, such as ``void *`` or
@@ -111,8 +108,8 @@ Names
   Where the module defines a Python name the stub uses, such as ``list`` for
   ``foo_list()``, the stub imports that name as ``_list``.
 
-The module is built as a Cython extension for the limited API and linked
-against the library. With setuptools:
+The module is built as a Cython extension, linked against the library. With
+setuptools:
 
 .. code-block:: python
 
@@ -124,10 +121,15 @@ against the library. With setuptools:
        ["output/cython/foo.pyx"],
        include_dirs=["output/cython"],
        libraries=["foo"],
-       define_macros=[("Py_LIMITED_API", "0x030C0000"), ("CYTHON_LIMITED_API", "1")],
-       py_limited_api=True,
    )
    setup(ext_modules=cythonize([extension], include_path=["output/cython"]))
+
+The module is not built for the limited API of Python, which would let one
+build run on every CPython from 3.12. Under the limited API of 3.12, every
+change of a reference count and every conversion of an integer is a function
+call into Python. Built for it, ``cython-idiomatic`` in the table under
+:ref:`sec-targets-cython-performance` takes 84.0 ns per point for calls and
+111.8 ns with a callback.
 
 A package that ships the module should also ship ``<prefix>.pyi``,
 ``<prefix>.pxd`` and ``lib<prefix>.h`` as package data, so type checkers find
@@ -178,6 +180,8 @@ library:
 
 ``examples/libfoo/checks/cython/check.pyx`` calls libfoo this way.
 
+.. _sec-targets-cython-performance:
+
 Performance
 -----------
 
@@ -204,8 +208,8 @@ Ryzen 7 7840U under WSL2, summing the 8 points of libfoo 200000 times, best of
      - 1.3
      - 1.5
    * - ``cython-idiomatic``
-     - 83.7
-     - 110.9
+     - 56.9
+     - 84.5
 
 ``cython-idiomatic`` runs the Python loops of ``python-idiomatic`` against the
 module of this target. ``cython-raw`` is a loop in Cython that calls C through

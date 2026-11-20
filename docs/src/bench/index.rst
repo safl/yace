@@ -65,8 +65,8 @@ them:
 ``cython-raw``, ``cython-idiomatic``
   A loop in Cython calling ``foo_point_get()`` and a Cython callback through
   the ``.pxd`` of the Cython target, without the GIL; and the loops of
-  ``python-idiomatic`` against the module of the Cython target, compiled for
-  the limited API; see :ref:`sec-targets-cython`.
+  ``python-idiomatic`` against the module of the Cython target; see
+  :ref:`sec-targets-cython`.
 
 Running it
 ----------
