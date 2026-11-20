@@ -67,6 +67,11 @@ the repository itself.
 The macOS jobs of CI cannot run containers. They use the toolchains of the
 runner, with Python, Zig and Go installed by their actions.
 
+main requires one check of a pull request, ``ci-result``. That job of the
+``verify_and_publish`` workflow fails unless every other job of the workflow
+succeeded. A change of only ``docs/`` and Markdown files skips the jobs that
+build and test, and the ``docs`` workflow builds it.
+
 The tests build the module and the ``.pxd`` of the Cython target with Cython,
 and check the stub with mypy. The tests of the Cython check and of the Cython
 benchmark of ``examples/libfoo`` build with pip and meson-python. ``make
