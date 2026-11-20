@@ -16,7 +16,7 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
-## Unreleased
+## 0.13.0
 
 The C++ target generates its layer for C++17 as well as for C++20, chosen
 with `--target-option cpp.std=c++17`; C++20 remains the default. The layer for
