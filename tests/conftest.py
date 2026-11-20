@@ -204,3 +204,6 @@ needs_go = pytest.mark.skipif(
 needs_cython = pytest.mark.skipif(
     importlib.util.find_spec("Cython") is None, reason="no Cython"
 )
+needs_meson_python = pytest.mark.skipif(
+    importlib.util.find_spec("mesonpy") is None, reason="no meson-python"
+)

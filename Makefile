@@ -9,6 +9,10 @@ PYTEST=$(PIPX_LOCAL_VENVS)/$(PROJECT)/bin/pytest
 PYTHON ?= python3
 # What the tests, the example and the docs build Cython code with
 CYTHON ?= 3.3.1
+# What the tests and the benchmark build Cython modules with, through pip
+MESON_PYTHON ?= 0.22.1
+MESON ?= 1.12.1
+NINJA ?= 1.13.2
 # What the tests check the stub of the Cython target with, as pre-commit pins it
 MYPY ?= 2.4.1
 # What runs the benchmark of examples/libfoo/bench
@@ -102,7 +106,8 @@ endef
 install:
 	@echo "## ${PROJECT}: make install"
 	@pipx install --python $(PYTHON) --force dist/*.whl
-	@pipx inject yace pytest pytest-cov coverage cython==$(CYTHON) setuptools mypy==$(MYPY) --force
+	@pipx inject yace pytest pytest-cov coverage cython==$(CYTHON) mypy==$(MYPY) \
+		meson-python==$(MESON_PYTHON) meson==$(MESON) ninja==$(NINJA) --force
 	@pipx install --force cijoe==$(CIJOE)
 	@echo "## ${PROJECT}: make install [DONE]"
 
@@ -118,7 +123,8 @@ install-source:
 	@pipx inject yace ipdb --include-deps
 	@pipx inject yace isort --include-deps
 	@pipx inject yace pytest pytest-cov --include-deps
-	@pipx inject yace cython==$(CYTHON) mypy==$(MYPY) --force
+	@pipx inject yace cython==$(CYTHON) mypy==$(MYPY) \
+		meson-python==$(MESON_PYTHON) meson==$(MESON) ninja==$(NINJA) --force
 	@pipx install --force cijoe==$(CIJOE)
 	@echo "## ${PROJECT}: make install-source [DONE]"
 

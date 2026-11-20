@@ -12,7 +12,7 @@ repeat = 5
 targets = ["c", "cpp", "rust", "zig", "go", "python", "cython"]
 
 # The commands, on the machine benchmarked, of yace and the toolchains; the
-# Python must have Cython and setuptools for the cython target
+# Python must have Cython, meson-python, meson and ninja for the cython target
 yace = "yace"
 cc = "cc"
 cxx = "c++"

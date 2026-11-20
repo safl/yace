@@ -17,12 +17,20 @@ import re
 import shutil
 import subprocess
 import sys
+import sysconfig
 from pathlib import Path
 
 import pytest
 import yaml
 
-from tests.conftest import needs_cargo, needs_cc, needs_cython, needs_go, needs_zig
+from tests.conftest import (
+    needs_cargo,
+    needs_cc,
+    needs_cython,
+    needs_go,
+    needs_meson_python,
+    needs_zig,
+)
 from yace.compiler import process
 from yace.ir.cparser import CParser
 from yace.targets.capi.target import CFLAGS
@@ -131,35 +139,35 @@ def test_the_python_checks_print_the_expected_documents(
     assert documents(proc.stdout, fmt) == expected
 
 
+def pip_install(project, target, *setup_args):
+    """Build the meson-python project 'project' with pip, given the meson options
+    'setup_args', and install it into 'target'. meson finds meson, ninja and
+    cython on the PATH, so those of this Python come first."""
+
+    path = f"{sysconfig.get_path('scripts')}{os.pathsep}{os.environ['PATH']}"
+    cmd = [sys.executable, "-m", "pip", "install", "--no-build-isolation"]
+    cmd += ["--no-deps", "--target", str(target), str(project)]
+    cmd += [f"-Csetup-args={arg}" for arg in setup_args]
+    env = {**os.environ, "PATH": path}
+    return subprocess.run(cmd, capture_output=True, text=True, env=env)
+
+
 @needs_cc
 @needs_cython
+@needs_meson_python
 @pytest.mark.parametrize("fmt", ["yaml", "json"])
 def test_the_cython_check_prints_the_expected_documents(model, library, tmp_path, fmt):
     assert process(model, ["cython"], tmp_path, check=False) == []
 
     lib = next(path for path in library.iterdir() if path.stem == "libfoo")
-    python = tmp_path / "cython"
     project = tmp_path / "check"
-    project.mkdir()
-    (project / "check.pyx").write_text(
-        (FIXTURE / "checks" / "cython" / "check.pyx").read_text()
+    build = pip_install(
+        FIXTURE / "checks" / "cython",
+        project,
+        f"-Dbindings={tmp_path / 'cython'}",
+        f"-Dlibrary={lib}",
     )
-    (project / "setup.py").write_text(
-        "from Cython.Build import cythonize\n"
-        "from setuptools import Extension, setup\n\n"
-        "extension = Extension(\n"
-        f"    'check', ['check.pyx'], include_dirs=[{str(python)!r}],\n"
-        f"    extra_link_args=[{str(lib)!r}, '-Wl,-rpath,{library}'],\n"
-        ")\n"
-        f"setup(ext_modules=cythonize([extension], include_path=[{str(python)!r}]))\n"
-    )
-    build = subprocess.run(
-        [sys.executable, "setup.py", "-q", "build_ext", "--inplace"],
-        cwd=project,
-        capture_output=True,
-        text=True,
-    )
-    assert build.returncode == 0, build.stderr
+    assert build.returncode == 0, build.stdout + build.stderr
     proc = subprocess.run(
         [sys.executable, "-c", f"import sys, check; sys.exit(check.main({fmt!r}))"],
         cwd=project,
@@ -246,7 +254,7 @@ def has_toolchain(target):
     """Whether this machine has every tool the benchmark builds 'target' with"""
 
     if target == "cython":
-        return all(importlib.util.find_spec(m) for m in ["Cython", "setuptools"])
+        return all(importlib.util.find_spec(m) for m in ["Cython", "mesonpy"])
     if target == "rust":
         return all(shutil.which(tool) for tool in ["cargo", "rustc"])
     return shutil.which(BENCH[target][0]) is not None

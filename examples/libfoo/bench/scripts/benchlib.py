@@ -236,11 +236,19 @@ def build_commands(cijoe, target: str) -> list:
         return []
     if target == "cython":
         python = command(cijoe, "python")
+        # meson finds meson, ninja and cython on the PATH, so those of the Python
+        # come first
+        scripts = (
+            f"$({python} -c 'import sysconfig; print(sysconfig.get_path(\"scripts\"))')"
+        )
         return [
-            (f"cp {p['programs']}/cython/* .", out),
+            (f"cp {p['programs']}/cython/bench.py .", out),
             (
-                f"FOO_BINDINGS={p['gen']}/cython FOO_LIBRARY={p['lib']}"
-                f" FOO_CFLAGS={OPT} {python} setup.py build_ext --inplace",
+                f'PATH="{scripts}:$PATH" {python} -m pip install --no-build-isolation'
+                f" --no-deps --target . {p['programs']}/cython"
+                f" -Csetup-args=-Dbindings={p['gen']}/cython"
+                f" -Csetup-args=-Dlibrary={p['lib']} -Csetup-args=-Dc_args={OPT}"
+                " -Cbuild-dir=meson -Ccompile-args=-v",
                 out,
             ),
         ]

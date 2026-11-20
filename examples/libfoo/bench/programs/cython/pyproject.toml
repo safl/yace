@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
+# The Cython benchmark, built against the Cython bindings of libfoo, as
+# meson.build describes:
+#
+#   python -m pip install --no-build-isolation --target build . \
+#     -Csetup-args=-Dbindings=output/cython -Csetup-args=-Dlibrary=/path/to/libfoo.so
+
+[build-system]
+build-backend = "mesonpy"
+requires = ["meson-python", "Cython"]
+
+[project]
+name = "foo-bench"
+version = "0"
