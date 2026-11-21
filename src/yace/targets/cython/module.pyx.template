@@ -22,12 +22,22 @@ from cpython.buffer cimport (
     PyBUF_SIMPLE,
     PyBUF_STRIDES,
     PyBUF_WRITABLE,
+    PyBuffer_FillInfo,
     PyBuffer_Release,
     PyObject_CheckBuffer,
     PyObject_GetBuffer,
 )
 from cpython.object cimport PyObject_Length
-from libc.stdint cimport uintptr_t
+from cpython.pycapsule cimport PyCapsule_GetPointer, PyCapsule_IsValid
+from libc.stdint cimport (
+    int32_t,
+    int64_t,
+    uint8_t,
+    uint16_t,
+    uint32_t,
+    uint64_t,
+    uintptr_t,
+)
 from libc.stdlib cimport calloc, free
 from libc.string cimport memcpy, memset
 
@@ -110,17 +120,133 @@ cdef object _zeroed(bytes kind, Py_ssize_t itemsize, object count):
     return made
 
 
+# DLPack: the tensor of a capsule named "dltensor" or "dltensor_versioned"
+cdef struct _DLDevice:
+    int32_t device_type
+    int32_t device_id
+
+
+cdef struct _DLDataType:
+    uint8_t code
+    uint8_t bits
+    uint16_t lanes
+
+
+cdef struct _DLTensor:
+    void *data
+    _DLDevice device
+    int32_t ndim
+    _DLDataType dtype
+    int64_t *shape
+    int64_t *strides
+    uint64_t byte_offset
+
+
+cdef struct _DLManagedTensor:
+    _DLTensor dl_tensor
+    void *manager_ctx
+    void *deleter
+
+
+cdef struct _DLManagedTensorVersioned:
+    uint32_t version[2]
+    void *manager_ctx
+    void *deleter
+    uint64_t flags
+    _DLTensor dl_tensor
+
+
+cdef object _compact(object shape, object strides, Py_ssize_t itemsize):
+    """The size in bytes of an array of 'shape' laid out by 'strides', in
+    elements, or by rows where 'strides' is None; ValueError where the array is
+    not one contiguous range of memory in row order"""
+
+    nbytes = itemsize
+    for extent in shape:
+        nbytes *= extent
+    if strides is not None and nbytes:
+        expected = 1
+        for extent, stride in zip(reversed(shape), reversed(strides)):
+            if extent != 1 and stride != expected:
+                raise ValueError("the array is not contiguous")
+            expected *= extent
+    return nbytes
+
+
+cdef class _Device:
+    """The memory of a DLPack tensor or a CUDA array, which may be a device's,
+    through the buffer protocol: for passing its address to C, not for
+    reading"""
+
+    cdef uintptr_t address
+    cdef Py_ssize_t nbytes
+    cdef bint readonly
+    cdef object keep
+
+    def __getbuffer__(self, Py_buffer *view, int flags):
+        PyBuffer_FillInfo(view, self, <void *>self.address, self.nbytes, self.readonly, flags)
+
+
+cdef _Device _device(object obj):
+    """The memory of 'obj', a DLPack tensor or a CUDA array, held by the
+    capsule of the tensor, which is not consumed, or by the array"""
+
+    cdef _Device made = _Device.__new__(_Device)
+    cdef _DLTensor *tensor
+    cdef _DLManagedTensorVersioned *versioned
+    if hasattr(obj, "__dlpack__"):
+        try:
+            capsule = obj.__dlpack__(max_version=(1, 0))
+        except TypeError:
+            capsule = obj.__dlpack__()
+        if PyCapsule_IsValid(capsule, "dltensor_versioned"):
+            versioned = <_DLManagedTensorVersioned *>PyCapsule_GetPointer(
+                capsule, "dltensor_versioned"
+            )
+            tensor = &versioned.dl_tensor
+            made.readonly = versioned.flags & 1
+        else:
+            tensor = &(<_DLManagedTensor *>PyCapsule_GetPointer(capsule, "dltensor")).dl_tensor
+        shape = [tensor.shape[i] for i in range(tensor.ndim)]
+        strides = None
+        if tensor.strides != NULL:
+            strides = [tensor.strides[i] for i in range(tensor.ndim)]
+        itemsize = (tensor.dtype.bits * tensor.dtype.lanes + 7) // 8
+        made.nbytes = _compact(shape, strides, itemsize)
+        made.address = <uintptr_t>tensor.data + tensor.byte_offset
+        made.keep = capsule
+        return made
+    interface = obj.__cuda_array_interface__
+    address, readonly = interface["data"]
+    itemsize = int(interface["typestr"][2:])
+    strides = interface.get("strides")
+    if strides is not None:
+        if any(stride % itemsize for stride in strides):
+            raise ValueError("the array is not contiguous")
+        strides = [stride // itemsize for stride in strides]
+    made.nbytes = _compact(interface["shape"], strides, itemsize)
+    made.address = address
+    made.readonly = readonly
+    made.keep = obj
+    return made
+
+
 cdef object _acquire(
     object obj, Py_buffer *view, bytes kind, Py_ssize_t itemsize, bint writable
 ):
     """Get the buffer of 'obj' into 'view' and return the object whose buffer
     'view' holds. The buffer must have elements of 'kind' and 'itemsize' bytes;
-    kind 'v' accepts any bytes. An object that is not a buffer, such as a list,
-    is copied into an array.array, or into bytes for kind 'v', and the copy is
-    returned. Kind 'v' with 'writable' raises a TypeError for such an object."""
+    kind 'v' accepts any bytes, and the memory of a DLPack tensor or a CUDA
+    array. An object that is not a buffer, such as a list, is copied into an
+    array.array, or into bytes for kind 'v', and the copy is returned. Kind
+    'v' with 'writable' raises a TypeError for such an object."""
 
     cdef int flags = PyBUF_C_CONTIGUOUS | (PyBUF_WRITABLE if writable else 0)
     made = False
+    if not PyObject_CheckBuffer(obj) and kind == b"v" and (
+        hasattr(obj, "__dlpack__") or hasattr(obj, "__cuda_array_interface__")
+    ):
+        obj = _device(obj)
     if not PyObject_CheckBuffer(obj):
         if kind == b"v" and writable:
             raise TypeError(f"expected a writable buffer, not {type(obj).__name__}")

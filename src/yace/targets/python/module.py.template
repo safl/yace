@@ -71,15 +71,183 @@ def _str_in(value):
     return value.encode() if _builtins.isinstance(value, _builtins.str) else value
 
 
-def _nbytes(value):
-    """The number of bytes of 'value', a buffer or what bytes() takes, for a
-    'void *' array; len() of a buffer counts its elements"""
+class _PyBuffer(ctypes.Structure):
+    """Py_buffer, of the buffer protocol"""
+
+    _fields_ = [
+        ("buf", ctypes.c_void_p),
+        ("obj", ctypes.c_void_p),
+        ("len", ctypes.c_ssize_t),
+        ("itemsize", ctypes.c_ssize_t),
+        ("readonly", ctypes.c_int),
+        ("ndim", ctypes.c_int),
+        ("format", ctypes.c_char_p),
+        ("shape", ctypes.c_void_p),
+        ("strides", ctypes.c_void_p),
+        ("suboffsets", ctypes.c_void_p),
+        ("internal", ctypes.c_void_p),
+    ]
+
+
+_GET_BUFFER = ctypes.pythonapi.PyObject_GetBuffer
+_GET_BUFFER.argtypes = [ctypes.py_object, ctypes.POINTER(_PyBuffer), ctypes.c_int]
+_GET_BUFFER.restype = ctypes.c_int
+_RELEASE_BUFFER = ctypes.pythonapi.PyBuffer_Release
+_RELEASE_BUFFER.argtypes = [ctypes.POINTER(_PyBuffer)]
+_RELEASE_BUFFER.restype = None
+_CHECK_BUFFER = ctypes.pythonapi.PyObject_CheckBuffer
+_CHECK_BUFFER.argtypes = [ctypes.py_object]
+_CHECK_BUFFER.restype = ctypes.c_int
+_CAPSULE_POINTER = ctypes.pythonapi.PyCapsule_GetPointer
+_CAPSULE_POINTER.argtypes = [ctypes.py_object, ctypes.c_char_p]
+_CAPSULE_POINTER.restype = ctypes.c_void_p
+
+
+class _DLDevice(ctypes.Structure):
+    _fields_ = [("device_type", ctypes.c_int32), ("device_id", ctypes.c_int32)]
+
+
+class _DLDataType(ctypes.Structure):
+    _fields_ = [("code", ctypes.c_uint8), ("bits", ctypes.c_uint8), ("lanes", ctypes.c_uint16)]
+
+
+class _DLTensor(ctypes.Structure):
+    _fields_ = [
+        ("data", ctypes.c_void_p),
+        ("device", _DLDevice),
+        ("ndim", ctypes.c_int32),
+        ("dtype", _DLDataType),
+        ("shape", ctypes.POINTER(ctypes.c_int64)),
+        ("strides", ctypes.POINTER(ctypes.c_int64)),
+        ("byte_offset", ctypes.c_uint64),
+    ]
+
+
+class _DLManagedTensor(ctypes.Structure):
+    _fields_ = [
+        ("dl_tensor", _DLTensor),
+        ("manager_ctx", ctypes.c_void_p),
+        ("deleter", ctypes.c_void_p),
+    ]
+
+
+class _DLManagedTensorVersioned(ctypes.Structure):
+    _fields_ = [
+        ("version", ctypes.c_uint32 * 2),
+        ("manager_ctx", ctypes.c_void_p),
+        ("deleter", ctypes.c_void_p),
+        ("flags", ctypes.c_uint64),
+        ("dl_tensor", _DLTensor),
+    ]
+
+
+def _compact(shape, strides, itemsize):
+    """The size in bytes of an array of 'shape' laid out by 'strides', in
+    elements, or by rows where 'strides' is None; ValueError where the array is
+    not one contiguous range of memory in row order"""
+
+    nbytes = itemsize
+    for extent in shape:
+        nbytes *= extent
+    if strides is not None and nbytes:
+        expected = 1
+        for extent, stride in _builtins.zip(_builtins.reversed(shape), _builtins.reversed(strides)):
+            if extent != 1 and stride != expected:
+                raise ValueError("the array is not contiguous")
+            expected *= extent
+    return nbytes
+
+
+def _dlpack(obj):
+    """The address, size in bytes and read-only flag of the memory of a DLPack
+    tensor, and the capsule that holds the memory. The capsule is not consumed,
+    so dropping it is what releases the tensor."""
 
     try:
-        with _builtins.memoryview(value) as view:
-            return view.nbytes
+        capsule = obj.__dlpack__(max_version=(1, 0))
     except TypeError:
-        return _builtins.len(_builtins.bytes(value))
+        capsule = obj.__dlpack__()
+    try:
+        address = _CAPSULE_POINTER(capsule, b"dltensor_versioned")
+        managed = _DLManagedTensorVersioned.from_address(address)
+        readonly = _builtins.bool(managed.flags & 1)
+    except ValueError:
+        address = _CAPSULE_POINTER(capsule, b"dltensor")
+        managed = _DLManagedTensor.from_address(address)
+        readonly = False
+    tensor = managed.dl_tensor
+    shape = [tensor.shape[i] for i in _builtins.range(tensor.ndim)]
+    strides = None
+    if tensor.strides:
+        strides = [tensor.strides[i] for i in _builtins.range(tensor.ndim)]
+    itemsize = (tensor.dtype.bits * tensor.dtype.lanes + 7) // 8
+    nbytes = _compact(shape, strides, itemsize)
+    return (tensor.data or 0) + tensor.byte_offset, nbytes, readonly, capsule
+
+
+def _cuda_array(obj):
+    """The address, size in bytes and read-only flag of the memory of a CUDA
+    array, and the array, which holds the memory"""
+
+    interface = obj.__cuda_array_interface__
+    address, readonly = interface["data"]
+    itemsize = _builtins.int(interface["typestr"][2:])
+    strides = interface.get("strides")
+    if strides is not None:
+        if _builtins.any(stride % itemsize for stride in strides):
+            raise ValueError("the array is not contiguous")
+        strides = [stride // itemsize for stride in strides]
+    nbytes = _compact(interface["shape"], strides, itemsize)
+    return address, nbytes, readonly, obj
+
+
+class _Device(object):
+    """The memory of a DLPack tensor or a CUDA array, which may be a device's,
+    through the buffer protocol: for passing its address to C, not for
+    reading"""
+
+    def __init__(self, address, nbytes, readonly, keep):
+        self._array = (ctypes.c_ubyte * nbytes).from_address(address)
+        self._readonly = readonly
+        self._keep = keep
+
+    def __buffer__(self, flags):
+        view = _builtins.memoryview(self._array).cast("B")
+        if self._readonly and flags & 1:
+            raise BufferError("the memory is read-only")
+        return view.toreadonly() if self._readonly else view
+
+
+class _Memory(object):
+    """The address and size in bytes of the memory of an object, held until
+    release(): its buffer, its DLPack tensor or its CUDA array, without a copy.
+    Any other object is copied into bytes, where C does not write it."""
+
+    def __init__(self, obj, writable):
+        self._view = None
+        exporter = obj
+        if not _CHECK_BUFFER(obj):
+            if _builtins.hasattr(obj, "__dlpack__"):
+                exporter = _Device(*_dlpack(obj))
+            elif _builtins.hasattr(obj, "__cuda_array_interface__"):
+                exporter = _Device(*_cuda_array(obj))
+            elif writable:
+                raise TypeError(f"expected a writable buffer, not {_builtins.type(obj).__name__}")
+            else:
+                exporter = _builtins.bytes(obj)
+        view = _PyBuffer()
+        _GET_BUFFER(exporter, ctypes.byref(view), 1 if writable else 0)
+        self._view = view
+        self.address = view.buf
+        self.nbytes = view.len
+
+    def release(self):
+        if self._view is not None:
+            _RELEASE_BUFFER(ctypes.byref(self._view))
+            self._view = None
+
+    def __del__(self):
+        self.release()
 
 
 def _fits(value, ctype):
