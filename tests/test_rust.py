@@ -1583,3 +1583,109 @@ def test_a_nullable_out_array_is_a_buffer_always_given(parse, tmp_path):
     lib = (tmp_path / "rust" / "bindings.rs").read_text()
     assert "pub fn fill<'buf>(v: &'buf mut [i32]) -> &'buf mut [i32]" in lib
     assert "v.len() as usize" in lib
+
+
+def run_with_library(tmp_path, model, source: str, main: str, fails=False):
+    """Generate the crate of 'model', build 'source' as its library, and run
+    'main' against both, as run_with_crate() does"""
+
+    assert process(model, ["rust"], tmp_path) == []
+    library(tmp_path, source)
+    env = {
+        "API_LIB_DIR": str(tmp_path),
+        "RUSTFLAGS": f"-C link-arg=-Wl,-rpath,{tmp_path}",
+    }
+    return run_with_crate(tmp_path, main, env, fails=fails)
+
+
+@needs_cc
+@needs_cargo
+def test_an_allocated_buffer_is_freed_when_dropped_and_borrows_its_handle(
+    parse, tmp_path
+):
+    from tests.test_python import BUFFERS, BUFFERS_C
+
+    model, _ = parse(BUFFERS)
+    main = """
+use api::safe::*;
+fn main() {
+    let dev = Dev::open().unwrap();
+    {
+        let mut buf = dev.buf_alloc(4).unwrap();
+        unsafe { buf.as_mut_slice() }.copy_from_slice(&[1, 2, 3, 4]);
+        println!("{} {}", buf.len(), sum(unsafe { buf.as_slice() }));
+        buf.realloc(8).unwrap();
+        println!("{} {:?}", buf.len(), &unsafe { buf.as_slice() }[..4]);
+        let _other = dev.buf_alloc(2).unwrap();
+    }
+    println!("{}", freed());
+}
+"""
+    out = run_with_library(tmp_path, model, BUFFERS + BUFFERS_C, main)
+    assert out == "4 10\n8 [1, 2, 3, 4]\n2\n"
+
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
+    assert "pub fn buf_free" not in lib and "pub fn buf_realloc" not in lib
+
+    # The handle cannot be dropped while a buffer it allocated is alive
+    early = main.replace("let _other = dev.buf_alloc(2).unwrap();", "drop(dev);")
+    (tmp_path / "user").rename(tmp_path / "user-ran")
+    err = run_with_library(tmp_path, model, BUFFERS + BUFFERS_C, early, fails=True)
+    assert "because it is borrowed" in err
+
+
+@needs_cc
+@needs_cargo
+def test_an_allocation_returns_its_out_values_with_the_buffer(parse, tmp_path):
+    from tests.test_python import PHYS, PHYS_C
+
+    model, _ = parse(PHYS)
+    main = """
+use api::safe::*;
+fn main() {
+    let dev = Dev::open().unwrap();
+    let (phys, buf) = dev.buf_alloc(16);
+    let mut buf = buf.unwrap();
+    let (none_phys, none) = dev.buf_alloc(2048);
+    println!("{} {} {} {}", phys, buf.len(), none_phys, none.is_none());
+    println!("{}", buf.realloc(32).is_err());
+    drop(buf);
+    println!("{}", freed());
+}
+"""
+    out = run_with_library(tmp_path, model, PHYS + PHYS_C, main)
+    assert out == "4096 16 0 true\ntrue\n1\n"
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
+    assert "pub fn buf_realloc" not in lib
+
+
+@needs_cc
+@needs_cargo
+def test_registered_memory_is_borrowed_until_unregistered(parse, tmp_path):
+    from tests.test_python import REGISTRATIONS, REGISTRATIONS_C
+
+    model, _ = parse(REGISTRATIONS)
+    main = f"""
+use api::safe::*;
+fn main() {{
+    let dev = Dev::open().unwrap();
+    let mut memory = vec![0u8; 16];
+    let at = memory.as_ptr() as usize;
+    {{
+        let mut reg = dev.buf_register(&mut memory).unwrap();
+        reg[0] = 7;
+        println!("{{}} {{}}", registered() == at, registered_nbytes());
+        let mut other = [0u8; 8];
+        let busy = dev.buf_register(&mut other).err().and_then(|e| e.raw_os_error());
+        println!("{{}}", busy == Some({errno.EBUSY}));
+    }}
+    println!("{{}} {{}}", registered(), memory[0]);
+    let reg = dev.buf_register(&mut memory).unwrap();
+    println!("{{}} {{}}", reg.unregister().is_ok(), registered());
+}}
+"""
+    out = run_with_library(tmp_path, model, REGISTRATIONS + REGISTRATIONS_C, main)
+    assert out == "true 16\ntrue\n0 7\ntrue 0\n"
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
+    assert "pub fn buf_unregister" not in lib
+    assert "pub unsafe fn buf_register" not in lib

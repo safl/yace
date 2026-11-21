@@ -16,12 +16,14 @@ holding one, is ``unsafe``, as is one returning a string borrowed from one of
 several arguments.
 """
 
+import re
 from functools import cached_property
 from typing import List, Optional
 
 from yace.ir import decls, types
 from yace.ir.semantics import is_void_ptr
 from yace.targets.idiom import (
+    RELEASES,
     Arg,
     Call,
     Idioms,
@@ -101,6 +103,119 @@ PARTIAL = [
     "    }",
     "}",
 ]
+
+
+# The lifetime of what a Buffer or a Registration borrows: the handles it was
+# made with, and the memory registered
+HELD = "'a"
+
+BUFFER_STRUCT = """\
+/// Memory the library allocated, freed when dropped with the arguments it
+/// was allocated with. It borrows the handles it was allocated with, so they
+/// outlive it. The memory may be a device's, such as a GPU's, which the CPU
+/// cannot read, and nothing in the API says which; hence the slices of it are
+/// unsafe.
+pub struct Buffer<'a> {
+    ptr: NonNull<c_void>,
+    len: usize,
+    free: Box<dyn Fn(*mut c_void) + 'a>,
+    realloc: Option<Box<dyn Fn(*mut c_void, usize) -> *mut c_void + 'a>>,
+}
+
+impl<'a> Buffer<'a> {
+    /// The address of the memory
+    pub fn as_ptr(&self) -> *mut c_void {
+        self.ptr.as_ptr()
+    }
+
+    /// The size of the memory in bytes
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Whether the memory has no bytes
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// The memory as bytes
+    ///
+    /// # Safety
+    ///
+    /// The memory must be the host's, not a device's.
+    pub unsafe fn as_slice(&self) -> &[u8] {
+        std::slice::from_raw_parts(self.ptr.as_ptr() as *const u8, self.len)
+    }
+
+    /// The memory as bytes, for writing
+    ///
+    /// # Safety
+    ///
+    /// The memory must be the host's, not a device's.
+    pub unsafe fn as_mut_slice(&mut self) -> &mut [u8] {
+        std::slice::from_raw_parts_mut(self.ptr.as_ptr() as *mut u8, self.len)
+    }
+
+    /// Resize the memory to 'nbytes', keeping its bytes up to the smaller
+    /// size. Where the library cannot resize it, the memory is unchanged.
+    pub fn realloc(&mut self, nbytes: usize) -> io::Result<()> {
+        let realloc = self
+            .realloc
+            .as_ref()
+            .ok_or_else(|| io::Error::from(io::ErrorKind::Unsupported))?;
+        self.ptr = NonNull::new(realloc(self.ptr.as_ptr(), nbytes))
+            .ok_or_else(|| io::Error::from(io::ErrorKind::OutOfMemory))?;
+        self.len = nbytes;
+        Ok(())
+    }
+}
+
+impl Drop for Buffer<'_> {
+    fn drop(&mut self) {
+        (self.free)(self.ptr.as_ptr());
+    }
+}"""
+
+REGISTRATION_STRUCT = """\
+/// Memory of the caller's that the library uses until it is unregistered,
+/// when dropped or by unregister(). It borrows the memory, and the handles it
+/// was registered with, so they outlive it.
+pub struct Registration<'a> {
+    memory: &'a mut [u8],
+    unregister: Option<Box<dyn Fn(*mut c_void) -> io::Result<()> + 'a>>,
+}
+
+impl Registration<'_> {
+    /// Unregister the memory, with the error that unregistering fails with
+    pub fn unregister(mut self) -> io::Result<()> {
+        match self.unregister.take() {
+            Some(unregister) => unregister(self.memory.as_mut_ptr() as *mut c_void),
+            None => Ok(()),
+        }
+    }
+}
+
+impl std::ops::Deref for Registration<'_> {
+    type Target = [u8];
+
+    fn deref(&self) -> &[u8] {
+        self.memory
+    }
+}
+
+impl std::ops::DerefMut for Registration<'_> {
+    fn deref_mut(&mut self) -> &mut [u8] {
+        self.memory
+    }
+}
+
+impl Drop for Registration<'_> {
+    fn drop(&mut self) {
+        if let Some(unregister) = self.unregister.take() {
+            let _ = unregister(self.memory.as_mut_ptr() as *mut c_void);
+        }
+    }
+}"""
 
 
 class Renderer(object):
@@ -268,6 +383,10 @@ class Renderer(object):
 
         typ = arg.typ
         opt = (lambda t: f"Option<{t}>") if arg.nullable else (lambda t: t)
+        if self.makes(call) == "register" and arg.param == call.memory.ptr:
+            return f"&{HELD} mut [u8]"
+        if self.makes(call) == "register" and arg.param == call.memory.nbytes:
+            return None  # the length of the slice
         if arg.kind == "context" and self.raw_callback(call, arg):
             return self.raw(typ, True)
         if arg.kind == "string":
@@ -303,6 +422,11 @@ class Renderer(object):
 
         name = self.pname(arg.param)
         typ = arg.typ
+        if self.makes(call) == "register" and arg.param == call.memory.ptr:
+            return f"{name}.as_mut_ptr() as *mut c_void"
+        if self.makes(call) == "register" and arg.param == call.memory.nbytes:
+            ptr = self.pname(call.memory.ptr)
+            return f"{ptr}.len() as {self.raw(typ)}"
         if arg.kind == "self":
             return "self.ptr.as_ptr()"
         if arg.kind == "string":
@@ -380,6 +504,9 @@ class Renderer(object):
     def results(self, call: Call):
         """The (type, expression) of each value the function returns"""
 
+        if self.makes(call) == "register":
+            made = f"{self.registration_struct}<{HELD}>"
+            return [(made, self.local(call, "registration", "made"))]
         found = []
         count = "ret" if call.returns == "count" else None
         for out in call.outs:
@@ -403,7 +530,11 @@ class Renderer(object):
 
         opt = (lambda t: f"Option<{t}>") if call.nullable else (lambda t: t)
         ret = call.ret
-        if call.returns == "value":
+        if self.makes(call) == "alloc":
+            made = f"{self.buffer_struct}<{HELD}>"
+            made = f"Option<{made}>" if call.nullable else made
+            found.append((made, self.local(call, "buffer", "made")))
+        elif call.returns == "value":
             found.append((self.raw(ret), "ret"))
         elif call.returns == "string":
             life = (
@@ -542,6 +673,8 @@ class Renderer(object):
         if self.unbound_string(call):
             return True
         for arg in call.args:
+            if self.makes(call) == "register" and arg.param == call.memory.ptr:
+                continue
             if arg.kind == "value":
                 typ = arg.typ
                 if isinstance(typ, types.Pointer):
@@ -692,6 +825,9 @@ class Renderer(object):
         if call.kind == "destructor":
             body.insert(0, "let mut this = std::mem::ManuallyDrop::new(self);")
             body = [line.replace("self.", "this.") for line in body]
+        if self.makes(call):
+            body += self.made(call)
+            params = [self.held(p) for p in params]
         if rexpr != "()":
             body.append(rexpr)
 
@@ -703,6 +839,10 @@ class Renderer(object):
             " when it succeeds, with what was written before it failed.",
             buffers=True,
         )
+        if self.makes(call) == "register":
+            params_doc = dict(shown.params)
+            params_doc.pop(self.pname(call.memory.nbytes), None)
+            shown = shown.model_copy(update={"params": params_doc})
         calls = f"Calls [`super::{rgen.ident(call.function)}`]."
         lines = [
             f"/// {line}".rstrip() for line in rgen.doc_lines(shown, errors, [calls])
@@ -725,11 +865,158 @@ class Renderer(object):
                 ]
         unsafe = "unsafe " if self.is_unsafe(call) else ""
         arrow = "" if rtype == "()" else f" -> {rtype}"
-        generic = f"<{BUFFER}>" if any(o.kind == "array" for o in call.outs) else ""
+        lifetimes = [HELD] if self.makes(call) else []
+        if any(o.kind == "array" for o in call.outs):
+            lifetimes.append(BUFFER)
+        generic = f"<{', '.join(lifetimes)}>" if lifetimes else ""
         lines.append(f"pub {unsafe}fn {name}{generic}({', '.join(params)}){arrow} {{")
         lines += [f"    {line}" for line in body]
         lines.append("}")
         return [f"{indent}{line}".rstrip() for line in lines]
+
+    def again(self, call: Call, partner: Optional[Call]) -> Optional[List[str]]:
+        """The expressions of the arguments of 'partner', computed from those
+        of 'call', with 'p' as the address and 'n' as the new size; None where
+        'partner' takes what 'call' has no value of that a closure can keep"""
+
+        if partner is None or partner.memory is None:
+            return None
+        given = {a.param: a for a in call.args}
+        found = []
+        for param in self.idioms.decl(partner.function).params:
+            arg = given.get(param.name)
+            if param.name == partner.memory.ptr:
+                found.append("p")
+            elif param.name == partner.memory.nbytes:
+                found.append(f"n as {self.raw(param.typ)}")
+            elif arg is not None and arg.kind == "self":
+                found.append("self.ptr.as_ptr()")
+            elif arg is not None and arg.kind == "value":
+                typ = self.param_type(call, arg) or ""
+                handle = is_opaque_ptr(arg.typ, self.idioms.handles)
+                if "&" in typ and not handle:
+                    return None  # a reference, which two closures cannot share
+                found.append(self.param_expr(call, arg))
+            else:
+                return None
+        return found
+
+    def makes(self, call: Call) -> Optional[str]:
+        """'alloc' where 'call' returns a Buffer, 'register' where it returns a
+        Registration: where the struct can release what 'call' made"""
+
+        if call.memory is None or call.memory.role not in ("alloc", "register"):
+            return None
+        role = "free" if call.memory.role == "alloc" else "unregister"
+        if self.again(call, self.idioms.partner(call, role)) is None:
+            return None
+        return call.memory.role
+
+    def bound(self, call: Call) -> bool:
+        """Whether 'call' is bound by a name of its own, not only through the
+        struct of the buffer pattern that calls it"""
+
+        if call.memory is None or call.memory.role not in RELEASES:
+            return True
+        owner = self.idioms.owner(call)
+        return owner is None or not self.makes(owner)
+
+    def held(self, param: str) -> str:
+        """The parameter 'param' with its references of the lifetime HELD. The
+        handle is borrowed shared, so that it can make several buffers or
+        registrations, each holding the borrow."""
+
+        if param in ("&self", "&mut self"):
+            return f"&{HELD} self"
+        name, typ = param.split(": ", 1)
+        if typ.startswith(("&", "Option<&")) and "'" not in typ.split("[")[0]:
+            typ = typ.replace("&", f"&{HELD} ", 1)
+        return f"{name}: {typ}"
+
+    def closure(self, call: Call, role: str) -> Optional[str]:
+        """The Box of a closure calling the partner of the role 'role' with the
+        arguments 'call' was given, None where there is no such partner"""
+
+        partner = self.idioms.partner(call, role)
+        args = self.again(call, partner)
+        if partner is None or args is None:
+            return None
+        lets = []
+        for i, expr in enumerate(args):
+            if expr != "p" and not expr.startswith("n as "):
+                lets.append(f"let a{i} = {expr};")
+                args[i] = f"a{i}"
+        raw = f"super::{rgen.ident(partner.function)}({', '.join(args)})"
+        if role == "realloc":
+            fn = f"move |p, n| unsafe {{ {raw} }}"
+        elif role == "unregister" and partner.errno:
+            fn = (
+                f"move |p| match unsafe {{ {raw} }} {{"
+                " ret if ret < 0 => Err(io::Error::from_raw_os_error(-(ret as i32))),"
+                " _ => Ok(()) }"
+            )
+        elif role == "unregister":
+            fn = f"move |p| {{ unsafe {{ {raw} }}; Ok(()) }}"
+        else:
+            fn = f"move |p| {{ unsafe {{ {raw} }}; }}"
+        return f"{{ {' '.join(lets)} Box::new({fn}) }}".replace("{  Box", "{ Box")
+
+    def made(self, call: Call) -> List[str]:
+        """The statements making the Buffer or the Registration of 'call'"""
+
+        if self.makes(call) == "register":
+            made = self.local(call, "registration", "made")
+            unregister = self.closure(call, "unregister")
+            return [
+                f"let {made} = {self.registration_struct} {{",
+                f"    memory: {self.pname(call.memory.ptr)},",
+                f"    unregister: Some({unregister}),",
+                "};",
+            ]
+        made = self.local(call, "buffer", "made")
+        realloc = self.closure(call, "realloc")
+        fields = [
+            f"    len: {self.pname(call.memory.nbytes)},",
+            f"    free: {self.closure(call, 'free')},",
+            f"    realloc: {f'Some({realloc})' if realloc else 'None'},",
+        ]
+        if call.nullable:
+            return (
+                [f"let {made} = NonNull::new(ret).map(|ptr| {self.buffer_struct} {{"]
+                + ["    ptr,"]
+                + fields
+                + ["});"]
+            )
+        return (
+            [
+                f"let {made} = {self.buffer_struct} {{",
+                f'    ptr: NonNull::new(ret).expect("{call.function}() gave NULL"),',
+            ]
+            + fields
+            + ["};"]
+        )
+
+    def taken(self, name: str) -> bool:
+        structs = {self.struct_name(h) for h in self.idioms.handles}
+        return (
+            name in self.namer.names.values()
+            or name in self.namer.stubs.values()
+            or name in structs
+            or name in STD
+        )
+
+    @cached_property
+    def buffer_struct(self) -> str:
+        """Buffer, or Buffer_ where a type of the crate or a handle is Buffer"""
+
+        return "Buffer_" if self.taken("Buffer") else "Buffer"
+
+    @cached_property
+    def registration_struct(self) -> str:
+        """Registration, or Registration_ where a type of the crate or a handle
+        is Registration"""
+
+        return "Registration_" if self.taken("Registration") else "Registration"
 
     def usable(self, call: Call) -> bool:
         for out in call.outs:
@@ -769,7 +1056,7 @@ class Renderer(object):
             "    }",
         ]
         for call in calls["constructor"] + calls["method"]:
-            if self.usable(call):
+            if self.usable(call) and self.bound(call):
                 lines += [""] + self.function(call, "    ")
         if destructor:
             lines += [""] + self.function(destructor, "    ")
@@ -825,8 +1112,16 @@ class Renderer(object):
             if any(self.idioms.of(record).values()):
                 lines += [""] + [f"    {ln}".rstrip() for ln in self.handle(record)]
         for call in self.idioms.functions():
-            if self.usable(call):
+            if self.usable(call) and self.bound(call):
                 lines += [""] + self.function(call, "    ")
+        made = {self.makes(c) for c in self.idioms.calls if self.usable(c)}
+        for role, text, struct, name in [
+            ("alloc", BUFFER_STRUCT, self.buffer_struct, "Buffer"),
+            ("register", REGISTRATION_STRUCT, self.registration_struct, "Registration"),
+        ]:
+            if role in made:
+                text = re.sub(rf"\b{name}\b", struct, text)
+                lines += [""] + [f"    {ln}".rstrip() for ln in text.splitlines()]
         if any(c.partial and self.usable(c) for c in self.idioms.calls):
             lines += [""] + [f"    {ln}".rstrip() for ln in PARTIAL]
         lines.append("}")
