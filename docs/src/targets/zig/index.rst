@@ -87,6 +87,31 @@ Handles
   a method has that name; the functions taking it first are its methods. A
   handle given otherwise is its struct.
 
+Buffers
+  A buffer that ``<stem>_alloc`` allocates, see the buffer pattern in
+  :ref:`sec-ir-csubset`, is returned as a ``Buffer``, an optional where
+  ``@nullable``, and otherwise ``error.OutOfMemory`` where C returned NULL:
+  ``dev.bufAlloc(4096)``. ``ptr`` and ``len`` are its address and size in
+  bytes, and ``realloc(nbytes)`` resizes it with ``<stem>_realloc``.
+  ``deinit()``, for ``defer buf.deinit()``, frees it with ``<stem>_free``;
+  neither has a name of its own in the module. Zig has no closures, so the
+  ``Buffer`` keeps the pointer of the handle it was allocated with, which must
+  outlive it, and the pattern is bound so only where ``<stem>_free`` takes no
+  other argument than one handle. The memory may be a device's, such as GPU
+  memory, which the CPU cannot read, and nothing in the API says which;
+  ``slice()`` is for memory of the host only. The struct is ``Buffer_`` where
+  the module has the name ``Buffer``.
+
+Registrations
+  Memory that ``<stem>_register`` registers, see the registration pattern in
+  :ref:`sec-ir-csubset`, is given as a ``[]u8``, whose length is the size:
+  ``dev.bufRegister(&memory)``. The function returns a ``Registration``, whose
+  ``memory`` is the slice. ``unregister()`` unregisters the memory with
+  ``<stem>_unregister``, which has no name of its own in the module, and
+  ``deinit()`` does so without the error. The memory, and the handle it was
+  registered with, must outlive it. The struct is ``Registration_`` where the
+  module has the name ``Registration``.
+
 Errors
   A function documented ``@errno`` returns an error union, the error that of
   the errno's name: ``-EINVAL`` is ``error.INVAL``. ``errnoOf()`` is the errno

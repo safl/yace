@@ -13,11 +13,13 @@ from where. Names are camelCase for functions, without the prefix.
 """
 
 import re
+from functools import cached_property
 from typing import Dict, List, Optional
 
 from yace.ir import decls, types
 from yace.ir.semantics import is_void_ptr
 from yace.targets.idiom import (
+    RELEASES,
     Arg,
     Call,
     Idioms,
@@ -49,6 +51,59 @@ PRIMITIVE = re.compile(
     r"|longdouble)|any(opaque|error|frame)|bool|void|noreturn|type"
     r"|comptime_(int|float)"
 )
+
+
+# The structs of the buffer pattern. They bind no name but those Locals renames,
+# and fields, which it does not, as Zig forbids a local to shadow a declaration
+BUFFER = """\
+/// Memory the library allocated, freed by deinit() with what it was allocated
+/// with, which must outlive it. The memory may be a device's, such as a GPU's,
+/// which the CPU cannot read, and nothing in the API says which; slice() is for
+/// memory of the host only.
+pub const Buffer = struct {
+    ptr: *anyopaque,
+    len: usize,
+    ctx: ?*anyopaque,
+    free_fn: *const fn (?*anyopaque, *anyopaque) void,
+    realloc_fn: ?*const fn (?*anyopaque, *anyopaque, usize) ?*anyopaque,
+
+    /// The memory as bytes; for memory of the host only
+    pub fn slice(self: Buffer) []u8 {
+        return @as([*]u8, @ptrCast(self.ptr))[0..self.len];
+    }
+
+    /// Resize the memory to 's' bytes, keeping its bytes up to the smaller
+    /// size; error.OutOfMemory where it cannot, leaving the memory unchanged
+    pub fn realloc(self: *Buffer, s: usize) anyerror!void {
+        const h = self.realloc_fn orelse return error.Unsupported;
+        self.ptr = h(self.ctx, self.ptr, s) orelse return error.OutOfMemory;
+        self.len = s;
+    }
+
+    /// Free the memory
+    pub fn deinit(self: Buffer) void {
+        self.free_fn(self.ctx, self.ptr);
+    }
+};"""
+
+REGISTRATION = """\
+/// Memory of the caller's that the library uses until unregister(). The
+/// memory, and what it was registered with, must outlive it.
+pub const Registration = struct {
+    memory: []u8,
+    ctx: ?*anyopaque,
+    unregister_fn: *const fn (?*anyopaque, *anyopaque) anyerror!void,
+
+    /// Unregister the memory
+    pub fn unregister(self: Registration) anyerror!void {
+        return self.unregister_fn(self.ctx, @ptrCast(self.memory.ptr));
+    }
+
+    /// As unregister(), without its error, for `defer registration.deinit()`
+    pub fn deinit(self: Registration) void {
+        self.unregister() catch {};
+    }
+};"""
 
 
 class Renderer(object):
@@ -177,7 +232,11 @@ class Renderer(object):
         for arg in call.args:
             name = self.pname(arg.param)
             typ = arg.typ
-            if arg.kind == "self":
+            if self.makes(call) == "register" and arg.param == call.memory.ptr:
+                found.append(f"{name}: []u8")
+            elif self.makes(call) == "register" and arg.param == call.memory.nbytes:
+                continue  # the length of the slice
+            elif arg.kind == "self":
                 found.append(f"self: {self.struct_name(call.handle)}")
             elif arg.kind == "string":
                 opt = "?" if arg.nullable else ""
@@ -247,6 +306,10 @@ class Renderer(object):
 
     def expr(self, call: Call, arg: Arg) -> str:
         name = self.pname(arg.param)
+        if self.makes(call) == "register" and arg.param == call.memory.ptr:
+            return f"@ptrCast({name}.ptr)"
+        if self.makes(call) == "register" and arg.param == call.memory.nbytes:
+            return f"@intCast({self.pname(call.memory.ptr)}.len)"
         if arg.kind == "value" and self.given_handle(arg.typ):
             return f"if ({name}) |h| h.ptr else null" if arg.nullable else f"{name}.ptr"
         if arg.kind == "self":
@@ -302,6 +365,8 @@ class Renderer(object):
         ]
 
     def results(self, call: Call):
+        if self.makes(call) == "register":
+            return [(self.made_type(call), self.made(call))]
         found = []
         count = "ret" if call.returns == "count" else None
         for out in call.outs:
@@ -343,7 +408,9 @@ class Renderer(object):
             found.append(("usize", "@intCast(ret)"))
 
         ret = call.ret
-        if call.returns == "value":
+        if self.makes(call) == "alloc":
+            found.append((self.made_type(call), self.made(call)))
+        elif call.returns == "value":
             found.append((self.z(ret), "ret"))
         elif call.returns == "string":
             span = "std.mem.span(@as([*:0]const u8, @ptrCast(ret)))"
@@ -369,7 +436,7 @@ class Renderer(object):
         func = self.idioms.decl(call.function)
         rtype, rexpr = self.value(call)
         value = rtype
-        if call.errno:
+        if call.errno or (self.makes(call) == "alloc" and not call.nullable):
             rtype = f"anyerror!{rtype}"
 
         body: List[str] = []
@@ -409,6 +476,7 @@ class Renderer(object):
             ]
         elif call.errno:
             body.append("if (ret < 0) return errnoError(@intCast(ret));")
+        body += self.releases(call)
         if rexpr is not None:
             body.append(f"return {rexpr};")
 
@@ -420,6 +488,10 @@ class Renderer(object):
             " it returns when it succeeds, with what was written before it failed.",
             buffers=True,
         )
+        if self.makes(call) == "register":
+            params_doc = dict(shown.params)
+            params_doc.pop(self.pname(call.memory.nbytes), None)
+            shown = shown.model_copy(update={"params": params_doc})
         lines = [f"/// {line}".rstrip() for line in zgen.doc_lines(shown, errors)]
         lines += ["///", f"/// Calls `{call.function}`."]
         for arg in call.args:
@@ -441,6 +513,138 @@ class Renderer(object):
         lines.append("}")
         return [f"{indent}{line}".rstrip() for line in lines]
 
+    def context(self, call: Call, partner: Optional[Call]) -> Optional[str]:
+        """The context a release function of 'partner' is given, from the
+        arguments of 'call': the pointer of the one handle 'partner' takes
+        besides the address and the size, or null where it takes none; None
+        where it takes more, or what is not a handle of 'call'"""
+
+        if partner is None or partner.memory is None:
+            return None
+        given = {a.param: a for a in call.args}
+        found = []
+        for param in self.idioms.decl(partner.function).params:
+            if param.name in (partner.memory.ptr, partner.memory.nbytes):
+                continue
+            arg = given.get(param.name)
+            if arg is not None and arg.kind == "self":
+                found.append("self.ptr")
+            elif arg is not None and arg.kind == "value" and not arg.nullable:
+                if not self.given_handle(arg.typ):
+                    return None
+                found.append(f"{self.pname(arg.param)}.ptr")
+            else:
+                return None
+        if len(found) > 1:
+            return None
+        return found[0] if found else "null"
+
+    def makes(self, call: Call) -> Optional[str]:
+        """'alloc' where 'call' returns a Buffer, 'register' where it returns a
+        Registration: where the struct can release what 'call' made"""
+
+        if call.memory is None or call.memory.role not in ("alloc", "register"):
+            return None
+        role = "free" if call.memory.role == "alloc" else "unregister"
+        if self.context(call, self.idioms.partner(call, role)) is None:
+            return None
+        return call.memory.role
+
+    def bound(self, call: Call) -> bool:
+        """Whether 'call' is bound by a name of its own, not only through the
+        struct of the buffer pattern that calls it"""
+
+        if call.memory is None or call.memory.role not in RELEASES:
+            return True
+        owner = self.idioms.owner(call)
+        return owner is None or not self.makes(owner)
+
+    def release(self, call: Call, role: str, name: str) -> List[str]:
+        """A struct 'name' whose function 'call' calls the partner of the role
+        'role', given the context, the address and, to resize, the size"""
+
+        partner = self.idioms.partner(call, role)
+        if partner is None or self.context(call, partner) is None:
+            return []
+        args = []
+        for param in self.idioms.decl(partner.function).params:
+            if param.name == partner.memory.ptr:
+                args.append("p")
+            elif param.name == partner.memory.nbytes:
+                args.append("@intCast(s)")
+            else:
+                args.append("@ptrCast(@alignCast(context))")
+        raw = f"{zgen.ident(partner.function)}({', '.join(args)})"
+        if role == "realloc":
+            head = "fn call(context: ?*anyopaque, p: *anyopaque, s: usize) ?*anyopaque"
+            body = [f"return {raw};"]
+        elif role == "unregister":
+            head = "fn call(context: ?*anyopaque, p: *anyopaque) anyerror!void"
+            body = [f"_ = {raw};"] if partner.returns != "nothing" else [f"{raw};"]
+            if partner.errno:
+                body = [
+                    f"const err = {raw};",
+                    "if (err < 0) return errnoError(@intCast(err));",
+                ]
+        else:
+            head = "fn call(context: ?*anyopaque, p: *anyopaque) void"
+            unused = partner.errno or partner.returns != "nothing"
+            body = [f"_ = {raw};" if unused else f"{raw};"]
+        return (
+            [f"const {name} = struct {{", f"    {head} {{"]
+            + [f"        {line}" for line in body]
+            + ["    }", "};"]
+        )
+
+    def releases(self, call: Call) -> List[str]:
+        """The structs of the functions that release what 'call' made"""
+
+        if self.makes(call) == "register":
+            return self.release(call, "unregister", "a0")
+        if self.makes(call) == "alloc":
+            return self.release(call, "free", "a0") + self.release(
+                call, "realloc", "a1"
+            )
+        return []
+
+    def made_type(self, call: Call) -> str:
+        if self.makes(call) == "register":
+            return self.registration_struct
+        return f"?{self.buffer_struct}" if call.nullable else self.buffer_struct
+
+    def made(self, call: Call) -> str:
+        """The expression of the Buffer or the Registration 'call' made"""
+
+        if self.makes(call) == "register":
+            ctx = self.context(call, self.idioms.partner(call, "unregister"))
+            memory = self.pname(call.memory.ptr)
+            return f".{{ .memory = {memory}, .ctx = {ctx}, .unregister_fn = &a0.call }}"
+        ctx = self.context(call, self.idioms.partner(call, "free"))
+        resize = "&a1.call" if self.release(call, "realloc", "a1") else "null"
+        fields = (
+            f" .len = @intCast({self.pname(str(call.memory.nbytes))}),"
+            f" .ctx = {ctx}, .free_fn = &a0.call, .realloc_fn = {resize} }}"
+        )
+        cls = self.buffer_struct
+        if call.nullable:
+            return f"if (ret) |p| {cls}{{ .ptr = p,{fields} else null"
+        return f"{cls}{{ .ptr = ret orelse return error.OutOfMemory,{fields}"
+
+    def available(self, name: str) -> str:
+        taken = self.declared | set(self.fn_names.values())
+        taken |= {self.struct_name(h) for h in self.idioms.handles}
+        while name in taken:
+            name += "_"
+        return name
+
+    @cached_property
+    def buffer_struct(self) -> str:
+        return self.available("Buffer")
+
+    @cached_property
+    def registration_struct(self) -> str:
+        return self.available("Registration")
+
     def usable(self, call: Call) -> bool:
         for out in call.outs:
             if out.kind == "record":
@@ -460,7 +664,7 @@ class Renderer(object):
             f"    ptr: *{self.namer(record)},",
         ]
         for call in calls["constructor"] + calls["method"]:
-            if self.usable(call):
+            if self.usable(call) and self.bound(call):
                 lines += [""] + self.function(call, "    ")
         if destructor:
             lines += [""] + self.function(destructor, "    ")
@@ -498,6 +702,13 @@ class Renderer(object):
             if any(self.idioms.of(record).values()):
                 lines += [""] + self.handle(record)
         for call in self.idioms.functions():
-            if self.usable(call):
+            if self.usable(call) and self.bound(call):
                 lines += [""] + self.function(call, "")
+        made = {self.makes(c) for c in self.idioms.calls if self.usable(c)}
+        if "alloc" in made:
+            text = re.sub(r"\bBuffer\b", self.buffer_struct, BUFFER)
+            lines += [""] + text.splitlines()
+        if "register" in made:
+            text = re.sub(r"\bRegistration\b", self.registration_struct, REGISTRATION)
+            lines += [""] + text.splitlines()
         return self.locals.rename("\n".join(lines), "idiomatic")
