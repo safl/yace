@@ -32,7 +32,7 @@ from tests.conftest import (
     needs_cc,
     needs_cython,
 )
-from tests.test_python import compiled, json_lines
+from tests.test_python import BUFFERS, compiled, json_lines
 from yace.compiler import process
 from yace.ir import types
 from yace.targets.cython import cygen
@@ -618,22 +618,41 @@ SHADOWING = (
 )
 
 
+# SHADOWING has a handle whose class is named Buffer, so the buffer is Buffer_
+SHADOWED_BUFFER = SHADOWING + (
+    "/**\n * Allocate\n * @param nbytes N\n */\nvoid *api_mem_alloc(size_t nbytes);\n"
+    "/**\n * Free\n * @param buf B\n */\nvoid api_mem_free(void *buf);\n"
+)
+
+
 @needs_mypy
 @pytest.mark.parametrize(
     "header",
-    [NAMED, RESERVED, BITS, PACKED, TYPED, SHADOWING],
-    ids=["named", "reserved", "bits", "packed", "typed", "shadowing"],
+    [NAMED, RESERVED, BITS, PACKED, TYPED, SHADOWING, BUFFERS, SHADOWED_BUFFER],
+    ids=[
+        "named",
+        "reserved",
+        "bits",
+        "packed",
+        "typed",
+        "shadowing",
+        "buffers",
+        "shadowed-buffer",
+    ],
 )
 def test_the_stub_is_that_of_the_module(parse, tmp_path, header):
     """stubtest compares the stub with the module, and mypy checks the stub on
     its own. The module is imported with RTLD_LAZY, because the check built the
     module without linking the library. The allowlist names the __init__ of the
-    handle of SHADOWING, a slot without a signature."""
+    handles of SHADOWING and BUFFERS and of the class of an allocated buffer,
+    slots without a signature."""
 
     model, _ = parse(header)
     assert process(model, ["cython"], tmp_path) == []
     out = tmp_path / "cython"
-    (tmp_path / "allowlist.txt").write_text("api.Buffer.__init__\n")
+    (tmp_path / "allowlist.txt").write_text(
+        "api.Buffer.__init__\napi.Buffer_.__init__\napi.Dev.__init__\n"
+    )
     env = {**os.environ, "PYTHONPATH": str(out), "MYPYPATH": str(out)}
     lazy = (
         "import os, sys; sys.setdlopenflags(os.RTLD_LAZY);"

@@ -123,6 +123,7 @@ class Call(BaseModel):
     returns: Returns
     nullable: bool = False  # whether what is returned may be nothing
     ret: types.Type
+    memory: Optional[decls.Memory] = None  # what it does with a buffer, if any
 
     def given(self, buffers: bool = False) -> List[Arg]:
         """The arguments the caller gives; the binding passes or returns the rest.
@@ -428,6 +429,7 @@ class Idioms(object):
             partial=func.partial,
             returns=returns,
             nullable=func.nullable,
+            memory=func.memory,
             ret=ret,
         )
 

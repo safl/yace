@@ -460,7 +460,12 @@ Buffer
   parameters of ``<stem>_alloc``, and the bindings pass them the values the
   buffer was allocated with. An allocation without a ``<stem>_free`` breaks
   the buffer-lifecycle rule. The bindings make the buffer a type that owns the
-  memory and frees it when it goes out of scope.
+  memory and frees it when it goes out of scope. What ``<stem>_alloc`` writes
+  to an ``[out]`` parameter, such as a physical address, is returned with the
+  buffer, as for any function. The bindings cannot pass ``<stem>_realloc`` an
+  ``[out]`` parameter again, as they have no place to return it, so such a
+  buffer cannot be resized, and ``<stem>_realloc`` is left to the raw layer,
+  as it frees the memory the buffer owns.
 
 Registration
   Memory of the caller's that the library is to use, such as memory a device

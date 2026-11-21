@@ -84,10 +84,12 @@ class Stub(object):
         for call in r.idioms.calls:
             if call.kind == "constructor" and r.usable(call):
                 found.add(r.public(call))
-        found |= {r.public(call) for call in r.idioms.functions()}
+        found |= {r.public(call) for call in r.idioms.functions() if r.bound(call)}
         for name in r.classes:
             for calls in r.idioms.of(name).values():
-                found |= {r.public(call, True) for call in calls}
+                found |= {r.public(call, True) for call in calls if r.bound(call)}
+        if any(c.memory and c.memory.role == "alloc" for c in r.idioms.calls):
+            found.add(r.buffer_class)
         for record in r.records.values():
             for field in record.fields:
                 if field.name:
@@ -271,6 +273,8 @@ class Stub(object):
             found.append(self.py["int"])
         if call.returns in ("value", "string", "handle"):
             found.append(self.value(call.ret, given=False))
+        elif call.memory is not None and call.memory.role == "alloc":
+            found.append(f"{self.r.buffer_class} | None")
         elif call.returns == "pointer":
             copy = copyable(self.r.model, call.ret.to)
             found.append(self.value(call.ret, given=False, copy=copy))
@@ -308,7 +312,8 @@ class Stub(object):
             f"    def __exit__(self, *exc: {self.py['object']}) -> None: ...",
         ]
         for call in calls["method"]:
-            lines.append(self.function(call, "    ", self_=True))
+            if self.r.bound(call):
+                lines.append(self.function(call, "    ", self_=True))
         destructor = calls["destructor"][0] if calls["destructor"] else None
         if destructor:
             lines.append(self.function(destructor, "    ", self_=True))
@@ -408,7 +413,7 @@ class Stub(object):
         for call in r.idioms.calls:
             if call.kind == "constructor" and r.usable(call):
                 functions.append(self.function(call))
-        functions += [self.function(c) for c in r.idioms.functions()]
+        functions += [self.function(c) for c in r.idioms.functions() if r.bound(c)]
         return {
             "py": self.py,
             "imports": self.imports(),
