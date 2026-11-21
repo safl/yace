@@ -832,3 +832,71 @@ def test_a_record_the_caller_may_write_is_not_copied(parse, tmp_path):
         env=env,
     )
     assert run.returncode == 0, run.stdout + run.stderr
+
+
+@needs_cc
+def test_an_allocated_buffer_is_freed_by_close(parse, tmp_path):
+    from tests.test_python import BUFFERS, BUFFERS_C
+
+    model, _ = parse(BUFFERS)
+    assert process(model, ["go"], tmp_path) == []
+    package = (tmp_path / "go" / "api.go").read_text()
+    assert ") BufFree(" not in package and ") BufRealloc(" not in package
+    main = program(
+        "\tdev, _ := api.Open()\n"
+        "\tbuf := dev.BufAlloc(4)\n"
+        "\tcopy(buf.Bytes(), []byte{1, 2, 3, 4})\n"
+        "\tfmt.Println(buf.Len(), api.Sum(buf.Bytes()))\n"
+        "\tfmt.Println(buf.Realloc(8), buf.Len(), buf.Bytes()[:4])\n"
+        "\tbuf.Close()\n\tbuf.Close()\n"
+        "\tfmt.Println(api.Freed(), buf.Ptr() == nil, buf.Realloc(8))\n"
+    )
+    assert run_go(tmp_path, main, BUFFERS + BUFFERS_C, strict=True) == (
+        "4 10\n<nil> 8 [1 2 3 4]\n1 true the buffer is closed\n"
+    )
+
+
+@needs_cc
+def test_an_allocation_returns_its_out_values_with_the_buffer(parse, tmp_path):
+    from tests.test_python import PHYS, PHYS_C
+
+    model, _ = parse(PHYS)
+    assert process(model, ["go"], tmp_path) == []
+    assert ") BufRealloc(" not in (tmp_path / "go" / "api.go").read_text()
+    main = program(
+        "\tdev, _ := api.Open()\n"
+        "\tphys, buf := dev.BufAlloc(16)\n"
+        "\tnonePhys, none := dev.BufAlloc(2048)\n"
+        "\tfmt.Println(phys, buf.Len(), nonePhys, none == nil)\n"
+        "\tfmt.Println(buf.Realloc(32))\n"
+        "\tbuf.Close()\n"
+        "\tfmt.Println(api.Freed())\n"
+    )
+    assert run_go(tmp_path, main, PHYS + PHYS_C, strict=True) == (
+        "4096 16 0 true\nthe buffer cannot be resized\n1\n"
+    )
+
+
+@needs_cc
+def test_registered_memory_is_pinned_until_closed(parse, tmp_path):
+    from tests.test_python import REGISTRATIONS, REGISTRATIONS_C
+
+    model, _ = parse(REGISTRATIONS)
+    assert process(model, ["go"], tmp_path) == []
+    package = (tmp_path / "go" / "api.go").read_text()
+    assert ") BufUnregister(" not in package
+    main = program(
+        "\tdev, _ := api.Open()\n"
+        "\tmemory := make([]byte, 16)\n"
+        "\treg, err := dev.BufRegister(memory)\n"
+        "\tat := uintptr(unsafe.Pointer(&memory[0]))\n"
+        "\tfmt.Println(err, uintptr(api.Registered()) == at,"
+        " api.RegisteredNbytes(), len(reg.Bytes()))\n"
+        "\t_, err = dev.BufRegister(make([]byte, 8))\n"
+        "\tfmt.Println(errors.Is(err, syscall.EBUSY))\n"
+        "\tfmt.Println(reg.Close(), reg.Close(), api.Registered())\n",
+        imports=("errors", "fmt", "syscall", "unsafe"),
+    )
+    assert run_go(tmp_path, main, REGISTRATIONS + REGISTRATIONS_C, strict=True) == (
+        "<nil> true 16 16\ntrue\n<nil> <nil> 0\n"
+    )
