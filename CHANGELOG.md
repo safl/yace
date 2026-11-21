@@ -16,6 +16,39 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## 0.14.0
+
+The `cython` target generates the idiomatic API of the Python target as a
+module compiled with Cython, with a stub, `<prefix>.pyi`, for type checkers. A
+call of libfoo through it cost about 84 ns when built for the limited API,
+against about 580 ns through ctypes; the module is built for the full C API,
+which is faster again, and so once per CPython version. The `.pxd` and its
+check move from the `python` target to the `cython` target.
+
+Memory for IO follows names, and every target binds it as a type that owns
+it. A buffer that `<stem>_alloc` allocates is a `Buffer`, which frees it with
+`<stem>_free` and resizes it with `<stem>_realloc`, given the arguments it was
+allocated with; an `[out]` of the allocation, such as a physical address, is
+returned with it. Memory given to `<stem>_register`, documented `@errno`, is
+returned as a `Registration`, which unregisters it with `<stem>_unregister`.
+The release functions have no names of their own in the idiomatic layers. An
+allocation without `<stem>_free`, and a registration without
+`<stem>_unregister` or `@errno`, are reported by the rule `buffer-lifecycle`,
+which fails a run that is not `--lenient`.
+
+In the Python and Cython modules, a `void *` `@arrparam` takes the memory of
+any object with the buffer protocol, a DLPack tensor or a CUDA array, without
+a copy; the ctypes module copied an `[in]` array, and sized it in elements
+rather than bytes. A `Buffer` gives its memory through the buffer protocol, so
+NumPy and PyTorch use it without a copy. A record the library lends, as a
+returned pointer or in an `[out]` array of pointers, is returned as the record,
+a view of the library's memory, rather than as a pointer. The ctypes module
+raises `OverflowError` for a length that its C type cannot hold, which ctypes
+truncated.
+
+An `[out]` array of handle pointers is bound as an array; it was taken for one
+handle returned, and C wrote past it.
+
 ## 0.13.1
 
 A string with a length, a `const char *` documented with `@arrparam`, is a
