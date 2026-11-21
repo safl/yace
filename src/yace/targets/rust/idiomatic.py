@@ -439,6 +439,8 @@ class Renderer(object):
             ptr = f"s.as{mut}_ptr()"
             if is_void_ptr(typ):
                 ptr += f" as *{'const' if not mut else 'mut'} c_void"
+            if self.reborrowed(arg):
+                return f"{name}.as_deref_mut().map_or(std::ptr::null_mut(), |s| {ptr})"
             if arg.nullable:
                 return f"{name}.map_or(std::ptr::null{mut}(), |s| {ptr})"
             return ptr.replace("s.", f"{name}.", 1)
@@ -563,9 +565,21 @@ class Renderer(object):
 
         arg = next(a for a in call.args if a.param == param)
         name = self.pname(param)
+        if self.reborrowed(arg):
+            return f"{name}.as_deref().map_or(0, |s| s.len())"
         if arg.nullable and arg.kind != "out":  # a buffer is always given
             return f"{name}.map_or(0, |s| s.len())"
         return f"{name}.len()"
+
+    def reborrowed(self, arg: Arg) -> bool:
+        """Whether 'arg' is an Option of a mutable slice, which is not Copy, so
+        the call takes its address and its length through reborrows of it"""
+
+        return (
+            arg.kind == "sequence"
+            and arg.nullable
+            and not getattr(arg.typ.to, "const", False)
+        )
 
     def elem(self, typ) -> str:
         """The Rust type of an element of an array, bytes for void"""
@@ -706,7 +720,8 @@ class Renderer(object):
         for arg in call.args:
             typ = self.param_type(call, arg)
             if typ is not None and arg.kind != "self":
-                params.append(f"{self.pname(arg.param)}: {typ}")
+                mut = "mut " if self.reborrowed(arg) else ""
+                params.append(f"{mut}{self.pname(arg.param)}: {typ}")
 
         results = self.results(call)
         if not results:
