@@ -63,6 +63,15 @@ class _Record:
     ) -> {{ py.int }}: ...
     @{{ py.classmethod }}
     def pr(cls, obj: _Record | None, flags: {{ py.int }} = ...) -> {{ py.int }}: ...
+
+
+class _SupportsDLPack({{ py.Protocol }}):
+    def __dlpack__(self, *args: {{ py.Any }}, **kwargs: {{ py.Any }}) -> {{ py.object }}: ...
+
+
+class _SupportsCudaArrayInterface({{ py.Protocol }}):
+    @{{ py.property }}
+    def __cuda_array_interface__(self) -> {{ py.dict }}[{{ py.str }}, {{ py.Any }}]: ...
 {%- for record in stub.records %}
 
 

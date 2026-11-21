@@ -45,6 +45,7 @@ PYTHON = {
     "Sequence": "collections.abc",
     "IO": "typing",
     "Any": "typing",
+    "Protocol": "typing",
     "Self": "typing",
 }
 
@@ -206,11 +207,17 @@ class Stub(object):
         if types.is_string(self.r.resolve(elem)):
             return self.t("{Sequence}[{str} | {bytes}]")
         if is_void_ptr(typ):
-            return self.py["Buffer"]
+            return self.memory
         items = self.py["list" if param.direction == "inout" else "Sequence"]
         return self.t(
             "{Buffer} | {items}[{item}]", items=items, item=self.element(elem)
         )
+
+    @property
+    def memory(self) -> str:
+        """The type of an object that gives its memory"""
+
+        return self.t("{Buffer} | _SupportsDLPack | _SupportsCudaArrayInterface")
 
     def param(self, call: Call, arg) -> str:
         typ = self.r.idioms.decl(call.function).params[arg.index].typ

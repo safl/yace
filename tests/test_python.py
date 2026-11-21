@@ -1067,3 +1067,134 @@ def test_a_const_record_ending_in_a_flexible_array_is_returned_as_a_view(parse, 
     listed = api["list"](2)
     assert (got.len, api["same"](got)) == (4, 1)
     assert [(f.len, api["same"](f)) for f in listed] == [(4, 1), (4, 1)]
+
+
+MEMORY = (
+    "#include <stddef.h>\n#include <stdint.h>\n"
+    "/**\n * Where\n * @arrparam buf B @len_at{n}\n */\n"
+    "uintptr_t api_where(const void *buf, size_t n);\n"
+    "/**\n * Size\n * @arrparam buf B @len_at{n}\n */\n"
+    "size_t api_size(const void *buf, size_t n);\n"
+    "/**\n * Fill\n * @arrparam[in,out] buf B @len_at{n}\n */\n"
+    "void api_fill(void *buf, size_t n);\n"
+)
+
+MEMORY_C = (
+    "uintptr_t api_where(const void *buf, size_t n)\n"
+    "{ (void)n; return (uintptr_t)buf; }\n"
+    "size_t api_size(const void *buf, size_t n) { (void)buf; return n; }\n"
+    "void api_fill(void *buf, size_t n)\n"
+    "{ unsigned char *b = buf; for (size_t i = 0; i < n; i++) b[i] = 0xab; }\n"
+)
+
+
+class DLTensor(ctypes.Structure):
+    _fields_ = [
+        ("data", ctypes.c_void_p),
+        ("device", ctypes.c_int32 * 2),
+        ("ndim", ctypes.c_int32),
+        ("dtype", ctypes.c_uint32),  # code, bits and lanes, packed
+        ("shape", ctypes.POINTER(ctypes.c_int64)),
+        ("strides", ctypes.POINTER(ctypes.c_int64)),
+        ("byte_offset", ctypes.c_uint64),
+    ]
+
+
+class Tensor:
+    """A DLPack tensor of 32-bit unsigned integers in host memory, as a
+    producer such as NumPy or PyTorch gives one: a versioned capsule where the
+    consumer asks for version 1, else a legacy one"""
+
+    def __init__(self, count, strides=None, readonly=False, versioned=True):
+        self.data = (ctypes.c_uint32 * count)()
+        self.shape = (ctypes.c_int64 * 1)(count)
+        self.strides = None if strides is None else (ctypes.c_int64 * 1)(strides)
+        self.readonly = readonly
+        self.versioned = versioned
+        self.released = []
+
+    def address(self):
+        return ctypes.addressof(self.data)
+
+    def __dlpack__(self, max_version=None):
+        tensor = DLTensor(
+            data=self.address(),
+            ndim=1,
+            dtype=1 | (32 << 8) | (1 << 16),  # kDLUInt, 32 bits, 1 lane
+            shape=self.shape,
+            strides=self.strides,
+        )
+        if self.versioned and max_version is not None:
+            fields = [
+                ("version", ctypes.c_uint32 * 2),
+                ("manager_ctx", ctypes.c_void_p),
+                ("deleter", ctypes.c_void_p),
+                ("flags", ctypes.c_uint64),
+                ("dl_tensor", DLTensor),
+            ]
+            name = b"dltensor_versioned"
+            managed = type("M", (ctypes.Structure,), {"_fields_": fields})()
+            managed.flags = 1 if self.readonly else 0
+        else:
+            fields = [
+                ("dl_tensor", DLTensor),
+                ("manager_ctx", ctypes.c_void_p),
+                ("deleter", ctypes.c_void_p),
+            ]
+            name = b"dltensor"
+            managed = type("M", (ctypes.Structure,), {"_fields_": fields})()
+        managed.dl_tensor = tensor
+        self.managed = managed  # the memory of the struct the capsule points to
+        new = ctypes.pythonapi.PyCapsule_New
+        new.restype = ctypes.py_object
+        new.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_void_p]
+        return new(ctypes.addressof(managed), name, None)
+
+
+class CudaArray:
+    """An array giving its memory through the CUDA array interface, here host
+    memory, which C reads as it would a device's address"""
+
+    def __init__(self, count):
+        self.data = (ctypes.c_uint32 * count)()
+        self.__cuda_array_interface__ = {
+            "data": (ctypes.addressof(self.data), False),
+            "shape": (count,),
+            "typestr": "<u4",
+            "strides": None,
+            "version": 3,
+        }
+
+
+@needs_cc
+def test_memory_is_passed_without_a_copy(parse, bind):
+    """A buffer, a DLPack tensor of either version, and a CUDA array are given
+    to C at their own address, sized in bytes"""
+
+    model, _ = parse(MEMORY)
+    api = bind(model, MEMORY + MEMORY_C)
+    data = bytes(8)
+    at = ctypes.cast(ctypes.c_char_p(data), ctypes.c_void_p).value
+    assert (api["where"](data), api["size"](data)) == (at, 8)
+    words = array.array("I", [0, 0])
+    assert api["where"](words) == words.buffer_info()[0]
+    api["fill"](words)
+    assert list(words) == [0xABABABAB] * 2
+    with pytest.raises(BufferError):
+        api["fill"](data)
+
+    for versioned in (True, False):
+        tensor = Tensor(3, versioned=versioned)
+        assert api["where"](tensor) == tensor.address()
+        assert api["size"](tensor) == 12
+        api["fill"](tensor)
+        assert list(tensor.data) == [0xABABABAB] * 3
+    with pytest.raises(BufferError):
+        api["fill"](Tensor(3, readonly=True))
+    assert api["size"](Tensor(3, strides=1)) == 12
+    with pytest.raises(ValueError, match="contiguous"):
+        api["size"](Tensor(3, strides=2))
+
+    cuda = CudaArray(2)
+    assert api["where"](cuda) == ctypes.addressof(cuda.data)
+    assert api["size"](cuda) == 8

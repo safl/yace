@@ -77,9 +77,10 @@ Arrays
   :py:class:`memoryview`, :py:class:`bytes` for ``uint8_t``, or a NumPy array.
   C reads and writes the buffer without a copy. Any other sequence, such as a
   list, is copied into an :py:class:`array.array`, and an ``[in,out]`` one is
-  copied back. A ``void *`` ``@arrparam`` takes any buffer. An ``[out]`` array
-  is returned as an :py:class:`array.array` of the given capacity, truncated
-  to the count written; a ``void *`` one as a :py:class:`bytearray`. An array
+  copied back. A ``void *`` ``@arrparam`` takes any buffer, DLPack tensor or
+  CUDA array, as in the Python target. An ``[out]`` array is returned as an
+  :py:class:`array.array` of the given capacity, truncated to the count
+  written; a ``void *`` one as a :py:class:`bytearray`. An array
   of records or of strings is copied. An ``[out]`` array of pointers to
   records is a list of views of the records, which C is given back as the
   same records, or of copies where the records are ``const``, as the Python

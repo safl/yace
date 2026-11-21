@@ -134,11 +134,12 @@ class Renderer(object):
 
         arg = next(a for a in call.args if a.param == param)
         seq = self.pname(param)
+        if arg.kind == "sequence" and is_void_ptr(arg.typ):
+            made = self.local(call, param, "m")
+            return f"(0 if {made} is None else {made}.nbytes)"
         length = "_builtins.len"
         if arg.kind == "string":
             seq = f"_str_in({seq})"  # C counts the bytes of the encoded string
-        elif is_void_ptr(arg.typ):
-            length = "_nbytes"
         return (
             f"0 if {seq} is None else {length}({seq})"
             if arg.nullable
@@ -196,6 +197,8 @@ class Renderer(object):
         func = self.idioms.decl(call.function)
         pre: List[str] = []
         args: List[str] = []
+        memories: List[str] = []  # the locals holding the memory of an object
+        acquire: List[str] = []
         for arg in call.args:
             name = self.pname(arg.param)
             typ = func.params[arg.index].typ
@@ -216,16 +219,19 @@ class Renderer(object):
             elif arg.kind == "capacity":
                 args.append(f"_fits({name}, {self.namer.ctype(typ)})")
             elif arg.kind == "sequence" and is_void_ptr(typ):
-                array = (
-                    f"(ctypes.c_char * _nbytes({name}))"
-                    f".from_buffer_copy(_builtins.bytes({name}))"
+                made = self.local(call, arg.param, "m")
+                writable = func.params[arg.index].direction == "inout"
+                memories.append(made)
+                acquire.append(
+                    f"{made} = None if {name} is None else _Memory({name}, {writable})"
+                    if arg.nullable
+                    else f"{made} = _Memory({name}, {writable})"
                 )
-                if func.params[arg.index].direction == "inout":
-                    array = f"(ctypes.c_char * _nbytes({name})).from_buffer({name})"
-                if arg.nullable:
-                    array = f"None if {name} is None else {array}"
-                pre.append(f"{self.local(call, arg.param, 'c')} = {array}")
-                args.append(self.local(call, arg.param, "c"))
+                args.append(
+                    f"None if {made} is None else {made}.address"
+                    if arg.nullable
+                    else f"{made}.address"
+                )
             elif arg.kind == "sequence":
                 elem = self.namer.ctype(typ.to)
                 array = f"({elem} * _builtins.len({name}))(*{name})"
@@ -289,7 +295,7 @@ class Renderer(object):
                         f"    raise ValueError(\"'{other}' does not have the"
                         f" count '{arg.param}' of '{arg.of}'\")",
                     ]
-        pre = checks + pre
+        pre = acquire + checks + pre
         raw = pygen.ident(call.function)
         lines = pre + [f"ret = {raw}({', '.join(args)})"]
         if call.errno:
@@ -378,17 +384,27 @@ class Renderer(object):
         elif call.returns == "pointer":
             results.append("ret")
 
-        if not results:
+        if results:
+            value = results[0] if len(results) == 1 else f"({', '.join(results)})"
+            if call.partial:
+                made = self.local(call, "partial", "value")
+                lines += [f"{made} = {value}", f"_check(ret, {made})", f"return {made}"]
+            else:
+                lines.append(f"return {value}")
+        if not memories:
             return lines
-        value = results[0] if len(results) == 1 else f"({', '.join(results)})"
-        if call.partial:
-            made = self.local(call, "partial", "value")
-            return lines + [
-                f"{made} = {value}",
-                f"_check(ret, {made})",
-                f"return {made}",
-            ]
-        return lines + [f"return {value}"]
+        # The memory is held until the call returns, also where it raises
+        held = [f"{made} = None" for made in memories]
+        released = []
+        for made in memories:
+            released += [f"    if {made} is not None:", f"        {made}.release()"]
+        return (
+            held
+            + ["try:"]
+            + [f"    {line}" for line in lines]
+            + ["finally:"]
+            + released
+        )
 
     def points_to_value(self, typ) -> bool:
         """Whether 'typ' is a pointer to a record or number, not a string"""
