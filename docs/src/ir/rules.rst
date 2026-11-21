@@ -84,6 +84,9 @@ breaking one is still parsed, and the run fails, unless ``--lenient``.
 ``handle-lifecycle``
   An opaque record a function creates through an [out] pointer must have a function that @destroys it, so other languages can release it.
 
+``buffer-lifecycle``
+  A function '<stem>_alloc' that returns a void \* buffer of size_t 'nbytes' bytes must have a '<stem>_free' that takes the buffer, and a '<stem>_register' of size_t 'nbytes' bytes at a void \* must have a '<stem>_unregister' that takes it, so other languages can release the buffer and the registration.
+
 ``meta``
   What the meta names must be what the headers declare: 'errmsg' names a function that takes void and returns const char \*, the message of the call that failed last. A function that does not fit is not used.
 

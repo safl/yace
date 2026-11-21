@@ -445,6 +445,39 @@ Record arguments
   ``handle.read(args)``. A function may take more than one record, each with
   a size of its own, anywhere among its parameters.
 
+Buffer
+  Memory for the library's use that the library allocates, by functions named
+  for it::
+
+    void *foo_buf_alloc(const struct foo_handle *handle, size_t nbytes);
+    void *foo_buf_realloc(const struct foo_handle *handle, void *buf, size_t nbytes);
+    void foo_buf_free(const struct foo_handle *handle, void *buf);
+
+  ``<stem>_alloc`` returns a ``void *`` to ``size_t nbytes`` bytes.
+  ``<stem>_free`` frees it, taking it as its one ``void *``.
+  ``<stem>_realloc``, where there is one, resizes it, taking it and
+  ``nbytes``. The other parameters of the two are named and typed as
+  parameters of ``<stem>_alloc``, and the bindings pass them the values the
+  buffer was allocated with. An allocation without a ``<stem>_free`` breaks
+  the buffer-lifecycle rule. The bindings make the buffer a type that owns the
+  memory and frees it when it goes out of scope.
+
+Registration
+  Memory of the caller's that the library is to use, such as memory a device
+  reads and writes directly, by functions named for it::
+
+    int foo_buf_register(const struct foo_handle *handle, void *vaddr, size_t nbytes);
+    int foo_buf_unregister(const struct foo_handle *handle, void *vaddr);
+
+  ``<stem>_register``, documented ``@errno``, registers ``size_t nbytes``
+  bytes at its one ``void *``, until ``<stem>_unregister`` takes that address.
+  The other parameters of ``<stem>_unregister`` are named and typed as
+  parameters of ``<stem>_register``. A registration without an
+  ``<stem>_unregister``, or without ``@errno``, breaks the buffer-lifecycle
+  rule. The bindings take the memory as an object of their language, keep it
+  alive while it is registered, and unregister it when the registration goes
+  out of scope.
+
 Documentation
 -------------
 
