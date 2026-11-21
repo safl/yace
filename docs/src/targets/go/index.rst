@@ -116,6 +116,30 @@ Handles
   ``Ptr()`` is the raw pointer. A handle given otherwise is a ``*`` of its
   struct, nil passing NULL.
 
+Buffers
+  A buffer that ``<stem>_alloc`` allocates, see the buffer pattern in
+  :ref:`sec-ir-csubset`, is returned as a ``*Buffer``, nil where C returned
+  NULL: ``dev.BufAlloc(4096)``. ``Ptr()`` and ``Len()`` are its address and
+  size in bytes, and ``Realloc(nbytes)`` resizes it with ``<stem>_realloc``.
+  ``Close()``, for ``defer buf.Close()``, frees it with ``<stem>_free``, which
+  is given the arguments it was allocated with; neither has a name of its own
+  in the package. The handles it was allocated with must outlive it. The
+  memory may be a device's, such as GPU memory, which the CPU cannot read, and
+  nothing in the API says which; ``Bytes()``, the memory as a ``[]byte``, is
+  for memory of the host only. The struct is ``Buffer_`` where the package
+  has the name ``Buffer``.
+
+Registrations
+  Memory that ``<stem>_register`` registers, see the registration pattern in
+  :ref:`sec-ir-csubset`, is given as a ``[]byte``, whose length is the size:
+  ``dev.BufRegister(memory)``. The function returns a ``*Registration``, which
+  pins Go memory with a ``runtime.Pinner``, as cgo requires of Go memory that C
+  keeps a pointer to. ``Close()`` unregisters the memory with
+  ``<stem>_unregister``, which has no name of its own in the package, and
+  unpins it; where unregistering fails, the memory stays pinned. The handles
+  it was registered with must outlive it. The struct is ``Registration_``
+  where the package has the name ``Registration``.
+
 Errors
   A function documented ``@errno`` returns an ``error`` last, a
   ``syscall.Errno`` wrapped with the name of the C function, so

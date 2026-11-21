@@ -18,12 +18,22 @@ closure is released as the callback's ``@lifetime`` says: when the call
 returns, once it has been called, or when the handle is destroyed.
 """
 
+import re
+from functools import cached_property
 from typing import Dict, List, Optional, Tuple
 
 from yace.ir import decls, types
 from yace.ir.semantics import is_void_ptr
 from yace.targets.capi import cgen
-from yace.targets.idiom import Call, Idioms, call_doc, copyable, is_opaque_ptr, local
+from yace.targets.idiom import (
+    RELEASES,
+    Call,
+    Idioms,
+    call_doc,
+    copyable,
+    is_opaque_ptr,
+    local,
+)
 from yace.targets.python.pygen import camel
 
 from . import ggen
@@ -72,6 +82,90 @@ func yaceCalled(ctx unsafe.Pointer) any {
 		yaceRelease(ctx)
 	}
 	return closure.fn
+}
+""".strip("\n")
+
+
+BUFFER = """
+// Buffer is memory the library allocated, freed by Close with the arguments it
+// was allocated with, which must outlive it. The memory may be a device's, such
+// as a GPU's, which the CPU cannot read, and nothing in the API says which;
+// Bytes is for memory of the host only.
+type Buffer struct {
+	ptr     unsafe.Pointer
+	len     int
+	free    func(unsafe.Pointer)
+	realloc func(unsafe.Pointer, int) unsafe.Pointer
+}
+
+// Ptr is the address of the memory, nil once closed
+func (b *Buffer) Ptr() unsafe.Pointer {
+	return b.ptr
+}
+
+// Len is the size of the memory in bytes
+func (b *Buffer) Len() int {
+	return b.len
+}
+
+// Bytes is the memory as a slice; for memory of the host only
+func (b *Buffer) Bytes() []byte {
+	return unsafe.Slice((*byte)(b.ptr), b.len)
+}
+
+// Realloc resizes the memory to nbytes, keeping its bytes up to the smaller
+// size; where it cannot, the memory is unchanged
+func (b *Buffer) Realloc(nbytes int) error {
+	if b.realloc == nil {
+		return errors.New("the buffer cannot be resized")
+	}
+	if b.ptr == nil {
+		return errors.New("the buffer is closed")
+	}
+	ptr := b.realloc(b.ptr, nbytes)
+	if ptr == nil {
+		return syscall.ENOMEM
+	}
+	b.ptr, b.len = ptr, nbytes
+	return nil
+}
+
+// Close frees the memory; closing a closed buffer does nothing
+func (b *Buffer) Close() {
+	if b.ptr != nil {
+		b.free(b.ptr)
+		b.ptr, b.len = nil, 0
+	}
+}
+""".strip("\n")
+
+REGISTRATION = """
+// Registration is memory of the caller's that the library uses until Close
+// unregisters it. Go memory is pinned until then, as C keeps a pointer to it;
+// the handles it was registered with must outlive it.
+type Registration struct {
+	memory     []byte
+	pinner     runtime.Pinner
+	unregister func(unsafe.Pointer) error
+}
+
+// Bytes is the memory registered
+func (r *Registration) Bytes() []byte {
+	return r.memory
+}
+
+// Close unregisters the memory and unpins it; closing a closed registration
+// does nothing. Where unregistering fails, the memory stays pinned.
+func (r *Registration) Close() error {
+	if r.unregister == nil {
+		return nil
+	}
+	if err := r.unregister(unsafe.Pointer(unsafe.SliceData(r.memory))); err != nil {
+		return err
+	}
+	r.unregister = nil
+	r.pinner.Unpin()
+	return nil
 }
 """.strip("\n")
 
@@ -200,7 +294,11 @@ class Renderer(object):
         for arg in call.args:
             name = names[arg.param]
             typ = arg.typ
-            if arg.kind == "string":
+            if self.makes(call) == "register" and arg.param == call.memory.ptr:
+                found.append(f"{name} []byte")
+            elif self.makes(call) == "register" and arg.param == call.memory.nbytes:
+                continue  # the length of the slice
+            elif arg.kind == "string":
                 found.append(f"{name} {'*' if arg.nullable else ''}string")
             elif arg.kind == "sequence":
                 found.append(f"{name} []{self.elem(typ.to)}")
@@ -239,6 +337,9 @@ class Renderer(object):
 
         names = self.pnames(call)
         namer = self.namer
+        if self.makes(call) == "register":
+            made = self.local(call, call.memory.ptr, "registration")
+            return [(f"*{self.registration_struct}", made, "nil")]
         found = []
         count = call.returns == "count"
         for out in call.outs:
@@ -273,7 +374,10 @@ class Renderer(object):
             found.append(("int", "int(ret)", "0"))
 
         ret = call.ret
-        if call.returns == "value":
+        if self.makes(call) == "alloc":
+            made = self.local(call, str(call.memory.nbytes), "buffer")
+            found.append((f"*{self.buffer_struct}", made, "nil"))
+        elif call.returns == "value":
             found.append((namer.gotype(ret), namer.from_c(ret, "ret"), self.zero(ret)))
         elif call.returns == "string":
             found.append(("string", "C.GoString(ret)", '""'))
@@ -356,7 +460,21 @@ class Renderer(object):
         for arg in call.args:
             pname = names.get(arg.param, arg.param)
             typ = arg.typ
-            if arg.kind == "self":
+            if self.makes(call) == "register" and arg.param == call.memory.ptr:
+                made = self.local(call, call.memory.ptr, "registration")
+                registration = self.registration_struct
+                body += [
+                    f"{made} := &{registration}{{memory: {pname}}}",
+                    f"if len({pname}) > 0 {{",
+                    f"\t{made}.pinner.Pin(unsafe.SliceData({pname}))",
+                    "}",
+                ]
+                after_err.append(f"{made}.pinner.Unpin()")
+                args.append(self.slice_ptr(typ, pname))
+            elif self.makes(call) == "register" and arg.param == call.memory.nbytes:
+                ptr = names[str(call.memory.ptr)]
+                args.append(namer.to_c(typ, f"len({ptr})"))
+            elif arg.kind == "self":
                 args.append(namer.to_c(typ, "h.ptr"))
             elif arg.kind == "string":
                 made = self.local(call, arg.param, "c")
@@ -453,6 +571,7 @@ class Renderer(object):
             body += [f"\t{line}" for line in after_err]
             body += [f"\treturn {', '.join(zeros + [failed])}", "}"]
         body += after_ok
+        body += self.made(call)
         for out in call.outs:
             struct = self.structs.get(out.typ.to.name) if out.kind == "handle" else None
             if struct is None:
@@ -503,6 +622,10 @@ class Renderer(object):
             "With the error, it returns what was written before it failed.",
             buffers=True,
         )
+        if self.makes(call) == "register":
+            params = dict(shown.params)
+            params.pop(pnames[str(call.memory.nbytes)], None)
+            shown = shown.model_copy(update={"params": params})
         lines = doc(doc_lines(shown, errors), f"{name} calls {call.function}.")
         for arg in call.args:
             if arg.kind == "callback" and arg.lifetime != "call":
@@ -521,6 +644,130 @@ class Renderer(object):
         lines += [f"\t{line}" for line in body]
         lines.append("}")
         return [f"{indent}{line}".rstrip() for line in lines]
+
+    def again(self, call: Call, partner: Optional[Call]) -> Optional[List[str]]:
+        """The C expressions of the arguments of 'partner', from those of
+        'call', with 'p' as the address and 'n' as the new size; None where
+        'partner' takes what 'call' has no value of that a closure can keep"""
+
+        if partner is None or partner.memory is None:
+            return None
+        if self.usable(partner) is not None:
+            return None
+        given = {a.param: a for a in call.args}
+        names = self.pnames(call)
+        found = []
+        for param in self.idioms.decl(partner.function).params:
+            arg = given.get(param.name)
+            if param.name == partner.memory.ptr:
+                found.append("p")
+            elif param.name == partner.memory.nbytes:
+                found.append(self.namer.to_c(param.typ, "n"))
+            elif arg is not None and arg.kind == "self":
+                found.append(self.namer.to_c(arg.typ, "h.ptr"))
+            elif arg is not None and arg.kind == "value" and not arg.nullable:
+                name = names[arg.param]
+                if self.given_handle(arg.typ):
+                    name = f"{name}.ptr"
+                found.append(self.namer.to_c(arg.typ, name))
+            else:
+                return None
+        return found
+
+    def makes(self, call: Call) -> Optional[str]:
+        """'alloc' where 'call' returns a Buffer, 'register' where it returns a
+        Registration: where the struct can release what 'call' made"""
+
+        if call.memory is None or call.memory.role not in ("alloc", "register"):
+            return None
+        role = "free" if call.memory.role == "alloc" else "unregister"
+        if self.again(call, self.idioms.partner(call, role)) is None:
+            return None
+        return call.memory.role
+
+    def bound(self, call: Call) -> bool:
+        """Whether 'call' is bound by a name of its own, not only through the
+        struct of the buffer pattern that calls it"""
+
+        if call.memory is None or call.memory.role not in RELEASES:
+            return True
+        owner = self.idioms.owner(call)
+        return owner is None or not self.makes(owner)
+
+    def closure(self, call: Call, role: str) -> Optional[List[str]]:
+        """The lines of a closure calling the partner of the role 'role' with
+        the arguments 'call' was given, its arguments kept by value; None where
+        there is no such partner"""
+
+        partner = self.idioms.partner(call, role)
+        args = self.again(call, partner)
+        if partner is None or args is None:
+            return None
+        kept = []
+        for i, expr in enumerate(args):
+            if expr != "p" and "(n)" not in expr:
+                kept.append(f"a{i} := {expr}")
+                args[i] = f"a{i}"
+        raw = f"C.{partner.function}({', '.join(args)})"
+        if role == "realloc":
+            params, results = "p unsafe.Pointer, n int", " unsafe.Pointer"
+            body = [f"return {raw}"]
+        elif role == "unregister" and partner.errno:
+            params, results = "p unsafe.Pointer", " error"
+            body = [
+                f"if ret := {raw}; ret < 0 {{",
+                f'\treturn yaceErrno("{partner.function}", int64(ret))',
+                "}",
+                "return nil",
+            ]
+        elif role == "unregister":
+            params, results = "p unsafe.Pointer", " error"
+            body = [raw, "return nil"]
+        else:
+            params, results, body = "p unsafe.Pointer", "", [raw]
+        signature = f"func({re.sub(r'p |n ', '', params)}){results}"
+        # Called at once, so that the closure keeps the arguments as they were
+        return (
+            [f"func() {signature} {{"]
+            + [f"\t{line}" for line in kept]
+            + [f"\treturn func({params}){results} {{"]
+            + [f"\t\t{line}" for line in body]
+            + ["\t}", "}()"]
+        )
+
+    def made(self, call: Call) -> List[str]:
+        """The statements making the Buffer or the Registration of 'call'"""
+
+        names = self.pnames(call)
+        if self.makes(call) == "register":
+            made = self.local(call, call.memory.ptr, "registration")
+            unregister = self.closure(call, "unregister") or []
+            return [f"{made}.unregister = {unregister[0]}"] + unregister[1:]
+        if self.makes(call) != "alloc":
+            return []
+        made = self.local(call, call.memory.nbytes, "buffer")
+        free = self.closure(call, "free") or []
+        realloc = self.closure(call, "realloc")
+        nbytes = names[str(call.memory.nbytes)]
+        lines = [
+            f"var {made} *{self.buffer_struct}",
+            "if ret != nil {",
+            f"\t{made} = &{self.buffer_struct}{{ptr: ret, len: int({nbytes})}}",
+            f"\t{made}.free = {free[0]}",
+        ]
+        lines += [f"\t{line}" for line in free[1:]]
+        if realloc:
+            lines.append(f"\t{made}.realloc = {realloc[0]}")
+            lines += [f"\t{line}" for line in realloc[1:]]
+        return lines + ["}"]
+
+    @cached_property
+    def buffer_struct(self) -> str:
+        return self.namer.registry.add("Buffer")
+
+    @cached_property
+    def registration_struct(self) -> str:
+        return self.namer.registry.add("Registration")
 
     def keeps(self, record: str) -> bool:
         """Whether the handle keeps closures, for its methods to give"""
@@ -566,6 +813,8 @@ class Renderer(object):
             "}",
         ]
         for call in calls["constructor"] + calls["method"] + calls["destructor"]:
+            if not self.bound(call):
+                continue
             reason = self.usable(call)
             lines += (
                 self.unusable(call, reason) if reason else [""] + self.function(call)
@@ -646,9 +895,18 @@ class Renderer(object):
         for record in self.handles:
             lines += self.handle(record)
         for call in self.idioms.functions():
+            if not self.bound(call):
+                continue
             reason = self.usable(call)
             lines += (
                 self.unusable(call, reason) if reason else [""] + self.function(call)
             )
+        made = {self.makes(c) for c in self.idioms.calls if self.usable(c) is None}
+        if "alloc" in made:
+            text = re.sub(r"\bBuffer\b", self.buffer_struct, BUFFER)
+            lines += [""] + text.splitlines()
+        if "register" in made:
+            text = re.sub(r"\bRegistration\b", self.registration_struct, REGISTRATION)
+            lines += [""] + text.splitlines()
         lines += self.trampolines()[2]
         return lines
