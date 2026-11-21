@@ -90,6 +90,8 @@ class Stub(object):
                 found |= {r.public(call, True) for call in calls if r.bound(call)}
         if any(c.memory and c.memory.role == "alloc" for c in r.idioms.calls):
             found.add(r.buffer_class)
+        if any(r.registers(c) for c in r.idioms.calls):
+            found.add(r.registration_class)
         for record in r.records.values():
             for field in record.fields:
                 if field.name:
@@ -223,7 +225,9 @@ class Stub(object):
 
     def param(self, call: Call, arg) -> str:
         typ = self.r.idioms.decl(call.function).params[arg.index].typ
-        if arg.kind == "string":
+        if self.r.registers(call) and arg.param == call.memory.ptr:
+            found = self.memory
+        elif arg.kind == "string":
             found = self.t("{str} | {bytes}")
         elif arg.kind == "sequence":
             found = self.sequence(call, arg)
@@ -275,6 +279,8 @@ class Stub(object):
             found.append(self.value(call.ret, given=False))
         elif call.memory is not None and call.memory.role == "alloc":
             found.append(f"{self.r.buffer_class} | None")
+        elif self.r.registers(call):
+            found = [self.r.registration_class]
         elif call.returns == "pointer":
             copy = copyable(self.r.model, call.ret.to)
             found.append(self.value(call.ret, given=False, copy=copy))

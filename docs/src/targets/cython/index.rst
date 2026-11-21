@@ -91,6 +91,11 @@ Buffers
   protocol as the ``Buffer`` of the Python target does, and is made by the
   functions that allocate one only.
 
+Registrations
+  ``Registration`` is an extension type, which holds a view of the memory it
+  registers, as the ``Registration`` of the Python target does, and is made by
+  the functions that register memory only.
+
 Handles
   A handle is an extension type. Its destructor is called from
   ``__dealloc__`` when the last reference goes. A handle is made by the API

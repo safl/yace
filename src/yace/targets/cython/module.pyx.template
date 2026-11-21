@@ -719,6 +719,71 @@ cdef class {{ buffer_class }}:
             except ValueError:
                 pass  # what it was allocated with is closed; it is not freed
 {%- endif %}
+
+{%- if registrations %}
+
+
+cdef class {{ registration_class }}:
+    """Memory of the caller's that the library uses until close(), also called
+    on leaving a with-block or when collected. It holds the object whose memory
+    it is, so the memory is neither freed nor resized while registered."""
+
+    cdef Py_buffer _view
+    cdef object _held
+    cdef object _unregister
+    cdef bint _acquired
+
+    def __init__(self):
+        raise TypeError("a {{ registration_class }} is made by the functions that register memory")
+
+    @staticmethod
+    cdef {{ registration_class }} _take(object obj):
+        cdef {{ registration_class }} made = {{ registration_class }}.__new__({{ registration_class }})
+        made._held = _acquire(obj, &made._view, b"v", 1, True)
+        made._acquired = True
+        return made
+
+    @property
+    def address(self):
+        """The address of the memory"""
+
+        if not self._acquired:
+            raise ValueError("the registration is closed")
+        return <uintptr_t>self._view.buf
+
+    @property
+    def nbytes(self):
+        """The size of the memory in bytes"""
+
+        return self._view.len if self._acquired else 0
+
+    def close(self):
+        """Unregister the memory; closing a closed registration does nothing.
+        Where unregistering fails, the memory stays held."""
+
+        if self._acquired:
+            if self._unregister is not None:
+                self._unregister(<uintptr_t>self._view.buf)
+                self._unregister = None
+            PyBuffer_Release(&self._view)
+            self._acquired = False
+            self._held = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+    def __dealloc__(self):
+        if self._acquired:
+            if self._unregister is not None:
+                try:
+                    self._unregister(<uintptr_t>self._view.buf)
+                except (OSError, ValueError):
+                    return  # the memory stays held, as the library may use it
+            PyBuffer_Release(&self._view)
+{%- endif %}
 {%- if defines %}
 
 

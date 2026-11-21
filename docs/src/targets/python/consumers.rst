@@ -136,17 +136,22 @@ The requirements
 The bindings today
 ------------------
 
-Requirement 2 is met for a ``void *`` ``@arrparam``, by both targets. The
-``cython`` module also takes any buffer for an array of numbers. Requirement
-9 is met: records print as YAML, and the functions of both modules have
-docstrings and signatures. Under requirement 6, the ``cython`` module holds
-the GIL during a call; Cython code that calls C through the ``.pxd`` may
+Requirements 1, 2 and 3 are met by both targets. Memory that ``<stem>_alloc``
+allocates is a ``Buffer``, and a ``void *`` ``@arrparam`` and a registration
+take the memory of the caller's object, not a copy. The ``cython`` module also
+takes any buffer for an array of numbers. Requirement 4 is met in one
+direction: the bindings take a DLPack tensor and a CUDA array, but a
+``Buffer`` gives its memory through the buffer protocol only, as nothing in
+the C API says whether the memory is a device's. The bindings ask
+``__dlpack__()`` for no stream, so the caller synchronizes before the call.
+Requirement 9 is met: records print as YAML, and the functions of both modules
+have docstrings and signatures. Under requirement 6, the ``cython`` module
+holds the GIL during a call; Cython code that calls C through the ``.pxd`` may
 release it.
 
-Requirements 1, 3, 4 and 5 are not met. A ``void *`` that a function returns
-is an :py:class:`int` address, and memory that C uses after a call returns
-is not kept alive by the bindings. Requirements 7 and 8 are for the caller and
-the C library; the bindings do not check them.
+Requirement 5 is not met. The bindings keep memory that C uses after a call
+returns alive only while it is registered. Requirements 7 and 8 are for the
+caller and the C library; the bindings do not check them.
 
 .. _array interface: https://numpy.org/doc/stable/reference/arrays.interface.html
 .. _torch.frombuffer: https://docs.pytorch.org/docs/main/generated/torch.frombuffer.html

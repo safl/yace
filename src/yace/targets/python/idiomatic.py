@@ -112,6 +112,52 @@ BUFFER = '''class Buffer(object):
                 pass  # what it was allocated with is closed; it is not freed'''
 
 
+REGISTRATION = '''class Registration(object):
+    """Memory of the caller's that the library uses until close(), also called
+    on leaving a with-block or when collected. It holds the object whose memory
+    it is, so the memory is neither freed nor resized while registered."""
+
+    def __init__(self, memory, unregister):
+        self._memory = memory
+        self._unregister = unregister
+
+    @property
+    def address(self):
+        """The address of the memory"""
+
+        if self._memory is None:
+            raise ValueError("the registration is closed")
+        return self._memory.address
+
+    @property
+    def nbytes(self):
+        """The size of the memory in bytes"""
+
+        return 0 if self._memory is None else self._memory.nbytes
+
+    def close(self):
+        """Unregister the memory; closing a closed registration does nothing.
+        Where unregistering fails, the memory stays held."""
+
+        if self._memory is not None:
+            self._unregister(self._memory.address)
+            memory, self._memory = self._memory, None
+            memory.release()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+    def __del__(self):
+        if self._memory is not None:
+            try:
+                self.close()
+            except (OSError, ValueError):
+                pass  # the memory stays held, as the library may use it'''
+
+
 class Renderer(object):
     def __init__(self, idioms: Idioms, namer: pygen.Namer):
         self.idioms = idioms
@@ -168,6 +214,10 @@ class Renderer(object):
             "The OSError holds what the call returns when it succeeds, as"
             " 'partial', with what was written before it failed.",
         )
+        if self.registers(call):
+            params = dict(shown.params)
+            params.pop(self.pname(call.memory.nbytes), None)
+            shown = shown.model_copy(update={"params": params})
         body = pygen.docstring(shown, indent, errors)
         body = body or call.function
         return pygen.quoted(f"{body}\n\n{indent}Calls {call.function}().", indent)
@@ -294,6 +344,13 @@ class Renderer(object):
                 args.append(
                     f"None if {name} is None else {ptr}" if arg.nullable else ptr
                 )
+            elif self.registers(call) and arg.param == call.memory.ptr:
+                made = self.local(call, arg.param, "m")
+                pre.append(f"{made} = _Memory({name}, True)")
+                args.append(f"{made}.address")
+            elif self.registers(call) and arg.param == call.memory.nbytes:
+                made = self.local(call, call.memory.ptr, "m")
+                args.append(f"_fits({made}.nbytes, {self.namer.ctype(typ)})")
             elif call.memory is not None and arg.param == call.memory.nbytes:
                 # The size the buffer is made of; truncated, it would not be the
                 # size of the memory
@@ -382,6 +439,16 @@ class Renderer(object):
         pre = acquire + checks + pre
         raw = pygen.ident(call.function)
         lines = pre + [f"ret = {raw}({', '.join(args)})"]
+        if self.registers(call):
+            made = self.local(call, call.memory.ptr, "m")
+            unregister = self.again(call, self.partner(call, "unregister"))
+            cls = self.registration_class
+            return lines + [
+                "if ret < 0:",
+                f"    {made}.release()",
+                "_check(ret)",
+                f"return {cls}({made}, {unregister})",
+            ]
         if call.errno:
             for arg in call.args:
                 if arg.kind == "callback" and arg.lifetime in ("once", "handle"):
@@ -552,6 +619,24 @@ class Renderer(object):
         taken |= {self.class_name(h) for h in self.idioms.handles}
         return "Buffer_" if "Buffer" in taken else "Buffer"
 
+    def registers(self, call: Call) -> bool:
+        """Whether 'call' registers memory, and the layer can unregister it"""
+
+        return (
+            call.memory is not None
+            and call.memory.role == "register"
+            and self.again(call, self.partner(call, "unregister")) != "None"
+        )
+
+    @cached_property
+    def registration_class(self) -> str:
+        """The name of the class of a registration: Registration, or
+        Registration_ where a type or a handle of the API is named so"""
+
+        taken = set(self.namer.names.values())
+        taken |= {self.class_name(h) for h in self.idioms.handles}
+        return "Registration_" if "Registration" in taken else "Registration"
+
     def bound(self, call: Call) -> bool:
         """Whether 'call' is bound by a name of its own, not only through the
         object of the buffer pattern that calls it. A realloc the Buffer cannot
@@ -586,7 +671,11 @@ class Renderer(object):
         return f"{expr}.contents.value"
 
     def visible(self, call: Call) -> list:
-        return call.given()
+        given = call.given()
+        if self.registers(call):
+            # The size is that of the memory of the object given
+            given = [a for a in given if a.param != call.memory.nbytes]
+        return given
 
     def params(self, call: Call) -> List[str]:
         """The parameter list; nullable ones default to None, where all after
@@ -744,4 +833,7 @@ class Renderer(object):
         if any(c.memory and c.memory.role == "alloc" for c in self.idioms.calls):
             cls = f"class {self.buffer_class}(object):"
             head.append(BUFFER.replace("class Buffer(object):", cls, 1))
+        if any(self.registers(c) for c in self.idioms.calls):
+            cls = f"class {self.registration_class}(object):"
+            head.append(REGISTRATION.replace("class Registration(object):", cls, 1))
         return "\n\n\n".join(head + out)

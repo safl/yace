@@ -122,6 +122,21 @@ Buffers
   for passing to C only. Close a buffer before what it was allocated with: a
   buffer collected after that is not freed.
 
+Registrations
+  Memory that ``<stem>_register`` registers, see the registration pattern in
+  :ref:`sec-ir-csubset`, is given as an object, which the function takes in
+  place of the ``void *`` and its size: ``dev.buf_register(tensor)``. The
+  object is any that a ``void *`` ``@arrparam`` takes and that is writable.
+  The function returns a ``Registration``, which holds the object, so its
+  memory is neither freed nor resized while registered. ``reg.address`` and
+  ``reg.nbytes`` are the address and size of the memory.
+  ``reg.close()``, also called on leaving a ``with``-block or when collected,
+  unregisters the memory with ``<stem>_unregister``, which is given the
+  arguments the memory was registered with, and has no name of its own in the
+  layer. The class is ``Registration_`` where the API names a type or a handle
+  ``Registration``. Close a registration before what it was registered with:
+  where unregistering fails, the memory stays held.
+
 Errors
   A function documented ``@errno`` raises :py:class:`OSError`, with the errno,
   when it returns a negative value. One returning ``int`` returns nothing

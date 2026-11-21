@@ -328,6 +328,10 @@ class Renderer(object):
             "The OSError holds what the call returns when it succeeds, as"
             " 'partial', with what was written before it failed.",
         )
+        if self.registers(call):
+            params = dict(shown.params)
+            params.pop(self.pname(call.memory.nbytes), None)
+            shown = shown.model_copy(update={"params": params})
         body = pygen.docstring(shown, indent, errors) or call.function
         return pygen.quoted(f"{body}\n\n{indent}Calls {call.function}().", indent)
 
@@ -437,6 +441,13 @@ class Renderer(object):
                 # Read first, so a closed handle raises before a closure is kept
                 cdefs.insert(0, f"cdef {self.decl(typ, '_ptr')} = self._get()")
                 args.append("_ptr")
+            elif self.registers(call) and arg.param == call.memory.ptr:
+                made = self.local(call, "registration", "r")
+                cls = self.registration_class
+                cdefs.append(f"cdef {cls} {made} = {cls}._take({name})")
+                args.append(f"{made}._view.buf")
+            elif self.registers(call) and arg.param == call.memory.nbytes:
+                args.append(f"{self.local(call, 'registration', 'r')}._view.len")
             elif arg.kind == "value":
                 args.append(self.to_c(typ, name, arg.nullable))
             elif arg.kind == "string":
@@ -664,6 +675,12 @@ class Renderer(object):
             results.append(self.to_py(call.ret, "ret"))
         elif call.memory is not None and call.memory.role == "alloc":
             results.append(self.buffer(call, lines))
+        elif self.registers(call):
+            made = self.local(call, "registration", "r")
+            fn = self.local(call, "unregister", "fn")
+            lines += self.again(call, self.partner(call, "unregister"), fn)
+            lines.append(f"{made}._unregister = {fn}")
+            results.append(made)
         elif call.returns == "pointer":
             copy = copyable(self.model, call.ret.to)
             results.append(self.to_py(call.ret, "ret", copy=copy))
@@ -739,6 +756,25 @@ class Renderer(object):
         taken |= {self.handle_class(h) for h in self.idioms.handles}
         return "Buffer_" if "Buffer" in taken else "Buffer"
 
+    def registers(self, call: Call) -> bool:
+        """Whether 'call' registers memory, and the module can unregister it"""
+
+        return (
+            call.memory is not None
+            and call.memory.role == "register"
+            and bool(self.again(call, self.partner(call, "unregister"), "_fn"))
+        )
+
+    @cached_property
+    def registration_class(self) -> str:
+        """The name of the class of a registration: Registration, or
+        Registration_ where a class of the module or a name of the .pxd is so
+        named"""
+
+        taken = {self.class_of(r) for r in self.records} | self.cnames
+        taken |= {self.handle_class(h) for h in self.idioms.handles}
+        return "Registration_" if "Registration" in taken else "Registration"
+
     def bound(self, call: Call) -> bool:
         """Whether 'call' is bound by a name of its own, not only through the
         object of the buffer pattern that calls it. A realloc the Buffer cannot
@@ -756,7 +792,11 @@ class Renderer(object):
         return not bool(self.again(owner, release, "_fn"))
 
     def visible(self, call: Call) -> list:
-        return call.given()
+        given = call.given()
+        if self.registers(call):
+            # The size is that of the memory of the object given
+            given = [a for a in given if a.param != call.memory.nbytes]
+        return given
 
     def params(self, call: Call) -> List[str]:
         found: List[str] = []
@@ -1259,6 +1299,8 @@ class Renderer(object):
                 c.memory and c.memory.role == "alloc" for c in self.idioms.calls
             ),
             "buffer_class": self.buffer_class,
+            "registrations": any(self.registers(c) for c in self.idioms.calls),
+            "registration_class": self.registration_class,
         }
 
 
