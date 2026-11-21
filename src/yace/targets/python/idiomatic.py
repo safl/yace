@@ -134,12 +134,15 @@ class Renderer(object):
 
         arg = next(a for a in call.args if a.param == param)
         seq = self.pname(param)
+        length = "_builtins.len"
         if arg.kind == "string":
             seq = f"_str_in({seq})"  # C counts the bytes of the encoded string
+        elif is_void_ptr(arg.typ):
+            length = "_nbytes"
         return (
-            f"0 if {seq} is None else _builtins.len({seq})"
+            f"0 if {seq} is None else {length}({seq})"
             if arg.nullable
-            else f"_builtins.len({seq})"
+            else f"{length}({seq})"
         )
 
     def dispatcher(self, call: Call, arg) -> str:
@@ -214,13 +217,11 @@ class Renderer(object):
                 args.append(f"_fits({name}, {self.namer.ctype(typ)})")
             elif arg.kind == "sequence" and is_void_ptr(typ):
                 array = (
-                    f"(ctypes.c_char * _builtins.len({name}))"
+                    f"(ctypes.c_char * _nbytes({name}))"
                     f".from_buffer_copy(_builtins.bytes({name}))"
                 )
                 if func.params[arg.index].direction == "inout":
-                    array = (
-                        f"(ctypes.c_char * _builtins.len({name})).from_buffer({name})"
-                    )
+                    array = f"(ctypes.c_char * _nbytes({name})).from_buffer({name})"
                 if arg.nullable:
                     array = f"None if {name} is None else {array}"
                 pre.append(f"{self.local(call, arg.param, 'c')} = {array}")

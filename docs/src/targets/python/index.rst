@@ -121,7 +121,9 @@ Arguments
   bytes. An array read through a pointer is given as a sequence, its length not
   given; sequences sharing one length must be as long, or ``ValueError`` is
   raised. One that is ``[in,out]`` is a list, written back. A ``void *``
-  ``@arrparam`` is bytes, a ``bytearray`` written in place where ``[in,out]``.
+  ``@arrparam`` is bytes or any other buffer, such as an :py:class:`array.array`,
+  and its length is its size in bytes. Where it is ``[in,out]``, C writes the
+  buffer in place, so it must be writable, such as a ``bytearray``.
   A length or a capacity that its C type cannot hold raises ``OverflowError``.
   The size of a ``@recparam`` record is not given; the layer passes
   ``ctypes.sizeof()`` of the record's type. A handle given is its class. A
