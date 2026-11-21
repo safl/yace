@@ -117,6 +117,22 @@ def test_the_crate_builds_without_warnings(parse, tmp_path, header):
     assert "warning" not in (tmp_path / "rust" / "cargo.log").read_text()
 
 
+def test_a_nullable_mutable_slice_gives_its_address_and_length(parse, tmp_path):
+    """An Option of a mutable slice is not Copy, so the address and the length
+    come from reborrows of it, as for the payloads of xnvme_cmd_pass()"""
+
+    model, _ = parse(
+        "#include <stddef.h>\n"
+        "/**\n * Pass\n * @arrparam[in,out] dbuf D @len_at{dbuf_nbytes}\n"
+        " * @nullable dbuf\n */\n"
+        "void api_pass(void *dbuf, size_t dbuf_nbytes);\n"
+    )
+    assert process(model, ["rust"], tmp_path) == []
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
+    assert "pub fn pass(mut dbuf: Option<&mut [u8]>)" in lib
+    assert "warning" not in (tmp_path / "rust" / "cargo.log").read_text()
+
+
 def test_the_meta_names_the_crate_and_another_crate_includes_the_bindings(
     parser, tmp_path
 ):
