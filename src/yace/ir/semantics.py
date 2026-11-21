@@ -68,6 +68,16 @@ comment of the function:
 A ``void *`` parameter right after a callback is the callback's context, as the
 callback-context rule requires; a returned ``const char *`` is borrowed, as the
 string-return rule requires.
+
+Buffers of memory follow names, as the buffer-lifecycle rule requires:
+``<stem>_alloc`` returns a ``void *`` buffer of ``size_t nbytes`` bytes;
+``<stem>_free`` frees it, taking it as its one ``void *``; and
+``<stem>_realloc``, where it exists, resizes it, taking it and ``nbytes``.
+``<stem>_register``, documented ``@errno``, registers ``size_t nbytes`` bytes of
+the caller's at its one ``void *``, until ``<stem>_unregister`` takes that
+address. The other parameters of ``<stem>_free``, ``<stem>_realloc`` and
+``<stem>_unregister`` are named, and typed, as parameters of
+``<stem>_alloc`` or ``<stem>_register``, which the bindings pass them again.
 """
 
 from typing import Callable, Dict, Iterable, List, Optional, cast
@@ -78,6 +88,12 @@ from .doc import DIRECTIONS
 # The suffix of a function taking a @recparam, which the static inline function
 # passing the size has not
 SIZED = "_sized"
+
+# The suffixes of the functions of the buffer pattern, and the name of the size
+# of a buffer
+ALLOC, FREE, REALLOC = "_alloc", "_free", "_realloc"
+REGISTER, UNREGISTER = "_register", "_unregister"
+BUFFER_NBYTES = "nbytes"
 
 # The suffixes of the parameters that are, by convention, the size of the
 # @recparam of their name, and the length and count written of the @arrparam
@@ -407,6 +423,7 @@ class Semantics(object):
                 self.typedef(entity, cursors.get(entity.name))
             self.misplaced(entity, cursors.get(getattr(entity, "name", "")))
         self.lifecycle(cursors)
+        self.buffers(cursors)
 
     def misplaced(self, entity, cursor):
         """Report the @arrparam, @recparam and references in the comments of
@@ -685,3 +702,110 @@ class Semantics(object):
                     f"'{func.name}' creates {name}, which no function @destroys",
                     cursors.get(func.name),
                 )
+
+    def buffers(self, cursors: Dict[str, object]):
+        """Apply the buffer pattern: mark what each function of it does with a
+        buffer, and report the allocations and registrations nothing releases"""
+
+        funcs = {e.name: e for e in self.entities if isinstance(e, decls.Function)}
+
+        def report(func: decls.Function, message: str):
+            self.report(
+                "buffer-lifecycle", f"'{func.name}' {message}", cursors.get(func.name)
+            )
+
+        def void_ptrs(func: decls.Function) -> List[decls.Param]:
+            return [p for p in func.params if is_void_ptr(p.typ) and p.name]
+
+        def sized(func: decls.Function) -> Optional[decls.Param]:
+            return next(
+                (
+                    p
+                    for p in func.params
+                    if p.name == BUFFER_NBYTES and is_integer(p.typ, ("size_t",))
+                ),
+                None,
+            )
+
+        def matches(func: decls.Function, of: decls.Function, skip) -> bool:
+            """Whether every parameter of 'func', but those in 'skip', is named
+            and typed as one of 'of'"""
+
+            theirs = {p.name: p.typ for p in of.params if p.name}
+            return all(
+                p.name in theirs and theirs[p.name] == p.typ
+                for p in func.params
+                if p.name not in skip
+            )
+
+        def mark(func, role, stem, ptr=None, nbytes=None):
+            func.memory = decls.Memory(role=role, stem=stem, ptr=ptr, nbytes=nbytes)
+
+        for name, alloc in funcs.items():
+            if not name.endswith(ALLOC) or not is_void_ptr(alloc.ret):
+                continue
+            stem = name[: -len(ALLOC)]
+            size = sized(alloc)
+            if size is None:
+                report(alloc, f"returns a buffer, but has no size_t '{BUFFER_NBYTES}'")
+                continue
+            free = funcs.get(stem + FREE)
+            ptrs = void_ptrs(free) if free else []
+            if free is None:
+                report(alloc, f"allocates a buffer, which no '{stem}{FREE}' frees")
+                continue
+            if len(ptrs) != 1 or not matches(free, alloc, {ptrs[0].name}):
+                report(
+                    free,
+                    "does not free a buffer: it takes one void *, and its other"
+                    f" parameters are those of '{name}'",
+                )
+                continue
+            mark(alloc, "alloc", stem, nbytes=size.name)
+            mark(free, "free", stem, ptr=ptrs[0].name)
+            realloc = funcs.get(stem + REALLOC)
+            if realloc is None:
+                continue
+            ptrs = void_ptrs(realloc)
+            if (
+                not is_void_ptr(realloc.ret)
+                or len(ptrs) != 1
+                or sized(realloc) is None
+                or not matches(realloc, alloc, {ptrs[0].name})
+            ):
+                report(
+                    realloc,
+                    "does not resize a buffer: it returns one, takes one void *"
+                    f" and '{BUFFER_NBYTES}', and its other parameters are those"
+                    f" of '{name}'",
+                )
+                continue
+            mark(realloc, "realloc", stem, ptr=ptrs[0].name, nbytes=BUFFER_NBYTES)
+
+        for name, register in funcs.items():
+            if not name.endswith(REGISTER):
+                continue
+            stem = name[: -len(REGISTER)]
+            ptrs = void_ptrs(register)
+            if len(ptrs) != 1 or sized(register) is None:
+                continue  # registers something other than memory
+            if not register.errno:
+                report(register, "registers a buffer, but is not documented @errno")
+                continue
+            unregister = funcs.get(stem + UNREGISTER)
+            if unregister is None:
+                report(
+                    register,
+                    f"registers a buffer, which no '{stem}{UNREGISTER}'" " unregisters",
+                )
+                continue
+            theirs = void_ptrs(unregister)
+            if len(theirs) != 1 or not matches(unregister, register, {theirs[0].name}):
+                report(
+                    unregister,
+                    "does not unregister a buffer: it takes one void *, and its"
+                    f" other parameters are those of '{name}'",
+                )
+                continue
+            mark(register, "register", stem, ptr=ptrs[0].name, nbytes=BUFFER_NBYTES)
+            mark(unregister, "unregister", stem, ptr=theirs[0].name)

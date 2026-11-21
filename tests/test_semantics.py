@@ -604,3 +604,114 @@ def test_an_arrparam_or_marker_out_of_place_is_reported_once(parse):
         _, diagnostics = parse(source)
         found = [d.message for d in diagnostics if d.rule == "annotation"]
         assert sum(message in m for m in found) == 1, (decl, found)
+
+
+BUFFERS = """
+#include <stddef.h>
+
+/** D */
+struct dev;
+
+/**
+ * Allocate
+ * @param dev D
+ * @param nbytes N
+ * @nullable return
+ */
+void *b_buf_alloc(const struct dev *dev, size_t nbytes);
+
+/**
+ * Resize
+ * @param dev D
+ * @param buf B
+ * @param nbytes N
+ * @nullable return
+ */
+void *b_buf_realloc(const struct dev *dev, void *buf, size_t nbytes);
+
+/**
+ * Free
+ * @param dev D
+ * @param buf B
+ */
+void b_buf_free(const struct dev *dev, void *buf);
+
+/**
+ * Allocate, aligned
+ * @param alignment A
+ * @param nbytes N
+ */
+void *b_virt_alloc(size_t alignment, size_t nbytes);
+
+/**
+ * Free
+ * @param buf B
+ */
+void b_virt_free(void *buf);
+
+/**
+ * Register
+ * @param dev D
+ * @param vaddr V
+ * @param nbytes N
+ * @errno
+ */
+int b_buf_register(const struct dev *dev, void *vaddr, size_t nbytes);
+
+/**
+ * Unregister
+ * @param dev D
+ * @param vaddr V
+ * @errno
+ */
+int b_buf_unregister(const struct dev *dev, void *vaddr);
+"""
+
+
+def test_the_buffer_pattern_is_recognised_by_its_names(parse):
+    """xNVMe's buffers: an allocation freed and resized with the device it was
+    allocated with, one without a device, and a registration"""
+
+    model, diagnostics = parse(BUFFERS, meta={"prefix": "b"})
+    assert "buffer-lifecycle" not in [d.rule for d in diagnostics]
+    found = {
+        name: (f.memory.role, f.memory.stem, f.memory.ptr, f.memory.nbytes)
+        for name, f in functions(model).items()
+        if f.memory
+    }
+    assert found == {
+        "b_buf_alloc": ("alloc", "b_buf", None, "nbytes"),
+        "b_buf_realloc": ("realloc", "b_buf", "buf", "nbytes"),
+        "b_buf_free": ("free", "b_buf", "buf", None),
+        "b_virt_alloc": ("alloc", "b_virt", None, "nbytes"),
+        "b_virt_free": ("free", "b_virt", "buf", None),
+        "b_buf_register": ("register", "b_buf", "vaddr", "nbytes"),
+        "b_buf_unregister": ("unregister", "b_buf", "vaddr", None),
+    }
+
+
+def test_a_buffer_nothing_releases_is_reported_and_not_marked(parse):
+    header = (
+        "#include <stddef.h>\n"
+        "/**\n * A\n * @param nbytes N\n */\nvoid *c_one_alloc(size_t nbytes);\n"
+        "/**\n * A\n * @param n N\n */\nvoid *c_two_alloc(size_t n);\n"
+        "/**\n * A\n * @param nbytes N\n */\nvoid *c_three_alloc(size_t nbytes);\n"
+        "/**\n * F\n * @param buf B\n * @param flags F\n */\n"
+        "void c_three_free(void *buf, int flags);\n"
+        "/**\n * R\n * @param p P\n * @param nbytes N\n */\n"
+        "int c_four_register(void *p, size_t nbytes);\n"
+        "/**\n * R\n * @param p P\n * @param nbytes N\n * @errno\n */\n"
+        "int c_five_register(void *p, size_t nbytes);\n"
+    )
+    model, diagnostics = parse(header, meta={"prefix": "c"})
+    messages = [d.message for d in diagnostics if d.rule == "buffer-lifecycle"]
+    assert messages == [
+        "'c_one_alloc' allocates a buffer, which no 'c_one_free' frees",
+        "'c_two_alloc' returns a buffer, but has no size_t 'nbytes'",
+        "'c_three_free' does not free a buffer: it takes one void *, and its other"
+        " parameters are those of 'c_three_alloc'",
+        "'c_four_register' registers a buffer, but is not documented @errno",
+        "'c_five_register' registers a buffer, which no 'c_five_unregister'"
+        " unregisters",
+    ]
+    assert not any(f.memory for f in functions(model).values())

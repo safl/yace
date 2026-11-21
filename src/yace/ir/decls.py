@@ -164,12 +164,30 @@ class Param(Node):
     lifetime: Optional[Lifetime] = None
 
 
+MemoryRole = Literal["alloc", "free", "realloc", "register", "unregister"]
+
+
+class Memory(Node):
+    """
+    What a function does with a buffer of memory, by the names of the buffer
+    pattern: ``<stem>_alloc`` returns a buffer of ``nbytes`` bytes, which
+    ``<stem>_free`` frees and ``<stem>_realloc`` resizes, and
+    ``<stem>_register`` registers ``nbytes`` bytes of the caller's at ``ptr``,
+    until ``<stem>_unregister``
+    """
+
+    role: MemoryRole
+    stem: str
+    ptr: Optional[str] = None  # the void * parameter of the buffer, if any
+    nbytes: Optional[str] = None  # the parameter of its size, if any
+
+
 class Function(Node):
     """
     A function, with what C cannot say about it, from its documentation: whether
     it returns a negative errno on failure, and whether it writes its [out]
-    parameters also then, which parameter's handle it destroys, and whether the
-    pointer it returns may be NULL
+    parameters also then, which parameter's handle it destroys, whether the
+    pointer it returns may be NULL, and what it does with a buffer of memory
     """
 
     key: Literal["function_decl"] = "function_decl"
@@ -181,6 +199,7 @@ class Function(Node):
     partial: bool = False
     destroys: Optional[str] = None
     nullable: bool = False
+    memory: Optional[Memory] = None
     doc: Doc = Doc()
 
 
