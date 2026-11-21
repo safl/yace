@@ -32,7 +32,14 @@ from tests.conftest import (
     needs_cc,
     needs_cython,
 )
-from tests.test_python import BUFFERS, compiled, json_lines
+from tests.test_python import (
+    BUFFERS,
+    PHYS,
+    REGISTRATIONS,
+    SHADOWED_REGISTRATION,
+    compiled,
+    json_lines,
+)
 from yace.compiler import process
 from yace.ir import types
 from yace.targets.cython import cygen
@@ -628,7 +635,19 @@ SHADOWED_BUFFER = SHADOWING + (
 @needs_mypy
 @pytest.mark.parametrize(
     "header",
-    [NAMED, RESERVED, BITS, PACKED, TYPED, SHADOWING, BUFFERS, SHADOWED_BUFFER],
+    [
+        NAMED,
+        RESERVED,
+        BITS,
+        PACKED,
+        TYPED,
+        SHADOWING,
+        BUFFERS,
+        PHYS,
+        SHADOWED_BUFFER,
+        REGISTRATIONS,
+        SHADOWED_REGISTRATION,
+    ],
     ids=[
         "named",
         "reserved",
@@ -637,14 +656,17 @@ SHADOWED_BUFFER = SHADOWING + (
         "typed",
         "shadowing",
         "buffers",
+        "phys",
         "shadowed-buffer",
+        "registrations",
+        "shadowed-registration",
     ],
 )
 def test_the_stub_is_that_of_the_module(parse, tmp_path, header):
     """stubtest compares the stub with the module, and mypy checks the stub on
     its own. The module is imported with RTLD_LAZY, because the check built the
     module without linking the library. The allowlist names the __init__ of the
-    handles of SHADOWING and BUFFERS and of the class of an allocated buffer,
+    handles and of the classes of an allocated buffer and a registration,
     slots without a signature."""
 
     model, _ = parse(header)
@@ -652,6 +674,7 @@ def test_the_stub_is_that_of_the_module(parse, tmp_path, header):
     out = tmp_path / "cython"
     (tmp_path / "allowlist.txt").write_text(
         "api.Buffer.__init__\napi.Buffer_.__init__\napi.Dev.__init__\n"
+        "api.Registration.__init__\napi.Registration_.__init__\n"
     )
     env = {**os.environ, "PYTHONPATH": str(out), "MYPYPATH": str(out)}
     lazy = (

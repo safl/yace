@@ -72,6 +72,22 @@ class _SupportsDLPack({{ py.Protocol }}):
 class _SupportsCudaArrayInterface({{ py.Protocol }}):
     @{{ py.property }}
     def __cuda_array_interface__(self) -> {{ py.dict }}[{{ py.str }}, {{ py.Any }}]: ...
+{%- if registrations %}
+
+
+@disjoint_base
+class {{ registration_class }}:
+    """Memory of the caller's that the library uses until close(), also called
+    on leaving a with-block or when collected"""
+
+    @{{ py.property }}
+    def address(self) -> {{ py.int }}: ...
+    @{{ py.property }}
+    def nbytes(self) -> {{ py.int }}: ...
+    def close(self) -> None: ...
+    def __enter__(self) -> {{ py.Self }}: ...
+    def __exit__(self, *exc: {{ py.object }}) -> None: ...
+{%- endif %}
 {%- if buffers %}
 
 

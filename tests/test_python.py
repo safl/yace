@@ -1250,6 +1250,115 @@ def test_a_release_the_buffer_cannot_call_keeps_its_name(parse, bind):
     assert "mem_free" in api
 
 
+REGISTRATIONS = (
+    "#include <stddef.h>\n#include <stdint.h>\n"
+    "/** D */\nstruct api_dev;\n"
+    "/**\n * Open\n * @param[out] dev D\n * @errno\n */\n"
+    "int api_open(struct api_dev **dev);\n"
+    "/**\n * Close\n * @param dev D\n * @destroys dev\n */\n"
+    "void api_close(struct api_dev *dev);\n"
+    "/**\n * Register\n * @param dev D\n * @param vaddr V\n * @param nbytes N\n"
+    " * @errno\n */\n"
+    "int api_buf_register(struct api_dev *dev, void *vaddr, size_t nbytes);\n"
+    "/**\n * Unregister\n * @param dev D\n * @param vaddr V\n * @errno\n */\n"
+    "int api_buf_unregister(struct api_dev *dev, void *vaddr);\n"
+    "/**\n * The address registered, 0 where none is\n */\n"
+    "uintptr_t api_registered(void);\n"
+    "/**\n * The size in bytes registered\n */\n"
+    "size_t api_registered_nbytes(void);\n"
+)
+
+REGISTRATIONS_C = (
+    "#include <errno.h>\n#include <stdlib.h>\n"
+    "struct api_dev { int unused; };\n"
+    "static void *registered; static size_t registered_nbytes;\n"
+    "int api_open(struct api_dev **dev)\n"
+    "{ *dev = calloc(1, sizeof(**dev)); return *dev ? 0 : -ENOMEM; }\n"
+    "void api_close(struct api_dev *dev) { free(dev); }\n"
+    "int api_buf_register(struct api_dev *dev, void *vaddr, size_t nbytes)\n"
+    "{ (void)dev; if (registered) return -EBUSY;\n"
+    "  registered = vaddr; registered_nbytes = nbytes; return 0; }\n"
+    "int api_buf_unregister(struct api_dev *dev, void *vaddr)\n"
+    "{ (void)dev; if (vaddr != registered) return -EINVAL;\n"
+    "  registered = NULL; registered_nbytes = 0; return 0; }\n"
+    "uintptr_t api_registered(void) { return (uintptr_t)registered; }\n"
+    "size_t api_registered_nbytes(void) { return registered_nbytes; }\n"
+)
+
+
+@needs_cc
+def test_registered_memory_is_held_until_unregistered(parse, bind):
+    """The registration is given the memory of the object, not a copy, holds
+    the object until it unregisters, and unregisters with the device it was
+    registered with"""
+
+    model, _ = parse(REGISTRATIONS)
+    api = bind(model, REGISTRATIONS + REGISTRATIONS_C)
+    dev = api["open"]()
+    assert not hasattr(dev, "buf_unregister")
+    assert "nbytes" not in inspect.signature(dev.buf_register).parameters
+    assert "nbytes" not in dev.buf_register.__doc__
+    memory = bytearray(16)
+    with dev.buf_register(memory) as reg:
+        at = ctypes.addressof((ctypes.c_char * 16).from_buffer(memory))
+        assert (reg.address, reg.nbytes) == (at, 16)
+        assert (api["registered"](), api["registered_nbytes"]()) == (at, 16)
+        with pytest.raises(BufferError):
+            memory.extend(b"x")  # the registration holds a view
+        with pytest.raises(OSError) as failed:
+            dev.buf_register(bytearray(8))
+        assert failed.value.errno == errno.EBUSY
+    assert api["registered"]() == 0
+    memory.extend(b"x")
+    reg.close()
+    with pytest.raises(ValueError):
+        reg.address
+
+    tensor = Tensor(4)
+    reg = dev.buf_register(tensor)
+    assert (api["registered"](), api["registered_nbytes"]()) == (tensor.address(), 16)
+    del reg
+    gc.collect()
+    assert api["registered"]() == 0
+    with pytest.raises(BufferError):
+        dev.buf_register(b"read-only")
+    assert api["registered"]() == 0
+
+
+# A handle whose class is named Registration, so the registration is
+# Registration_
+SHADOWED_REGISTRATION = (
+    "#include <stddef.h>\n/** R */\nstruct api_registration;\n"
+    "/**\n * Open\n * @param[out] r R\n * @errno\n */\n"
+    "int api_registration_open(struct api_registration **r);\n"
+    "/**\n * Close\n * @param r R\n * @destroys r\n */\n"
+    "void api_registration_close(struct api_registration *r);\n"
+    "/**\n * Register\n * @param vaddr V\n * @param nbytes N\n * @errno\n */\n"
+    "int api_mem_register(void *vaddr, size_t nbytes);\n"
+    "/**\n * Unregister\n * @param vaddr V\n * @errno\n */\n"
+    "int api_mem_unregister(void *vaddr);\n"
+)
+
+
+@needs_cc
+def test_the_registration_class_is_renamed_where_a_handle_has_its_name(parse, bind):
+    model, _ = parse(SHADOWED_REGISTRATION)
+    api = bind(
+        model,
+        SHADOWED_REGISTRATION + "struct api_registration { int x; };\n"
+        "static struct api_registration one;\n"
+        "int api_registration_open(struct api_registration **r)\n"
+        "{ *r = &one; return 0; }\n"
+        "void api_registration_close(struct api_registration *r) { (void)r; }\n"
+        "int api_mem_register(void *vaddr, size_t nbytes)\n"
+        "{ (void)vaddr; (void)nbytes; return 0; }\n"
+        "int api_mem_unregister(void *vaddr) { (void)vaddr; return 0; }\n",
+    )
+    assert type(api["open"]()).__name__ == "Registration"
+    with api["mem_register"](bytearray(4)) as reg:
+        assert type(reg).__name__ == "Registration_"
+
+
 MEMORY = (
     "#include <stddef.h>\n#include <stdint.h>\n"
     "/**\n * Where\n * @arrparam buf B @len_at{n}\n */\n"
