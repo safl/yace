@@ -52,9 +52,10 @@ The module
 
 The module has the same API as the idiomatic layer of the Python target, see
 :ref:`sec-targets-python`: the same names, parameters, results and errors. Code
-written against one runs against the other. The module has no raw layer;
-Cython code calls C through the ``.pxd``. The two modules differ in these
-ways:
+written against one runs against the other, and
+:ref:`sec-targets-python-consumers` applies to both. The module has no raw
+layer; Cython code calls C through the ``.pxd``. The two modules differ in
+these ways:
 
 Records
   A struct or union with fields is an extension type that holds the C struct.

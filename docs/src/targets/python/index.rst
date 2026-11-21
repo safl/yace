@@ -27,6 +27,15 @@ for the C API, the layout is asserted only on the platform it was recorded on.
 The Cython target compiles the same API with Cython and generates the
 ``.pxd`` for Cython code, see :ref:`sec-targets-cython`.
 
+The libraries that the bindings are used with, such as NumPy, PyTorch and
+vLLM, set requirements on them, which :ref:`sec-targets-python-consumers`
+surveys.
+
+.. toctree::
+   :hidden:
+
+   consumers.rst
+
 The bindings
 ------------
 
