@@ -70,6 +70,11 @@ def is_lent(ret) -> bool:
     )
 
 
+# The roles of the functions that the objects of the buffer pattern call, not
+# bound by names of their own
+RELEASES = ("free", "realloc", "unregister")
+
+
 class Arg(BaseModel):
     """How a parameter of the C function is given, when called idiomatically"""
 
@@ -435,6 +440,32 @@ class Idioms(object):
 
     def functions(self) -> List[Call]:
         return [c for c in self.calls if c.kind == "function"]
+
+    def partner(self, call: Call, role: str) -> Optional[Call]:
+        """The call of the role 'role' in the buffer or registration pattern
+        of 'call'"""
+
+        if call.memory is None:
+            return None
+        return next(
+            (
+                c
+                for c in self.calls
+                if c.memory
+                and c.memory.stem == call.memory.stem
+                and c.memory.role == role
+            ),
+            None,
+        )
+
+    def owner(self, release: Call) -> Optional[Call]:
+        """The call that allocates or registers what 'release' frees, resizes
+        or unregisters"""
+
+        if release.memory is None:
+            return None
+        role = "register" if release.memory.role == "unregister" else "alloc"
+        return self.partner(release, role)
 
     def of(self, handle: str) -> Dict[str, List[Call]]:
         """The calls of 'handle', by kind"""

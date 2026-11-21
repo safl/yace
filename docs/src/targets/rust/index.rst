@@ -115,6 +115,32 @@ Handles
   nor ``Sync``: the header does not say it may be, and the closures it keeps
   run on the thread that calls it, so they need not be ``Send``.
 
+Buffers
+  A buffer that ``<stem>_alloc`` allocates, see the buffer pattern in
+  :ref:`sec-ir-csubset`, is returned as a ``safe::Buffer``, an ``Option``
+  where ``@nullable``: ``dev.buf_alloc(4096)``. ``as_ptr()`` and ``len()`` are
+  its address and size in bytes, and ``realloc(nbytes)`` resizes it with
+  ``<stem>_realloc``. Dropping it frees it with ``<stem>_free``, which is given
+  the arguments it was allocated with; neither has a name of its own in the
+  layer. The ``Buffer`` borrows the handles it was allocated with, so they
+  outlive it; the method that allocates takes ``&self``, so that the handle
+  allocates several buffers. The memory may be a device's, such as GPU memory,
+  which the CPU cannot read, and nothing in the API says which; so
+  ``as_slice()`` and ``as_mut_slice()`` are ``unsafe``, requiring the memory to
+  be the host's. The type is ``Buffer_`` where the API names a type or a
+  handle ``Buffer``.
+
+Registrations
+  Memory that ``<stem>_register`` registers, see the registration pattern in
+  :ref:`sec-ir-csubset`, is given as a ``&mut [u8]``, whose length is the size:
+  ``dev.buf_register(&mut memory)``. The function returns a
+  ``safe::Registration``, which borrows the slice and the handles it was
+  registered with, and dereferences to the slice. Dropping it, or calling
+  ``unregister()``, which returns the error, unregisters the memory with
+  ``<stem>_unregister``, which has no name of its own in the layer. The method
+  that registers takes ``&self``, as the one that allocates does. The type is
+  ``Registration_`` where the API names a type or a handle ``Registration``.
+
 Errors
   A function documented ``@errno`` returns ``io::Result``, its error made by
   ``io::Error::from_raw_os_error()``. One returning ``int`` returns ``()``

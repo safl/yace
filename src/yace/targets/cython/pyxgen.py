@@ -26,6 +26,7 @@ from yace.ir.model import Model
 from yace.ir.semantics import is_void_ptr
 from yace.targets.capi import cgen
 from yace.targets.idiom import (
+    RELEASES,
     Call,
     Idioms,
     call_doc,
@@ -34,7 +35,6 @@ from yace.targets.idiom import (
     local,
 )
 from yace.targets.python import pygen
-from yace.targets.python.idiomatic import RELEASES
 
 from . import cygen
 

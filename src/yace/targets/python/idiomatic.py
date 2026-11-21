@@ -17,6 +17,7 @@ from typing import List, Optional
 from yace.ir import decls, types
 from yace.ir.semantics import is_void_ptr
 from yace.targets.idiom import (
+    RELEASES,
     Call,
     Idioms,
     call_doc,
@@ -30,10 +31,6 @@ from . import pygen
 
 # What the body of a function binds, which a parameter may not be named
 BOUND = {"self", "ret", "ctypes", "enum"}
-
-# The roles of the functions that the objects of the buffer pattern call, not
-# bound by names of their own
-RELEASES = ("free", "realloc", "unregister")
 
 BUFFER = '''class Buffer(object):
     """Memory the library allocated, freed by close(), on leaving a with-block,
