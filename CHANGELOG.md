@@ -16,6 +16,13 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## 0.14.1
+
+The Rust layer compiles a `@nullable` `[in,out]` array, such as the payloads
+of `xnvme_cmd_pass()`. The parameter, an `Option<&mut [u8]>`, is not `Copy`,
+and the call moved it to take the address and then used it again for the
+length.
+
 ## 0.14.0
 
 The `cython` target generates the idiomatic API of the Python target as a
