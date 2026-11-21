@@ -73,6 +73,31 @@ Handles
   ``native_handle()``, as ``std::thread`` names it, is the raw pointer, for the
   C API.
 
+Buffers
+  A buffer that ``<stem>_alloc`` allocates, see the buffer pattern in
+  :ref:`sec-ir-csubset`, is returned as a ``foo::buffer``, a move-only class,
+  a ``std::optional`` where ``@nullable``, and otherwise ``std::bad_alloc`` is
+  thrown where the function returns NULL: ``dev.buf_alloc(4096)``. ``data()``
+  and ``size()`` are its address and size in bytes, and ``realloc(nbytes)``
+  resizes it with ``<stem>_realloc``. Destroying it frees it with
+  ``<stem>_free``, which is given the arguments it was allocated with; neither
+  has a name of its own in the layer. The handles it was allocated with must
+  outlive it. The memory may be a device's, such as GPU memory, which the CPU
+  cannot read, and nothing in the API says which; ``bytes()``, the memory as a
+  span of ``std::byte``, is for memory of the host only. The class is
+  ``buffer_`` where the namespace or the C API has the name ``buffer``.
+
+Registrations
+  Memory that ``<stem>_register`` registers, see the registration pattern in
+  :ref:`sec-ir-csubset`, is given as a span of ``std::byte``, whose size is
+  the size: ``dev.buf_register(memory)``. The function returns a
+  ``foo::registration``, a move-only class whose ``memory()`` is the span.
+  Destroying it, or calling ``unregister()``, which throws where
+  unregistering fails, unregisters the memory with ``<stem>_unregister``,
+  which has no name of its own in the layer. The memory, and the handles it
+  was registered with, must outlive it. The class is ``registration_`` where
+  the namespace or the C API has the name ``registration``.
+
 Errors
   A function documented ``@errno`` throws ``std::system_error``, of the
   ``std::generic_category()``, when it returns a negative errno. One returning

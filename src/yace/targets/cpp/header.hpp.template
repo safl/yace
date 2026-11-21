@@ -21,7 +21,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <functional>
 #include <memory>
+#include <new>
 #include <optional>
 #include <ostream>
 {%- if std == "c++20" %}

@@ -20,6 +20,7 @@ C API has a declaration named as the prefix, the namespace is the prefix and
 ``_cpp``.
 """
 
+import re
 from functools import cached_property
 from typing import Dict, List, Optional, Tuple
 
@@ -30,6 +31,7 @@ from yace.ir.semantics import is_void_ptr
 from yace.targets.capi import cgen
 from yace.targets.capi.target import comment as uncommented
 from yace.targets.idiom import (
+    RELEASES,
     Arg,
     Call,
     Idioms,
@@ -235,6 +237,143 @@ public:
 private:
 	T *data_ = nullptr;
 	std::size_t size_ = 0;
+};""".splitlines()
+
+
+BUFFER = r"""/**
+ * Memory the library allocated, freed when destroyed with the arguments it was
+ * allocated with, which must outlive it. The memory may be a device's, such as
+ * a GPU's, which the CPU cannot read, and nothing in the API says which; so
+ * bytes() is for memory of the host only.
+ */
+class buffer {
+public:
+	buffer(void *ptr, std::size_t size, std::function<void(void *)> free,
+		std::function<void *(void *, std::size_t)> realloc) noexcept
+		: ptr_(ptr), size_(size), free_(std::move(free)), realloc_(std::move(realloc))
+	{
+	}
+
+	buffer(buffer &&other) noexcept
+		: ptr_(std::exchange(other.ptr_, nullptr)),
+		size_(std::exchange(other.size_, 0)), free_(std::move(other.free_)),
+		realloc_(std::move(other.realloc_))
+	{
+	}
+
+	buffer &operator=(buffer &&other) noexcept
+	{
+		if (this != &other) {
+			release();
+			ptr_ = std::exchange(other.ptr_, nullptr);
+			size_ = std::exchange(other.size_, 0);
+			free_ = std::move(other.free_);
+			realloc_ = std::move(other.realloc_);
+		}
+		return *this;
+	}
+
+	buffer(const buffer &) = delete;
+	buffer &operator=(const buffer &) = delete;
+
+	~buffer() { release(); }
+
+	/// The address of the memory
+	void *data() const noexcept { return ptr_; }
+
+	/// The size of the memory in bytes
+	std::size_t size() const noexcept { return size_; }
+
+	/// The memory as bytes; for memory of the host only
+	{span}<std::byte> bytes() const noexcept
+	{
+		return {static_cast<std::byte *>(ptr_), size_};
+	}
+
+	/// Resize the memory to 'nbytes', keeping its bytes up to the smaller
+	/// size; std::bad_alloc where it cannot, leaving the memory unchanged
+	void realloc(std::size_t nbytes)
+	{
+		if (!realloc_) {
+			throw std::logic_error("the buffer cannot be resized");
+		}
+		void *ptr = realloc_(ptr_, nbytes);
+		if (!ptr) {
+			throw std::bad_alloc();
+		}
+		ptr_ = ptr;
+		size_ = nbytes;
+	}
+
+private:
+	void release() noexcept
+	{
+		if (ptr_) {
+			free_(std::exchange(ptr_, nullptr));
+		}
+	}
+
+	void *ptr_;
+	std::size_t size_;
+	std::function<void(void *)> free_;
+	std::function<void *(void *, std::size_t)> realloc_;
+};""".splitlines()
+
+REGISTRATION = r"""/**
+ * Memory of the caller's that the library uses until it is unregistered, when
+ * destroyed or by unregister(). The memory, and the handles it was registered
+ * with, must outlive it.
+ */
+class registration {
+public:
+	registration({span}<std::byte> memory,
+		std::function<void(void *)> unregister) noexcept
+		: memory_(memory), unregister_(std::move(unregister))
+	{
+	}
+
+	registration(registration &&other) noexcept
+		: memory_(other.memory_), unregister_(std::exchange(other.unregister_, nullptr))
+	{
+	}
+
+	registration &operator=(registration &&other) noexcept
+	{
+		if (this != &other) {
+			release();
+			memory_ = other.memory_;
+			unregister_ = std::exchange(other.unregister_, nullptr);
+		}
+		return *this;
+	}
+
+	registration(const registration &) = delete;
+	registration &operator=(const registration &) = delete;
+
+	~registration() { release(); }
+
+	/// The memory registered
+	{span}<std::byte> memory() const noexcept { return memory_; }
+
+	/// Unregister the memory; std::system_error where unregistering fails
+	void unregister()
+	{
+		if (auto unregister = std::exchange(unregister_, nullptr)) {
+			unregister(memory_.data());
+		}
+	}
+
+private:
+	void release() noexcept
+	{
+		try {
+			unregister();
+		} catch (...) {
+		}
+	}
+
+	{span}<std::byte> memory_;
+	std::function<void(void *)> unregister_;
 };""".splitlines()
 
 
@@ -488,6 +627,11 @@ class Renderer(object):
         [out] array of 'call' is a buffer the caller gives, as a span"""
 
         typ = arg.typ
+        if call and self.makes(call) == "register":
+            if arg.param == call.memory.ptr:
+                return f"{self.span}<std::byte>"
+            if arg.param == call.memory.nbytes:
+                return None  # the size of the span
         if arg.kind == "out" and call and call.out(arg.param).kind == "array":
             return f"{self.span}<{self.elem(call.out(arg.param).typ)}>"
         if arg.kind == "string":
@@ -583,6 +727,11 @@ class Renderer(object):
         name = self.pname(arg.param)
         if null and self.nulled(call, arg):
             return "nullptr"
+        if self.makes(call) == "register" and arg.param == call.memory.ptr:
+            return f"{name}.data()"
+        if self.makes(call) == "register" and arg.param == call.memory.nbytes:
+            ptr = self.pname(call.memory.ptr)
+            return f"static_cast<{self.c(arg.typ)}>({ptr}.size())"
         if arg.kind == "self":
             return "ptr_.get()"
         if arg.kind == "string":
@@ -619,6 +768,8 @@ class Renderer(object):
         return name
 
     def results(self, call: Call):
+        if self.makes(call) == "register":
+            return [(self.registration_class, self.made(call))]
         found = []
         count = "ret" if call.returns == "count" else None
         for out in call.outs:
@@ -660,7 +811,12 @@ class Renderer(object):
             found.append(("std::size_t", "static_cast<std::size_t>(ret)"))
 
         ret = call.ret
-        if call.returns == "value":
+        if self.makes(call) == "alloc" and call.nullable:
+            cls = f"std::optional<{self.buffer_class}>"
+            found.append((cls, f"ret ? {cls}({self.made(call)}) : std::nullopt"))
+        elif self.makes(call) == "alloc":
+            found.append((self.buffer_class, self.made(call)))
+        elif call.returns == "value":
             found.append((self.c(ret), "ret"))
         elif call.returns == "string":
             if call.nullable:
@@ -864,6 +1020,8 @@ class Renderer(object):
             lines += failed
         if call.partial:
             lines += failed
+        if self.makes(call) == "alloc" and not call.nullable:
+            lines += ["if (!ret) {", "\tthrow std::bad_alloc();", "}"]
         if len(results) == 1:
             lines.append(f"return {results[0][1]};")
         elif results:
@@ -957,6 +1115,105 @@ class Renderer(object):
             if self.usable(call)
         )
 
+    def again(self, call: Call, partner: Optional[Call]) -> Optional[List[str]]:
+        """The expressions of the arguments of 'partner', computed from those
+        of 'call', with 'p' as the address and 'n' as the new size; None where
+        'partner' takes what 'call' has no value of that a lambda can copy"""
+
+        if partner is None or partner.memory is None:
+            return None
+        given = {a.param: a for a in call.args}
+        found = []
+        for param in self.idioms.decl(partner.function).params:
+            arg = given.get(param.name)
+            if param.name == partner.memory.ptr:
+                found.append("p")
+            elif param.name == partner.memory.nbytes:
+                found.append(f"static_cast<{self.c(param.typ)}>(n)")
+            elif arg is not None and arg.kind == "self":
+                found.append("ptr_.get()")
+            elif arg is not None and arg.kind == "value":
+                handle = is_opaque_ptr(arg.typ, self.idioms.handles)
+                if self.param_type(arg) != self.c(arg.typ) and handle not in (
+                    self.classes
+                ):
+                    return None  # a reference to what the caller holds
+                found.append(self.param_expr(call, arg))
+            else:
+                return None
+        return found
+
+    def makes(self, call: Call) -> Optional[str]:
+        """'alloc' where 'call' returns a buffer, 'register' where it returns a
+        registration: where the class can release what 'call' made"""
+
+        if call.memory is None or call.memory.role not in ("alloc", "register"):
+            return None
+        role = "free" if call.memory.role == "alloc" else "unregister"
+        if self.again(call, self.idioms.partner(call, role)) is None:
+            return None
+        return call.memory.role
+
+    def bound(self, call: Call) -> bool:
+        """Whether 'call' is bound by a name of its own, not only through the
+        class of the buffer pattern that calls it"""
+
+        if call.memory is None or call.memory.role not in RELEASES:
+            return True
+        owner = self.idioms.owner(call)
+        return owner is None or not self.makes(owner)
+
+    def lambda_(self, call: Call, role: str) -> Optional[str]:
+        """A lambda calling the partner of the role 'role' with the arguments
+        'call' was given, None where there is no such partner"""
+
+        partner = self.idioms.partner(call, role)
+        args = self.again(call, partner)
+        if partner is None or args is None:
+            return None
+        captures = []
+        for i, expr in enumerate(args):
+            if expr != "p" and not expr.endswith("(n)"):
+                captures.append(f"a{i} = {expr}")
+                args[i] = f"a{i}"
+        raw = f"::{partner.function}({', '.join(args)})"
+        head = f"[{', '.join(captures)}]"
+        if role == "realloc":
+            return f"{head}(void *p, std::size_t n) {{ return {raw}; }}"
+        if role == "unregister" and partner.errno:
+            return (
+                f"{head}(void *p) {{ auto ret = {raw}; if (ret < 0) {{"
+                f" throw {self.error(partner.function)}; }} }}"
+            )
+        return f"{head}(void *p) {{ (void){raw}; }}"
+
+    def made(self, call: Call) -> str:
+        """The expression of the buffer or the registration 'call' made"""
+
+        if self.makes(call) == "register":
+            memory = self.pname(call.memory.ptr)
+            unregister = self.lambda_(call, "unregister")
+            return f"{self.registration_class}({memory}, {unregister})"
+        free = self.lambda_(call, "free")
+        realloc = self.lambda_(call, "realloc") or "nullptr"
+        nbytes = self.pname(call.memory.nbytes)
+        return f"{self.buffer_class}(ret, {nbytes}, {free}, {realloc})"
+
+    def available(self, name: str) -> str:
+        """'name', or 'name_' where the namespace or C names it"""
+
+        named = {self.name(n) for n in self.c_names if n}
+        taken = self.c_names | named | RESERVED | {self.name(c) for c in self.classes}
+        return f"{name}_" if name in taken else name
+
+    @cached_property
+    def buffer_class(self) -> str:
+        return self.available("buffer")
+
+    @cached_property
+    def registration_class(self) -> str:
+        return self.available("registration")
+
     def usable(self, call: Call) -> bool:
         if (
             call.kind in ("method", "destructor", "constructor")
@@ -966,7 +1223,7 @@ class Renderer(object):
         for arg in call.args:
             if arg.kind == "callback" and self.callback(arg.typ) is None:
                 return False
-        return True
+        return self.bound(call)
 
     def nulled_signature(self, call: Call, params: List[str]) -> tuple:
         """(template, params) of the overload taking nullptr for every nullable
@@ -1024,6 +1281,10 @@ class Renderer(object):
         )
         if call.kind == "destructor":
             shown = shown.model_copy(update={"returns": ""})
+        if self.makes(call) == "register":
+            params = dict(shown.params)
+            params.pop(self.pname(call.memory.nbytes), None)
+            shown = shown.model_copy(update={"params": params})
         folded = self.folded(call, shown, errors)
         if folded:
             note = f"{shown.tags.get('note', '')} {folded}".strip()
@@ -1351,6 +1612,17 @@ class Renderer(object):
         out.append("")
         for record in cgen.ordered_records(self.model):
             out += self.accessors(record)
+        made = {self.makes(c) for c in self.idioms.calls if self.usable(c)}
+        for role, text, cls, name in [
+            ("alloc", BUFFER, self.buffer_class, "buffer"),
+            ("register", REGISTRATION, self.registration_class, "registration"),
+        ]:
+            if role in made:
+                text = [
+                    re.sub(rf"\b{name}\b", cls, ln).replace("{span}", self.span)
+                    for ln in text
+                ]
+                out += text + [""]
         out += [f"class {self.name(record)};" for record in self.classes]
         if self.classes:
             out.append("")

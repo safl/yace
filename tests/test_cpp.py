@@ -1306,3 +1306,122 @@ def test_the_comment_says_what_the_signature_has_for_a_parameter_it_folds(
         " 'args_nbytes' is the size of the type of 'args'. @param args A */"
         " inline int run(" in hpp
     )
+
+
+def run_program(tmp_path, source: str, main: str) -> str:
+    """Build the C 'source' and the C++ 'main' against the generated layer, run
+    the program, and return its standard output"""
+
+    (tmp_path / "api.c").write_text(source)
+    (tmp_path / "main.cpp").write_text(main)
+    include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
+    api_o = str(tmp_path / "api.o")
+    subprocess.run(
+        ["cc", *include, "-c", str(tmp_path / "api.c"), "-o", api_o], check=True
+    )
+    program = tmp_path / "main"
+    subprocess.run(
+        ["c++", *CXXFLAGS, *include, str(tmp_path / "main.cpp"), api_o]
+        + ["-o", str(program)],
+        check=True,
+    )
+    run = subprocess.run([str(program)], capture_output=True, text=True, check=True)
+    return run.stdout
+
+
+def test_an_allocated_buffer_is_freed_once_when_destroyed(parse, tmp_path):
+    from tests.test_python import BUFFERS, BUFFERS_C
+
+    model, _ = parse(BUFFERS)
+    assert process(model, ["cpp"], tmp_path) == []
+    hpp = (tmp_path / "cpp" / "api.hpp").read_text()
+    assert "buf_free(" not in hpp.replace("::api_buf_free(", "")
+    assert "buf_realloc(" not in hpp.replace("::api_buf_realloc(", "")
+    out = run_program(
+        tmp_path,
+        BUFFERS + BUFFERS_C,
+        "#include <cstdio>\n#include <utility>\n#include <api.hpp>\n"
+        "int main() {\n"
+        "\tauto dev = api::open();\n"
+        "\t{\n"
+        "\t\tauto buf = dev.buf_alloc(4);\n"
+        "\t\tauto bytes = buf->bytes();\n"
+        "\t\tfor (std::size_t i = 0; i < 4; i++) {\n"
+        "\t\t\tbytes[i] = std::byte(i + 1);\n"
+        "\t\t}\n"
+        '\t\tstd::printf("%zu %zu\\n", buf->size(), api::sum(buf->bytes()));\n'
+        "\t\tbuf->realloc(8);\n"
+        '\t\tstd::printf("%zu %d\\n", buf->size(), int(buf->bytes()[3]));\n'
+        "\t\tauto other = std::move(*dev.buf_alloc(2));\n"
+        "\t\tauto moved = std::move(other);\n"
+        "\t}\n"
+        '\tstd::printf("%d\\n", api::freed());\n'
+        "\treturn 0;\n}\n",
+    )
+    assert out == "4 10\n8 4\n2\n"
+
+
+def test_an_allocation_returns_its_out_values_with_the_buffer(parse, tmp_path):
+    from tests.test_python import PHYS, PHYS_C
+
+    model, _ = parse(PHYS)
+    assert process(model, ["cpp"], tmp_path) == []
+    hpp = (tmp_path / "cpp" / "api.hpp").read_text()
+    assert "buf_realloc(" not in hpp.replace("::api_buf_realloc(", "")
+    out = run_program(
+        tmp_path,
+        PHYS + PHYS_C,
+        "#include <cstdio>\n#include <stdexcept>\n#include <api.hpp>\n"
+        "int main() {\n"
+        "\tauto dev = api::open();\n"
+        "\t{\n"
+        "\t\tauto [phys, buf] = dev.buf_alloc(16);\n"
+        "\t\tauto [none_phys, none] = dev.buf_alloc(2048);\n"
+        '\t\tstd::printf("%d %zu %d %d\\n", int(phys), buf->size(),'
+        " int(none_phys), none.has_value());\n"
+        "\t\ttry {\n\t\t\tbuf->realloc(32);\n"
+        "\t\t} catch (const std::logic_error &) {\n"
+        '\t\t\tstd::printf("fixed\\n");\n\t\t}\n'
+        "\t}\n"
+        '\tstd::printf("%d\\n", api::freed());\n'
+        "\treturn 0;\n}\n",
+    )
+    assert out == "4096 16 0 0\nfixed\n1\n"
+
+
+def test_registered_memory_is_unregistered_when_destroyed(parse, tmp_path):
+    from tests.test_python import REGISTRATIONS, REGISTRATIONS_C
+
+    model, _ = parse(REGISTRATIONS)
+    assert process(model, ["cpp"], tmp_path) == []
+    hpp = (tmp_path / "cpp" / "api.hpp").read_text()
+    assert "buf_unregister(" not in hpp.replace("::api_buf_unregister(", "")
+    out = run_program(
+        tmp_path,
+        REGISTRATIONS + REGISTRATIONS_C,
+        "#include <cerrno>\n#include <cstdint>\n#include <cstdio>\n"
+        "#include <system_error>\n#include <vector>\n#include <api.hpp>\n"
+        "int main() {\n"
+        "\tauto dev = api::open();\n"
+        "\tstd::vector<std::byte> memory(16);\n"
+        "\tauto at = reinterpret_cast<std::uintptr_t>(memory.data());\n"
+        "\t{\n"
+        "\t\tauto reg = dev.buf_register(memory);\n"
+        '\t\tstd::printf("%d %zu\\n", api::registered() == at,'
+        " api::registered_nbytes());\n"
+        "\t\tstd::vector<std::byte> other(8);\n"
+        "\t\ttry {\n"
+        "\t\t\tdev.buf_register(other);\n"
+        "\t\t} catch (const std::system_error &e) {\n"
+        '\t\t\tstd::printf("%d\\n", e.code().value() == EBUSY);\n'
+        "\t\t}\n"
+        "\t\tauto moved = std::move(reg);\n"
+        "\t}\n"
+        '\tstd::printf("%d\\n", int(api::registered()));\n'
+        "\tauto reg = dev.buf_register(memory);\n"
+        "\treg.unregister();\n"
+        "\treg.unregister();\n"
+        '\tstd::printf("%d\\n", int(api::registered()));\n'
+        "\treturn 0;\n}\n",
+    )
+    assert out == "1 16\n1\n0\n0\n"
