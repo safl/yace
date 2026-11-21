@@ -1069,6 +1069,187 @@ def test_a_const_record_ending_in_a_flexible_array_is_returned_as_a_view(parse, 
     assert [(f.len, api["same"](f)) for f in listed] == [(4, 1), (4, 1)]
 
 
+BUFFERS = (
+    "#include <stddef.h>\n"
+    "/** D */\nstruct api_dev;\n"
+    "/**\n * Open\n * @param[out] dev D\n * @errno\n */\n"
+    "int api_open(struct api_dev **dev);\n"
+    "/**\n * Close\n * @param dev D\n * @destroys dev\n */\n"
+    "void api_close(struct api_dev *dev);\n"
+    "/**\n * Allocate\n * @param dev D\n * @param nbytes N\n * @nullable return\n */\n"
+    "void *api_buf_alloc(struct api_dev *dev, size_t nbytes);\n"
+    "/**\n * Resize\n * @param dev D\n * @param buf B\n * @param nbytes N\n"
+    " * @nullable return\n */\n"
+    "void *api_buf_realloc(struct api_dev *dev, void *buf, size_t nbytes);\n"
+    "/**\n * Free\n * @param dev D\n * @param buf B\n */\n"
+    "void api_buf_free(struct api_dev *dev, void *buf);\n"
+    "/**\n * Sum\n * @arrparam buf B @len_at{n}\n */\n"
+    "size_t api_sum(const void *buf, size_t n);\n"
+    "/**\n * The number of buffers freed with the device\n */\n"
+    "int api_freed(void);\n"
+)
+
+BUFFERS_C = (
+    "#include <stdlib.h>\n"
+    "struct api_dev { int open; };\n"
+    "static struct api_dev the_dev;\nstatic int freed;\n"
+    "int api_open(struct api_dev **dev) { the_dev.open = 1; *dev = &the_dev;"
+    " return 0; }\n"
+    "void api_close(struct api_dev *dev) { dev->open = 0; }\n"
+    "void *api_buf_alloc(struct api_dev *dev, size_t nbytes)\n"
+    "{ return dev->open ? calloc(1, nbytes) : NULL; }\n"
+    "void *api_buf_realloc(struct api_dev *dev, void *buf, size_t nbytes)\n"
+    "{ return dev->open ? realloc(buf, nbytes) : NULL; }\n"
+    "void api_buf_free(struct api_dev *dev, void *buf)\n"
+    "{ freed += dev == &the_dev; free(buf); }\n"
+    "size_t api_sum(const void *buf, size_t n)\n"
+    "{ const unsigned char *b = buf; size_t s = 0;\n"
+    "  for (size_t i = 0; i < n; i++) s += b[i]; return s; }\n"
+    "int api_freed(void) { return freed; }\n"
+)
+
+# A buffer pattern whose alloc and realloc also write an [out], as
+# xnvme_buf_phys_alloc() writes the physical address
+PHYS = (
+    "#include <stddef.h>\n#include <stdint.h>\n"
+    "/** D */\nstruct api_dev;\n"
+    "/**\n * Open\n * @param[out] dev D\n * @errno\n */\n"
+    "int api_open(struct api_dev **dev);\n"
+    "/**\n * Close\n * @param dev D\n * @destroys dev\n */\n"
+    "void api_close(struct api_dev *dev);\n"
+    "/**\n * Allocate\n * @param dev D\n * @param nbytes N\n * @param[out] phys P\n"
+    " * @nullable return\n */\n"
+    "void *api_buf_alloc(struct api_dev *dev, size_t nbytes, uint64_t *phys);\n"
+    "/**\n * Resize\n * @param dev D\n * @param buf B\n * @param nbytes N\n"
+    " * @param[out] phys P\n * @nullable return\n */\n"
+    "void *api_buf_realloc(struct api_dev *dev, void *buf, size_t nbytes,"
+    " uint64_t *phys);\n"
+    "/**\n * Free\n * @param dev D\n * @param buf B\n */\n"
+    "void api_buf_free(struct api_dev *dev, void *buf);\n"
+    "/**\n * The number of buffers freed\n */\n"
+    "int api_freed(void);\n"
+)
+
+PHYS_C = (
+    "#include <stdlib.h>\n"
+    "struct api_dev { int open; };\n"
+    "static struct api_dev the_dev;\nstatic int freed;\n"
+    "int api_open(struct api_dev **dev) { *dev = &the_dev; return 0; }\n"
+    "void api_close(struct api_dev *dev) { (void)dev; }\n"
+    "void *api_buf_alloc(struct api_dev *dev, size_t nbytes, uint64_t *phys)\n"
+    "{ (void)dev; if (nbytes > 1024) return NULL; *phys = 4096;"
+    " return calloc(1, nbytes); }\n"
+    "void *api_buf_realloc(struct api_dev *dev, void *buf, size_t nbytes,"
+    " uint64_t *phys)\n"
+    "{ (void)dev; *phys = 8192; return realloc(buf, nbytes); }\n"
+    "void api_buf_free(struct api_dev *dev, void *buf)\n"
+    "{ (void)dev; freed++; free(buf); }\n"
+    "int api_freed(void) { return freed; }\n"
+)
+
+
+@needs_cc
+def test_an_allocation_returns_its_out_values_with_the_buffer(parse, bind):
+    """The [out] of the alloc is returned before the Buffer. The realloc
+    writes an [out] the Buffer has no place for, so the Buffer cannot resize,
+    and the realloc is not bound by its name, as it would free the memory the
+    Buffer owns."""
+
+    model, _ = parse(PHYS)
+    api = bind(model, PHYS + PHYS_C)
+    dev = api["open"]()
+    assert not hasattr(dev, "buf_realloc") and not hasattr(dev, "buf_free")
+    phys, buf = dev.buf_alloc(16)
+    assert (phys, len(buf)) == (4096, 16)
+    assert dev.buf_alloc(2048) == (0, None)
+    with pytest.raises(TypeError):
+        buf.realloc(32)
+    buf.close()
+    assert api["freed"]() == 1
+
+
+@needs_cc
+def test_an_allocated_buffer_is_owned_viewed_and_freed(parse, bind):
+    """The buffer frees itself with the device it was allocated with, is read
+    and written through the buffer protocol, and is not freed under a view"""
+
+    model, _ = parse(BUFFERS)
+    api = bind(model, BUFFERS + BUFFERS_C)
+    dev = api["open"]()
+    assert not hasattr(dev, "buf_free") and not hasattr(dev, "buf_realloc")
+    with dev.buf_alloc(4) as buf:
+        assert (len(buf), buf.nbytes) == (4, 4)
+        view = memoryview(buf)
+        view[:] = b"\x01\x02\x03\x04"
+        assert api["sum"](buf) == 10
+        with pytest.raises(BufferError):
+            buf.close()
+        view.release()
+        buf.realloc(8)
+        assert bytes(memoryview(buf))[:4] == b"\x01\x02\x03\x04"
+    assert api["freed"]() == 1
+    with pytest.raises(ValueError):
+        memoryview(buf)
+    buf.close()
+    assert api["freed"]() == 1
+
+    dev.buf_alloc(2)
+    gc.collect()
+    assert api["freed"]() == 2
+    with pytest.raises(OverflowError):
+        dev.buf_alloc(-1)
+
+
+@needs_cc
+def test_the_buffer_class_is_renamed_where_a_handle_has_its_name(parse, bind):
+    header = (
+        "#include <stddef.h>\n/** B */\nstruct api_buffer;\n"
+        "/**\n * Open\n * @param[out] b B\n * @errno\n */\n"
+        "int api_buffer_open(struct api_buffer **b);\n"
+        "/**\n * Close\n * @param b B\n * @destroys b\n */\n"
+        "void api_buffer_close(struct api_buffer *b);\n"
+        "/**\n * Allocate\n * @param nbytes N\n */\n"
+        "void *api_mem_alloc(size_t nbytes);\n"
+        "/**\n * Free\n * @param buf B\n */\nvoid api_mem_free(void *buf);\n"
+    )
+    model, _ = parse(header)
+    api = bind(
+        model,
+        header + "#include <stdlib.h>\nstruct api_buffer { int x; };\n"
+        "static struct api_buffer one;\n"
+        "int api_buffer_open(struct api_buffer **b) { *b = &one; return 0; }\n"
+        "void api_buffer_close(struct api_buffer *b) { (void)b; }\n"
+        "void *api_mem_alloc(size_t nbytes) { return malloc(nbytes); }\n"
+        "void api_mem_free(void *buf) { free(buf); }\n",
+    )
+    assert type(api["open"]()).__name__ == "Buffer"
+    with api["mem_alloc"](4) as mem:
+        assert type(mem).__name__ == "Buffer_"
+
+
+@needs_cc
+def test_a_release_the_buffer_cannot_call_keeps_its_name(parse, bind):
+    """A free that takes what the binding has no value of, here the string
+    the buffer was allocated with, is bound by its own name"""
+
+    header = (
+        "#include <stddef.h>\n"
+        "/**\n * Allocate\n * @param tag T\n * @param nbytes N\n */\n"
+        "void *api_mem_alloc(const char *tag, size_t nbytes);\n"
+        "/**\n * Free\n * @param tag T\n * @param buf B\n */\n"
+        "void api_mem_free(const char *tag, void *buf);\n"
+    )
+    model, _ = parse(header)
+    api = bind(
+        model,
+        header + "#include <stdlib.h>\n"
+        "void *api_mem_alloc(const char *tag, size_t nbytes)\n"
+        "{ (void)tag; return malloc(nbytes); }\n"
+        "void api_mem_free(const char *tag, void *buf) { (void)tag; free(buf); }\n",
+    )
+    assert "mem_free" in api
+
+
 MEMORY = (
     "#include <stddef.h>\n#include <stdint.h>\n"
     "/**\n * Where\n * @arrparam buf B @len_at{n}\n */\n"

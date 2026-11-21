@@ -31,6 +31,86 @@ from . import pygen
 # What the body of a function binds, which a parameter may not be named
 BOUND = {"self", "ret", "ctypes", "enum"}
 
+# The roles of the functions that the objects of the buffer pattern call, not
+# bound by names of their own
+RELEASES = ("free", "realloc", "unregister")
+
+BUFFER = '''class Buffer(object):
+    """Memory the library allocated, freed by close(), on leaving a with-block,
+    or when collected, and not while a view of it exists. Its bytes are given
+    through the buffer protocol, so memoryview(), NumPy and PyTorch use them
+    without a copy, and a function taking a buffer takes it. The memory may be
+    a device's, which the CPU cannot read; close the buffer before what it was
+    allocated with."""
+
+    def __init__(self, address, nbytes, free, realloc=None):
+        self._address = address
+        self._nbytes = nbytes
+        self._free = free
+        self._realloc = realloc
+        self._exports = 0
+
+    @property
+    def address(self):
+        """The address of the memory"""
+
+        if not self._address:
+            raise ValueError("the buffer is closed")
+        return self._address
+
+    @property
+    def nbytes(self):
+        """The size of the memory in bytes"""
+
+        return self._nbytes
+
+    def __len__(self):
+        return self._nbytes
+
+    def __buffer__(self, flags):
+        array = (ctypes.c_ubyte * self._nbytes).from_address(self.address)
+        self._exports += 1
+        return _builtins.memoryview(array).cast("B")
+
+    def __release_buffer__(self, view):
+        self._exports -= 1
+        view.release()
+
+    def realloc(self, nbytes):
+        """Resize the buffer to 'nbytes' bytes, keeping its bytes up to the
+        smaller size; its address may change"""
+
+        if self._realloc is None:
+            raise TypeError("the library does not resize this buffer")
+        if self._exports:
+            raise BufferError("a view of the buffer exists")
+        address = self._realloc(self.address, nbytes)
+        if not address:
+            raise MemoryError(f"the buffer could not be resized to {nbytes} bytes")
+        self._address, self._nbytes = address, nbytes
+
+    def close(self):
+        """Free the buffer; closing a closed buffer does nothing"""
+
+        if self._exports:
+            raise BufferError("a view of the buffer exists")
+        if self._address:
+            address, self._address = self._address, None
+            self._free(address)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+    def __del__(self):
+        if self._address:
+            try:
+                self._free(self._address)
+            except ValueError:
+                pass  # what it was allocated with is closed; it is not freed'''
+
 
 class Renderer(object):
     def __init__(self, idioms: Idioms, namer: pygen.Namer):
@@ -214,6 +294,10 @@ class Renderer(object):
                 args.append(
                     f"None if {name} is None else {ptr}" if arg.nullable else ptr
                 )
+            elif call.memory is not None and arg.param == call.memory.nbytes:
+                # The size the buffer is made of; truncated, it would not be the
+                # size of the memory
+                args.append(f"_fits({name}, {self.namer.ctype(typ)})")
             elif arg.kind in ("value", "string"):
                 args.append(name)
             elif arg.kind == "capacity":
@@ -381,6 +465,8 @@ class Renderer(object):
         elif call.returns == "pointer" and isinstance(call.ret.to, types.Record):
             # A copy would not hold all of the record: a view
             results.append("None if not ret else ret.contents")
+        elif call.memory is not None and call.memory.role == "alloc":
+            results.append(self.buffer(call))
         elif call.returns == "pointer":
             results.append("ret")
 
@@ -405,6 +491,82 @@ class Renderer(object):
             + ["finally:"]
             + released
         )
+
+    def partner(self, call: Call, role: str) -> Optional[Call]:
+        """The call of the role 'role' in the buffer pattern of 'call'"""
+
+        stem = call.memory.stem if call.memory else None
+        return next(
+            (
+                c
+                for c in self.idioms.calls
+                if c.memory and c.memory.stem == stem and c.memory.role == role
+            ),
+            None,
+        )
+
+    def again(self, call: Call, partner: Optional[Call], nbytes: str = "") -> str:
+        """A function of '_p', the address, calling the raw function of
+        'partner' with what 'call' was called with, and 'nbytes' as the new
+        size; None where 'partner' takes what 'call' was not given as a value"""
+
+        if partner is None or partner.memory is None:
+            return "None"
+        given = {a.param: a for a in call.args}
+        passed = []
+        for param in self.idioms.decl(partner.function).params:
+            arg = given.get(param.name)
+            if param.name == partner.memory.ptr:
+                passed.append("_p")
+            elif param.name == partner.memory.nbytes:
+                passed.append(f"_fits({nbytes}, ctypes.c_size_t)")
+            elif arg is not None and arg.kind == "self":
+                passed.append("self._ptr")
+            elif arg is not None and arg.kind == "value":
+                name = self.pname(arg.param)
+                handle = is_opaque_ptr(arg.typ, self.idioms.handles)
+                if handle in self.classes:
+                    name = f"None if {name} is None else {name}._ptr"
+                passed.append(name)
+            else:
+                return "None"
+        raw = f"{pygen.ident(partner.function)}({', '.join(passed)})"
+        params = "_p, _n" if nbytes else "_p"
+        return f"lambda {params}: {f'_check({raw})' if partner.errno else raw}"
+
+    def buffer(self, call: Call) -> str:
+        """The Buffer of the memory 'call' allocated"""
+
+        nbytes = self.pname(call.memory.nbytes)
+        free = self.again(call, self.partner(call, "free"))
+        realloc = self.again(call, self.partner(call, "realloc"), "_n")
+        cls = self.buffer_class
+        return f"None if not ret else {cls}(ret, {nbytes}, {free}, {realloc})"
+
+    @cached_property
+    def buffer_class(self) -> str:
+        """The name of the class of an allocated buffer: Buffer, or Buffer_
+        where a type or a handle of the API is named Buffer"""
+
+        taken = set(self.namer.names.values())
+        taken |= {self.class_name(h) for h in self.idioms.handles}
+        return "Buffer_" if "Buffer" in taken else "Buffer"
+
+    def bound(self, call: Call) -> bool:
+        """Whether 'call' is bound by a name of its own, not only through the
+        object of the buffer pattern that calls it. A realloc the Buffer cannot
+        call is not bound either, as it would free memory the Buffer owns."""
+
+        if call.memory is None or call.memory.role not in RELEASES:
+            return True
+        role = "register" if call.memory.role == "unregister" else "alloc"
+        owner = self.partner(call, role)
+        if owner is None:
+            return True
+        release: Optional[Call] = call
+        if call.memory.role == "realloc":
+            release = self.partner(owner, "free")
+        return self.again(owner, release) == "None"
 
     def points_to_value(self, typ) -> bool:
         """Whether 'typ' is a pointer to a record or number, not a string"""
@@ -512,7 +674,8 @@ class Renderer(object):
                 lines += ["            if ret < 0:", "                self._keys = []"]
             lines += ["            self._release()"]
         for call in calls["method"]:
-            lines += ["", self.function(call, "    ", self_=True)]
+            if self.bound(call):
+                lines += ["", self.function(call, "    ", self_=True)]
         if destructor:
             name = pygen.ident(destructor.name)
             lines += [
@@ -565,7 +728,11 @@ class Renderer(object):
         for call in self.idioms.calls:
             if call.kind == "constructor" and self.usable(call):
                 out.append(self.function(call))
-        out += [self.function(c) for c in self.idioms.functions() if self.usable(c)]
+        out += [
+            self.function(c)
+            for c in self.idioms.functions()
+            if self.usable(c) and self.bound(c)
+        ]
         if self.dispatchers:
             parts += [
                 "",
@@ -574,4 +741,7 @@ class Renderer(object):
                 "_KEYS = __import__('itertools').count(1)",
             ]
         head = ["\n".join(parts)] + list(self.dispatchers.values())
+        if any(c.memory and c.memory.role == "alloc" for c in self.idioms.calls):
+            cls = f"class {self.buffer_class}(object):"
+            head.append(BUFFER.replace("class Buffer(object):", cls, 1))
         return "\n\n\n".join(head + out)

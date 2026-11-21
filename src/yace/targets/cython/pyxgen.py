@@ -34,6 +34,7 @@ from yace.targets.idiom import (
     local,
 )
 from yace.targets.python import pygen
+from yace.targets.python.idiomatic import RELEASES
 
 from . import cygen
 
@@ -661,10 +662,98 @@ class Renderer(object):
             results.append(self.to_py(call.ret, "ret"))
         elif call.returns == "handle":
             results.append(self.to_py(call.ret, "ret"))
+        elif call.memory is not None and call.memory.role == "alloc":
+            results.append(self.buffer(call, lines))
         elif call.returns == "pointer":
             copy = copyable(self.model, call.ret.to)
             results.append(self.to_py(call.ret, "ret", copy=copy))
         return results
+
+    def partner(self, call: Call, role: str) -> Optional[Call]:
+        """The call of the role 'role' in the buffer pattern of 'call'"""
+
+        stem = call.memory.stem if call.memory else None
+        return next(
+            (
+                c
+                for c in self.idioms.calls
+                if c.memory and c.memory.stem == stem and c.memory.role == role
+            ),
+            None,
+        )
+
+    def again(self, call: Call, partner: Optional[Call], name: str) -> List[str]:
+        """A function 'name' of '_p', the address, and of '_n', the new size
+        where 'partner' resizes, that calls the C function of 'partner' with
+        what 'call' was called with; none where 'partner' takes what 'call'
+        was not given as a value"""
+
+        if partner is None or partner.memory is None:
+            return []
+        given = {a.param: a for a in call.args}
+        func = self.idioms.decl(call.function)
+        passed = []
+        for param in self.idioms.decl(partner.function).params:
+            arg = given.get(param.name)
+            if param.name == partner.memory.ptr:
+                passed.append("<void *><uintptr_t>_p")
+            elif param.name == partner.memory.nbytes:
+                passed.append("_n")
+            elif arg is not None and arg.kind == "self":
+                passed.append("self._get()")
+            elif arg is not None and arg.kind == "value":
+                typ = func.params[arg.index].typ
+                passed.append(self.to_c(typ, self.pname(arg.param), arg.nullable))
+            else:
+                return []
+        made = f"{self.names.of(partner.function)}({', '.join(passed)})"
+        if partner.memory.role == "realloc":
+            return [f"def {name}(_p, _n):", f"    return <uintptr_t>{made}"]
+        return [
+            f"def {name}(_p):",
+            f"    {f'_check({made})' if partner.errno else made}",
+        ]
+
+    def buffer(self, call: Call, lines: List[str]) -> str:
+        """Add the functions that free and resize the memory 'call' allocated,
+        and return its Buffer"""
+
+        free = self.local(call, "free", "fn")
+        realloc = self.local(call, "realloc", "fn")
+        freeing = self.again(call, self.partner(call, "free"), free)
+        resizing = self.again(call, self.partner(call, "realloc"), realloc)
+        lines += freeing + resizing
+        nbytes = self.pname(call.memory.nbytes)
+        made = f"{self.buffer_class}._make"
+        free = free if freeing else "None"
+        realloc = realloc if resizing else "None"
+        args = f"<uintptr_t>ret, {nbytes}, {free}, {realloc}"
+        return f"None if ret == NULL else {made}({args})"
+
+    @cached_property
+    def buffer_class(self) -> str:
+        """The name of the class of an allocated buffer: Buffer, or Buffer_
+        where a class of the module or a name of the .pxd is Buffer"""
+
+        taken = {self.class_of(r) for r in self.records} | self.cnames
+        taken |= {self.handle_class(h) for h in self.idioms.handles}
+        return "Buffer_" if "Buffer" in taken else "Buffer"
+
+    def bound(self, call: Call) -> bool:
+        """Whether 'call' is bound by a name of its own, not only through the
+        object of the buffer pattern that calls it. A realloc the Buffer cannot
+        call is not bound either, as it would free memory the Buffer owns."""
+
+        if call.memory is None or call.memory.role not in RELEASES:
+            return True
+        role = "register" if call.memory.role == "unregister" else "alloc"
+        owner = self.partner(call, role)
+        if owner is None:
+            return True
+        release: Optional[Call] = call
+        if call.memory.role == "realloc":
+            release = self.partner(owner, "free")
+        return not bool(self.again(owner, release, "_fn"))
 
     def visible(self, call: Call) -> list:
         return call.given()
@@ -781,7 +870,8 @@ class Renderer(object):
         else:
             lines.append("        pass")
         for call in calls["method"]:
-            lines += ["", self.function(call, "    ", self_=True)]
+            if self.bound(call):
+                lines += ["", self.function(call, "    ", self_=True)]
         if destructor:
             raw = self.names.of(destructor.function)
             lines += [
@@ -1152,7 +1242,9 @@ class Renderer(object):
         for call in self.idioms.calls:
             if call.kind == "constructor" and self.usable(call):
                 functions.append(self.function(call))
-        functions += [self.function(c) for c in self.idioms.functions()]
+        functions += [
+            self.function(c) for c in self.idioms.functions() if self.bound(c)
+        ]
         # The message of an OSError comes from the library function that the
         # meta names, else from os.strerror()
         errmsg = self.model.errmsg()
@@ -1163,6 +1255,10 @@ class Renderer(object):
             "functions": functions,
             "trampolines": [code for _, code in self.trampolines.values()],
             "errmsg": message,
+            "buffers": any(
+                c.memory and c.memory.role == "alloc" for c in self.idioms.calls
+            ),
+            "buffer_class": self.buffer_class,
         }
 
 

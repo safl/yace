@@ -104,6 +104,24 @@ Handles
   the functions taking it first are its methods:
   ``handle.point_add(point)`` calls ``foo_point_add(handle, point)``.
 
+Buffers
+  A buffer that ``<stem>_alloc`` allocates, see the buffer pattern in
+  :ref:`sec-ir-csubset`, is returned as a ``Buffer``: ``dev.buf_alloc(4096)``.
+  Its memory is given through the buffer protocol, so ``memoryview(buf)``,
+  ``numpy.frombuffer(buf, numpy.uint8)`` and ``torch.frombuffer(buf,
+  dtype=torch.uint8)`` use it without a copy, and a ``void *`` ``@arrparam``
+  takes it. ``len(buf)`` and ``buf.nbytes`` are its size, and ``buf.address``
+  its address. ``buf.close()``, also called on leaving a ``with``-block or when
+  collected, frees it with ``<stem>_free``, which is given the arguments the
+  buffer was allocated with; ``buf.realloc(nbytes)`` resizes it with
+  ``<stem>_realloc``. Both raise :py:class:`BufferError` while a view of the
+  buffer exists. ``<stem>_free`` and ``<stem>_realloc`` have no names of their
+  own in the layer. The class is ``Buffer_`` where the API names a type or a
+  handle ``Buffer``. The memory may be a device's, such as GPU memory, which
+  the CPU cannot read, and nothing in the API says which; such a buffer is
+  for passing to C only. Close a buffer before what it was allocated with: a
+  buffer collected after that is not freed.
+
 Errors
   A function documented ``@errno`` raises :py:class:`OSError`, with the errno,
   when it returns a negative value. One returning ``int`` returns nothing

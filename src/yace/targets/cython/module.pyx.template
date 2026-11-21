@@ -629,6 +629,96 @@ def _check(ret, *partial):
         if partial:
             error.partial = partial[0]
         raise error
+{%- if buffers %}
+
+
+cdef class {{ buffer_class }}:
+    """Memory the library allocated, freed by close(), on leaving a with-block,
+    or when collected, and not while a view of it exists. Its bytes are given
+    through the buffer protocol, so memoryview(), NumPy and PyTorch use them
+    without a copy, and a function taking a buffer takes it. The memory may be
+    a device's, which the CPU cannot read; close the buffer before what it was
+    allocated with."""
+
+    cdef uintptr_t _address
+    cdef Py_ssize_t _nbytes
+    cdef object _free
+    cdef object _realloc
+    cdef Py_ssize_t _exports
+
+    def __init__(self):
+        raise TypeError("a {{ buffer_class }} is made by the functions that allocate one")
+
+    @staticmethod
+    cdef {{ buffer_class }} _make(uintptr_t address, Py_ssize_t nbytes, object free, object realloc):
+        cdef {{ buffer_class }} made = {{ buffer_class }}.__new__({{ buffer_class }})
+        made._address = address
+        made._nbytes = nbytes
+        made._free = free
+        made._realloc = realloc
+        return made
+
+    @property
+    def address(self):
+        """The address of the memory"""
+
+        if not self._address:
+            raise ValueError("the buffer is closed")
+        return self._address
+
+    @property
+    def nbytes(self):
+        """The size of the memory in bytes"""
+
+        return self._nbytes
+
+    def __len__(self):
+        return self._nbytes
+
+    def __getbuffer__(self, Py_buffer *view, int flags):
+        if not self._address:
+            raise ValueError("the buffer is closed")
+        PyBuffer_FillInfo(view, self, <void *>self._address, self._nbytes, 0, flags)
+        self._exports += 1
+
+    def __releasebuffer__(self, Py_buffer *view):
+        self._exports -= 1
+
+    def realloc(self, nbytes):
+        """Resize the buffer to 'nbytes' bytes, keeping its bytes up to the
+        smaller size; its address may change"""
+
+        if self._realloc is None:
+            raise TypeError("the library does not resize this buffer")
+        if self._exports:
+            raise BufferError("a view of the buffer exists")
+        address = self._realloc(self.address, nbytes)
+        if not address:
+            raise MemoryError(f"the buffer could not be resized to {nbytes} bytes")
+        self._address, self._nbytes = address, nbytes
+
+    def close(self):
+        """Free the buffer; closing a closed buffer does nothing"""
+
+        if self._exports:
+            raise BufferError("a view of the buffer exists")
+        if self._address:
+            address, self._address = self._address, 0
+            self._free(address)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+    def __dealloc__(self):
+        if self._address:
+            try:
+                self._free(self._address)
+            except ValueError:
+                pass  # what it was allocated with is closed; it is not freed
+{%- endif %}
 {%- if defines %}
 
 

@@ -86,6 +86,11 @@ Arrays
   same records, or of copies where the records are ``const``, as the Python
   target returns them.
 
+Buffers
+  ``Buffer`` is an extension type, which gives its memory through the buffer
+  protocol as the ``Buffer`` of the Python target does, and is made by the
+  functions that allocate one only.
+
 Handles
   A handle is an extension type. Its destructor is called from
   ``__dealloc__`` when the last reference goes. A handle is made by the API
