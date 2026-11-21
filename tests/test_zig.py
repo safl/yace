@@ -701,3 +701,106 @@ def test_a_record_the_caller_may_write_is_not_copied(parse, tmp_path):
     source = (tmp_path / "zig" / "api.zig").read_text()
     assert "pub fn get(self: Q) [*c]ApiCmd {" in source
     assert "pub fn peek(self: Q) ApiCmd {" in source
+
+
+def run_with_library(tmp_path, source: str, main: str) -> str:
+    """Run the Zig 'main' against the generated module and the C 'source',
+    and return what it printed to stderr"""
+
+    (tmp_path / "impl.c").write_text(source)
+    (tmp_path / "api.zig").write_text((tmp_path / "zig" / "api.zig").read_text())
+    (tmp_path / "main.zig").write_text(main)
+    cache = str(tmp_path / ".cache")
+    run = subprocess.run(
+        ["zig", "run", str(tmp_path / "main.zig"), str(tmp_path / "impl.c"), "-lc"]
+        + ["--cache-dir", cache, "--global-cache-dir", cache],
+        capture_output=True,
+        text=True,
+    )
+    assert run.returncode == 0, run.stderr
+    return run.stderr
+
+
+def test_an_allocated_buffer_is_freed_by_deinit(parse, tmp_path):
+    from tests.test_python import BUFFERS, BUFFERS_C
+
+    model, _ = parse(BUFFERS)
+    assert process(model, ["zig"], tmp_path) == []
+    source = (tmp_path / "zig" / "api.zig").read_text()
+    assert "pub fn bufFree(" not in source and "pub fn bufRealloc(" not in source
+    printed = run_with_library(
+        tmp_path,
+        BUFFERS + BUFFERS_C,
+        'const std = @import("std");\nconst api = @import("api.zig");\n'
+        "pub fn main() !void {\n"
+        "    const dev = try api.Dev.open();\n"
+        "    defer dev.deinit();\n"
+        "    var buf = dev.bufAlloc(4).?;\n"
+        "    @memcpy(buf.slice(), &[_]u8{ 1, 2, 3, 4 });\n"
+        '    std.debug.print("{} {}\\n", .{ buf.len, api.sum(buf.slice()) });\n'
+        "    try buf.realloc(8);\n"
+        '    std.debug.print("{} {any}\\n", .{ buf.len, buf.slice()[0..4] });\n'
+        "    buf.deinit();\n"
+        '    std.debug.print("{}\\n", .{api.freed()});\n'
+        "}\n",
+    )
+    assert printed == "4 10\n8 { 1, 2, 3, 4 }\n1\n"
+
+
+def test_an_allocation_returns_its_out_values_with_the_buffer(parse, tmp_path):
+    from tests.test_python import PHYS, PHYS_C
+
+    model, _ = parse(PHYS)
+    assert process(model, ["zig"], tmp_path) == []
+    assert "pub fn bufRealloc(" not in (tmp_path / "zig" / "api.zig").read_text()
+    printed = run_with_library(
+        tmp_path,
+        PHYS + PHYS_C,
+        'const std = @import("std");\nconst api = @import("api.zig");\n'
+        "pub fn main() !void {\n"
+        "    const dev = try api.Dev.open();\n"
+        "    defer dev.deinit();\n"
+        "    const phys, var buf = dev.bufAlloc(16);\n"
+        "    const none_phys, const none = dev.bufAlloc(2048);\n"
+        "    const fixed = if (buf.?.realloc(32)) |_| false"
+        " else |err| err == error.Unsupported;\n"
+        '    std.debug.print("{} {} {} {} {}\\n",'
+        " .{ phys, buf.?.len, none_phys, none == null, fixed });\n"
+        "    buf.?.deinit();\n"
+        '    std.debug.print("{}\\n", .{api.freed()});\n'
+        "}\n",
+    )
+    assert printed == "4096 16 0 true true\n1\n"
+
+
+def test_registered_memory_is_unregistered_by_deinit(parse, tmp_path):
+    from tests.test_python import REGISTRATIONS, REGISTRATIONS_C
+
+    model, _ = parse(REGISTRATIONS)
+    assert process(model, ["zig"], tmp_path) == []
+    source = (tmp_path / "zig" / "api.zig").read_text()
+    assert "pub fn bufUnregister(" not in source
+    printed = run_with_library(
+        tmp_path,
+        REGISTRATIONS + REGISTRATIONS_C,
+        'const std = @import("std");\nconst api = @import("api.zig");\n'
+        "pub fn main() !void {\n"
+        "    const dev = try api.Dev.open();\n"
+        "    defer dev.deinit();\n"
+        "    var memory = [_]u8{0} ** 16;\n"
+        "    const reg = try dev.bufRegister(&memory);\n"
+        "    const at = @intFromPtr(&memory);\n"
+        '    std.debug.print("{} {}\\n",'
+        " .{ api.registered() == at, api.registeredNbytes() });\n"
+        "    var other = [_]u8{0} ** 8;\n"
+        "    const busy = if (dev.bufRegister(&other)) |_| false"
+        " else |err| err == error.BUSY;\n"
+        "    reg.deinit();\n"
+        "    const again = try dev.bufRegister(&memory);\n"
+        "    try again.unregister();\n"
+        "    const unknown = if (again.unregister()) |_| false"
+        " else |err| err == error.INVAL;\n"
+        '    std.debug.print("{} {} {}\\n", .{ busy, api.registered(), unknown });\n'
+        "}\n",
+    )
+    assert printed == "true 16\ntrue 0 true\n"
