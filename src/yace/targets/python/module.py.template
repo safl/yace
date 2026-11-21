@@ -71,6 +71,17 @@ def _str_in(value):
     return value.encode() if _builtins.isinstance(value, _builtins.str) else value
 
 
+def _nbytes(value):
+    """The number of bytes of 'value', a buffer or what bytes() takes, for a
+    'void *' array; len() of a buffer counts its elements"""
+
+    try:
+        with _builtins.memoryview(value) as view:
+            return view.nbytes
+    except TypeError:
+        return _builtins.len(_builtins.bytes(value))
+
+
 def _fits(value, ctype):
     """Return 'value', or raise OverflowError where the C integer type 'ctype'
     cannot hold it, as ctypes truncates an argument"""

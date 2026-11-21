@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
+import array
 import ctypes
 import errno
 import gc
@@ -596,6 +597,34 @@ def test_a_callback_gets_a_non_null_context_and_an_in_out_bytearray_is_written(
     buf = bytearray(b"\x00\x0f")
     api["invert"](buf)
     assert buf == bytearray(b"\xff\xf0")
+
+
+@needs_cc
+def test_a_void_pointer_array_has_the_length_of_its_bytes(parse, bind):
+    """A buffer of elements wider than a byte is passed whole, its length in
+    bytes, not in elements"""
+
+    header = (
+        "#include <stddef.h>\n"
+        "/**\n * Sum\n * @arrparam buf B @len_at{n}\n */\n"
+        "size_t api_sum(const void *buf, size_t n);\n"
+        "/**\n * Invert\n * @arrparam[in,out] buf B @len_at{n}\n */\n"
+        "size_t api_invert(void *buf, size_t n);\n"
+    )
+    model, _ = parse(header)
+    api = bind(
+        model,
+        header + "size_t api_sum(const void *buf, size_t n)\n"
+        "{ const unsigned char *b = buf; size_t s = 0;\n"
+        "  for (size_t i = 0; i < n; i++) s += b[i]; return s; }\n"
+        "size_t api_invert(void *buf, size_t n)\n"
+        "{ unsigned char *b = buf; for (size_t i = 0; i < n; i++) b[i] ^= 0xff;\n"
+        "  return n; }\n",
+    )
+    words = array.array("I", [1, 2])
+    assert api["sum"](words) == 3
+    assert api["invert"](words) == 2 * words.itemsize
+    assert list(words) == [0xFFFFFFFE, 0xFFFFFFFD]
 
 
 @needs_cc
