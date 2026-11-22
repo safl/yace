@@ -154,7 +154,9 @@ Results
   many elements as the function says it wrote; nothing is allocated, as with
   ``std::io::Read::read()``. A returned string is a ``&CStr`` borrowed from the
   handle, from the one reference given, or ``'static`` when none is; with more
-  than one, the function is ``unsafe``. A buffer given for an ``[out]`` array
+  than one, the function is ``unsafe``. A string written through an ``[out]``
+  pointer is borrowed the same way, an ``Option`` of a ``&CStr``, ``None``
+  where C wrote NULL. A buffer given for an ``[out]`` array
   is not counted as a reference. A returned pointer to a record is a copy of
   it, an ``Option`` where ``@nullable``.
 

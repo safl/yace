@@ -525,6 +525,10 @@ class Renderer(object):
             elif out.kind == "handle":
                 struct = self.struct_name(out.typ.to.name)
                 found.append((struct if call.errno else f"Option<{struct}>", name))
+            elif types.is_string(out.typ):
+                read = f"unsafe {{ CStr::from_ptr({name}) }}"
+                expr = f"(!{name}.is_null()).then(|| {read})"
+                found.append((f"Option<&{self.string_life(call)}CStr>", expr))
             else:
                 found.append((self.raw(out.typ), name))
         if count:
@@ -539,13 +543,10 @@ class Renderer(object):
         elif call.returns == "value":
             found.append((self.raw(ret), "ret"))
         elif call.returns == "string":
-            life = (
-                "" if call.kind == "method" or self.borrows(call) == 1 else "'static "
-            )
             expr = "unsafe { CStr::from_ptr(ret) }"
             if call.nullable:
                 expr = f"(!ret.is_null()).then(|| {expr})"
-            found.append((opt(f"&{life}CStr"), expr))
+            found.append((opt(f"&{self.string_life(call)}CStr"), expr))
         elif (
             call.returns == "pointer"
             and isinstance(ret.to, (types.Record, types.Builtin))
@@ -670,15 +671,25 @@ class Renderer(object):
             if a.kind not in ("self", "out")
         )
 
+    def strings(self, call: Call) -> bool:
+        """Whether the function returns a string, or writes one through an [out]
+        parameter"""
+
+        return call.returns == "string" or any(
+            out.kind == "value" and types.is_string(out.typ) for out in call.outs
+        )
+
+    def string_life(self, call: Call) -> str:
+        """The lifetime of a string the function returns: that of the handle or
+        of the one reference given, elided, or else 'static"""
+
+        return "" if call.kind == "method" or self.borrows(call) == 1 else "'static "
+
     def unbound_string(self, call: Call) -> bool:
         """Whether a returned string borrows from one of several arguments, which
         the signature cannot say"""
 
-        return (
-            call.returns == "string"
-            and call.kind != "method"
-            and self.borrows(call) > 1
-        )
+        return self.strings(call) and call.kind != "method" and self.borrows(call) > 1
 
     def is_unsafe(self, call: Call) -> bool:
         """Whether a caller could make the call unsound: by giving a raw

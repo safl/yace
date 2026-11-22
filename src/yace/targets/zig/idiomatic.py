@@ -402,6 +402,10 @@ class Renderer(object):
                         " orelse return error.Unexpected }",
                     )
                 )
+            elif types.is_string(out.typ):
+                made = self.out_name(call, out.param)
+                span = f"std.mem.span(@as([*:0]const u8, @ptrCast({made})))"
+                found.append(("?[:0]const u8", f"if ({made} == null) null else {span}"))
             else:
                 found.append((self.z(out.typ), self.out_name(call, out.param)))
         if count:

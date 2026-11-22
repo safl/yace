@@ -468,6 +468,24 @@ def test_an_errno_count_returns_the_int_and_bounds_the_array_by_it(parse, bind):
     assert list(api["reap"](4)) == [7, 7]
 
 
+OUT_STRING = (
+    "/**\n * Version\n * @param known K\n * @param[out] name N\n * @errno\n */\n"
+    "int api_version(int known, const char **name);\n"
+)
+OUT_STRING_C = (
+    "int api_version(int known, const char **name)\n"
+    '{\n\t*name = known ? "1.2" : (const char *)0;\n\treturn 0;\n}\n'
+)
+
+
+@needs_cc
+def test_an_out_string_is_returned_as_a_string_or_none(parse, bind):
+    model, _ = parse(OUT_STRING)
+    api = bind(model, OUT_STRING + OUT_STRING_C)
+    assert api["version"](1) == "1.2"
+    assert api["version"](0) is None
+
+
 @needs_cc
 def test_a_recparam_record_is_passed_with_its_size_by_the_c_name(parse, bind):
     from tests.test_rust import SIZED, SIZED_C

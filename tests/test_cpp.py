@@ -240,7 +240,7 @@ def test_shared_counts_handles_as_arguments_and_constructors_without_errno_work(
         "\ttry {\n\t\tapi::map(c, o);\n\t} catch (const std::invalid_argument &) {\n"
         "\t\tthrown += 1;\n\t}\n"
         '\tstd::printf("%ld %d %d %s\\n", api::dot(a, b), api::map(a, o)[1], thrown,'
-        " h.label());\n"
+        " std::string(*h.label()).c_str());\n"
         "\treturn 0;\n}\n"
     )
     include = ["-I", str(tmp_path / "cpp"), "-I", str(tmp_path / "capi")]
@@ -1387,6 +1387,25 @@ def test_an_allocation_returns_its_out_values_with_the_buffer(parse, tmp_path):
         "\treturn 0;\n}\n",
     )
     assert out == "4096 16 0 0\nfixed\n1\n"
+
+
+@needs_cc
+def test_an_out_string_is_returned_as_an_optional_string_view(parse, tmp_path):
+    from tests.test_python import OUT_STRING, OUT_STRING_C
+
+    model, _ = parse(OUT_STRING)
+    assert process(model, ["cpp"], tmp_path) == []
+    out = run_program(
+        tmp_path,
+        OUT_STRING + OUT_STRING_C,
+        "#include <cstdio>\n#include <api.hpp>\n"
+        "int main() {\n"
+        "\tauto known = api::version(1);\n"
+        '\tstd::printf("%.*s %d\\n", int(known->size()), known->data(),'
+        " int(api::version(0).has_value()));\n"
+        "\treturn 0;\n}\n",
+    )
+    assert out == "1.2 0\n"
 
 
 def test_registered_memory_is_unregistered_when_destroyed(parse, tmp_path):

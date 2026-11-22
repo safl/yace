@@ -151,7 +151,9 @@ Results
   What a function writes through an ``[out]`` pointer is returned rather than
   passed. An ``[out]`` array is written to a slice the caller gives, as
   ``io.Reader`` does, and the part written is returned. A returned string is a
-  Go ``string``, copied. A returned pointer to a record is a copy of it, with
+  Go ``string``, copied, and so is a string written through an ``[out]``
+  pointer, empty where C wrote NULL. A returned pointer to a record is a copy
+  of it, with
   whether there was one where ``@nullable``,
   ``point, ok := handle.PointGet(1)``.
 

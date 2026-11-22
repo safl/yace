@@ -805,6 +805,9 @@ class Renderer(object):
                         f"{self.name(out.typ.to.name)}({name})",
                     )
                 )
+            elif types.is_string(out.typ):
+                view = "std::optional<std::string_view>"
+                found.append((view, f"{name} ? {view}({name}) : std::nullopt"))
             else:
                 found.append((self.c(out.typ), name))
         if count:

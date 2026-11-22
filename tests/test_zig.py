@@ -205,7 +205,7 @@ def test_shared_counts_handles_as_arguments_and_constructors_without_errno_work(
         "    var buf: [2]c_int = undefined;\n"
         "    const mapped = try api.map(&a, &buf);\n"
         '    std.debug.print("{} {} {s}\\n", .{ api.dot(&a, &b), mapped[1],'
-        " std.mem.span(try h.label()) });\n"
+        " (try h.label()).? });\n"
         "}\n"
     )
     cache = str(tmp_path / ".cache")
@@ -771,6 +771,25 @@ def test_an_allocation_returns_its_out_values_with_the_buffer(parse, tmp_path):
         "}\n",
     )
     assert printed == "4096 16 0 true true\n1\n"
+
+
+def test_an_out_string_is_returned_as_an_optional_slice(parse, tmp_path):
+    from tests.test_python import OUT_STRING, OUT_STRING_C
+
+    model, _ = parse(OUT_STRING)
+    assert process(model, ["zig"], tmp_path) == []
+    printed = run_with_library(
+        tmp_path,
+        OUT_STRING + OUT_STRING_C,
+        'const std = @import("std");\nconst api = @import("api.zig");\n'
+        "pub fn main() !void {\n"
+        "    const known = try api.version(1);\n"
+        "    const unknown = try api.version(0);\n"
+        '    std.debug.print("{s} {} {}\\n",'
+        " .{ known.?, known.?.len, unknown == null });\n"
+        "}\n",
+    )
+    assert printed == "1.2 3 true\n"
 
 
 def test_registered_memory_is_unregistered_by_deinit(parse, tmp_path):

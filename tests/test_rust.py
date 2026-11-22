@@ -1677,6 +1677,25 @@ fn main() {
 
 @needs_cc
 @needs_cargo
+def test_an_out_string_is_returned_as_an_optional_cstr(parse, tmp_path):
+    from tests.test_python import OUT_STRING, OUT_STRING_C
+
+    model, _ = parse(OUT_STRING)
+    main = """
+use api::safe::*;
+fn main() {
+    let known = version(1).unwrap().unwrap();
+    println!("{} {}", known.to_str().unwrap(), version(0).unwrap().is_none());
+}
+"""
+    out = run_with_library(tmp_path, model, OUT_STRING + OUT_STRING_C, main)
+    assert out == "1.2 true\n"
+    lib = (tmp_path / "rust" / "bindings.rs").read_text()
+    assert "pub fn version(known: c_int) -> io::Result<Option<&'static CStr>>" in lib
+
+
+@needs_cc
+@needs_cargo
 def test_registered_memory_is_borrowed_until_unregistered(parse, tmp_path):
     from tests.test_python import REGISTRATIONS, REGISTRATIONS_C
 

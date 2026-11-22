@@ -78,7 +78,8 @@ Callbacks
 Functions
   Each function is a Python function of the same name and parameters. A
   ``const char *`` parameter takes a :py:class:`str`, or :py:class:`bytes`, and
-  a ``const char *`` returned is a :py:class:`str`. A pointer returned is
+  a ``const char *`` returned, or written through an ``[out]`` pointer, is a
+  :py:class:`str`. A pointer returned is
   ``None`` when NULL. Out-parameters are passed with :py:func:`ctypes.byref`, as
   in C; a record passed where a pointer to it is expected is passed by
   reference. A function without a ``const char *`` parameter is the ctypes

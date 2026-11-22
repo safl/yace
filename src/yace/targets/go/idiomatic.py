@@ -365,6 +365,11 @@ class Renderer(object):
                     found.append(
                         (f"*{struct}", self.local(call, out.param, "made"), "nil")
                     )
+            elif types.is_string(out.typ):
+                made = self.local(call, out.param, "out")
+                found.append(
+                    ("string", f"C.GoString((*C.char)(unsafe.Pointer({made})))", '""')
+                )
             else:
                 typ = namer.gotype(out.typ)
                 found.append(

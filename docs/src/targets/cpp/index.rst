@@ -122,7 +122,9 @@ Results
   written is returned, as a ``std::span`` of as many elements as the function
   says it wrote; nothing is allocated. A returned string is a
   ``std::string_view``, a ``std::optional`` of one where ``@nullable``, borrowed
-  from the handle or the library. A returned pointer to a record is a copy of
+  from the handle or the library. A string written through an ``[out]``
+  pointer is a ``std::optional`` of a ``std::string_view``, empty where C wrote
+  NULL. A returned pointer to a record is a copy of
   it, a ``std::optional`` where ``@nullable``.
 
 Arguments
