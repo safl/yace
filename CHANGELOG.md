@@ -16,6 +16,19 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## 0.14.2
+
+`@errno count` says that the `int` an `@errno` function returns on success is
+a count, not only a status. The bindings return it, as they do for any other
+signed integer, and an `[out]` array without a count written is bounded by
+it. Without the tag, an `int` is a status, which the bindings do not return.
+
+A `const char *` written through an `[out]` pointer is returned as a string
+in Rust, C++, Zig and Go, as it already was in Python and Cython, instead of
+as the raw pointer: an `Option<&CStr>` in Rust, a
+`std::optional<std::string_view>` in C++, a `?[:0]const u8` in Zig, nothing
+where C wrote NULL, and a `string` in Go, empty where C wrote NULL.
+
 ## 0.14.1
 
 The Rust layer compiles a `@nullable` `[in,out]` array, such as the payloads
