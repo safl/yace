@@ -16,6 +16,15 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## 0.14.3
+
+The printers of Rust, Zig and Go print a record of bit-fields, which those
+targets keep as its bytes, as the C printers do. Each bit-field is read from
+the bytes at the offset and width the IR records, in the bit order GCC and
+Clang use on a little-endian platform, and the record's other fields are read
+as values of their types. Before, those printers printed nothing for such a
+record, and null where one was nested.
+
 ## 0.14.2
 
 `@errno count` says that the `int` an `@errno` function returns on success is
