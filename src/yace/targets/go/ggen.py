@@ -20,6 +20,7 @@ from yace.ir.masks import VALUE_KEY
 from yace.ir.model import Model
 from yace.ir.semantics import is_void_ptr
 from yace.targets.capi.target import string_literal
+from yace.targets.layout import bitfield
 from yace.targets.python.pygen import camel
 
 GO_TYPES = {
@@ -383,8 +384,7 @@ class Records(object):
 
     def __init__(self, namer: Namer, complete: List):
         self.namer = namer
-        # Go knows nothing of the bit-fields of a record kept as its bytes
-        self.printable = {r.name for r in complete if not self.is_blob(r)}
+        self.printable = {r.name for r in complete}
         self.fields: Dict[str, Dict[str, str]] = {}
         self.methods: Dict[str, Dict[str, str]] = {}
         self.printer = Printer(namer, self)
@@ -463,7 +463,8 @@ class Records(object):
             if self.is_blob(record):
                 lines += [
                     "// Its bit-fields have no counterpart in Go: only its size and",
-                    "// alignment are kept.",
+                    "// alignment are kept, and its printers read the bit-fields",
+                    "// from its bytes.",
                 ]
             elif record.packed:
                 lines += [
@@ -658,6 +659,7 @@ class Printer(object):
     def __init__(self, namer: Namer, records: "Records"):
         self.namer = namer
         self.records = records
+        self.enums = namer.enums
 
     def printable(self, typ):
         """The record 'typ' is, if it is one with printers"""
@@ -727,22 +729,30 @@ class Printer(object):
         return null
 
     def place(self, record, field) -> str:
-        """The expression of 'field' of the record 'r'; of a packed record, the
-        local 'v', see bound()"""
+        """The expression of 'field' of the record 'r'; of a packed record or a
+        blob, the local 'v', see bound()"""
 
         name = self.records.field_names(record)[field.name]
-        if record.packed:
+        if record.packed or self.records.is_blob(record):
             return "v"
         return f"(*r.{name}())" if isinstance(record, decls.Union) else f"r.{name}"
 
     def bound(self, record, field, lines: List[str]) -> List[str]:
         """'lines', in a block binding the local 'v' to a copy of 'field' of a
-        packed record, if they use it, for them to take its address"""
+        packed record, or of a blob, read from its bytes, if they use it, for
+        them to take its address"""
 
-        if not record.packed or not any(re.search(r"\bv\b", ln) for ln in lines):
+        blob = self.records.is_blob(record)
+        if not (record.packed or blob):
             return lines
-        name = self.records.field_names(record)[field.name]
-        return ["{", f"\tv := r.{name}()", *["\t" + ln for ln in lines], "}"]
+        if not any(re.search(r"\bv\b", ln) for ln in lines):
+            return lines
+        if blob:
+            typ = self.namer.gotype(field.typ)
+            copy = f"yaceGet[{typ}](r.bytes[{field.offset // 8}:])"
+        else:
+            copy = f"r.{self.records.field_names(record)[field.name]}()"
+        return ["{", f"\tv := {copy}", *["\t" + ln for ln in lines], "}"]
 
     def parts(self, field, expr: str, base: int, quote: str) -> List[str]:
         """The value of a field of bits and of each of its parts, as a mapping
@@ -770,6 +780,37 @@ class Printer(object):
 
         return [f for f in record.fields if f.name]
 
+    def bits(self, field) -> str:
+        """The expression reading the bit-field 'field' from the bytes of its
+        record, as an integer of the type C prints it as"""
+
+        at = bitfield(field, self.namer.resolve(field.typ), self.enums)
+        if at is None:
+            raise ValueError(f"'{field.name}' is not a bit-field with an offset")
+        args = f"r.bytes[{at.first}:{at.first + at.nbytes}], {at.shift}, {at.width}"
+        reader = {"signed": "yaceSBits", "char": "yaceCBits"}.get(at.kind, "yaceBits")
+        return f"{reader}({args})"
+
+    def field_value(self, record, field) -> List[str]:
+        """Statements printing the value of 'field', of a blob from its bytes"""
+
+        if not self.records.is_blob(record) or field.bits is None:
+            return self.value(field.typ, self.place(record, field))
+        value = self.bits(field)
+        typ = self.namer.resolve(field.typ)
+        if bitfield(field, typ, self.enums).kind == "bool":
+            return [f"out = yaceBool(out, {value} != 0)"]
+        if value.startswith("yaceBits("):
+            return [f"out = strconv.AppendUint(out, {value}, 10)"]
+        return [f"out = strconv.AppendInt(out, {value}, 10)"]
+
+    def field_of_bits(self, record, field) -> str:
+        """The expression of a field of bits, whose parts are printed"""
+
+        if self.records.is_blob(record) and field.bits is not None:
+            return self.bits(field)
+        return self.place(record, field)
+
     def json_body(self, record) -> List[str]:
         lines = ["out = append(out, '{')"]
         for idx, field in enumerate(self.named(record)):
@@ -779,10 +820,10 @@ class Printer(object):
             if self.records.is_flexible(record, field):
                 lines.append('out = append(out, "null"...)')
             elif field.masks:
-                printed = self.parts(field, self.place(record, field), 10, '"')
+                printed = self.parts(field, self.field_of_bits(record, field), 10, '"')
                 lines += self.bound(record, field, printed)
             else:
-                printed = self.value(field.typ, self.place(record, field))
+                printed = self.field_value(record, field)
                 lines += self.bound(record, field, printed)
         return lines + ["return append(out, '}')"]
 
@@ -795,7 +836,7 @@ class Printer(object):
                 lines.append("out = append(out, '\\n')")
                 continue
             place = self.place(record, field)
-            if self.printable(field.typ) is not None:
+            if field.bits is None and self.printable(field.typ) is not None:
                 lines.append(f"out = append(out, {go_quote(field.name + ':')}...)")
                 lines.append("out = append(out, '\\n')")
                 printed = [f"out = {place}.yaceYAML(out, indent+2)"]
@@ -803,9 +844,9 @@ class Printer(object):
                 continue
             lines.append(f"out = append(out, {go_quote(field.name + ': ')}...)")
             if field.masks:
-                printed = self.parts(field, place, 16, "")
+                printed = self.parts(field, self.field_of_bits(record, field), 16, "")
             else:
-                printed = self.value(field.typ, place)
+                printed = self.field_value(record, field)
             lines += self.bound(record, field, printed)
             lines.append("out = append(out, '\\n')")
         return lines + ["return out"]

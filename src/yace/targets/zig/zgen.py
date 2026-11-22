@@ -16,6 +16,7 @@ from yace.ir import decls, types
 from yace.ir.masks import VALUE_KEY
 from yace.ir.model import Model
 from yace.targets.capi.target import string_literal
+from yace.targets.layout import bitfield
 from yace.targets.python.pygen import camel
 
 ZIG_TYPES = {
@@ -210,7 +211,9 @@ class Locals(object):
     # of the printers, and the methods of records and enums
     BOUND = {
         "idiomatic": re.compile(r"self|ret|context|s|h|p|err|tag|field|a\d+"),
-        "helpers": re.compile(r"w|chars|chr|addr|buf|len|fmt|value"),
+        "helpers": re.compile(
+            r"w|chars|chr|addr|buf|len|fmt|value|bytes|shift|width|idx|unused"
+        ),
         "methods": re.compile(r"self|w|indent|obj|flags|o|p|value|(idx|item)\d+"),
     }
 
@@ -265,9 +268,11 @@ def used(lines: List[str]) -> List[str]:
 class Printer(object):
     """The Zig statements printing a value of a type as JSON"""
 
-    def __init__(self, namer: Namer, printable: dict):
+    def __init__(self, namer: Namer, printable: dict, blobs=()):
         self.namer = namer
         self.records = printable
+        self.enums = namer.enums
+        self.blobs = {r.name for r in blobs}  # the records kept as their bytes
 
     def value(self, typ, expr: str, depth: int = 0) -> List[str]:
         typ = self.namer.resolve(typ)
@@ -348,6 +353,8 @@ class Printer(object):
             return name
 
         lines: List[str] = []
+        if record.name in self.blobs:
+            return lines
         for field in record.fields:
             typ = self.namer.ztype(field.typ)
             place = f"self.{ident(field.name)}"
@@ -384,33 +391,92 @@ class Printer(object):
         lines.append('try w.writeAll("}");')
         return lines
 
+    def bits(self, field) -> str:
+        """The expression reading the bit-field 'field' from the bytes of its
+        record, as an integer of the type C prints it as"""
+
+        at = bitfield(field, self.namer.resolve(field.typ), self.enums)
+        if at is None:
+            raise ValueError(f"'{field.name}' is not a bit-field with an offset")
+        args = f"self._bits[{at.first}..{at.first + at.nbytes}], {at.shift}, {at.width}"
+        if at.kind == "bool":
+            return f"yace_pp.bits({args}) != 0"
+        if at.kind == "signed":
+            return f"yace_pp.sbits({args})"
+        if at.kind == "char":
+            # As signed as C's char is on the platform, as C prints it
+            return (
+                "if (@typeInfo(c_char).int.signedness == .signed)"
+                f" yace_pp.sbits({args})"
+                f" else @as(i64, @intCast(yace_pp.bits({args})))"
+            )
+        return f"yace_pp.bits({args})"
+
+    def fields(self, record) -> list:
+        """The fields printed: those with a name, not padding bit-fields"""
+
+        return [f for f in record.fields if f.name]
+
+    def expr_of(self, record, field) -> str:
+        """The expression of 'field', other than a bit-field; of a blob, a copy
+        read from its bytes"""
+
+        if record.name not in self.blobs:
+            return f"self.{ident(field.name)}"
+        ztype = self.namer.ztype(field.typ)
+        return (
+            f"std.mem.bytesToValue({ztype},"
+            f" self._bits[{field.offset // 8}..][0..@sizeOf({ztype})])"
+        )
+
+    def field_value(self, record, field, expr: str) -> List[str]:
+        """Statements printing the value of 'field', of a blob from its bytes"""
+
+        if record.name not in self.blobs or field.bits is None:
+            return self.value(field.typ, expr)
+        value = self.bits(field)
+        if value.endswith("!= 0"):
+            return [f'try w.writeAll(if ({value}) "true" else "false");']
+        return [f'try w.print("{{d}}", .{{{value}}});']
+
+    def part_of(self, record, field, expr: str) -> str:
+        """The expression of a field of bits, whose parts are printed"""
+
+        if record.name in self.blobs and field.bits is not None:
+            return f"({self.bits(field)})"
+        return expr
+
     def json_body(self, record) -> List[str]:
         lines = ['try w.writeAll("{");']
-        for idx, field in enumerate(record.fields):
+        for idx, field in enumerate(self.fields(record)):
             sep = ", " if idx else ""
             lines.append(f'try w.writeAll("{sep}\\"{field.name}\\": ");')
-            expr = f"self.{ident(field.name)}"
+            expr = self.expr_of(record, field)
             if field.masks:
-                lines += self.parts(field, expr, "{d}", '\\"')
+                lines += self.parts(
+                    field, self.part_of(record, field, expr), "{d}", '\\"'
+                )
                 continue
-            lines += self.value(field.typ, expr)
+            lines += self.field_value(record, field, expr)
         lines.append('try w.writeAll("}");')
         return used(lines)
 
     def yaml_body(self, record) -> List[str]:
         lines = []
-        for field in record.fields:
-            name = ident(field.name)
+        for field in self.fields(record):
+            expr = self.expr_of(record, field)
             lines.append("try w.splatByteAll(' ', indent);")
-            if self.record_of(field.typ) is not None:
+            if field.bits is None and self.record_of(field.typ) is not None:
                 yaml = self.method(self.record_of(field.typ), "yaml")
                 lines.append(f'try w.writeAll("{field.name}:\\n");')
-                lines.append(f"try self.{name}.{yaml}(w, indent + 2);")
+                lines.append(f"try {expr}.{yaml}(w, indent + 2);")
                 continue
             lines.append(f'try w.writeAll("{field.name}: ");')
             if field.masks:
-                lines += self.parts(field, f"self.{name}", "0x{x}", "")
+                lines += self.parts(
+                    field, self.part_of(record, field, expr), "0x{x}", ""
+                )
             else:
-                lines += self.value(field.typ, f"self.{name}")
+                lines += self.field_value(record, field, expr)
             lines.append('try w.writeAll("\\n");')
         return used(lines)

@@ -15,6 +15,7 @@ from yace.ir import decls, types
 from yace.ir.masks import VALUE_KEY
 from yace.ir.model import Model
 from yace.targets.capi.target import string_literal
+from yace.targets.layout import bitfield
 from yace.targets.python.pygen import CTYPES, camel
 
 RUST_TYPES = {
@@ -284,6 +285,8 @@ class Printer(object):
     def __init__(self, model: Model, namer: Namer):
         self.namer = namer
         self.records = {name: r for name, r in model.records().items() if r.fields}
+        self.enums = model.enums()
+        self.blobs: set = set()  # the records kept as their bytes, by name
 
     def value(self, typ, expr: str, depth: int = 0) -> List[str]:
         """Statements printing the place 'expr' to 'w'"""
@@ -354,23 +357,86 @@ class Printer(object):
         lines.append('w.write_all(b"}")?;')
         return lines
 
+    def bits(self, field) -> str:
+        """The expression reading the bit-field 'field' from 'bytes', the
+        bytes of its record, as an integer of the type C prints it as"""
+
+        typ = self.namer.resolve(field.typ)
+        at = bitfield(field, typ, self.enums)
+        if at is None:
+            raise ValueError(f"'{field.name}' is not a bit-field with an offset")
+        args = f"&bytes[{at.first}..{at.first + at.nbytes}], {at.shift}, {at.width}"
+        if at.kind == "bool":
+            return f"yace_pp::bits({args}) != 0"
+        if at.kind == "signed":
+            return f"yace_pp::sbits({args})"
+        if at.kind == "char":
+            # As signed as C's char is on the platform, as C prints it
+            return (
+                f"if c_char::MIN != 0 {{ yace_pp::sbits({args}) }}"
+                f" else {{ yace_pp::bits({args}) as i64 }}"
+            )
+        return f"yace_pp::bits({args})"
+
+    def fields(self, record) -> list:
+        """The fields printed: those with a name, not padding bit-fields"""
+
+        return [f for f in record.fields if f.name]
+
+    def head(self, record) -> List[str]:
+        """Of a record kept as its bytes, the statement binding 'bytes' to them"""
+
+        if record.name not in self.blobs:
+            return []
+        return [
+            "let bytes = std::slice::from_raw_parts(",
+            "    self as *const Self as *const u8,",
+            "    std::mem::size_of::<Self>(),",
+            ");",
+        ]
+
+    def expr_of(self, record, field) -> str:
+        """The expression of 'field', other than a bit-field; of a blob, a copy
+        read from its bytes"""
+
+        if record.name not in self.blobs:
+            return place(record, field)
+        rtype = self.namer.rtype(field.typ)
+        return (
+            f"std::ptr::read_unaligned(bytes.as_ptr().add({field.offset // 8})"
+            f" as *const {rtype})"
+        )
+
+    def field_value(self, record, field) -> List[str]:
+        """Statements printing the value of 'field', of a blob from its bytes"""
+
+        if record.name in self.blobs and field.bits is not None:
+            return [f'write!(w, "{{}}", {self.bits(field)})?;']
+        return self.value(field.typ, self.expr_of(record, field))
+
     def json_body(self, record) -> List[str]:
-        lines = ['w.write_all(b"{")?;']
-        for idx, field in enumerate(record.fields):
+        lines = self.head(record) + ['w.write_all(b"{")?;']
+        for idx, field in enumerate(self.fields(record)):
             sep = ", " if idx else ""
             lines.append(f'w.write_all(b"{sep}\\"{field.name}\\": ")?;')
-            expr = place(record, field)
             if field.masks:
-                lines += self.parts(field, expr, "{}", '\\"')
+                lines += self.parts(field, self.part_of(record, field), "{}", '\\"')
                 continue
-            lines += self.value(field.typ, expr)
+            lines += self.field_value(record, field)
         lines.append('w.write_all(b"}")?;')
         return lines
 
+    def part_of(self, record, field) -> str:
+        """The expression of a field of bits, whose parts are printed"""
+
+        if record.name in self.blobs and field.bits is not None:
+            return f"({self.bits(field)})"
+        return self.expr_of(record, field)
+
     def yaml_body(self, record) -> List[str]:
-        lines = []
-        for field in record.fields:
-            expr = place(record, field)
+        lines = self.head(record)
+        for field in self.fields(record):
+            expr = self.expr_of(record, field)
             nested = self.record_of(field.typ) if field.bits is None else None
             if nested is not None:
                 lines.append(f'writeln!(w, "{{:indent$}}{field.name}:", "")?;')
@@ -378,9 +444,9 @@ class Printer(object):
                 continue
             lines.append(f'write!(w, "{{:indent$}}{field.name}: ", "")?;')
             if field.masks:
-                lines += self.parts(field, expr, "{:#x}", "")
+                lines += self.parts(field, self.part_of(record, field), "{:#x}", "")
             else:
-                lines += self.value(field.typ, expr)
+                lines += self.field_value(record, field)
             lines.append("writeln!(w)?;")
         return lines
 

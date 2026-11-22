@@ -87,9 +87,8 @@ Every struct and union has printers of its own, not calling the C API's:
 ``Fpr(w, flags)`` prints to an ``io.Writer``, also through a nil pointer, as
 ``<name>_fpr()`` does, and ``String()``, the ``fmt.Stringer`` of the record, is
 its YAML. They print what the C API's pretty-printers print, floats as C's
-``%g`` prints them, except for a record with bit-fields: Go keeps it as its
-bytes, so it has no printers, and a record holding one prints it as ``null``,
-where the C printers print its fields. Each part of a field of bits, see
+``%g`` prints them. Go keeps a record with bit-fields as its bytes, and its
+printers read each bit-field from them, see :ref:`sec-ir-background`. Each part of a field of bits, see
 :ref:`sec-ir-csubset`, has a getter and a setter, ``CodeType()`` and
 ``SetCodeType(value)``, of the field's type, the setter panicking on a value
 that does not fit the part's bits. A name the struct has already, as a field

@@ -11,6 +11,7 @@ import pytest
 import yaml
 
 from tests.conftest import (
+    BIT_FIELDS,
     BITS,
     ESCAPED,
     ESCAPED_VALUE,
@@ -18,6 +19,7 @@ from tests.conftest import (
     PACKED,
     PACKED_PRINTED,
     SKIPPED,
+    bit_fields_in_c,
     flat,
     needs_cargo,
     needs_cc,
@@ -1485,6 +1487,27 @@ def test_a_field_of_bits_prints_its_parts(parse, tmp_path):
         "}\n"
     )
     assert run_with_crate(tmp_path, main, {"API_NO_LINK": "1"}) == BITS_PRINTED
+
+
+@needs_cc
+def test_a_record_of_bit_fields_prints_as_the_c_printers_print_it(parse, tmp_path):
+    """The crate keeps a record of bit-fields as its bytes, and its printers
+    read each bit-field from them, as C lays it out"""
+
+    model, _ = parse(BIT_FIELDS)
+    bits, packed, printed = bit_fields_in_c(model, tmp_path)
+    assert process(model, ["rust"], tmp_path) == []
+
+    main = (
+        "use api::*;\nfn main() {\n"
+        f"    let a: ApiBits = unsafe {{ std::mem::transmute([{bits}u8]) }};\n"
+        f"    let p: ApiPk = unsafe {{ std::mem::transmute([{packed}u8]) }};\n"
+        '    print!("{}{}", a, p);\n'
+        "    ApiBits::fpr(&mut std::io::stdout(), Some(&a), API_PR_JSON).unwrap();\n"
+        "    ApiPk::fpr(&mut std::io::stdout(), Some(&p), API_PR_JSON).unwrap();\n"
+        "}\n"
+    )
+    assert run_with_crate(tmp_path, main, {"API_NO_LINK": "1"}) == printed
 
 
 BITS_UNION = (
