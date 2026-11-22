@@ -5,10 +5,12 @@
 import importlib.util
 import re
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
 
+from yace.compiler import process
 from yace.ir.cparser import CParser
 
 HEADERS = Path(__file__).parent / "headers"
@@ -175,6 +177,97 @@ int api_reap(int32_t *done, uint32_t max, uint32_t *n)
 \treturn -11;
 }
 """
+
+
+# BIT_FIELDS declares a record of bit-fields of each kind C prints, among them
+# one of 40 bits across five bytes, one of char, and one of padding, and of
+# fields that are not bit-fields, and a packed record holding it at an offset
+# of one byte
+BIT_FIELDS = """#include <stdbool.h>
+#include <stdint.h>
+/** E */
+enum api_e { API_E_NEG = -3, API_E_POS = 7 };
+/** In */
+struct api_in {
+	int8_t x; ///< X
+	int8_t y; ///< Y
+};
+/** Bits */
+struct api_bits {
+	int s : 5;           ///< Signed
+	unsigned int u : 11; ///< Unsigned
+	bool f : 1;          ///< Flag
+	enum api_e e : 4;    ///< Enum
+	unsigned : 3;
+	uint64_t w : 40;     ///< Wide
+	char c : 7;          ///< Char
+	int16_t h;           ///< Half
+	char tag[3];         ///< Tag
+	struct api_in at;    ///< At
+};
+/** Packed */
+struct __attribute__((packed)) api_pk {
+	uint8_t t;            ///< T
+	struct api_bits bits; ///< Bits
+	int64_t n;            ///< N
+};
+"""
+
+# BIT_FIELDS_C fills in an api_bits and an api_pk, and prints the bytes of
+# each to stderr, a line of decimal bytes each, and what the C printers print
+# for them to stdout, as YAML and then as JSON. The field 'c' of the api_pk is
+# 100, which is -28 in 7 bits where char is signed.
+BIT_FIELDS_C = """#include <stdio.h>
+#include <string.h>
+#include "libapi.h"
+static void bytes(const void *p, size_t n)
+{
+	const unsigned char *b = p;
+	for (size_t i = 0; i < n; i++)
+		fprintf(stderr, "%s%u", i ? ", " : "", b[i]);
+	fprintf(stderr, "\\n");
+}
+int main(void)
+{
+	struct api_bits a;
+	struct api_pk p;
+
+	memset(&a, 0, sizeof(a));
+	memset(&p, 0, sizeof(p));
+	a.s = -11; a.u = 2047; a.f = true; a.e = API_E_NEG;
+	a.w = 0xabcdef1234ULL; a.c = -5; a.h = -300; memcpy(a.tag, "ab", 3);
+	a.at.x = -1; a.at.y = 2;
+	p.t = 7; p.bits.s = 15; p.bits.u = 1; p.bits.e = API_E_POS;
+	p.bits.w = 1; p.bits.c = 100; p.n = -9;
+	bytes(&a, sizeof(a));
+	bytes(&p, sizeof(p));
+	api_bits_pr(&a, API_PR_YAML);
+	api_pk_pr(&p, API_PR_YAML);
+	api_bits_pr(&a, API_PR_JSON);
+	api_pk_pr(&p, API_PR_JSON);
+	return 0;
+}
+"""
+
+
+def bit_fields_in_c(model, tmp_path) -> tuple:
+    """Build and run BIT_FIELDS_C against the C API of 'model', BIT_FIELDS,
+    and return the bytes of its api_bits and its api_pk, each as a string of
+    comma-separated decimals, and what the C printers printed"""
+
+    out = tmp_path / "bits_c"
+    assert process(model, ["capi"], out) == []
+    (out / "fill.c").write_text(BIT_FIELDS_C)
+    capi = out / "capi"
+    subprocess.run(
+        ["cc", "-I", str(capi), str(out / "fill.c"), str(capi / "api_pp.c")]
+        + ["-o", str(out / "fill")],
+        check=True,
+    )
+    run = subprocess.run([str(out / "fill")], capture_output=True, text=True)
+    assert run.returncode == 0, run.stderr
+    bits, packed = run.stderr.splitlines()
+    return bits, packed, run.stdout
 
 
 @pytest.fixture(scope="session")

@@ -119,6 +119,38 @@ func yaceSet[T any](b []byte, v T) {
 	copy(b, unsafe.Slice((*byte)(unsafe.Pointer(&v)), unsafe.Sizeof(v)))
 }
 
+// yaceBits reads the width bits from bit shift of b, as an integer of the
+// least significant byte first: a bit-field, as C lays one out on a
+// little-endian platform
+func yaceBits(b []byte, shift, width uint) uint64 {
+	var value uint64
+	for i, v := range b {
+		if at := 8*i - int(shift); at < 0 {
+			value |= uint64(v) >> uint(-at)
+		} else {
+			value |= uint64(v) << uint(at)
+		}
+	}
+	if width < 64 {
+		value &= 1<<width - 1
+	}
+	return value
+}
+
+// yaceSBits reads a signed bit-field, as yaceBits(), extended by its sign
+func yaceSBits(b []byte, shift, width uint) int64 {
+	unused := 64 - width
+	return int64(yaceBits(b, shift, width)<<unused) >> unused
+}
+
+// yaceCBits reads a bit-field of C's char, as signed as C's char is
+func yaceCBits(b []byte, shift, width uint) int64 {
+	if ^C.char(0) < 0 {
+		return yaceSBits(b, shift, width)
+	}
+	return int64(yaceBits(b, shift, width))
+}
+
 // yacePtr appends addr in hexadecimal, as a string, or null
 func yacePtr(out []byte, addr uintptr) []byte {
 	if addr == 0 {

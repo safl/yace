@@ -132,9 +132,13 @@ The IR records the width of a bit-field as ``bits``, and its offset in bits.
 Bit-fields are reported by the bitfield rule. The C API keeps them as they are,
 and Python keeps them as ctypes bit-fields where ctypes lays them out as C
 does. Elsewhere, a record with bit-fields keeps only its size and alignment,
-as an array of bytes. The checks of C, Python and Rust assert the size and
-alignment of such a record; that of Zig does not check it. The subset's
-alternative is a field of bits, see :ref:`sec-ir-csubset`.
+as an array of bytes, and every check asserts them. The printers of Rust, Zig
+and Go read each bit-field from those bytes, at its offset and of its width,
+and print it as the C printers do. They read the bits as GCC and Clang
+allocate them on a little-endian platform, from the least significant bit of
+the lowest byte; on a big-endian platform they would print the wrong bits. In
+Python, such a record has no printers. The subset's alternative is a field of
+bits, see :ref:`sec-ir-csubset`.
 
 Flexible arrays
 ---------------

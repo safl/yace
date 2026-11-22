@@ -49,6 +49,24 @@ mod yace_pp {
         strn(w, &chars)
     }
 
+    /// The 'width' bits from bit 'shift' of 'bytes', read as an integer of
+    /// the least significant byte first: a bit-field, as C lays one out on a
+    /// little-endian platform
+    pub fn bits(bytes: &[u8], shift: u32, width: u32) -> u64 {
+        let mut value: u128 = 0;
+        for &byte in bytes.iter().rev() {
+            value = value << 8 | byte as u128;
+        }
+        let value = (value >> shift) as u64;
+        if width == 64 { value } else { value & ((1u64 << width) - 1) }
+    }
+
+    /// The bits() of a signed bit-field, extended by its sign
+    pub fn sbits(bytes: &[u8], shift: u32, width: u32) -> i64 {
+        let unused = 64 - width;
+        ((bits(bytes, shift, width) << unused) as i64) >> unused
+    }
+
     pub fn ptr(w: &mut dyn Write, addr: usize) -> io::Result<()> {
         if addr == 0 {
             return w.write_all(b"null");
@@ -133,7 +151,7 @@ pub struct {{ name }} {
 {%- elif record in blobs %}
 ///
 /// Its bit-fields have no counterpart in Rust: only its size and alignment are
-/// kept.
+/// kept, and its printers read the bit-fields from its bytes.
 {#- Aligned by its unit, as a packed record may hold no type of repr(align) #}
 {%- set unit = {1: "u8", 2: "u16", 4: "u32", 8: "u64"}.get(record.align) %}
 #[repr(C{% if not unit %}, align({{ record.align }}){% endif %})]

@@ -67,9 +67,7 @@ class Zig(Target):
         blobs = [
             r for r in records if r.size and any(f.bits is not None for f in r.fields)
         ]
-        printable = [
-            r for r in cgen.ordered_records(model) if r.fields and r not in blobs
-        ]
+        printable = [r for r in cgen.ordered_records(model) if r.fields]
 
         # Resolve every type now, so the stubs are known before the layout
         for entity in typedefs:
@@ -96,7 +94,7 @@ class Zig(Target):
             "prefix": prefix,
             "PREFIX": prefix.upper(),
             "namer": namer,
-            "printer": zgen.Printer(namer, {r.name: r for r in printable}),
+            "printer": zgen.Printer(namer, {r.name: r for r in printable}, blobs),
             "locals": renderer.locals,
             "defines": [e for e in entities if isinstance(e, decls.Define)],
             "enums": [e for e in entities if isinstance(e, decls.Enum)],

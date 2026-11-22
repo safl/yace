@@ -12,8 +12,8 @@ const api = @import("{{ prefix }}.zig");
 
 comptime {
 {%- if layout %}
-    @setEvalBranchQuota(1000 + 100 * {{ printable | length + blobs | length + printable | map(attribute="fields") | map("length") | sum }});
-{%- for record in printable if record.size %}
+    @setEvalBranchQuota(1000 + 100 * {{ printable | length + printable | map(attribute="fields") | map("length") | sum }});
+{%- for record in printable if record.size and record not in blobs %}
 {%- set name = namer(record.name) %}
     std.debug.assert(@sizeOf(api.{{ name }}) == {{ record.size }});
     std.debug.assert(@alignOf(api.{{ name }}) == {{ record.align }});

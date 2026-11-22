@@ -9,6 +9,7 @@ import subprocess
 import yaml
 
 from tests.conftest import (
+    BIT_FIELDS,
     BITS,
     ESCAPED,
     ESCAPED_VALUE,
@@ -16,6 +17,7 @@ from tests.conftest import (
     PACKED,
     PACKED_PRINTED,
     SKIPPED,
+    bit_fields_in_c,
     needs_cc,
     needs_zig,
 )
@@ -520,6 +522,28 @@ def run_zig(tmp_path, body: str) -> str:
     return run.stdout
 
 
+@needs_cc
+def test_a_record_of_bit_fields_prints_as_the_c_printers_print_it(parse, tmp_path):
+    """The module keeps a record of bit-fields as its bytes, and its printers
+    read each bit-field from them, as C lays it out"""
+
+    model, _ = parse(BIT_FIELDS)
+    bits, packed, printed = bit_fields_in_c(model, tmp_path)
+    assert process(model, ["zig"], tmp_path) == []
+
+    assert (
+        run_zig(
+            tmp_path,
+            f"    const a: api.ApiBits = @bitCast([_]u8{{ {bits} }});\n"
+            f"    const p: api.ApiPk = @bitCast([_]u8{{ {packed} }});\n"
+            '    try out.interface.print("{f}{f}", .{ a, p });\n'
+            "    try api.ApiBits.fpr(&out.interface, &a, api.API_PR_JSON);\n"
+            "    try api.ApiPk.fpr(&out.interface, &p, api.API_PR_JSON);\n",
+        )
+        == printed
+    )
+
+
 def test_a_field_of_bits_prints_its_parts(parse, tmp_path):
     model, _ = parse(BITS)
     assert process(model, ["zig"], tmp_path) == []
@@ -582,11 +606,11 @@ def test_a_packed_record_is_an_extern_struct_of_fields_aligned_to_1(parse, tmp_p
     assert printed == PACKED_PRINTED + "8 1\n"
 
 
-def test_a_union_whose_fields_all_print_as_null_builds(parse, tmp_path):
+def test_a_union_of_records_of_bit_fields_prints_them(parse, tmp_path):
     model, _ = parse(
         "/** F, kept as its bytes */\nstruct api_f {\n"
         "\tunsigned int a : 4; ///< A\n\tunsigned int b : 4; ///< B\n};\n"
-        "/** E, printing its fields as null, one named as the receiver */\n"
+        "/** E, one of its members named as the receiver */\n"
         "union api_e {\n\tstruct api_f self; ///< Self\n\tstruct api_f g; ///< G\n};\n"
     )
     assert process(model, ["zig"], tmp_path) == []
@@ -597,7 +621,10 @@ def test_a_union_whose_fields_all_print_as_null_builds(parse, tmp_path):
         "    try api.ApiE.fpr(&out.interface, &e, api.API_PR_JSON);\n"
         '    try out.interface.print("{f}", .{e});\n',
     )
-    assert printed == '{"self": null, "g": null}\napi_e:\n  self: null\n  g: null\n'
+    assert printed == (
+        '{"self": {"a": 0, "b": 0}, "g": {"a": 0, "b": 0}}\n'
+        "api_e:\n  self:\n    a: 0\n    b: 0\n  g:\n    a: 0\n    b: 0\n"
+    )
 
 
 # Zig translates the record of bit-fields api_flags as an opaque type, so the

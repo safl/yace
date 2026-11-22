@@ -60,7 +60,9 @@ names.
 
 Every struct and union has the pretty-printers: ``fpr(w, obj, flags)``,
 printing to a ``*std.Io.Writer`` as the C API's ``<name>_fpr()`` does, and
-``format()``, for ``"{f}"``, printing YAML. Floats are formatted by libc's
+``format()``, for ``"{f}"``, printing YAML. A record with bit-fields is kept as
+its bytes, and its printers read each bit-field from them, see
+:ref:`sec-ir-background`. Floats are formatted by libc's
 ``snprintf()``: Zig rounds a float from its shortest decimal form, C from its
 binary one, and the two differ.
 

@@ -8,6 +8,7 @@ import subprocess
 import pytest
 
 from tests.conftest import (
+    BIT_FIELDS,
     BITS,
     ESCAPED,
     ESCAPED_VALUE,
@@ -15,6 +16,7 @@ from tests.conftest import (
     PACKED,
     PACKED_PRINTED,
     SKIPPED,
+    bit_fields_in_c,
     needs_cc,
     needs_go,
 )
@@ -500,6 +502,27 @@ def test_unions_are_read_and_written_through_their_members(parse, tmp_path):
         '\tfmt.Printf("%#x %d %d\\n", *u.U(), u.P().Y, u.B()[3])\n'
     )
     assert run_go(tmp_path, main) == "0xffff0000 -1 255\n"
+
+
+@needs_cc
+def test_a_record_of_bit_fields_prints_as_the_c_printers_print_it(parse, tmp_path):
+    """The package keeps a record of bit-fields as its bytes, and its printers
+    read each bit-field from them, as C lays it out"""
+
+    model, _ = parse(BIT_FIELDS)
+    bits, packed, printed = bit_fields_in_c(model, tmp_path)
+    assert process(model, ["go"], tmp_path) == []
+
+    main = program(
+        f"\ta := *(*api.ApiBits)(unsafe.Pointer(&[]byte{{{bits}}}[0]))\n"
+        f"\tp := *(*api.ApiPk)(unsafe.Pointer(&[]byte{{{packed}}}[0]))\n"
+        "\tfmt.Print(a.String(), p.String())\n"
+        "\tfor _, fpr := range []func(io.Writer, int) error{a.Fpr, p.Fpr} {\n"
+        "\t\tif err := fpr(os.Stdout, api.API_PR_JSON); err != nil {\n"
+        "\t\t\tpanic(err)\n\t\t}\n\t}\n",
+        imports=("fmt", "io", "os", "unsafe"),
+    )
+    assert run_go(tmp_path, main) == printed
 
 
 def test_a_field_of_bits_prints_its_parts(parse, tmp_path):

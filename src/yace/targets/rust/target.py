@@ -94,9 +94,7 @@ class Rust(Target):
         blobs = [
             r for r in records if r.size and any(f.bits is not None for f in r.fields)
         ]
-        printable = [
-            r for r in cgen.ordered_records(model) if r.fields and r not in blobs
-        ]
+        printable = [r for r in cgen.ordered_records(model) if r.fields]
 
         # Resolve every type now, so the stubs of those the IR does not define
         # are known before the crate is laid out
@@ -112,6 +110,7 @@ class Rust(Target):
 
         printer = rgen.Printer(model, namer)
         printer.records = {r.name: r for r in printable}
+        printer.blobs = {r.name for r in blobs}
 
         library = model.meta.name or prefix
         if library.startswith("lib"):
