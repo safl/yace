@@ -102,7 +102,8 @@ Errors
   A function documented ``@errno`` throws ``std::system_error``, of the
   ``std::generic_category()``, when it returns a negative errno. One returning
   ``int`` returns nothing otherwise; one returning another integer, such as a
-  count, a ``std::size_t``. Where the meta names the function of the library
+  count, or an ``int`` documented ``@errno count``, a ``std::size_t``. Where
+  the meta names the function of the library
   that returns the message of the call that failed last, as ``errmsg:
   foo_errmsg``, the layer calls it when a function has failed, and throws
   ``detail::failure``, a ``std::system_error`` whose ``what()`` is the name of

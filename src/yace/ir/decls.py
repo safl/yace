@@ -185,8 +185,9 @@ class Memory(Node):
 class Function(Node):
     """
     A function, with what C cannot say about it, from its documentation: whether
-    it returns a negative errno on failure, and whether it writes its [out]
-    parameters also then, which parameter's handle it destroys, whether the
+    it returns a negative errno on failure, whether the int it returns on
+    success is a count, and whether it writes its [out] parameters also on
+    failure, which parameter's handle it destroys, whether the
     pointer it returns may be NULL, and what it does with a buffer of memory
     """
 
@@ -196,6 +197,7 @@ class Function(Node):
     params: List[Param] = []
     variadic: bool = False
     errno: bool = False
+    counted: bool = False
     partial: bool = False
     destroys: Optional[str] = None
     nullable: bool = False

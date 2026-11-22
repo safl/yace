@@ -140,7 +140,8 @@ Registrations
 Errors
   A function documented ``@errno`` raises :py:class:`OSError`, with the errno,
   when it returns a negative value. One returning ``int`` returns nothing
-  otherwise; one returning another integer, such as a count, returns it. Where
+  otherwise; one returning another integer, such as a count, or an ``int``
+  documented ``@errno count``, returns it. Where
   the meta names the function of the library that returns the message of the
   call that failed last, as ``errmsg: foo_errmsg``, the ``strerror`` of the
   :py:class:`OSError` is that message, and the text of the errno where the

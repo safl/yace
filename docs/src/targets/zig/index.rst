@@ -116,7 +116,8 @@ Errors
   A function documented ``@errno`` returns an error union, the error that of
   the errno's name: ``-EINVAL`` is ``error.INVAL``. ``errnoOf()`` is the errno
   of such an error. One returning ``int`` returns ``void`` otherwise; one
-  returning another integer, such as a count, a ``usize``.
+  returning another integer, such as a count, or an ``int`` documented
+  ``@errno count``, a ``usize``.
 
 Results
   What a function writes through an ``[out]`` pointer is returned rather than

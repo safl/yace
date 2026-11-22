@@ -40,7 +40,9 @@ comment of the function:
 
 ``@errno``
   The function returns a negative errno on failure, and zero or more on
-  success. It returns a signed integer. ``@errno partial`` says that the
+  success. It returns a signed integer, and one other than ``int`` returns
+  a count. ``@errno count`` says that the ``int`` it returns on success is a
+  count too, not only a status. ``@errno partial`` says that the
   function writes its [out] parameters also when it fails, so that what it
   wrote is not lost. It returns ``int``, has an [out] parameter, and none is a
   handle.
@@ -382,6 +384,16 @@ class Semantics(object):
             and is_integer(typ.to, UNSIGNED)
         )
 
+    def counted(self, func: decls.Function, annotation) -> bool:
+        """Whether the int that 'func' returns on success is a count; any other
+        signed integer is one already"""
+
+        name = getattr(func.ret, "name", None)
+        if name != "int":
+            annotation(f"@errno count, but it returns '{name}', a count already")
+            return False
+        return True
+
     def partial(self, func: decls.Function, annotation) -> bool:
         """Whether 'func' can write its [out] parameters when it fails: 'func'
         has an [out] parameter, none of them is a handle, as the owner of a
@@ -576,10 +588,13 @@ class Semantics(object):
                 param.size = None
 
         if "errno" in tags:
-            if tags["errno"] not in ("", "partial"):
-                annotation("@errno takes nothing, or 'partial'")
+            if tags["errno"] not in ("", "count", "partial"):
+                annotation("@errno takes nothing, 'count' or 'partial'")
             if is_integer(func.ret, SIGNED):
                 func.errno = True
+                func.counted = tags["errno"] == "count" and self.counted(
+                    func, annotation
+                )
                 func.partial = tags["errno"] == "partial" and self.partial(
                     func, annotation
                 )
