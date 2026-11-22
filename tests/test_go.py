@@ -584,12 +584,12 @@ def test_shared_counts_handles_as_arguments_and_constructors_without_errno_work(
         "\tmapped, err := api.Map(a, make([]int32, 2))\n"
         "\tif err != nil {\n\t\tpanic(err)\n\t}\n"
         "\tlabel, _ := h.Label()\n"
-        "\tfmt.Println(api.Dot(a, b), mapped[1], *label)\n"
+        "\tfmt.Println(api.Dot(a, b), mapped[1], label)\n"
         "\tdefer func() { fmt.Println(recover()) }()\n"
         "\tapi.Dot(a, b[:1])\n"
     )
     assert run_go(tmp_path, main, MORE + MORE_C) == (
-        "11 4 108\napi_dot: 'b' does not have the count 'n'\n"
+        "11 4 lbl\napi_dot: 'b' does not have the count 'n'\n"
     )
 
 
@@ -874,6 +874,22 @@ def test_an_allocation_returns_its_out_values_with_the_buffer(parse, tmp_path):
     )
     assert run_go(tmp_path, main, PHYS + PHYS_C, strict=True) == (
         "4096 16 0 true\nthe buffer cannot be resized\n1\n"
+    )
+
+
+@needs_cc
+def test_an_out_string_is_returned_as_a_string(parse, tmp_path):
+    from tests.test_python import OUT_STRING, OUT_STRING_C
+
+    model, _ = parse(OUT_STRING)
+    assert process(model, ["go"], tmp_path) == []
+    main = program(
+        "\tknown, _ := api.Version(1)\n"
+        "\tunknown, _ := api.Version(0)\n"
+        '\tfmt.Printf("%q %q\\n", known, unknown)\n'
+    )
+    assert run_go(tmp_path, main, OUT_STRING + OUT_STRING_C, strict=True) == (
+        '"1.2" ""\n'
     )
 
 

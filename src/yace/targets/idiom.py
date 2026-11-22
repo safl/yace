@@ -31,7 +31,9 @@ From the semantics of the C subset, see :py:mod:`yace.ir.semantics`:
   count, and returned. With ``@errno partial``, the error
   carries what the call returns when it succeeds.
 * A returned ``const char *`` is a string, and a returned pointer that is
-  ``@nullable`` is nothing when NULL.
+  ``@nullable`` is nothing when NULL. A ``const char *`` written through an
+  ``[out]`` pointer is a string too, and nothing when NULL; Go has no nothing
+  for a string, and returns it empty.
 
 Names lose the prefix of the API, and methods also the name of their handle:
 ``foo_handle_close()`` is the method ``close`` of ``handle``. A function taking

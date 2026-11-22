@@ -123,7 +123,9 @@ Results
   What a function writes through an ``[out]`` pointer is returned rather than
   passed. An ``[out]`` array is written to a slice the caller gives, as Zig does
   not allocate behind a caller's back, and the part written is returned. A
-  returned string is a ``[:0]const u8``, borrowed; a returned pointer to a
+  returned string is a ``[:0]const u8``, borrowed, and one written through an
+  ``[out]`` pointer an optional one, null where C wrote NULL; a returned
+  pointer to a
   record a copy of it, optional where ``@nullable``.
 
 Arguments
