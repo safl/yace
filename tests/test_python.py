@@ -442,6 +442,32 @@ def test_an_out_count_bounds_the_result_and_the_error_holds_what_was_written(
     assert list(failed.value.partial) == [0, 10]
 
 
+ERRNO_COUNT = (
+    "#include <stdint.h>\n"
+    "/**\n * Count\n * @errno count\n */\nint api_count(int n);\n"
+    "/**\n * Reap\n * @arrparam[out] done D @len_at{max}\n * @errno count\n */\n"
+    "int api_reap(int *done, uint32_t max);\n"
+)
+ERRNO_COUNT_C = (
+    "#include <errno.h>\n"
+    "int api_count(int n) { return n < 0 ? -EINVAL : n; }\n"
+    "int api_reap(int *done, uint32_t max)\n"
+    "{\n\tfor (uint32_t i = 0; i < max && i < 2; ++i)\n\t\tdone[i] = 7;\n"
+    "\treturn max < 2 ? max : 2;\n}\n"
+)
+
+
+@needs_cc
+def test_an_errno_count_returns_the_int_and_bounds_the_array_by_it(parse, bind):
+    model, _ = parse(ERRNO_COUNT)
+    api = bind(model, ERRNO_COUNT + ERRNO_COUNT_C)
+    assert api["count"](3) == 3
+    with pytest.raises(OSError) as failed:
+        api["count"](-1)
+    assert failed.value.errno == errno.EINVAL
+    assert list(api["reap"](4)) == [7, 7]
+
+
 @needs_cc
 def test_a_recparam_record_is_passed_with_its_size_by_the_c_name(parse, bind):
     from tests.test_rust import SIZED, SIZED_C

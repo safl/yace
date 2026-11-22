@@ -157,6 +157,24 @@ def test_an_out_count_is_the_length_of_its_array_and_partial_is_kept(parse):
     assert errors == "Partial says so."
 
 
+def test_an_errno_count_returns_the_int_or_bounds_the_array_by_it(parse):
+    model, _ = parse(
+        "#include <stdint.h>\n"
+        "/**\n * Count\n * @errno count\n */\nint api_count(void);\n"
+        "/**\n * Status\n * @errno\n */\nint api_status(void);\n"
+        "/**\n * Reap\n * @arrparam[out] done D @len_at{max}\n * @errno count\n */\n"
+        "int api_reap(int *done, uint32_t max);\n"
+    )
+    found = {c.function: c for c in Idioms(model).calls}
+    assert found["api_count"].returns == "count"
+    assert found["api_status"].returns == "nothing"
+    reap = found["api_reap"]
+    assert reap.returns == "count"
+    assert [(o.kind, o.capacity, o.count) for o in reap.outs] == [
+        ("array", "max", None)
+    ]
+
+
 def test_a_recparam_size_is_computed_and_the_call_named_as_c_calls_it(parse):
     from tests.test_semantics import RECPARAM
 

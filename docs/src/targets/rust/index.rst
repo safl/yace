@@ -144,7 +144,8 @@ Registrations
 Errors
   A function documented ``@errno`` returns ``io::Result``, its error made by
   ``io::Error::from_raw_os_error()``. One returning ``int`` returns ``()``
-  otherwise; one returning another integer, such as a count, a ``usize``.
+  otherwise; one returning another integer, such as a count, or an ``int``
+  documented ``@errno count``, a ``usize``.
 
 Results
   What a function writes through an ``[out]`` pointer is returned rather than

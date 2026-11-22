@@ -145,7 +145,7 @@ Errors
   ``syscall.Errno`` wrapped with the name of the C function, so
   ``errors.Is(err, syscall.EINVAL)`` holds for ``-EINVAL``. One returning
   ``int`` returns only the ``error``; one returning another integer, such as a
-  count, an ``int`` before it.
+  count, or an ``int`` documented ``@errno count``, an ``int`` before it.
 
 Results
   What a function writes through an ``[out]`` pointer is returned rather than

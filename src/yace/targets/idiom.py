@@ -26,8 +26,9 @@ From the semantics of the C subset, see :py:mod:`yace.ir.semantics`:
   its ``void *`` context is the binding's to pass, not given. A callback without
   a ``@lifetime`` is given as the raw function pointer, with its context.
 * With ``@errno``, a negative return is an error. A function returning ``int``
-  returns only that status, so nothing when it succeeds; any other integer is
-  a value, such as a count, and returned. With ``@errno partial``, the error
+  returns only that status, so nothing when it succeeds, unless ``@errno
+  count`` says the ``int`` is a count; any other integer is a value, such as a
+  count, and returned. With ``@errno partial``, the error
   carries what the call returns when it succeeds.
 * A returned ``const char *`` is a string, and a returned pointer that is
   ``@nullable`` is nothing when NULL.
@@ -407,7 +408,8 @@ class Idioms(object):
             returns = "nothing"
         elif func.errno:
             # @errno was checked to return a signed integer, which has a name
-            returns = "nothing" if getattr(ret, "name", None) == "int" else "count"
+            status = getattr(ret, "name", None) == "int" and not func.counted
+            returns = "nothing" if status else "count"
         elif types.is_string(ret):
             returns = "string"
         elif is_opaque_ptr(ret, self.handles) or is_lent(ret):

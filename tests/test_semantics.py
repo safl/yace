@@ -170,6 +170,16 @@ def test_an_out_count_and_a_partial_errno_are_in_the_ir(parse):
     assert reap.errno and reap.partial
 
 
+def test_an_errno_count_says_the_int_returned_is_a_count(parse):
+    model, diagnostics = parse(
+        "/**\n * Count\n * @errno count\n */\nint f(void);\n"
+        "/**\n * Status\n * @errno\n */\nint g(void);\n"
+    )
+    assert [d for d in diagnostics if d.rule == "annotation"] == []
+    assert functions(model)["f"].counted
+    assert not functions(model)["g"].counted
+
+
 WRONG = [
     (
         "/**\n * @arrparam v V @nwritten_at{n}\n * @param[out] n N\n */\n"
@@ -205,7 +215,12 @@ WRONG = [
     ),
     (
         "/**\n * @errno always\n */\nint f(void);",
-        "@errno takes nothing, or 'partial'",
+        "@errno takes nothing, 'count' or 'partial'",
+        {},
+    ),
+    (
+        "#include <sys/types.h>\n/**\n * @errno count\n */\nssize_t f(void);",
+        "@errno count, but it returns 'ssize_t', a count already",
         {},
     ),
     ("/**\n * @errno partial\n */\nint f(int x);", "but no parameter is [out]", {}),
@@ -233,7 +248,7 @@ def test_a_wrong_out_count_or_partial_errno_is_reported(parse):
         found = [d.message for d in diagnostics if d.rule == "annotation"]
         assert any(message in m for m in found), (source, found)
         func = functions(model)["f"]
-        assert not func.partial
+        assert not func.partial and not func.counted
         assert {p.name: p.count for p in func.params if p.count} == kept
 
 

@@ -296,12 +296,15 @@ The rest is said in the Doxygen comment of the function:
 
 ``@errno``
   The function returns a negative errno on failure, and zero or more on
-  success. ``@errno partial`` says that the function writes its ``[out]``
-  parameters also when it fails, so that what it wrote is not lost: the error
-  of each binding carries what the call returns when it succeeds. The function
-  returns ``int``, since a count it returned would be lost to the errno, and
-  has an ``[out]`` parameter, and no ``[out]`` handle, since nobody owns a
-  handle from a failed call.
+  success. A function returning ``int`` returns a status, which the bindings do
+  not return; any other signed integer is a count, which they return. ``@errno
+  count`` says that the ``int`` is a count too, as when the function returns
+  how many elements it wrote. ``@errno partial`` says that the function writes
+  its ``[out]`` parameters also when it fails, so that what it wrote is not
+  lost: the error of each binding carries what the call returns when it
+  succeeds. The function returns ``int``, since a count it returned would be
+  lost to the errno, and has an ``[out]`` parameter, and no ``[out]`` handle,
+  since nobody owns a handle from a failed call.
 
 ``@destroys name``
   The function releases the handle given as ``name``, its only parameter. An
