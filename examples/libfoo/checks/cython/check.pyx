@@ -4,11 +4,10 @@
 
 # cython: language_level=3
 """
-The check of the .pxd of libfoo: Cython code cimporting the C API through the
-generated foo.pxd, calling the library directly and printing what it got back,
-as YAML documents, or with "json" as JSON objects, each holding what
-'expected.yaml' says. Records are printed by the check itself, from their C
-fields; the C API's printers are not part of the library.
+The check of the .pxd of libfoo. It calls the library through the generated
+foo.pxd and prints the results as YAML documents, or as JSON objects given the
+argument "json". 'expected.yaml' holds what it must print. It prints records
+from their C fields, because the library does not hold the C API's printers.
 """
 
 import json

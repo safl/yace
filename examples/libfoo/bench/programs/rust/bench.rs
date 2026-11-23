@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 
-//! The benchmark through the Rust bindings, as the C one: through the raw
-//! layer, by foo_point_get() and by foo_point_visit() with an extern "C"
-//! callback, and through the safe layer, by Handle::point_get() and by
-//! Handle::point_visit() with a closure.
+//! The benchmark of the Rust bindings. It sums as the C benchmark does,
+//! through the raw layer, by foo_point_get() and by foo_point_visit() with an
+//! extern "C" callback, and through the safe layer, by Handle::point_get() and
+//! by Handle::point_visit() with a closure.
 //!
 //! Usage: bench ROUNDS REPEAT
 

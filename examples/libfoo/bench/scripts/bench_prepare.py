@@ -6,11 +6,9 @@
 Build libfoo and generate its bindings
 ======================================
 
-Makes 'bench.workdir' afresh on the target and copies libfoo there: its header,
-source, meta and the benchmark's programs. Builds the library from its source,
-with -O2, as a shared library, and has yace generate, from the header, the
-bindings of what the targets in 'bench.targets' use, strictly and without the
-checks of the targets, which the tests run.
+Makes 'bench.workdir' afresh on the target and copies libfoo there. Builds the
+library at the optimisation level of benchlib.OPT, and has yace generate the
+bindings that the targets in 'bench.targets' use, with --no-check.
 
 Config Arguments
 ----------------

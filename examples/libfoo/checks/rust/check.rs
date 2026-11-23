@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 
-//! The check of the Rust bindings of libfoo: calls the library through the
-//! generated crate and prints what it got back, as YAML documents, or with
-//! argument "json" as JSON objects, each holding what 'expected.yaml' says
+//! The check of the Rust bindings of libfoo. It calls the library through the
+//! generated crate and prints the results as YAML documents, or as JSON
+//! objects given the argument "json". 'expected.yaml' holds what it must print.
 
 use std::ffi::{c_int, c_void, CStr};
 use std::io;
@@ -16,7 +16,7 @@ mod common;
 
 use common::*;
 
-/// Sums the points visited, stopping after 'stop_after' of them
+/// Sums the points visited, and stops after 'stop_after' points
 #[derive(Default)]
 struct Sum {
     x: i64,

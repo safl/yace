@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /**
- * The benchmark through the idiomatic layer of the C++ bindings: as the C one,
- * by handle.point_get() and by handle.point_visit() with a lambda
+ * The benchmark of the idiomatic layer of the C++ bindings: the sums of the C
+ * benchmark by handle.point_get() and by handle.point_visit() with a lambda
  *
  * Usage: bench ROUNDS REPEAT
  */

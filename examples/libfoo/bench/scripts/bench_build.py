@@ -6,14 +6,10 @@
 Build the program of each target
 ================================
 
-Builds, in 'build/<target>' of 'bench.workdir', the benchmark's program of each
-target in 'bench.targets', against the bindings and the library that
-bench_prepare made, each at the optimisation level of benchlib.OPT for the
-baseline CPU: C, C++ and Cython with -O3, Rust in release at opt-level 3, Zig
-ReleaseFast with '-mcpu baseline', and Go as 'go build' does; Python needs no
-building. Fails at the first that does not build. pip builds the Cython
-program with meson-python, which prints the commands it compiles with, and the
-run records them.
+Builds the benchmark's program of each target in 'bench.targets' in
+'build/<target>' of 'bench.workdir', against the bindings and the library that
+bench_prepare made, at the optimisation level of benchlib.OPT. The step fails
+at the first program that does not build.
 
 Config Arguments
 ----------------

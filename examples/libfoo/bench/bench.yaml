@@ -4,19 +4,18 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 doc: |
-  The cost of calling libfoo from each target: a handle filled with
-  FOO_POINTS_MAX points, the x of every point summed 'bench.rounds' times, by a
-  call of foo_point_get() per point and by foo_point_visit() with a callback,
-  in plain C and through the bindings yace generates for every target, the
-  best of 'bench.repeat' runs of each. bench.toml says what is run; the run's
-  output holds the facts of the machine, every command and what it printed,
-  and the results, as artifacts/results.json, results.csv and report.txt.
+  Measures the cost of calling libfoo from each target. Each program sums the
+  x of the FOO_POINTS_MAX points of a handle, by a call of foo_point_get() per
+  point and by foo_point_visit() with a callback: in C, and through the
+  bindings that yace generates. bench.toml sets what is run. The run's output
+  holds the facts of the machine, every command with its output, and the
+  results as artifacts/results.json, results.csv and report.txt.
 
   From examples/libfoo/bench, on this machine:
 
     cijoe bench.yaml -c bench.toml -o /tmp/bench
 
-  On another, over ssh, with its address in transport.toml:
+  On another machine, over ssh, with its address in transport.toml:
 
     cijoe bench.yaml -c bench.toml -c transport.toml -o /tmp/bench
 

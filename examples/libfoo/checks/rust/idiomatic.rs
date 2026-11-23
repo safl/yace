@@ -1,9 +1,7 @@
-//! The check of the idiomatic Rust layer of libfoo, the module 'safe': as
-//! check.rs, through an owned handle, io::Result and returned values rather
-//! than raw calls. An error is printed as the negative errno the C function
-//! returned, so the documents printed are those of 'expected.yaml'.
-//!
-//! What safe Rust cannot express, a NULL where none is allowed, is called raw.
+//! The check of the module 'safe', the idiomatic Rust layer of libfoo: the calls
+//! of check.rs through an owned handle, io::Result and returned values. An
+//! error is printed as the negative errno that the C function returned. A NULL
+//! where the layer allows none goes through the raw layer.
 
 use std::ffi::{c_int, c_void};
 use std::io;
@@ -29,18 +27,18 @@ fn errno<T: Into<i64>>(result: io::Result<T>) -> i64 {
     }
 }
 
-/// Compiles only while T is not Send: were it Send, both impls would apply
-/// and the call in main() would be ambiguous. A handle keeps the callbacks
-/// given to it, which need not be Send, and they run on the thread that
-/// polls it, so a handle must not leave its thread.
+/// A call of not_send() compiles only while T is not Send. For a T that is
+/// Send, both impls apply and the call is ambiguous. A handle must not be
+/// Send: it keeps the callbacks given to it, which need not be Send, and runs
+/// them on the thread that polls it.
 trait NotSend<A> {
     fn not_send() {}
 }
 impl<T: ?Sized> NotSend<()> for T {}
 impl<T: ?Sized + Send> NotSend<u8> for T {}
 
-/// As NotSend, for Sync: a handle shared between threads would let two of
-/// them call it, and run its callbacks, at once
+/// As NotSend, for Sync. Two threads sharing a handle could call it, and run
+/// its callbacks, at the same time.
 trait NotSync<A> {
     fn not_sync() {}
 }
@@ -117,7 +115,7 @@ fn main() -> io::Result<()> {
         visit: Some(add_x),
         arg: &mut with_x as *mut i64 as *mut c_void,
     };
-    // A record holding a callback and its context: unsafe, as nothing checks them
+    // Unsafe because nothing checks the callback and the context of the record
     let visit_with = count(unsafe { handle.point_visit_with(&visitor) });
     let unknown = status(safe::figure_fill(3).map(|_| ()));
     let add_many = count(handle.point_add_many(&points));

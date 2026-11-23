@@ -2,15 +2,14 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
-# Runs the benchmark on another machine, over ssh; the only file here naming
-# it. Fill in its address and your key. The machine needs yace and the
-# toolchains bench.toml names, on the PATH of a command run over ssh.
+# Runs the benchmark over ssh, on a machine with yace and the toolchains of
+# bench.toml on the PATH of an ssh command. Fill in its address and your key.
 [cijoe.targets.bench.ssh]
 username = "bench"
 hostname = "bench.example.org"
 port = 22
 key_filename = "/home/user/.ssh/id_ed25519"
 
-# Where the machine builds and runs, made afresh by each run
+# Made afresh by each run
 [bench]
 workdir = "/tmp/yace-bench"

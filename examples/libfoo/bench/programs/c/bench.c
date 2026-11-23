@@ -5,12 +5,12 @@
  */
 
 /**
- * The benchmark in plain C, the baseline the targets are compared to
+ * The benchmark in C, the baseline that the targets are compared to
  *
- * Fills a handle with FOO_POINTS_MAX points, then sums the x of every point,
- * ROUNDS times over, by a call of foo_point_get() per point, "calls", and by
- * foo_point_visit() with a callback, "callback". Prints, for each way, the
- * time per point of the best of REPEAT runs, and the sum, as a JSON line.
+ * Fills a handle with FOO_POINTS_MAX points, then sums the x of every point
+ * ROUNDS times in two ways: "calls", a call of foo_point_get() per point, and
+ * "callback", foo_point_visit() with a callback. Prints a JSON line per way,
+ * with the sum and the time per point of the best of REPEAT runs.
  *
  * Usage: bench ROUNDS REPEAT
  */

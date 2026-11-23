@@ -3,10 +3,9 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-Runs the Cython benchmark, as built from meson.build beside it: fast, the
-loops in Cython calling C through foo.pxd, and the idiomatic loops of the
-Python benchmark through foo, the Cython module of the bindings, by
-handle.point_get() and by handle.point_visit() with a function
+The benchmark of the Cython bindings, built by meson.build: the loops of 'fast',
+written in Cython against foo.pxd, and the idiomatic loops of the Python
+benchmark through foo, the Cython module of the bindings
 
   python bench.py ROUNDS REPEAT
 """

@@ -3,12 +3,10 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-The benchmark through the ctypes bindings, as the C one: through the raw
-layer, by foo.foo_point_get() and by foo.foo_point_visit() with a FooVisitCb,
-and through the idiomatic layer, by handle.point_get() and by
-handle.point_visit() with a function.
+The benchmark of the ctypes bindings: the sums of the C benchmark through the
+raw layer and through the idiomatic layer.
 
-Needs the bindings, foo, on PYTHONPATH and FOO_LIBRARY set:
+Needs foo, the module of the bindings, on PYTHONPATH and FOO_LIBRARY set:
 
   python bench.py ROUNDS REPEAT
 """
