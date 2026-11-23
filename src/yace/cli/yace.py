@@ -7,14 +7,11 @@
 """
 The command-line interface of **yace**
 
-Given C headers, yace parses them as one API into the IR, writes
-'<prefix>.yaml' and the diagnostics to '<prefix>.status', and reports every
-place the headers step outside the C subset; such a place fails the run, unless
-'--lenient'. The prefix is that of the meta, or else the name of the first
-header. Given IR files, '.yaml', yace reads them. Either way, '--emit' then
-generates the code of the given targets and checks it. A generator,
-'--generate', writes headers that are parsed with the headers given. With
-'--toolchains', yace prints what those checks build with instead.
+Given C headers, yace parses them as one API into the IR, and writes the IR to
+'<prefix>.yaml' and the diagnostics to '<prefix>.status'. A diagnostic fails
+the run, unless '--lenient' is given. Given IR files ('.yaml'), yace reads the
+IR from them. With '--emit', yace then generates the code of the given targets
+and checks the code.
 """
 
 import argparse
@@ -56,9 +53,9 @@ def parse_args():
         action="append",
         default=[],
         metavar="GENERATOR",
-        help="generator to write headers with, which are then parsed with the"
-        " headers given, by its name or as <file.py or module>:<class>; installed: "
-        + (", ".join(sorted(gen.generators())) or "none"),
+        help="generator that writes headers, which yace parses with the headers"
+        " given; named by its installed name or as <file.py or module>:<class>;"
+        " installed: " + (", ".join(sorted(gen.generators())) or "none"),
     )
     parser.add_argument(
         "--generator-option",
@@ -97,15 +94,15 @@ def parse_args():
         action="append",
         default=[],
         metavar="HEADER",
-        help="system header, such as stdio.h, to include ahead of the headers, for"
-        " what they use but do not include; what the API uses of it is still"
-        " external",
+        help="system header, such as stdio.h, to include ahead of the headers, when"
+        " the headers use its declarations without including it; the types it"
+        " declares remain external to the API",
     )
     parser.add_argument(
         "--lenient",
         action="store_true",
-        help="generate the code when a header steps outside the C subset, instead"
-        " of failing; the diagnostics are reported either way",
+        help="generate the code also when the headers break a rule of the C"
+        " subset; yace reports the diagnostics either way",
     )
     parser.add_argument(
         "--no-check",
@@ -118,9 +115,9 @@ def parse_args():
     parser.add_argument(
         "--toolchains",
         action="store_true",
-        help="print, as JSON, the toolchains the checks of the '--emit' targets, or"
-        " of every target, build with, and the formatters that format their code:"
-        " the command, where it is, and its version",
+        help="print, as JSON, the toolchains that the checks build with and the"
+        " formatters of the code, for the '--emit' targets or else for every"
+        " target: for each, the command, its path and its version",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {version}")
     parser.add_argument(
@@ -228,8 +225,8 @@ def main():
         )
         if diagnostics:
             print(
-                f"yace: {len(diagnostics)} diagnostics; the headers step outside the"
-                f" C subset, see {model.meta.prefix}.status",
+                f"yace: {len(diagnostics)} diagnostics; the headers break rules of"
+                f" the C subset, see {model.meta.prefix}.status",
                 file=sys.stderr,
             )
             if not args.lenient:
@@ -251,8 +248,7 @@ def main():
         if unfit:
             return 1
 
-    # Add the directories of the headers, where the check of the signatures
-    # finds the headers given by path
+    # The check of the signatures includes each header by name, from its directory
     include = [Path(path) for path in args.include]
     if ".h" in suffixes:
         include += [p.parent for p in args.filepath if p.parent not in include]

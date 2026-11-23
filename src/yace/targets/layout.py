@@ -3,16 +3,14 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-Where the targets that keep a record of bit-fields as its bytes, Rust, Zig and
-Go, read each bit-field from, for their printers to print it as C does.
+The position of each bit-field in the bytes of its record, for the printers of
+Rust, Zig and Go, which keep a record of bit-fields as its bytes.
 
-The IR records the offset of a bit-field in bits from the start of the record,
-as libclang gives it. The bytes holding the bit-field are read as an unsigned
-integer of the least significant byte first, and the bit-field is the 'width'
-bits from bit 'shift' of it: the order in which GCC and Clang allocate
-bit-fields on a little-endian platform, as x86-64 and AArch64 are. On a
-big-endian one, they allocate them from the most significant bit, which this
-does not read.
+The IR records the offset of a bit-field in bits from the start of the record.
+The bytes that hold the bit-field are read as an unsigned integer, least
+significant byte first, and the bit-field is the 'width' bits from bit 'shift'
+of that integer. GCC and Clang allocate bit-fields in this order on a
+little-endian platform; the order on a big-endian platform is not read.
 """
 
 from typing import Dict, NamedTuple, Optional
@@ -30,9 +28,9 @@ class BitField(NamedTuple):
 
 
 def kind(typ, enums: Dict[str, decls.Enum]) -> str:
-    """How C prints a bit-field of the resolved type 'typ': a plain char is as
-    signed as the platform's char; an enum is signed where it has a negative
-    value, as GCC and Clang then make its type int, and unsigned int else"""
+    """How C prints a bit-field of the resolved type 'typ'. A plain char has the
+    signedness of the platform's char. An enum with a negative value is signed, because
+    GCC and Clang then give it the type int"""
 
     if isinstance(typ, types.EnumRef):
         enum = enums.get(typ.name)

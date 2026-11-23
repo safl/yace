@@ -42,12 +42,10 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 from . import decls, types
 
-# Where a mask's doc says which bits it is, at the end of the doc
 LOCATION = re.compile(
     r"(?:^|;)\s*(?P<form>bits?)\s+(?P<hi>\d+)(?::(?P<lo>\d+))?\s+of\s+'(?P<field>\w+)'"
     r"\s*\.?\s*$"
 )
-# Where an integer field's doc names the prefix of its masks
 PREFIX = re.compile(r"\bsee\s+([A-Za-z_]\w*?)_\*")
 
 # The name the pretty-printers print the value of the whole field by
@@ -90,7 +88,6 @@ def link(entities: list, report: Callable[[str, str, object], None], cursors: di
     def problem(define: decls.Define, message: str):
         report("bit-mask", f"'{define.name}' {message}", cursors.get(define.name))
 
-    # The prefix each integer field names, with the record and the field
     owners: Dict[str, List[Tuple[decls.Struct | decls.Union, decls.Field]]] = {}
     for record in (e for e in entities if isinstance(e, decls.RECORDS)):
         for field in record.fields:
@@ -243,8 +240,8 @@ def unlocated(defines, owners, masked, problem):
 
 
 def accessors(entities, cursors, report):
-    """Unlink the masks whose accessor, '<field>_<part>', is named as a field
-    or another accessor of the record; the targets name them so"""
+    """Unlink each mask whose accessor name, '<field>_<part>', is the name of a field or
+    of another accessor of the record"""
 
     for record in (e for e in entities if isinstance(e, decls.RECORDS)):
         names = {field.name for field in record.fields}

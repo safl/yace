@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-Run targets on the IR: emit the code, then check it
+Run the targets on the IR: emit the code, format it, then check it
 """
 
 import logging as log
@@ -24,11 +24,10 @@ def process(
     options: Optional[Dict[str, Dict[str, str]]] = None,
 ) -> list:
     """
-    Emit, format and check the code of the named targets; returns the failures.
-    The 'include' directories are where the headers the API includes are found,
-    and 'options' are those of each target, by its name. A target whose
-    formatters are not all found is not emitted, since its code would then
-    depend on what the host has installed.
+    Emit, format and check the code of the targets in 'names', and return the
+    failures. 'include' holds the directories of the headers that the API
+    includes, and 'options' the options of each target, by its name. The code
+    of a target is not emitted when one of its formatters is not found.
     """
 
     options = options or {}
@@ -39,8 +38,7 @@ def process(
         if missing:
             failures += [f"{name}: {why}; nothing is emitted" for why in missing]
             continue
-        # Pass 'options' only to a target given options, as a target that takes
-        # none may define __init__() without the parameter
+        # A target that takes no options may define __init__() without 'options'
         given = {"options": options[name]} if options.get(name) else {}
         tgt = cls(output, include or [], **given)
         paths = tgt.emit(model)

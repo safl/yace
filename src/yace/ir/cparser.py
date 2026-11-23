@@ -5,12 +5,12 @@
 """
 Parse a C header into the **yace** IR
 
-The header describes an FFI boundary in a subset of C99. Any header is parsed,
-also one outside the subset: everything that can be represented is, and every
-place the header steps outside the subset is reported as a
-:class:`yace.ir.diagnostics.Diagnostic`. Nothing is dropped or changed without
-one, so the IR of a header outside the subset is usable, and the diagnostics say
-what to change for it to be within.
+The header describes an FFI boundary in a subset of C99. A header that breaks a
+rule of the subset is parsed too: everything that the IR can represent is in
+the IR, and every place where the header breaks a rule is reported as a
+:class:`yace.ir.diagnostics.Diagnostic`. The parser drops or changes nothing
+without a diagnostic, so the IR of such a header is usable, and the diagnostics
+say what to change for the header to be within the subset.
 
 * :class:`.CParser` parses a header into a :class:`yace.ir.model.Model`
 * :func:`.c_to_yace` writes the IR and the diagnostics of headers to files
@@ -67,13 +67,11 @@ RECORD_KINDS = (CursorKind.STRUCT_DECL, CursorKind.UNION_DECL)
 
 CALLBACK_SUFFIXES = ("_cb", "_callback", "_fn", "_fun", "_func", "_function")
 
-# What a typedef of its own name and its record or enum report a missing doc as
+# The kinds named in the missing-doc messages that share_docs() withdraws
 DOCUMENTED = ("struct", "union", "enum", "typedef")
 
 EVAL_BATCH = 200  # macros evaluated per generated translation unit
 
-# Included ahead of the headers, which are parsed as one translation unit, so
-# that the set of headers, not each header, has to include what else it uses
 STANDARD_HEADERS = ("stdbool.h", "stddef.h", "stdint.h")
 
 # Where Debian's and Ubuntu's LLVM packages are, each with clang's own headers
@@ -133,9 +131,9 @@ def actual_layout(cursor) -> tuple:
 
 def natural_layout(cursor) -> Optional[tuple]:
     """The layout that the types of the record's fields give it, as C lays them
-    out without attributes or '#pragma pack', as actual_layout() gives one; None
-    where it is not computed: of a record of bit-fields, or with a field whose
-    size or alignment libclang does not give"""
+    out without attributes or '#pragma pack', in the form of actual_layout().
+    None where the layout is not computed: for a record of bit-fields, or one
+    with a field whose size or alignment libclang does not give"""
 
     fields = list(cursor.type.get_fields())
     if any(f.is_bitfield() for f in fields):
@@ -297,10 +295,8 @@ class CParser(object):
 
     @staticmethod
     def _sysroot() -> Optional[str]:
-        """
-        The SDK of macOS, where its C headers are; the libclang of the libclang
-        package has no default for it, as Apple's clang does
-        """
+        """The path of the macOS SDK, which holds the C headers; Apple's clang has a
+        default for it, the libclang of the libclang package has none"""
 
         if platform.system() != "Darwin":
             return None
@@ -388,7 +384,7 @@ class _HeaderParser(object):
         self.paths = list(dict.fromkeys(paths))
         self.path = self.paths[0]
         self.meta = meta
-        self.lines: Dict[Path, List[str]] = {}  # the lines of each header, read once
+        self.lines: Dict[Path, List[str]] = {}
         self.diagnostics: List[Diagnostic] = []
         self.names: Dict[Tuple[str, int], str] = {}  # anonymous decl -> its name
         self.absorbed: set = set()  # typedefs naming an anonymous record or enum
@@ -397,12 +393,12 @@ class _HeaderParser(object):
         self.skipped: set = set()  # typedefs skipped, which their uses are too
         self.skipped_records: set = set()  # records skipped, by name, as typedefs
         self.external: set = set()  # records declared outside the headers
-        self.typedefs: set = set()  # typedef names declared in the header
-        self.defined: set = set()  # records defined in the header, by name
+        self.typedefs: set = set()
+        self.defined: set = set()
         self.cursors: dict = {}  # functions and typedefs, by name
-        self.inlines: set = set()  # static and inline functions, by name
-        self.enum_cursors: dict = {}  # enums, by name
-        self.record_cursors: dict = {}  # records, by name
+        self.inlines: set = set()
+        self.enum_cursors: dict = {}
+        self.record_cursors: dict = {}
         self.skipped_enums: set = set()  # enums skipped, by name, as records
         self.included: set = set()  # the includes in the model, (name, system)
 
@@ -439,8 +435,7 @@ class _HeaderParser(object):
     def typ(self, ctype, cursor) -> types.Type:
         """The IR type of the libclang 'ctype'; raises Unsupported"""
 
-        # The IR has no volatile qualifier, and the bindings could not make
-        # their accesses volatile
+        # No binding could make its accesses volatile
         if ctype.is_volatile_qualified():
             raise Unsupported(f"'{ctype.spelling}', which is volatile")
         found = self._typ(ctype, cursor)
@@ -478,9 +473,8 @@ class _HeaderParser(object):
                 f" {Path(location(decl)[0]).name or 'the compiler'}",
                 cursor,
             )
-            # An external record is a type of its own, which the bindings
-            # declare opaque; any other external type, such as an integer, a
-            # pointer or an array, is replaced by its canonical type
+            # The bindings declare an external record opaque; any other
+            # external type is replaced by its canonical type
             canonical = ctype.get_canonical()
             if canonical.kind == TypeKind.RECORD:
                 self.external.add(name)
@@ -495,8 +489,7 @@ class _HeaderParser(object):
             name = self.names.get(decl_key(decl), decl.spelling)
             if is_unnamed(decl) and decl_key(decl) not in self.names:
                 raise Unsupported(f"an anonymous {ctype.spelling} with no name")
-            # C has no incomplete enum: one named but defined nowhere, such as
-            # one first named in a parameter list, has no values or size
+            # An enum named but defined nowhere has no values and no size
             if kind == TypeKind.ENUM and decl.get_definition() is None:
                 raise Unsupported(f"'{ctype.spelling}', an enum defined nowhere")
             if not self.in_header(decl):
@@ -661,10 +654,9 @@ class _HeaderParser(object):
             entities = kept
 
     def drop_printer_names(self, entities: list) -> list:
-        """'entities' without the enums and defines named as the output formats
-        of the pretty-printers every target generates, and the functions named
-        as a printer of a record or an enum, each reported, as an API's own
-        printers name theirs; the generated ones serve instead"""
+        """'entities' without the enums and defines named as the output formats of the
+        generated pretty-printers, and without the functions named as a generated
+        printer of a record or an enum; each is reported"""
 
         prefix = re.sub(r"[^0-9A-Za-z_]", "_", self.meta.get("prefix", self.path.stem))
         flags = {
@@ -1099,8 +1091,7 @@ class _HeaderParser(object):
         self.keyword(name, "a function", cursor)
         if cursor.storage_class == StorageClass.STATIC or cursor.is_definition():
             self.inlines.add(name)
-        # @nobind is read before the note on static and inline functions, and
-        # before the types of the function, which may be outside the subset
+        # Read before the types of the function, which may be outside the subset
         nobind = doc.parse(cursor.raw_comment).tags.get("nobind")
         if nobind is not None:
             if nobind:
@@ -1340,8 +1331,7 @@ class _HeaderParser(object):
                     " package does not include the compiler's own headers, such"
                     " as stddef.h"
                 )
-        # A header without an include guard, included twice, gives each of its
-        # errors twice
+        # A header without an include guard, included twice, gives each error twice
         errors = dict.fromkeys(
             (
                 Path(diag.location.file.name).name if diag.location.file else "",
@@ -1541,8 +1531,8 @@ class _HeaderParser(object):
 
             if not cursor.is_definition():
                 if name in defined or name in declared or kind == CursorKind.ENUM_DECL:
-                    return []  # a forward declaration of a record that the headers
-                    # define or declared before, or of an enum
+                    # A forward declaration of a known record, or of an enum
+                    return []
                 declared.add(name)
                 cls = decls.Union if kind == CursorKind.UNION_DECL else decls.Struct
                 opaque = cls(name=name, fields=[], doc=self.doc_of(cursor))

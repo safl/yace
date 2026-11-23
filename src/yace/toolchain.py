@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-The toolchains the checks of the targets build with: for each, the variable of
-the environment naming its command, the command used where it is unset, and how
-to ask it for its version. A target names its own in 'Target.TOOLCHAINS'.
+The toolchains that the checks of the targets build with: for each, the
+environment variable naming its command, the default command, and the arguments
+that print its version. A target lists its toolchains in 'Target.TOOLCHAINS'.
 """
 
 import os
@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 @dataclass(frozen=True)
 class Toolchain:
-    """A command a check runs: 'env' names it where set, else 'default'"""
+    """A command that a check runs: the value of 'env' when it is set, else 'default'"""
 
     what: str
     env: Optional[str]
@@ -61,6 +61,6 @@ PYTHON = Toolchain("Python", None, sys.executable)
 
 
 def missing(toolchains: List[Toolchain]) -> List[str]:
-    """The failures of a check whose toolchains are not all found"""
+    """Why each toolchain of 'toolchains' that is not found cannot run"""
 
     return [why for why in (tc.missing() for tc in toolchains) if why]

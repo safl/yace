@@ -40,17 +40,17 @@ comment of the function:
 
 ``@errno``
   The function returns a negative errno on failure, and zero or more on
-  success. It returns a signed integer, and one other than ``int`` returns
-  a count. ``@errno count`` says that the ``int`` it returns on success is a
-  count too, not only a status. ``@errno partial`` says that the
+  success. The function returns a signed integer, and a signed integer other
+  than ``int`` is a count. ``@errno count`` says that the ``int`` returned on
+  success is a count too, not only a status. ``@errno partial`` says that the
   function writes its [out] parameters also when it fails, so that what it
-  wrote is not lost. It returns ``int``, has an [out] parameter, and none is a
-  handle.
+  wrote is not lost. A function documented ``@errno partial`` returns ``int``
+  and has an [out] parameter, and none of its [out] parameters is a handle.
 
 ``@destroys name``
   The function releases the handle given as ``name``, its only parameter; after
-  it, the handle is not used again. An opaque record created through an [out]
-  pointer must have one.
+  the call, the handle is not used again. An opaque record created through an
+  [out] pointer must have a function that ``@destroys`` it.
 
 ``@lifetime callback call|once|handle ...``
   How long the library may invoke the callback, a promise only the author of
@@ -65,7 +65,7 @@ comment of the function:
 ``@nobind``
   The function is not bound: the parser leaves it out of the IR, before reading
   its types, which may be outside the C subset, such as the ``FILE *`` of a
-  printer. It takes nothing.
+  printer. The tag takes no text.
 
 A ``void *`` parameter right after a callback is the callback's context, as the
 callback-context rule requires; a returned ``const char *`` is borrowed, as the
@@ -78,8 +78,8 @@ Buffers of memory follow names, as the buffer-lifecycle rule requires:
 ``<stem>_register``, documented ``@errno``, registers ``size_t nbytes`` bytes of
 the caller's at its one ``void *``, until ``<stem>_unregister`` takes that
 address. The other parameters of ``<stem>_free``, ``<stem>_realloc`` and
-``<stem>_unregister`` are named, and typed, as parameters of
-``<stem>_alloc`` or ``<stem>_register``, which the bindings pass them again.
+``<stem>_unregister`` have the names and types of parameters of
+``<stem>_alloc`` or ``<stem>_register``, whose arguments the bindings pass.
 """
 
 from typing import Callable, Dict, Iterable, List, Optional, cast
@@ -87,18 +87,14 @@ from typing import Callable, Dict, Iterable, List, Optional, cast
 from . import decls, types
 from .doc import DIRECTIONS
 
-# The suffix of a function taking a @recparam, which the static inline function
-# passing the size has not
+# The static inline function that passes the size has the name without the suffix
 SIZED = "_sized"
 
-# The suffixes of the functions of the buffer pattern, and the name of the size
-# of a buffer
 ALLOC, FREE, REALLOC = "_alloc", "_free", "_realloc"
 REGISTER, UNREGISTER = "_register", "_unregister"
 BUFFER_NBYTES = "nbytes"
 
-# The suffixes of the parameters that are, by convention, the size of the
-# @recparam of their name, and the length and count written of the @arrparam
+# The suffixes of the parameters that a @recparam or @arrparam has by convention
 NBYTES = "_nbytes"
 LEN = "_len"
 WRITTEN = "_nwritten"
@@ -156,7 +152,7 @@ class Semantics(object):
     ):
         self.entities = entities
         self.report = report
-        self.inlines = set(inlines)  # the static and inline functions, by name
+        self.inlines = set(inlines)
         self.typedefs = {e.name: e for e in entities if isinstance(e, decls.Typedef)}
         self.records = {e.name: e for e in entities if isinstance(e, decls.RECORDS)}
 
@@ -215,10 +211,9 @@ class Semantics(object):
         annotation,
         required: bool = True,
     ) -> Optional[decls.Param]:
-        """The parameter that the @<command>{} in the text of 'name' names, or
-        else the one named '<name><suffix>'; None, reported where 'required',
-        when there is neither, and reported when both are parameters and differ,
-        as the name of the one would mislead"""
+        """The parameter that the @<command>{} in the text of 'name' names, or else the
+        parameter '<name><suffix>'. None, reported where 'required', when 'name' has
+        neither; None, reported, when the two are different parameters"""
 
         params = {p.name: p for p in func.params if p.name}
         conventional = f"{name}{suffix}"
@@ -438,8 +433,8 @@ class Semantics(object):
         self.buffers(cursors)
 
     def misplaced(self, entity, cursor):
-        """Report the @arrparam, @recparam and references in the comments of
-        'entity', and of its fields or members, which is no function"""
+        """Report each @arrparam, @recparam and reference in the comments of 'entity',
+        which is not a function"""
 
         docs = [getattr(entity, "doc", None)]
         docs += [f.doc for f in getattr(entity, "fields", None) or []]
@@ -580,8 +575,8 @@ class Semantics(object):
         sized: set = set()  # the sizes, of any record
         for name in func.doc.records:
             self.recparam(func, name, annotation, sized)
-        # Of the pattern only as a whole: the static inline function C callers
-        # call takes no size, so the bindings pass every size or none
+        # The static inline function that C callers call takes no size, so the
+        # bindings pass every size or none
         whole = all(params.get(n) and params[n].size for n in func.doc.records)
         if func.doc.records and not (self.sized(func, annotation) and whole):
             for param in func.params:
@@ -680,7 +675,7 @@ class Semantics(object):
                     after.length = after.count = None
 
     def lifecycle(self, cursors: Dict[str, object]):
-        """Report the records created through an [out] pointer, never destroyed"""
+        """Report the records created through an [out] pointer that nothing @destroys"""
 
         complete = {
             e.name

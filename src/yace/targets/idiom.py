@@ -3,42 +3,39 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-How the functions of an API are called idiomatically, in any language, from
-what the IR knows of them; each target renders it in its own language.
+How the functions of an API are called idiomatically, derived from the IR; each
+target renders the calls in its own language.
 
-From the semantics of the C subset, see :py:mod:`yace.ir.semantics`:
+The calls follow from the semantics of the C subset, see
+:py:mod:`yace.ir.semantics`:
 
-* An opaque record is a handle, also by a typedef of its own name, such as
-  ``typedef struct foo foo;``. A function creating one through an ``[out]``
-  pointer constructs it, the one that ``@destroys`` it releases it, and those
-  taking it as their first parameter are its methods. The rest are functions.
-* What a function writes through an ``[out]`` pointer is returned, not passed:
-  a record, a value, a handle, or the elements of an array, as many as the
-  function says it wrote: its count written, or else the count it returns,
-  or else the capacity. Python allocates the array, of the capacity given;
-  Rust, C++, Go and Zig take it from the caller, as a buffer whose length is
-  the capacity, and return the part written.
-* An array read through a pointer is given as a sequence, its ``@arrparam``
-  length then known from the sequence, and not given.
-* A ``@recparam`` record is given, and its size is that of the record's type,
-  as C's ``sizeof``, and not given.
-* A callback is given as a closure, kept for as long as its ``@lifetime`` says;
-  its ``void *`` context is the binding's to pass, not given. A callback without
-  a ``@lifetime`` is given as the raw function pointer, with its context.
+* An opaque record is a handle, also when named by a typedef of its own name.
+  A function that creates a handle through an ``[out]`` pointer is its
+  constructor, the function that ``@destroys`` it is its destructor, and the
+  functions that take it as their first parameter are its methods.
+* What a function writes through an ``[out]`` pointer is returned: a record, a
+  value, a handle, or the elements of an array. The number of elements is the
+  count written, or else the count returned, or else the capacity. Python
+  allocates the array; Rust, C++, Go and Zig take a buffer from the caller,
+  whose length is the capacity, and return the part written.
+* An array read through a pointer is given as a sequence, and the binding
+  passes its ``@arrparam`` length.
+* A ``@recparam`` record is given, and the binding passes its size.
+* A callback is given as a closure, kept for as long as its ``@lifetime`` says,
+  and the binding passes its ``void *`` context. A callback without a
+  ``@lifetime`` is given as the raw function pointer, with its context.
 * With ``@errno``, a negative return is an error. A function returning ``int``
-  returns only that status, so nothing when it succeeds, unless ``@errno
-  count`` says the ``int`` is a count; any other integer is a value, such as a
-  count, and returned. With ``@errno partial``, the error
-  carries what the call returns when it succeeds.
-* A returned ``const char *`` is a string, and a returned pointer that is
-  ``@nullable`` is nothing when NULL. A ``const char *`` written through an
-  ``[out]`` pointer is a string too, and nothing when NULL; Go has no nothing
-  for a string, and returns it empty.
+  returns nothing on success, unless ``@errno count`` says that the ``int`` is
+  a count; any other integer is returned. With ``@errno partial``, the error
+  carries the values that the call returns on success.
+* A returned ``const char *`` is a string, and a ``@nullable`` pointer is the
+  null value of the language when NULL. A ``const char *`` written through an
+  ``[out]`` pointer is a string or the null value; Go returns the empty string.
 
-Names lose the prefix of the API, and methods also the name of their handle:
-``foo_handle_close()`` is the method ``close`` of ``handle``. A function taking
-a ``@recparam`` also loses the suffix ``_sized``: ``foo_read_sized()`` is
-``read``, the name of the static inline function that C calls it through.
+The name of a call is the C name without the prefix of the API, and for a
+method also without the name of its handle: ``foo_handle_close()`` is the
+method ``close`` of ``handle``. A function taking a ``@recparam`` is named
+without the suffix ``_sized``.
 """
 
 from collections import Counter
@@ -73,8 +70,7 @@ def is_lent(ret) -> bool:
     )
 
 
-# The roles of the functions that the objects of the buffer pattern call, not
-# bound by names of their own
+# The roles of the functions bound only as methods of the buffer objects
 RELEASES = ("free", "realloc", "unregister")
 
 
@@ -100,7 +96,7 @@ class Arg(BaseModel):
     nullable: bool = False
     of: Optional[str] = None  # the param a length, size, context, ... is of
     shared: List[str] = []  # the other sequences a length or capacity is of
-    lifetime: Optional[str] = None  # of a callback
+    lifetime: Optional[str] = None
 
 
 class Out(BaseModel):
@@ -168,7 +164,6 @@ class Call(BaseModel):
         return next(o for o in self.outs if o.param == param)
 
 
-# The kinds of argument the caller gives
 GIVEN = ("value", "string", "sequence", "callback", "capacity")
 
 
@@ -179,12 +174,11 @@ def call_doc(
     partial: str = "",
     buffers: bool = False,
 ) -> Tuple[Doc, str]:
-    """The doc of 'call', and what it fails with: the parameters given, by their
-    names in the binding, and with @errno, what the C function says it returns,
-    as how it fails, since the binding returns the value and fails with the
-    error; the text says both, and cannot be split. With @errno partial, the
-    sentence 'partial' says where the error holds what the call wrote. With
-    'buffers', the caller gives the [out] arrays, see Call.given()"""
+    """The doc of 'call', and the text of how the call fails. The doc holds the
+    parameters the caller gives, by the names 'pname' gives. With @errno, what the C
+    function says it returns is the text of how the call fails, as that text describes
+    both the value and the error. With @errno partial, the sentence 'partial' is
+    appended. With 'buffers', the caller gives the [out] arrays, see Call.given()"""
 
     params = {
         pname(a.param): doc.params[a.param]
@@ -289,7 +283,7 @@ class Idioms(object):
                 call.name = call.function
 
     def decl(self, function: str) -> decls.Function:
-        """The function of the C name 'function', which a record may share"""
+        """The function with the C name 'function'"""
 
         return self.decls[function]
 
@@ -305,7 +299,7 @@ class Idioms(object):
         )
 
     def handle_name(self, record: str) -> str:
-        """The idiomatic name of a handle, without the prefix: 'handle'"""
+        """The name of the handle 'record' without the prefix of the API"""
 
         return strip(record, self.prefix)
 
@@ -424,7 +418,7 @@ class Idioms(object):
         prefixes = [self.prefix]
         if handle:
             prefixes.append(self.handle_name(handle))
-        # The suffix goes first, so that 'foo_sized' of the prefix 'foo' is 'foo'
+        # The suffix is removed first: 'foo_sized' under the prefix 'foo' is 'foo'
         name = strip(func.name[: -len(SIZED)] if sizes else func.name, *prefixes)
 
         return Call(

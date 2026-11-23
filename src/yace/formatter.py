@@ -3,16 +3,13 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-The formatters the emitted code is formatted with, so that the bindings are
-laid out as each language's own formatter lays them out. A target names its
-own in 'Target.FORMATTERS'.
+The formatters that format the emitted code. A target lists its formatters in
+'Target.FORMATTERS'.
 
 Black, clang-format and taplo are dependencies of **yace**, pinned to one
-version each, so their output is that of the **yace** installed. gofmt, go mod
-edit, rustfmt and zig fmt ship with the toolchains of their languages, and
-their version is that of the toolchain found. C and C++ are formatted in the
-style of xNVMe, which 'xnvme.clang-format' gives. Cython has no formatter, so
-the '.pyx' and '.pxd' files keep the layout the Cython target writes.
+version each. gofmt, go mod edit, rustfmt and zig fmt ship with the toolchains
+of their languages. C and C++ are formatted in the style of xNVMe, which
+'xnvme.clang-format' defines. Cython has no formatter.
 """
 
 import os
@@ -81,10 +78,10 @@ class Black(Formatter):
 
 @dataclass(frozen=True)
 class Command(Formatter):
-    """A formatter run as 'tool' with 'args' and the files, or once per file
-    where 'each'; its version is that of 'versioned', the toolchain it ships
-    with, where it has no version of its own. The variables of the environment
-    in 'unset', which would point it at a configuration, are removed."""
+    """A formatter run as the command 'tool' with 'args' and the files, once per file
+    with 'each'. 'versioned' is the toolchain whose version the formatter has, and
+    'unset' the environment variables removed, which would select a configuration
+    file"""
 
     tool: toolchain.Toolchain = toolchain.CC
     args: Tuple[str, ...] = ()
@@ -154,7 +151,7 @@ TOML = Command(
 
 
 def missing(formatters: Sequence[Formatter]) -> List[str]:
-    """The failures of a target whose formatters are not all found"""
+    """Why each formatter of 'formatters' that is not found cannot run"""
 
     return [why for why in (f.missing() for f in formatters) if why]
 
