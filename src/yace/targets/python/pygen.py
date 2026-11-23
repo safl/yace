@@ -93,7 +93,6 @@ def quoted(body: str, indent: str = "") -> str:
     return f'"""{body}"""'
 
 
-# The unsigned integers of each alignment, of which a blob is made
 BLOB_UNITS = {
     1: "ctypes.c_uint8",
     2: "ctypes.c_uint16",
@@ -137,11 +136,11 @@ class Namer(object):
         return self.stubs[cname]
 
     def is_blob(self, record) -> bool:
-        """Whether ctypes cannot lay out the record as C does: an unnamed
-        bit-field sets no alignment in C, but does in ctypes, which raises an
-        error for one of width 0; ctypes starts bit-fields of another type, and
-        a field after one, in a unit of their own, where GCC packs them in what
-        is left; and ctypes packs bit-fields only as MSVC does"""
+        """Whether ctypes cannot lay out 'record' as C does. An unnamed
+        bit-field sets no alignment in C but does in ctypes, which raises an
+        error for one of width 0. ctypes starts a bit-field of another type,
+        or a field after one, in a new unit, where GCC packs it in what is
+        left. ctypes packs bit-fields only as MSVC does."""
 
         bits = [f for f in record.fields if f.bits is not None]
         if not record.size or not bits:
@@ -272,7 +271,7 @@ def errcheck(function: decls.Function, namer: Namer) -> str:
     return "None"
 
 
-# What the records have of their own, which no accessor may hide
+# The methods of every record, which no accessor may hide
 RECORD_NAMES = {"to_dict", "fpr", "pr"}
 
 

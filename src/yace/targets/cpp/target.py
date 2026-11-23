@@ -84,7 +84,7 @@ class CPP(Target):
         return paths
 
     def check(self, model: Model) -> list:
-        """Build and run the check program; returns what failed, if anything"""
+        """Build and run the check program, and return the list of failures"""
 
         failures = toolchain.missing(self.TOOLCHAINS)
         if failures:

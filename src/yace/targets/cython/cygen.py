@@ -17,8 +17,8 @@ from yace.ir import decls, types
 from yace.ir.model import Model
 from yace.targets.capi import cgen
 
-# What Cython reserves beyond Python's keywords, which a name in a .pxd may not
-# be; such a C name is declared under another, its C name given as a string
+# What Cython reserves beyond Python's keywords. Such a C name is declared
+# under another name, with its C name as a string.
 RESERVED = {
     "DEF",
     "ELIF",
@@ -309,8 +309,7 @@ class Pxd(object):
             if isinstance(entity, decls.Function):
                 body.append(self.function(entity))
 
-        # Types used but declared outside the headers, such as FILE, known only
-        # by name, so usable only through pointers
+        # A type declared outside the headers is usable only through pointers
         stubs = [f"ctypedef bint {BOOL}"]
         for cname, name in sorted(self.names.stub_types.items()):
             stubs += [f"ctypedef struct {self.names.cname(name, cname)}:", "    pass"]
@@ -397,8 +396,7 @@ class Check(object):
                     self.local(field.typ, member)  # a bit-field has no address
                 elif record.packed:
                     # The address of a packed field may not be aligned, so a
-                    # copy of the field is assigned, or of an array field, a
-                    # copy of its first element
+                    # copy is assigned: of the field, or of its first element
                     typ = field.typ
                     while isinstance(typ, types.Array):
                         typ, member = typ.of, f"{member}[0]"

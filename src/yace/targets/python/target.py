@@ -15,10 +15,10 @@ Emits, into ``<output>/python``:
 
 The Cython target emits the C API for Cython, a ``.pxd``.
 
-C names are kept, so the documentation of the C API applies: functions,
-constants and enum members by their C names, as Python's own modules bind C
-APIs. Only types are renamed, to CamelCase, as Python names classes:
-``struct foo_point`` is ``FooPoint``.
+Functions, constants and enum members keep their C names, as in Python's own
+modules that bind C APIs, so the documentation of the C API applies. Only
+types are renamed, to CamelCase, as Python names classes: ``struct foo_point``
+is ``FooPoint``.
 """
 
 import json
@@ -100,8 +100,7 @@ class Python(Target):
         ]
         complete = cgen.ordered_records(model)
 
-        # Resolve every type now, so the stubs of those the IR does not define
-        # are known before the module is laid out
+        # Resolving every type finds the stubs before the module is laid out
         for entity in typedefs:
             namer.ctype(entity.typ)
         for record in complete:

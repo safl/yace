@@ -23,8 +23,7 @@ from .pyxgen import Renderer
 # The methods of every record. A field of the same name hides the method.
 PRINTERS = {"to_dict", "fpr", "pr"}
 
-# The Python names the stub uses, each with the module to import the name
-# from. "array" is itself a module.
+# The Python names the stub uses, by the module to import each from
 PYTHON = {
     "array": "",
     "bool": "builtins",
@@ -64,8 +63,7 @@ class Stub(object):
         names the module defines besides its functions and classes."""
 
         self.r = renderer
-        # The stub imports a Python name under an alias where the module or one
-        # of its classes defines the same name and so would shadow the Python name
+        # A Python name that the module also defines is imported under an alias
         defined = self.defined() | set(names)
         self.py: Dict[str, str] = {}
         for name in PYTHON:
@@ -181,8 +179,6 @@ class Stub(object):
             return self.py["int"]
         return self.py["Any"]
 
-    # Functions
-
     def callback(self, typ) -> str:
         """Return the Callable type of a closure given for the callback type
         'typ'"""
@@ -261,8 +257,7 @@ class Stub(object):
                     view = self.r.record_class(self.r.resolve(elem).to)
                     found.append(self.t("{list}[{cls} | None]", cls=view))
                 else:
-                    # array.array has no bool code, so an array of bool has int
-                    # elements
+                    # array.array has no bool code: an array of bool has ints
                     floating = self.element(elem) == self.py["float"]
                     item = self.py["float" if floating else "int"]
                     found.append(self.t("{array}.array[{item}]", item=item))
@@ -324,8 +319,6 @@ class Stub(object):
         if destructor:
             lines.append(self.function(destructor, "    ", self_=True))
         return "\n".join(lines)
-
-    # Records
 
     def field(self, record, field: decls.Field) -> Optional[Tuple[str, str]]:
         """Return the type that the property of 'field' returns and the type

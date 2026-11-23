@@ -38,8 +38,7 @@
 #include <utility>
 #include <vector>
 
-// The C header is C, which may declare what ISO C++ has not, such as a
-// flexible array member
+// The C header may use what ISO C++ lacks, such as a flexible array member
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
 #include <lib{{ meta.prefix }}.h>

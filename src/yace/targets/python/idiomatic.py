@@ -106,7 +106,7 @@ BUFFER = '''class Buffer(object):
             try:
                 self._free(self._address)
             except ValueError:
-                pass  # what it was allocated with is closed; it is not freed'''
+                pass  # its handle is closed, so the memory is not freed'''
 
 
 REGISTRATION = '''class Registration(object):
@@ -330,8 +330,7 @@ class Renderer(object):
             name = self.pname(arg.param)
             typ = func.params[arg.index].typ
             if arg.kind == "self":
-                # Read before any closure is kept, so a closed handle raises
-                # before it keeps one
+                # Read first, so a closed handle raises before a closure is kept
                 pre.insert(0, "_ptr = self._ptr")
                 args.append("_ptr")
             elif arg.kind == "value" and is_opaque_ptr(typ, self.idioms.handles) in (
@@ -706,10 +705,9 @@ class Renderer(object):
         destructor = calls["destructor"][0] if calls["destructor"] else None
         if destructor:
             wraps = [
-                f"    Wraps a pointer to struct {record}, which it releases",
-                f"    with {destructor.name}(), also on leaving a with-block or when",
-                "    collected,",
-                "    when it owns it.",
+                f"    Wraps a pointer to struct {record}. An object that owns the",
+                f"    pointer releases it with {destructor.name}(), also on leaving a",
+                "    with-block or when collected.",
             ]
         else:
             wraps = [f"    Wraps a pointer to struct {record}, which nothing releases."]
@@ -791,14 +789,12 @@ class Renderer(object):
         return True
 
     def render(self) -> str:
-        # The message of the library where the meta names the function that
-        # returns it and the function returns one, else the message of the errno
         errmsg = self.idioms.model.errmsg()
         message = f"{pygen.ident(errmsg.name)}() or " if errmsg else ""
         parts = [
             "def _check(ret, *partial):",
-            '    """Raise the negative errno returned as an OSError; with \'partial\',',
-            '    the OSError holds it as what the call wrote before it failed"""',
+            "    \"\"\"Raise an OSError for a negative errno 'ret'; with 'partial',",
+            '    the OSError holds what the call wrote before it failed"""',
             "",
             "    if ret < 0:",
             f"        error = OSError(-ret, {message}_os.strerror(-ret))",

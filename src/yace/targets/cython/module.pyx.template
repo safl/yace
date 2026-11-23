@@ -88,8 +88,7 @@ cdef void *_calloc(Py_ssize_t count, size_t size) except NULL:
     return made
 
 
-# The struct formats accepted for each kind of element: signed, unsigned,
-# floating, bool, enum, pointer. _acquire() also accepts any one-byte format.
+# The struct formats that _acquire() accepts for each kind of element
 _FORMATS = {
     b"i": b"bhilqn",
     b"u": b"BHILQN",
@@ -120,7 +119,6 @@ cdef object _zeroed(bytes kind, Py_ssize_t itemsize, object count):
     return made
 
 
-# DLPack: the tensor of a capsule named "dltensor" or "dltensor_versioned"
 cdef struct _DLDevice:
     int32_t device_type
     int32_t device_id
@@ -174,9 +172,8 @@ cdef object _compact(object shape, object strides, Py_ssize_t itemsize):
 
 
 cdef class _Device:
-    """The memory of a DLPack tensor or a CUDA array, which may be a device's,
-    through the buffer protocol: for passing its address to C, not for
-    reading"""
+    """A buffer over the memory of a DLPack tensor or a CUDA array. The memory
+    may be a device's: pass its address to C, do not read it."""
 
     cdef uintptr_t address
     cdef Py_ssize_t nbytes
@@ -599,9 +596,8 @@ cdef class _Record:
         return f"{self._yace_name}:\n{_yaml(_Record.to_dict(self), 2)}"
 
     def __repr__(self):
-        """Return the record as a call of its constructor, with each field by
-        name. A union shows every member, because the member in use is not
-        known."""
+        """A call of the constructor with each field by name. A union shows
+        every member, as the one in use is not known."""
 
         cls = type(self)
         fields = []
@@ -717,7 +713,7 @@ cdef class {{ buffer_class }}:
             try:
                 self._free(self._address)
             except ValueError:
-                pass  # what it was allocated with is closed; it is not freed
+                pass  # its handle is closed, so the memory is not freed
 {%- endif %}
 
 {%- if registrations %}
