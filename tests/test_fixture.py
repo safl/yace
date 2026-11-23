@@ -237,8 +237,7 @@ def test_the_stub_of_the_cython_module_is_that_of_the_module(model, library, tmp
     assert proc.returncode == 0, proc.stdout + proc.stderr
 
 
-# Each target of the benchmark, the tool that builds it, and the names of the
-# results that its program prints
+# target: (the tool that builds it, the results that its program prints)
 BENCH = {
     "c": ("cc", ["c"]),
     "cpp": (os.environ.get("CXX", "c++"), ["cpp"]),
@@ -303,7 +302,7 @@ def test_the_benchmark_runs_every_target_alike(tmp_path, target):
 
 
 def benchlib():
-    """examples/libfoo/bench/scripts/benchlib.py"""
+    """Return examples/libfoo/bench/scripts/benchlib.py, imported as a module"""
 
     spec = importlib.util.spec_from_file_location(
         "benchlib", FIXTURE / "bench" / "scripts" / "benchlib.py"
@@ -417,8 +416,7 @@ def test_the_cpp_check_prints_the_expected_documents(
     assert documents(run([binary, fmt]), fmt) == expected
 
 
-# What foo_errmsg() returns after foo_point_add() failed on a handle named
-# 'points' that holds FOO_POINTS_MAX points
+# foo_errmsg() after foo_point_add() failed on the full handle 'points'
 FULL = "the handle 'points' holds 8 points, as many as it can"
 
 
@@ -549,7 +547,7 @@ def test_the_benchmark_calibrates_the_rounds_to_the_slowest_way():
     lib = benchlib()
     rows = [{"ns": 2.5}, {"ns": 10.0}]
 
-    # 8 points at 10 ns for 10**7 rounds is 0.8 s; 2 s takes 2.5 times as many
+    # 8 points at 10 ns for 10**7 rounds take 0.8 s; 2 s take 2.5 times as many
     assert lib.rounds_for(rows, 10**7, 2.0) == 25 * 10**6
     assert lib.rounds_for(rows, 10**6, 2.0) is None
     assert lib.rounds_for([{"ns": 0.0}], 1000, 2.0) is None

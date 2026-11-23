@@ -240,8 +240,8 @@ WRONG = [
 
 
 def test_a_wrong_out_count_or_partial_errno_is_reported(parse):
-    """Each wrong count written or @errno is reported and not applied, except
-    that of two arrays given one count written the first keeps it"""
+    """Each wrong count written or @errno is reported and not applied. Where
+    two arrays are given one count written, the first array keeps the count."""
 
     for source, message, kept in WRONG:
         model, diagnostics = parse("#include <stdint.h>\n" + source)

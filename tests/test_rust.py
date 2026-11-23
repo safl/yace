@@ -561,8 +561,7 @@ int api_use(int x, struct api_x *p) { return p ? x : -1; }
 """
 
 
-# api_reap writes at most three elements and returns -fail, so it succeeds only
-# when 'fail' is 0
+# api_reap returns -fail, so it succeeds only when 'fail' is 0
 REAP = (
     "#include <stdint.h>\n"
     + doc(
@@ -795,8 +794,7 @@ SHARED = (
 )
 
 
-# Parameters named as the locals that the idiomatic layers derive from the
-# parameter name 'cb'
+# Named as the locals that the idiomatic layers derive from the parameter 'cb'
 LOCALS = (
     "int cb_cb, int cb_ctx, int cb_c, int cb_key, int cb_kept, int cb_ref,"
     " int cb_tramp, int cb_t, int cb_fn_t, int cb_held, int cb_trampoline,"
@@ -1573,8 +1571,6 @@ def test_a_packed_record_is_read_by_copies(parse, tmp_path):
     )
 
 
-# Strings with a length, which C reads as bytes, one sharing its length with an
-# array, and an [out] array of bytes that is no void *
 COUNTED = (
     "#include <stddef.h>\n#include <stdint.h>\n"
     + doc("Put", "@arrparam buf B @len_at{n}")

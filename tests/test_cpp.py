@@ -55,8 +55,6 @@ def test_the_subset_prints_as_the_c_api_does(parser, tmp_path):
         assert (tmp_path / "cpp" / "cpp" / f"check.{fmt}").read_text() == c_out
 
 
-# VALUES declares a record with a field of every kind the printers print, a
-# union, and the record of bit-fields of BITS
 VALUES = (
     "#include <stdbool.h>\n#include <stddef.h>\n#include <stdint.h>\n"
     "/** E */\nenum api_e { API_E_A = -1, API_E_B = 2, API_E_C = 2 };\n"
@@ -1104,8 +1102,7 @@ def test_the_exception_holds_the_message_of_the_function_the_meta_names(
         (16, "api_close", "still in use"),
         (11, "api_reap", "reaped 1 of 3"),
     ]
-    # The message, or the text of the errno where there is none, and not both:
-    # a library's message may end in the text of the errno, as strerror() gives
+    # Not both: a library's message may end in the text of the errno
     expected = [
         f"{code} {function}: " + (message if named and message else os.strerror(code))
         for code, function, message in failed
@@ -1287,7 +1284,6 @@ def test_the_comment_says_what_the_signature_has_for_a_parameter_it_folds(
     )
     assert process(model, ["cpp"], tmp_path) == []
 
-    # Each comment on one line, without the ' * ' that starts a line of it
     hpp = (tmp_path / "cpp" / "api.hpp").read_text()
     hpp = re.sub(r"\s+", " ", re.sub(r"\s+\*(?=\s)", " ", hpp))
     # 'total' is returned too, and no text names it

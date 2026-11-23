@@ -51,8 +51,6 @@ needs_mypy = pytest.mark.skipif(
     importlib.util.find_spec("mypy") is None, reason="no mypy"
 )
 
-# Records, enums, defines and functions whose names Python, Cython or the
-# generated module already uses
 NAMED = (
     "#include <stdint.h>\n"
     "struct foo_bar { int class; };\nstruct foo__bar { int x; };\n"
@@ -65,8 +63,7 @@ NAMED = (
     "int len(const struct api_buf *b, kind_t k);\n"
 )
 
-# C names that Cython reserves, and the name 'tag' for both a struct tag and a
-# function. C keeps the two in separate namespaces; Cython does not.
+# C keeps struct tags and functions in separate namespaces; Cython does not
 RESERVED = (
     "/** S */\nstruct api_s {\n\tint class; ///< C\n\tint include; ///< I\n};\n"
     "/** Tag */\nstruct tag { int a; };\n"
@@ -206,7 +203,7 @@ def test_headers_outside_the_subset_still_bind(parse, tmp_path):
     assert process(model, ["cython"], tmp_path) == []
 
     ns = compiled(tmp_path)
-    assert "log_it" not in ns  # a variadic function is not bound
+    assert "log_it" not in ns  # No variadic function is bound
     outer = ns["Outer"](bits=9)
     assert (outer.bits, list(outer.ids)) == (1, [0, 0])
     assert ns["Flex"]().to_dict() == {"n": 0}
@@ -242,7 +239,7 @@ def test_a_field_named_as_a_keyword_is_reached_by_its_escaped_name(parse, tmp_pa
     record = compiled(tmp_path)["ApiR"]()
     record.async_ = 3
     with pytest.raises(AttributeError):
-        record.unknown = 1  # a record has no attributes but its fields
+        record.unknown = 1
     assert record.to_dict() == {"async": 3, "class": 0, "class_": 0}
 
 
@@ -333,7 +330,7 @@ def test_a_string_set_is_kept_by_every_record_whose_memory_points_to_it(
     out = api["ApiOut"]()
     label = Label(b"label")
     ref = weakref.ref(label)
-    out.in_.label = label  # set through the view out.in_, which nothing keeps
+    out.in_.label = label  # Nothing keeps the view out.in_
     del label
     assert kept(ref) and out.in_.label == "label"
     with pytest.raises(TypeError):
@@ -522,7 +519,7 @@ def test_a_capacity_whose_size_in_bytes_overflows_raises(parse, tmp_path):
 
     assert api["fill"](2).tolist() == [7, 7]
     with pytest.raises((MemoryError, OverflowError)):
-        api["fill"](2**62 + 1)  # times 4 bytes is 4 modulo 2**64
+        api["fill"](2**62 + 1)  # Times 4 bytes is 4 modulo 2**64
 
 
 def test_parameters_named_as_what_a_body_calls_pass_their_values_to_c(parse, tmp_path):
@@ -559,8 +556,6 @@ def test_parameters_named_as_what_a_body_calls_pass_their_values_to_c(parse, tmp
     assert api["sum"]([1, 2], "abc", 10, 20, 30, 40) == 105
 
 
-# Parameters and results that the stub must type as the module converts them:
-# an [out] array of bool, a 'char *' parameter, and a callback returning a string
 TYPED = (
     "#include <stdbool.h>\n#include <stddef.h>\n"
     "typedef const char *(*api_name_cb)(void *arg);\n"
@@ -597,8 +592,7 @@ def test_the_stub_types_a_pointer_given_as_its_address(parse, tmp_path):
     assert "def flags(flags_len: int) -> array.array[int]:" in stub
 
 
-# Functions, methods, fields and a handle with the Python names that the stub
-# uses in its annotations and decorators
+# Declarations with the Python names that the stub uses itself
 SHADOWING = (
     "#include <stddef.h>\n#include <stdint.h>\nstruct api_buffer;\n"
     "struct api_r { uint32_t bytes, list, str, property, Any; char name[4];"
