@@ -6,11 +6,9 @@
 
 // Package {{ package }} binds {{ meta.name }}{% if meta.brief %}: {{ meta.brief | oneline }}{% endif %}
 //
-// The raw layer declares the C API as C has it, by its C names, exported; the
-// idiomatic layer, after it, is what the header says beyond C. Every struct and
-// union with fields, but for one with bit-fields, prints itself as the C API's
-// pretty-printers print it. Memory given to C must hold no Go pointers, as cgo
-// requires.
+// The raw layer declares the C API with its C names, exported; the idiomatic
+// layer follows it. Every struct and union with fields has pretty-printers.
+// Memory given to C must hold no Go pointers, as cgo requires.
 package {{ package }}
 
 /*
@@ -35,10 +33,10 @@ import (
 {%- endif %}
 {%- endfor %}
 
-// CLong is C's long, as wide as the platform's
+// CLong is C's long, whose width depends on the platform
 type CLong = C.long
 
-// CULong is C's unsigned long, as wide as the platform's
+// CULong is C's unsigned long, whose width depends on the platform
 type CULong = C.ulong
 
 // The output formats of the pretty-printers
@@ -47,9 +45,9 @@ const (
 	{{ PREFIX }}_PR_DEF = 0x0
 	// YAML
 	{{ PREFIX }}_PR_YAML = 0x1
-	// Terse; the generated printers print YAML
+	// Terse, which the generated printers print as YAML
 	{{ PREFIX }}_PR_TERSE = 0x2
-	// JSON, on one line
+	// JSON on one line
 	{{ PREFIX }}_PR_JSON = 0x4
 )
 {%- for line in body %}

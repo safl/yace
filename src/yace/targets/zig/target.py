@@ -3,19 +3,19 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-The Zig target: a module binding the API, in two layers, the raw one declaring
-the C API as C has it and the idiomatic one over it, with pretty-printers for
-every struct and union, and a check of what it generated
+The Zig target emits a module that binds the API in two layers: the raw layer
+declares the C API with its C names, and the idiomatic layer wraps it. The
+module has pretty-printers for every struct and union, and programs check it.
 
-Emits, into ``<output>/zig``:
+The target writes into ``<output>/zig``:
 
 * ``<prefix>.zig``, the bindings
 * ``<prefix>_check.zig``, the check program
-* ``<prefix>_compile.zig``, what has all of the module compiled
-* ``<prefix>_signatures.zig``, the check of the signatures against the headers
+* ``<prefix>_compile.zig``, which has all of the module compiled
+* ``<prefix>_signatures.zig``, which checks the signatures against the headers
 
-The module needs Zig 0.16, as Zig's standard library changes between releases
-and the printers use its ``std.Io.Writer``, and libc, as the C API does.
+The module needs Zig 0.16, as the printers use its ``std.Io.Writer``, and libc,
+as the C API does.
 """
 
 import json
@@ -44,7 +44,7 @@ def zigdoc(doc) -> str:
     return "\n" + "\n".join(f"/// {line}".rstrip() for line in lines)
 
 
-# What the check of the signatures says where they disagree
+# Must match the text of the @compileError in signatures.zig.template
 DISAGREE = "the bindings and the headers disagree on"
 
 
@@ -69,7 +69,7 @@ class Zig(Target):
         ]
         printable = [r for r in cgen.ordered_records(model) if r.fields]
 
-        # Resolve every type now, so the stubs are known before the layout
+        # namer.ztype() records the stubs, which the context reads below
         for entity in typedefs:
             namer.ztype(entity.typ)
         for record in records:
@@ -146,7 +146,7 @@ class Zig(Target):
         return paths
 
     def check(self, model: Model) -> list:
-        """Build and run the check program; returns what failed, if anything"""
+        """Build and run the check program, and return the failures"""
 
         failures = toolchain.missing(self.TOOLCHAINS)
         if failures:
@@ -154,7 +154,7 @@ class Zig(Target):
         zig = toolchain.ZIG.command()
 
         prefix = cgen.c_ident(model.meta.prefix)
-        out = self.output.resolve()  # zig runs in it, so relative paths would not do
+        out = self.output.resolve()  # zig runs in 'out', so the paths are absolute
         binary = out / f"{prefix}_check"
         cache = ["--cache-dir", str(out / ".cache")]
         cache += ["--global-cache-dir", str(out / ".cache")]
@@ -189,10 +189,10 @@ class Zig(Target):
         return failures
 
     def signatures(self, model: Model, zig: str, cache: list) -> list:
-        """Compile the check of the signatures with the headers the IR was
-        parsed from, found in the include directories, so that an extern
-        function the header does not declare alike fails; where a header is not
-        found, it warns that the signatures are not checked, and fails nothing"""
+        """Compile the check of the signatures against the headers the IR was
+        parsed from, found in the include directories. A function that
+        disagrees with its declaration is a failure. Where a header is not
+        found, a warning says so, and nothing fails."""
 
         log_path = self.output / "signatures.log"
         note = self.headers_unchecked(model)
@@ -208,9 +208,7 @@ class Zig(Target):
         proc = subprocess.run(cmd, cwd=self.output, capture_output=True, text=True)
         log_path.write_text(f"{' '.join(cmd)}\n{proc.stdout}{proc.stderr}")
         if proc.returncode and DISAGREE not in proc.stderr:
-            # Zig's translation of the headers failed, not an assertion of the
-            # check, such as where shape() takes the size of a record Zig cannot
-            # translate
+            # Without DISAGREE in the output, Zig failed to translate the headers
             first = next(
                 (line for line in proc.stderr.splitlines() if "error:" in line), ""
             )

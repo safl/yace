@@ -3,17 +3,17 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-The idiomatic Rust layer of the crate, the module ``safe``, over the raw
-functions: handles that release themselves when dropped, ``io::Result`` for
-errors, what is written through ``[out]`` pointers returned, slices for arrays,
-``&CStr`` for strings, ``Option`` where NULL is allowed, and closures for
-callbacks. See :py:mod:`yace.targets.idiom` for what is derived from where.
+The idiomatic Rust layer is the module ``safe``, which wraps the raw functions.
+A handle releases itself when dropped, an error is an ``io::Result``, a value
+written through an ``[out]`` pointer is returned, an array is a slice, a string
+is a ``&CStr``, a pointer that may be NULL is an ``Option``, and a callback is
+a closure. :py:mod:`yace.targets.idiom` documents what each idiom is derived
+from.
 
-A function of the layer is safe where its types check everything the caller
-gives: a valid handle, a pointer that is not NULL, a buffer as long as its count,
-by the semantics the header documents. One taking a raw pointer, or a record
-holding one, is ``unsafe``, as is one returning a string borrowed from one of
-several arguments.
+A function is safe when its types enforce what the header requires of the
+caller: a valid handle, a pointer that is not NULL, a buffer as long as its
+count. A function is ``unsafe`` when it takes a raw pointer or a record holding
+one, or returns a string borrowed from one of two or more arguments.
 """
 
 import re
@@ -36,11 +36,11 @@ from yace.targets.python.pygen import camel
 
 from . import rgen
 
-# What a body names unqualified, besides trampolines, or a parameter cannot bind
+# Names a generated body uses unqualified, or a parameter cannot bind
 BOUND = {"ret", "Some", "None", "Ok", "Err"} | rgen.NOT_RAW
 
 
-# Types the module 'safe' names without a path, from std::ffi and the prelude
+# Names of std::ffi and the prelude that the module 'safe' uses without a path
 STD = {
     "Any",
     "Box",
@@ -67,12 +67,10 @@ STD = {
 }
 
 
-# The lifetime of the buffers the caller gives for [out] arrays, and of the part
-# of each that the function returns
+# The lifetime of the buffers the caller gives for [out] arrays
 BUFFER = "'buf"
 
-# The local of what a partial call returns, whether it fails or not; no
-# parameter is named so, as pname() renames one ending in '_'
+# No parameter has this name: pname() renames a parameter ending in '_'
 PARTIAL_VALUE = "value_"
 
 PARTIAL = [
@@ -81,7 +79,7 @@ PARTIAL = [
     "pub struct Partial<T> {",
     "    /// The error the call failed with",
     "    pub error: io::Error,",
-    "    /// What the call returns when it succeeds, with what it wrote",
+    "    /// What the call returns on success, with what it wrote",
     "    pub value: T,",
     "}",
     "",
@@ -105,16 +103,13 @@ PARTIAL = [
 ]
 
 
-# The lifetime of what a Buffer or a Registration borrows: the handles it was
-# made with, and the memory registered
+# The lifetime of what a Buffer or a Registration borrows
 HELD = "'a"
 
 BUFFER_STRUCT = """\
-/// Memory the library allocated, freed when dropped with the arguments it
-/// was allocated with. It borrows the handles it was allocated with, so they
-/// outlive it. The memory may be a device's, such as a GPU's, which the CPU
-/// cannot read, and nothing in the API says which; hence the slices of it are
-/// unsafe.
+/// Memory the library allocated. Dropping the Buffer frees the memory, so the
+/// Buffer borrows the handles the memory was allocated with. The memory may
+/// belong to a device that the CPU cannot read, so the slices are unsafe.
 pub struct Buffer<'a> {
     ptr: NonNull<c_void>,
     len: usize,
@@ -156,8 +151,8 @@ impl<'a> Buffer<'a> {
         std::slice::from_raw_parts_mut(self.ptr.as_ptr() as *mut u8, self.len)
     }
 
-    /// Resize the memory to 'nbytes', keeping its bytes up to the smaller
-    /// size. Where the library cannot resize it, the memory is unchanged.
+    /// Resizes the memory to 'nbytes', keeping the bytes up to the smaller
+    /// size. On an error the memory is unchanged.
     pub fn realloc(&mut self, nbytes: usize) -> io::Result<()> {
         let realloc = self
             .realloc
@@ -177,16 +172,16 @@ impl Drop for Buffer<'_> {
 }"""
 
 REGISTRATION_STRUCT = """\
-/// Memory of the caller's that the library uses until it is unregistered,
-/// when dropped or by unregister(). It borrows the memory, and the handles it
-/// was registered with, so they outlive it.
+/// Memory of the caller that the library uses until the Registration is
+/// dropped or unregister() is called. The Registration borrows the memory and
+/// the handles the memory was registered with.
 pub struct Registration<'a> {
     memory: &'a mut [u8],
     unregister: Option<Box<dyn Fn(*mut c_void) -> io::Result<()> + 'a>>,
 }
 
 impl Registration<'_> {
-    /// Unregister the memory, with the error that unregistering fails with
+    /// Unregisters the memory
     pub fn unregister(mut self) -> io::Result<()> {
         match self.unregister.take() {
             Some(unregister) => unregister(self.memory.as_mut_ptr() as *mut c_void),
@@ -226,31 +221,31 @@ class Renderer(object):
 
     @cached_property
     def reserved(self) -> set:
-        """What a body names unqualified, or a parameter cannot bind: the
-        types the module imports from the crate, as an enum's newtype is a tuple
-        struct, which a binding may not shadow"""
+        """The names no parameter may have: BOUND and the types the module
+        imports, as the newtype of an enum is a tuple struct, which a binding
+        cannot shadow"""
 
         return BOUND | set(self.namer.names.values())
 
     def pname(self, name: str) -> str:
-        """A parameter's name in Rust, other than a name the body uses, such as
-        the local 'ret', a trampoline or a type; one ending in '_' gets
-        another '_' appended, so no two parameters share a name"""
+        """Return the Rust name of a parameter. A name the body uses, such as
+        'ret', a trampoline or a type, gets '_' appended, and so does one
+        ending in '_', so that no two parameters share a name."""
 
         if name in self.reserved or name.endswith(("_", "_trampoline")):
             return f"{name}_"
         return rgen.ident(name)
 
     def local(self, call: Call, param: str, suffix: str) -> str:
-        """The local made for 'param', other than the name of a parameter"""
+        """Return the local made for 'param', which no parameter is named"""
 
         return local(
             self.pname(param), suffix, {self.pname(a.param) for a in call.args}
         )
 
     def alias(self, typedef: str, suffix: str) -> str:
-        """The name of a closure type of the callback 'typedef', other than that
-        of any raw type, which the module 'safe' imports"""
+        """Return the name of a closure type of the callback 'typedef', which
+        no raw type has, as the module imports those"""
 
         name = f"{camel(typedef)}{suffix}"
         structs = {self.struct_name(h) for h in self.idioms.handles}
@@ -263,8 +258,8 @@ class Renderer(object):
         return name
 
     def struct_name(self, handle: str) -> str:
-        """The name of a handle's struct, other than that of any raw type and
-        of any the module uses from std and the prelude"""
+        """Return the name of the struct of 'handle', which differs from the
+        name of every raw type and from the names in STD"""
 
         name = camel(self.idioms.handle_name(handle))
         if (
@@ -276,12 +271,12 @@ class Renderer(object):
         return rgen.ident(name)
 
     def raw(self, typ, param=False) -> str:
-        """The raw type, named from inside the module 'safe'"""
+        """Return the raw type as the module 'safe' names it"""
 
         return self.namer.rtype(typ, param)
 
     def callback_typedef(self, typ) -> Optional[str]:
-        """The name of the callback typedef 'typ' refers to, if it does"""
+        """Return the callback typedef 'typ' refers to, if any"""
 
         if isinstance(typ, types.TypedefRef) and typ.name in self.namer.typedefs:
             resolved = self.namer.resolve(typ)
@@ -305,9 +300,9 @@ class Renderer(object):
         return f"dyn {kind}({', '.join(params)}){self.namer.ret(func.ret)}"
 
     def trampolines(self, name: str, lifetimes: set) -> str:
-        """The closure types of the callback typedef 'name', and a trampoline
-        for each lifetime: a borrowed closure, one boxed and called once, or one
-        boxed and kept by the handle"""
+        """Return the closure types of the callback typedef 'name', and a
+        trampoline per lifetime: a borrowed closure, one boxed and called once,
+        or one the handle keeps"""
 
         func = self.namer.resolve(self.model.find(name, decls.Typedef).typ).to
         params, passed, ctx = [], [], None
@@ -328,20 +323,20 @@ class Renderer(object):
         head = f"({', '.join(params)}){self.namer.ret(func.ret)} {{"
         call = f"    f({', '.join(passed)})"
         lines = [
-            f"/// The closures given as {self.namer(name)}",
+            f"/// A closure given as a {self.namer(name)}",
             f"pub type {alias}<'a> = {self.closure_type(name)} + 'a;",
         ]
         if "once" in lifetimes:
             lines += [
                 "",
-                f"/// The closures given as {self.namer(name)}, called once",
+                f"/// A closure given as a {self.namer(name)}, called once",
                 f"pub type {once} = {self.closure_type(name, 'FnOnce')} + 'static;",
             ]
         if "once-send" in lifetimes:
             lines += [
                 "",
-                f"/// The closures given as {self.namer(name)}, called once, from",
-                "/// whichever thread calls into the library next",
+                f"/// A closure given as a {self.namer(name)}, called once, on",
+                "/// whichever thread next calls into the library",
                 f"pub type {sent} = {self.closure_type(name, 'FnOnce')}"
                 " + Send + 'static;",
             ]
@@ -372,14 +367,14 @@ class Renderer(object):
         return "\n".join(lines)
 
     def raw_callback(self, call: Call, arg: Arg) -> bool:
-        """Whether the context 'arg' is of a callback declared inline, which has
-        no trampoline, so both are given raw"""
+        """Return whether the context 'arg' is of a callback declared inline,
+        which has no trampoline"""
 
         owner = next(a for a in call.args if a.param == arg.of)
         return self.callback_typedef(owner.typ) is None
 
     def param_type(self, call: Call, arg: Arg) -> Optional[str]:
-        """The Rust type of a parameter given by the caller, None when hidden"""
+        """Return the Rust type of a parameter, None when it is hidden"""
 
         typ = arg.typ
         opt = (lambda t: f"Option<{t}>") if arg.nullable else (lambda t: t)
@@ -418,7 +413,7 @@ class Renderer(object):
         return self.raw(typ, True)
 
     def param_expr(self, call: Call, arg: Arg) -> str:
-        """The expression passing the parameter on to the raw function"""
+        """Return the expression that passes 'arg' to the raw function"""
 
         name = self.pname(arg.param)
         typ = arg.typ
@@ -480,13 +475,13 @@ class Renderer(object):
         return name
 
     def length(self, call: Call, out) -> str:
-        """The local of the number of elements of the [out] array 'out' that the
-        function wrote, at most the length of the buffer"""
+        """Return the local for the number of elements the function wrote to
+        the [out] array 'out', at most the buffer's length"""
 
         return self.local(call, out.param, "len")
 
     def lengths(self, call: Call) -> List[str]:
-        """The statements setting each local of length(), after the call"""
+        """Return the statements that set the locals of length()"""
 
         found = []
         count = "ret as usize" if call.returns == "count" else None
@@ -504,7 +499,7 @@ class Renderer(object):
         return found
 
     def results(self, call: Call):
-        """The (type, expression) of each value the function returns"""
+        """Return the (type, expression) of each value returned"""
 
         if self.makes(call) == "register":
             made = f"{self.registration_struct}<{HELD}>"
@@ -517,7 +512,7 @@ class Renderer(object):
                 typ = f"&{BUFFER} mut [{self.elem(out.typ)}]"
                 written = out.count or count
                 if not out.count:
-                    count = None  # the count is that of the array, not returned too
+                    count = None  # the count sizes the array; it is not returned too
                 if written:
                     found.append((typ, f"&mut {name}[..{self.length(call, out)}]"))
                 else:
@@ -562,7 +557,7 @@ class Renderer(object):
         return found
 
     def size(self, call: Call, param: str) -> str:
-        """The number of elements of the slice given as 'param'"""
+        """Return the number of elements of the slice 'param'"""
 
         arg = next(a for a in call.args if a.param == param)
         name = self.pname(param)
@@ -573,8 +568,8 @@ class Renderer(object):
         return f"{name}.len()"
 
     def reborrowed(self, arg: Arg) -> bool:
-        """Whether 'arg' is an Option of a mutable slice, which is not Copy, so
-        the call takes its address and its length through reborrows of it"""
+        """Return whether 'arg' is an Option of a mutable slice, which is not
+        Copy, so the call reads it through reborrows"""
 
         return (
             arg.kind == "sequence"
@@ -583,16 +578,16 @@ class Renderer(object):
         )
 
     def elem(self, typ) -> str:
-        """The Rust type of an element of an array, bytes for void"""
+        """Return the Rust type of an array element; u8 for void"""
 
         if isinstance(typ, types.Builtin) and typ.name == "void":
             return "u8"
         return self.raw(typ)
 
     def boxed(self, call: Call, arg: Arg, cb: str) -> List[str]:
-        """Statements boxing the closure of a callback the library keeps: for a
-        callback of @lifetime once, the trampoline frees the box; else the
-        handle keeps it"""
+        """Return the statements boxing the closure of a callback the library
+        keeps. With @lifetime once the trampoline frees the box; else the
+        handle keeps it."""
 
         name = self.pname(arg.param)
         made = self.local(call, arg.param, "cb")
@@ -627,15 +622,15 @@ class Renderer(object):
 
     @staticmethod
     def sent(call: Call, arg: Arg) -> bool:
-        """Whether the closure of the callback 'arg' must be Send: a closure
-        given once to a function of no handle may be run by any later call into
-        the library, from any thread, where a method's closure runs in a call
-        given its handle, which stays on its thread"""
+        """Return whether the closure of the callback 'arg' must be Send. A
+        closure given once to a function of no handle may be run by any later
+        call into the library, from any thread; a method's closure runs in a
+        call on its handle, which stays on its thread."""
 
         return arg.lifetime == "once" and call.kind != "method"
 
     def keeps(self, record: str) -> bool:
-        """Whether the handle keeps closures, for its methods to give"""
+        """Return whether the handle keeps closures for its methods"""
 
         return any(
             a.lifetime == "handle" and a.kind == "callback"
@@ -645,8 +640,8 @@ class Renderer(object):
         )
 
     def has_pointers(self, typ, seen=None) -> bool:
-        """Whether a value of 'typ' holds a pointer, which safe Rust can make
-        point anywhere"""
+        """Return whether a value of 'typ' holds a pointer, which safe Rust can
+        change"""
 
         seen = set() if seen is None else seen
         typ = self.namer.resolve(typ)
@@ -663,7 +658,7 @@ class Renderer(object):
         return False
 
     def borrows(self, call: Call) -> int:
-        """How many references the caller gives, besides the handle"""
+        """Count the references the caller gives besides the handle"""
 
         return sum(
             "&" in (self.param_type(call, a) or "")
@@ -672,28 +667,26 @@ class Renderer(object):
         )
 
     def strings(self, call: Call) -> bool:
-        """Whether the function returns a string, or writes one through an [out]
-        parameter"""
+        """Return whether the function returns or writes a string"""
 
         return call.returns == "string" or any(
             out.kind == "value" and types.is_string(out.typ) for out in call.outs
         )
 
     def string_life(self, call: Call) -> str:
-        """The lifetime of a string the function returns: that of the handle or
-        of the one reference given, elided, or else 'static"""
+        """Return the lifetime of a returned string: elided for that of the
+        handle or of the one reference given, else 'static"""
 
         return "" if call.kind == "method" or self.borrows(call) == 1 else "'static "
 
     def unbound_string(self, call: Call) -> bool:
-        """Whether a returned string borrows from one of several arguments, which
-        the signature cannot say"""
+        """Return whether a returned string borrows from one of two or more arguments"""
 
         return self.strings(call) and call.kind != "method" and self.borrows(call) > 1
 
     def is_unsafe(self, call: Call) -> bool:
-        """Whether a caller could make the call unsound: by giving a raw
-        pointer, or a record holding one, or by using a string past its life"""
+        """Return whether a caller could make the call unsound, by a raw
+        pointer, a record holding one, or a string used past its life"""
 
         if self.unbound_string(call):
             return True
@@ -800,7 +793,7 @@ class Renderer(object):
         args = ", ".join(self.param_expr(call, a) for a in call.args)
         raw_call = f"unsafe {{ super::{rgen.ident(call.function)}({args}) }};"
         body.append(f"let ret = {raw_call}" if uses_ret else raw_call)
-        failed: List[str] = []  # what an error releases, and how it returns
+        failed: List[str] = []  # the statements that release and return on error
         if call.errno:
             for arg in call.args:
                 if arg.kind == "callback" and self.callback_typedef(arg.typ) is None:
@@ -836,7 +829,7 @@ class Renderer(object):
                 body += [
                     f"let {name} = {struct} {{",
                     f"    ptr: NonNull::new({name}).ok_or_else(|| {{",
-                    f'        io::Error::other("{call.function}() gave no handle")',
+                    f'        io::Error::other("{call.function}() returned no handle")',
                     "    })?,",
                 ]
                 if self.keeps(out.typ.to.name):
@@ -861,8 +854,8 @@ class Renderer(object):
             call,
             func.doc,
             self.pname,
-            "The error is a [`Partial`], whose `value` is what the call returns"
-            " when it succeeds, with what was written before it failed.",
+            "The error is a [`Partial`], whose `value` holds what the call wrote"
+            " before it failed.",
             buffers=True,
         )
         if self.makes(call) == "register":
@@ -880,14 +873,13 @@ class Renderer(object):
             lines += ["///", "/// # Safety", "///"]
             if self.unbound_string(call):
                 lines += [
-                    "/// The string returned must not be used longer than",
-                    f"/// {call.function}() allows; nothing here ties it to an",
-                    "/// argument.",
+                    "/// The returned string must not be used for longer than",
+                    f"/// {call.function}() allows.",
                 ]
             else:
                 lines += [
-                    "/// Pointers given, also those in records, must be valid for",
-                    f"/// {call.function}(); nothing here can check them.",
+                    "/// Every pointer given, also one inside a record, must be valid",
+                    f"/// for {call.function}().",
                 ]
         unsafe = "unsafe " if self.is_unsafe(call) else ""
         arrow = "" if rtype == "()" else f" -> {rtype}"
@@ -901,9 +893,9 @@ class Renderer(object):
         return [f"{indent}{line}".rstrip() for line in lines]
 
     def again(self, call: Call, partner: Optional[Call]) -> Optional[List[str]]:
-        """The expressions of the arguments of 'partner', computed from those
-        of 'call', with 'p' as the address and 'n' as the new size; None where
-        'partner' takes what 'call' has no value of that a closure can keep"""
+        """Return the expressions of the arguments of 'partner', from those of
+        'call', with 'p' as the address and 'n' as the new size; None when
+        'call' lacks a value that a closure can keep"""
 
         if partner is None or partner.memory is None:
             return None
@@ -928,8 +920,8 @@ class Renderer(object):
         return found
 
     def makes(self, call: Call) -> Optional[str]:
-        """'alloc' where 'call' returns a Buffer, 'register' where it returns a
-        Registration: where the struct can release what 'call' made"""
+        """Return 'alloc' when 'call' returns a Buffer, 'register' when a
+        Registration, and None when no struct can release it"""
 
         if call.memory is None or call.memory.role not in ("alloc", "register"):
             return None
@@ -939,8 +931,8 @@ class Renderer(object):
         return call.memory.role
 
     def bound(self, call: Call) -> bool:
-        """Whether 'call' is bound by a name of its own, not only through the
-        struct of the buffer pattern that calls it"""
+        """Return whether 'call' gets a function of its own, which a release
+        function called by a struct does not"""
 
         if call.memory is None or call.memory.role not in RELEASES:
             return True
@@ -948,9 +940,9 @@ class Renderer(object):
         return owner is None or not self.makes(owner)
 
     def held(self, param: str) -> str:
-        """The parameter 'param' with its references of the lifetime HELD. The
-        handle is borrowed shared, so that it can make several buffers or
-        registrations, each holding the borrow."""
+        """Return 'param' with the lifetime HELD on its references. The handle
+        is borrowed shared, so that it can make two or more buffers or
+        registrations."""
 
         if param in ("&self", "&mut self"):
             return f"&{HELD} self"
@@ -960,8 +952,8 @@ class Renderer(object):
         return f"{name}: {typ}"
 
     def closure(self, call: Call, role: str) -> Optional[str]:
-        """The Box of a closure calling the partner of the role 'role' with the
-        arguments 'call' was given, None where there is no such partner"""
+        """Return the Box of a closure that calls the partner of 'call' in
+        'role' with the arguments of 'call'; None when there is none"""
 
         partner = self.idioms.partner(call, role)
         args = self.again(call, partner)
@@ -988,7 +980,7 @@ class Renderer(object):
         return f"{{ {' '.join(lets)} Box::new({fn}) }}".replace("{  Box", "{ Box")
 
     def made(self, call: Call) -> List[str]:
-        """The statements making the Buffer or the Registration of 'call'"""
+        """Return the statements making the struct that 'call' returns"""
 
         if self.makes(call) == "register":
             made = self.local(call, "registration", "made")
@@ -1016,7 +1008,8 @@ class Renderer(object):
         return (
             [
                 f"let {made} = {self.buffer_struct} {{",
-                f'    ptr: NonNull::new(ret).expect("{call.function}() gave NULL"),',
+                "    ptr: NonNull::new(ret)"
+                f'.expect("{call.function}() returned NULL"),',
             ]
             + fields
             + ["};"]
@@ -1049,7 +1042,7 @@ class Renderer(object):
             if out.kind == "record":
                 record = self.model.find(out.typ.name, decls.RECORDS)
                 if record is None or not record.fields:
-                    return False  # no fields to make the record of
+                    return False  # a record without fields cannot be constructed
         return True
 
     def handle(self, record: str) -> List[str]:
@@ -1063,9 +1056,9 @@ class Renderer(object):
             "///",
             f"/// Owns a [`super::{raw}`]"
             + (
-                f", released when dropped, by [`super::{destructor.function}`]."
+                f". Dropping the struct calls [`super::{destructor.function}`]."
                 if destructor
-                else "; nothing releases it."
+                else ", which no function releases."
             ),
             f"pub struct {struct} {{",
             f"    ptr: NonNull<super::{raw}>,",
@@ -1076,7 +1069,7 @@ class Renderer(object):
             "}",
             "",
             f"impl {struct} {{",
-            f"    /// The raw pointer, still owned by the {struct}",
+            f"    /// Returns the raw pointer, which the {struct} still owns",
             f"    pub fn as_ptr(&self) -> *mut super::{raw} {{",
             "        self.ptr.as_ptr()",
             "    }",
@@ -1115,7 +1108,7 @@ class Renderer(object):
 
     def render(self) -> str:
         lines = [
-            "/// The idiomatic layer, over the raw functions of the crate",
+            "/// The idiomatic layer over the raw functions of the crate",
             "pub mod safe {",
             "    #![allow(unused_imports, unused_mut, clippy::all)]",
             "    use std::ffi::*;",
@@ -1151,8 +1144,7 @@ class Renderer(object):
         if any(c.partial and self.usable(c) for c in self.idioms.calls):
             lines += [""] + [f"    {ln}".rstrip() for ln in PARTIAL]
         lines.append("}")
-        # The types of the crate, not its constants, which would be read as
-        # patterns where a parameter or local is named as one
+        # Not the constants: Rust reads a binding named as one as a pattern
         named = sorted(set(self.namer.names.values()) | set(self.namer.stubs.values()))
         lines.insert(6, f"    use super::{{{', '.join(named)}}};")
         return "\n".join(lines)

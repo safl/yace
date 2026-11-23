@@ -3,19 +3,19 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-The idiomatic Go layer of the package, over the C functions: handles as
-structs with their methods, errors as the last of the values returned, a
-``syscall.Errno``, what is written through ``[out]`` pointers returned, slices
-for arrays, a caller's slice for those written, strings for ``const char *``,
-nil where NULL is allowed, and Go functions for callbacks. See
-:py:mod:`yace.targets.idiom` for what is derived from where. Names are
-CamelCase, exported, without the prefix.
+The idiomatic Go layer of the package wraps the C functions. A handle is a
+struct with methods, an error is the last value returned and wraps a
+``syscall.Errno``, a value written through an ``[out]`` pointer is returned, an
+array is a slice, a ``const char *`` is a string, a pointer that may be NULL
+may be nil, and a callback is a Go function. :py:mod:`yace.targets.idiom`
+documents what each idiom is derived from. Names are CamelCase, exported,
+without the prefix.
 
-A closure given to C is kept in a ``runtime/cgo.Handle``, held in C memory, as
-cgo forbids C to keep a Go pointer: that C memory is the context the C
-trampoline of the callback gives to the Go function exported for it. The
-closure is released as the callback's ``@lifetime`` says: when the call
-returns, once it has been called, or when the handle is destroyed.
+cgo does not allow C to keep a Go pointer, so a closure given to C is kept in a
+``runtime/cgo.Handle`` stored in C memory, which is the context the C
+trampoline passes to the Go function exported for the callback. The
+``@lifetime`` of the callback says when the closure is released: when the call
+returns, after one call, or when the handle is destroyed.
 """
 
 import re
@@ -40,33 +40,28 @@ from . import ggen
 from .ggen import Namer, Registry, doc_lines
 from .raw import Raw, doc, param_names
 
-# What the idiomatic functions bind besides their parameters; a method also
-# binds its receiver, 'h'
+# Locals of the idiomatic functions; a method also binds its receiver, 'h'
 LOCALS = {"ret", "ret_val"}
 
 HELPERS = """
-// yaceErrno is the error of the negative errno a C function returned
 func yaceErrno(function string, ret int64) error {
 	return fmt.Errorf("%s: %w", function, syscall.Errno(-ret))
 }
 """.strip("\n")
 
 CLOSURES = """
-// yaceClosure is a Go function given to C, and whether C calls it once
 type yaceClosure struct {
 	fn   any
 	once bool
 }
 
-// yaceKeep is C memory holding a handle of fn, as C may not hold a Go pointer,
-// for C to give to the trampoline of the callback
+// yaceKeep puts a handle of fn in C memory, because C may not hold a Go pointer
 func yaceKeep(fn any, once bool) unsafe.Pointer {
 	ctx := C.malloc(C.size_t(unsafe.Sizeof(C.uintptr_t(0))))
 	*(*C.uintptr_t)(ctx) = C.uintptr_t(cgo.NewHandle(yaceClosure{fn, once}))
 	return ctx
 }
 
-// yaceRelease releases what yaceKeep made, and nothing for a nil ctx
 func yaceRelease(ctx unsafe.Pointer) {
 	if ctx != nil {
 		cgo.Handle(*(*C.uintptr_t)(ctx)).Delete()
@@ -74,8 +69,7 @@ func yaceRelease(ctx unsafe.Pointer) {
 	}
 }
 
-// yaceCalled is the function of ctx; for a function given to be called once,
-// yaceCalled also releases ctx
+// yaceCalled also releases ctx when C calls the function only once
 func yaceCalled(ctx unsafe.Pointer) any {
 	closure := cgo.Handle(*(*C.uintptr_t)(ctx)).Value().(yaceClosure)
 	if closure.once {
@@ -87,10 +81,9 @@ func yaceCalled(ctx unsafe.Pointer) any {
 
 
 BUFFER = """
-// Buffer is memory the library allocated, freed by Close with the arguments it
-// was allocated with, which must outlive it. The memory may be a device's, such
-// as a GPU's, which the CPU cannot read, and nothing in the API says which;
-// Bytes is for memory of the host only.
+// Buffer is memory the library allocated; Close frees it. The arguments the
+// memory was allocated with must outlive the Buffer. The memory may belong to a
+// device that the CPU cannot read, so call Bytes only on memory of the host.
 type Buffer struct {
 	ptr     unsafe.Pointer
 	len     int
@@ -98,23 +91,23 @@ type Buffer struct {
 	realloc func(unsafe.Pointer, int) unsafe.Pointer
 }
 
-// Ptr is the address of the memory, nil once closed
+// Ptr returns the address of the memory, nil after Close
 func (b *Buffer) Ptr() unsafe.Pointer {
 	return b.ptr
 }
 
-// Len is the size of the memory in bytes
+// Len returns the size of the memory in bytes
 func (b *Buffer) Len() int {
 	return b.len
 }
 
-// Bytes is the memory as a slice; for memory of the host only
+// Bytes returns the memory as a slice; for memory of the host only
 func (b *Buffer) Bytes() []byte {
 	return unsafe.Slice((*byte)(b.ptr), b.len)
 }
 
-// Realloc resizes the memory to nbytes, keeping its bytes up to the smaller
-// size; where it cannot, the memory is unchanged
+// Realloc resizes the memory to nbytes, keeping the bytes up to the smaller
+// size. On an error the memory is unchanged.
 func (b *Buffer) Realloc(nbytes int) error {
 	if b.realloc == nil {
 		return errors.New("the buffer cannot be resized")
@@ -130,7 +123,7 @@ func (b *Buffer) Realloc(nbytes int) error {
 	return nil
 }
 
-// Close frees the memory; closing a closed buffer does nothing
+// Close frees the memory; a second Close does nothing
 func (b *Buffer) Close() {
 	if b.ptr != nil {
 		b.free(b.ptr)
@@ -140,22 +133,22 @@ func (b *Buffer) Close() {
 """.strip("\n")
 
 REGISTRATION = """
-// Registration is memory of the caller's that the library uses until Close
-// unregisters it. Go memory is pinned until then, as C keeps a pointer to it;
-// the handles it was registered with must outlive it.
+// Registration is memory of the caller that the library uses until Close. The
+// memory is pinned until then, and the handles the memory was registered with
+// must outlive the Registration.
 type Registration struct {
 	memory     []byte
 	pinner     runtime.Pinner
 	unregister func(unsafe.Pointer) error
 }
 
-// Bytes is the memory registered
+// Bytes returns the registered memory
 func (r *Registration) Bytes() []byte {
 	return r.memory
 }
 
-// Close unregisters the memory and unpins it; closing a closed registration
-// does nothing. Where unregistering fails, the memory stays pinned.
+// Close unregisters and unpins the memory; a second Close does nothing. The
+// memory stays pinned when unregistering fails.
 func (r *Registration) Close() error {
 	if r.unregister == nil {
 		return nil
@@ -186,7 +179,6 @@ class Renderer(object):
                 name += "Handle"
             self.structs[handle] = registry.add(name)
 
-        # The callback typedefs given as closures, by C name
         self.callbacks: Dict[str, str] = {}
         for call in idioms.calls:
             for arg in call.args:
@@ -205,13 +197,11 @@ class Renderer(object):
             name = camel(call.name) or ggen.export(call.function)
             self.fn_names[call.function] = scopes[scope].add(name)
 
-    # Types
-
     def callback_type(self, typ) -> types.FunctionType:
         return self.namer.resolve(typ).to
 
     def closure_param(self, typ) -> str:
-        """The Go type of a parameter of a closure, as C gives it"""
+        """Return the Go type of a closure's parameter of 'typ'"""
 
         if types.is_string(typ):
             return "string"
@@ -231,28 +221,26 @@ class Renderer(object):
         return f"func({', '.join(params)}){' ' + ret if ret else ''}"
 
     def elem(self, typ) -> str:
-        """The Go type of an element of a slice, a byte for void"""
+        """Return the Go type of a slice element; byte for void"""
 
         if isinstance(typ, types.Builtin) and typ.name == "void":
             return "byte"
         return self.namer.gotype(typ)
 
     def given_handle(self, typ) -> Optional[str]:
-        """The handle a parameter takes, other than the one a method is of"""
+        """Return the handle 'typ' points to, if it has a struct"""
 
         handle = is_opaque_ptr(typ, self.idioms.handles)
         return handle if handle in self.structs else None
 
-    # Names
-
     def reserved(self, call: Optional[Call] = None) -> set:
-        """What a parameter of 'call' must not be named"""
+        """Return the names no parameter of 'call' has"""
 
         method = call is not None and call.kind in ("method", "destructor")
         return self.raw.reserved() | LOCALS | ({"h"} if method else set())
 
     def pnames(self, call: Call) -> Dict[str, str]:
-        """The Go names of the parameters of 'call', by their C names"""
+        """Return the Go names of the parameters of 'call', by C name"""
 
         names = param_names([a.param for a in call.args], self.reserved(call))
         return {a.param: n for a, n in zip(call.args, names)}
@@ -262,10 +250,8 @@ class Renderer(object):
         taken = set(names.values()) | self.reserved(call)
         return local(names[param], suffix, taken)
 
-    # Calls
-
     def usable(self, call: Call) -> Optional[str]:
-        """Why 'call' has no idiomatic form, if it has none"""
+        """Return why 'call' has no idiomatic form, if so"""
 
         func = self.idioms.decl(call.function)
         reason = self.raw.unbindable(func)
@@ -315,8 +301,8 @@ class Renderer(object):
         return found
 
     def size(self, call: Call, param: str) -> str:
-        """The count of the slice or string given as 'param': for a string that
-        may be nil, a local that is 0 when the string is nil"""
+        """Return the count of the slice or string 'param'; for a string that
+        may be nil, a local that is 0 when it is nil"""
 
         arg = next(a for a in call.args if a.param == param)
         if arg.kind == "string" and arg.nullable:
@@ -324,7 +310,7 @@ class Renderer(object):
         return f"len({self.pnames(call)[param]})"
 
     def slice_ptr(self, typ, name: str) -> str:
-        """The pointer to the elements of the slice 'name', as cgo takes 'typ'"""
+        """Return the pointer to the elements of the slice 'name', for cgo"""
 
         data = f"unsafe.SliceData({name})"
         if is_void_ptr(typ):
@@ -332,7 +318,7 @@ class Renderer(object):
         return self.namer.to_c(typ, data)
 
     def results(self, call: Call) -> List[Tuple[str, str, str]]:
-        """The (type, expression, zero value) of each value 'call' returns,
+        """Return (type, expression, zero value) per value 'call' returns
         before the error"""
 
         names = self.pnames(call)
@@ -402,7 +388,7 @@ class Renderer(object):
         return found
 
     def is_copy(self, typ) -> bool:
-        """Whether a returned pointer is to a value returned as a copy of it"""
+        """Return whether a returned pointer 'typ' is bound as a copy"""
 
         return (
             isinstance(typ, types.Pointer)
@@ -432,8 +418,8 @@ class Renderer(object):
 
         body: List[str] = []
         args: List[str] = []
-        after_err: List[str] = []  # what an error releases
-        after_ok: List[str] = []  # what success keeps or releases
+        after_err: List[str] = []  # statements that release on an error
+        after_ok: List[str] = []  # statements that keep or release on success
 
         counted = {
             p
@@ -442,7 +428,7 @@ class Renderer(object):
             for p in [str(a.of), *a.shared]
         }
         for arg in call.args:
-            # A string that may be nil is counted when it is not
+            # A string that may be nil is counted only when it is not nil
             if arg.kind == "string" and arg.nullable and arg.param in counted:
                 count = self.size(call, arg.param)
                 body += [
@@ -651,9 +637,9 @@ class Renderer(object):
         return [f"{indent}{line}".rstrip() for line in lines]
 
     def again(self, call: Call, partner: Optional[Call]) -> Optional[List[str]]:
-        """The C expressions of the arguments of 'partner', from those of
-        'call', with 'p' as the address and 'n' as the new size; None where
-        'partner' takes what 'call' has no value of that a closure can keep"""
+        """Return the C expressions of the arguments of 'partner', from those
+        of 'call', with 'p' as the address and 'n' as the new size; None when
+        'call' lacks a value that a closure can keep"""
 
         if partner is None or partner.memory is None:
             return None
@@ -680,8 +666,8 @@ class Renderer(object):
         return found
 
     def makes(self, call: Call) -> Optional[str]:
-        """'alloc' where 'call' returns a Buffer, 'register' where it returns a
-        Registration: where the struct can release what 'call' made"""
+        """Return 'alloc' when 'call' returns a Buffer, 'register' when a
+        Registration, and None when no struct can release it"""
 
         if call.memory is None or call.memory.role not in ("alloc", "register"):
             return None
@@ -691,8 +677,8 @@ class Renderer(object):
         return call.memory.role
 
     def bound(self, call: Call) -> bool:
-        """Whether 'call' is bound by a name of its own, not only through the
-        struct of the buffer pattern that calls it"""
+        """Return whether 'call' gets a function of its own, which a release
+        function called by a struct does not"""
 
         if call.memory is None or call.memory.role not in RELEASES:
             return True
@@ -700,9 +686,9 @@ class Renderer(object):
         return owner is None or not self.makes(owner)
 
     def closure(self, call: Call, role: str) -> Optional[List[str]]:
-        """The lines of a closure calling the partner of the role 'role' with
-        the arguments 'call' was given, its arguments kept by value; None where
-        there is no such partner"""
+        """Return the lines of a closure that calls the partner of 'call' in
+        'role' with the arguments of 'call', kept by value; None when there is
+        no such partner"""
 
         partner = self.idioms.partner(call, role)
         args = self.again(call, partner)
@@ -731,7 +717,7 @@ class Renderer(object):
         else:
             params, results, body = "p unsafe.Pointer", "", [raw]
         signature = f"func({re.sub(r'p |n ', '', params)}){results}"
-        # Called at once, so that the closure keeps the arguments as they were
+        # Called at once, so that the closure keeps the arguments as they are
         return (
             [f"func() {signature} {{"]
             + [f"\t{line}" for line in kept]
@@ -741,7 +727,7 @@ class Renderer(object):
         )
 
     def made(self, call: Call) -> List[str]:
-        """The statements making the Buffer or the Registration of 'call'"""
+        """Return the statements making the struct that 'call' returns"""
 
         names = self.pnames(call)
         if self.makes(call) == "register":
@@ -775,7 +761,7 @@ class Renderer(object):
         return self.namer.registry.add("Registration")
 
     def keeps(self, record: str) -> bool:
-        """Whether the handle keeps closures, for its methods to give"""
+        """Return whether the handle keeps closures for its methods"""
 
         return any(
             a.lifetime == "handle" and a.kind == "callback"
@@ -812,7 +798,7 @@ class Renderer(object):
         lines += [f"type {struct} struct {{"] + ggen.align(fields) + ["}"]
         lines += [
             "",
-            f"// Ptr is the raw pointer, still owned by the {struct}",
+            f"// Ptr returns the raw pointer, which the {struct} still owns",
             f"func (h *{struct}) Ptr() *{raw} {{",
             "\treturn h.ptr",
             "}",
@@ -827,8 +813,8 @@ class Renderer(object):
         return lines
 
     def trampolines(self) -> Tuple[List[str], List[str], List[str]]:
-        """The C declarations of the trampolines, for the preamble, their C
-        definitions, and the Go functions they call, exported to C"""
+        """Return the C declarations of the trampolines, their C definitions,
+        and the Go functions they call"""
 
         decls_: List[str] = []
         defs: List[str] = []

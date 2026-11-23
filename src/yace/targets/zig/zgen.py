@@ -3,10 +3,10 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-Zig code for the IR: names, the Zig type of each IR type, and the statements of
-the pretty-printers. The raw layer uses the types C has, as Zig's own
-translation of C headers does: C pointers, ``[*c]T``, that may be NULL and point
-to any number of elements, optional pointers to opaque types and functions.
+zgen produces the Zig code that depends on the IR: names, the Zig type of each
+IR type, and the statements of the pretty-printers. The raw layer uses the
+types of Zig's own translation of C: a C pointer, ``[*c]T``, which may be NULL,
+and an optional pointer to an opaque type or a function.
 """
 
 import re
@@ -59,21 +59,21 @@ KEYWORDS = set(
 
 
 def ident(name: str) -> str:
-    """'name', usable as a Zig identifier"""
+    """Return 'name', escaped for Zig"""
 
     return f'@"{name}"' if name in KEYWORDS else name
 
 
 def lower_camel(name: str) -> str:
-    """Zig names functions in camelCase"""
+    """Return 'name' in camelCase"""
 
     text = camel(name)
     return ident(text[:1].lower() + text[1:]) if text else name
 
 
 def doc_lines(doc, errors: str = "") -> List[str]:
-    """'doc' as the lines of a doc comment, without the '///'; 'errors' says
-    when the function documented returns an error"""
+    """Return 'doc' as the lines of a doc comment, without the '///'; 'errors'
+    says when the function fails"""
 
     lines = []
     if doc.brief:
@@ -93,8 +93,8 @@ def doc_lines(doc, errors: str = "") -> List[str]:
 
 
 class Namer(object):
-    """The Zig names of the IR's types: CamelCase of the C name, or the C name
-    itself where two would get the same one"""
+    """Maps the C name of a type to its Zig name: CamelCase, or the C name
+    where two would share one"""
 
     def __init__(self, model: Model):
         self.records = model.records()
@@ -102,7 +102,6 @@ class Namer(object):
         self.enums = model.enums()
         self.stubs: Dict[str, str] = {}
 
-        # A typedef of the record or enum of its own name is that type
         self.aliases = {
             name
             for name, typedef in self.typedefs.items()
@@ -131,7 +130,7 @@ class Namer(object):
         return typ
 
     def is_opaque(self, typ) -> bool:
-        """Whether 'typ' is a type Zig only knows as opaque"""
+        """Return whether Zig knows 'typ' only as opaque"""
 
         if isinstance(typ, types.Builtin):
             return typ.name == "void"
@@ -145,7 +144,7 @@ class Namer(object):
         return False
 
     def ztype(self, typ, param: bool = False) -> str:
-        """The Zig type of 'typ'; a parameter's arrays are pointers, as in C"""
+        """Return the Zig type of 'typ'; with 'param', an array is a pointer"""
 
         if isinstance(typ, types.Builtin):
             return "void" if typ.name == "void" else ZIG_TYPES[typ.name]
@@ -189,7 +188,7 @@ class Namer(object):
         return f"?*const fn ({', '.join(params)}) callconv(.c) {self.ztype(typ.ret)}"
 
     def is_optional(self, typ) -> bool:
-        """Whether the Zig type of 'typ' is an optional, rather than ``[*c]``"""
+        """Return whether 'typ' is an optional in Zig, not a ``[*c]``"""
 
         return self.ztype(typ).startswith("?")
 
@@ -203,12 +202,10 @@ def define_value(value) -> str:
 
 
 class Locals(object):
-    """The names the module's own code binds, each renamed with '_' while the
-    module declares it, as Zig forbids a local to shadow a declaration; the
-    C API may declare any name, as an enumerator such as 'ret' or 'w'"""
+    """Renames the locals of the module's own code, as Zig does not allow a
+    local to shadow a declaration, and the C API may declare any name, such as
+    'ret' or 'w'. A declared name gets '_' appended."""
 
-    # What each part of the module binds: the idiomatic functions, the helpers
-    # of the printers, and the methods of records and enums
     BOUND = {
         "idiomatic": re.compile(r"self|ret|context|s|h|p|err|tag|field|a\d+"),
         "helpers": re.compile(
@@ -226,7 +223,7 @@ class Locals(object):
         return name
 
     def renamed(self) -> set:
-        """What the names declared too are renamed to"""
+        """Return the new names of the bound names"""
 
         return {
             self(name)
@@ -235,9 +232,9 @@ class Locals(object):
         }
 
     def rename(self, text: str, part: str) -> str:
-        """'text', a 'part' of the module, with the names it binds renamed,
-        other than in a doc comment, a string, after '.' or before '(', where
-        the name is not a local's"""
+        """Return 'text', a 'part' of the module, with the names it binds
+        renamed, except in a doc comment, in a string, after '.' or before
+        '('"""
 
         bound = self.BOUND[part]
 
@@ -256,8 +253,8 @@ class Locals(object):
 
 
 def used(lines: List[str]) -> List[str]:
-    """The body of a printer, 'lines', discarding 'self' where they print none
-    of its fields, as Zig reports an unused parameter as an error"""
+    """Return 'lines', the body of a printer, discarding 'self' when unused,
+    which Zig reports as an error"""
 
     code = [re.sub(r'"(?:[^"\\]|\\.)*"', '""', line) for line in lines]
     if any(re.search(r"\bself\b", line) for line in code):
@@ -266,13 +263,13 @@ def used(lines: List[str]) -> List[str]:
 
 
 class Printer(object):
-    """The Zig statements printing a value of a type as JSON"""
+    """Produces the Zig statements that print a record"""
 
     def __init__(self, namer: Namer, printable: dict, blobs=()):
         self.namer = namer
         self.records = printable
         self.enums = namer.enums
-        self.blobs = {r.name for r in blobs}  # the records kept as their bytes
+        self.blobs = {r.name for r in blobs}  # the records declared as their bytes
 
     def value(self, typ, expr: str, depth: int = 0) -> List[str]:
         typ = self.namer.resolve(typ)
@@ -304,7 +301,7 @@ class Printer(object):
             elem = self.namer.resolve(typ.of)
             if isinstance(elem, types.Builtin) and elem.name == "char":
                 return [f"try yace_pp.strn(w, &{expr});"]
-            # i0 and the like are integer types in Zig
+            # Not i<depth>: i0, i1 and so on are integer types in Zig
             idx, item = f"idx{depth}", f"item{depth}"
             lines = [
                 'try w.writeAll("[");',
@@ -324,8 +321,8 @@ class Printer(object):
         return ['try w.writeAll("null");']
 
     def method(self, record, name: str) -> str:
-        """The name of the printer 'name' of 'record', other than that of a
-        field, as Zig lets no declaration share a field's name"""
+        """Return the name of the printer 'name' of 'record', which no field
+        has, as Zig does not allow that"""
 
         fields = {ident(f.name) for f in record.fields}
         while name in fields:
@@ -339,9 +336,9 @@ class Printer(object):
         return None
 
     def accessors(self, record) -> List[str]:
-        """The methods reading and writing the parts of the fields of bits of
-        'record', each part an integer of its own width, so Zig does not
-        compile passing a value that does not fit without a cast"""
+        """Return the methods that read and write the parts of the fields of
+        bits of 'record'. A part is an integer of its own width, so Zig rejects
+        a wider value without a cast."""
 
         taken = {ident(f.name) for f in record.fields} | {"format", "cName"}
         taken |= {self.method(record, name) for name in ("json", "yaml", "fpr")}
@@ -370,7 +367,7 @@ class Printer(object):
                     f"    return @truncate(({place} & {mask.value:#x}) >> {mask.lo});",
                     "}",
                     "",
-                    f"/// Set the part of '{field.name}' that {getter}() reads",
+                    f"/// Sets the part of '{field.name}' that {getter}() reads",
                     f"pub fn {setter}(self: *@This(), value: {part}) void {{",
                     f"    {place} = ({place} & ~@as({typ}, {mask.value:#x}))"
                     f" | (@as({typ}, value) << {mask.lo});",
@@ -379,8 +376,8 @@ class Printer(object):
         return lines
 
     def parts(self, field, expr: str, fmt: str, quote: str) -> List[str]:
-        """The value of a field of bits and of each of its parts, as a mapping
-        on one line, with the keys quoted by 'quote', the values by 'fmt'"""
+        """Return the statements printing a field of bits and its parts as a
+        mapping on one line; 'quote' is for the keys, 'fmt' for the values"""
 
         lines = [f'try w.print("{{{{{quote}{VALUE_KEY}{quote}: {fmt}", .{{{expr}}});']
         for mask in field.masks:
@@ -392,8 +389,8 @@ class Printer(object):
         return lines
 
     def bits(self, field) -> str:
-        """The expression reading the bit-field 'field' from the bytes of its
-        record, as an integer of the type C prints it as"""
+        """Return the expression that reads the bit-field 'field' from the
+        bytes of its record, as the integer type C prints"""
 
         at = bitfield(field, self.namer.resolve(field.typ), self.enums)
         if at is None:
@@ -404,7 +401,7 @@ class Printer(object):
         if at.kind == "signed":
             return f"yace_pp.sbits({args})"
         if at.kind == "char":
-            # As signed as C's char is on the platform, as C prints it
+            # C prints a char with the signedness char has on the platform
             return (
                 "if (@typeInfo(c_char).int.signedness == .signed)"
                 f" yace_pp.sbits({args})"
@@ -413,13 +410,13 @@ class Printer(object):
         return f"yace_pp.bits({args})"
 
     def fields(self, record) -> list:
-        """The fields printed: those with a name, not padding bit-fields"""
+        """Return the named fields, which leaves out padding bit-fields"""
 
         return [f for f in record.fields if f.name]
 
     def expr_of(self, record, field) -> str:
-        """The expression of 'field', other than a bit-field; of a blob, a copy
-        read from its bytes"""
+        """Return the expression of 'field', not a bit-field; a copy from the
+        bytes of a blob"""
 
         if record.name not in self.blobs:
             return f"self.{ident(field.name)}"
@@ -430,7 +427,7 @@ class Printer(object):
         )
 
     def field_value(self, record, field, expr: str) -> List[str]:
-        """Statements printing the value of 'field', of a blob from its bytes"""
+        """Return the statements printing 'field', read from a blob's bytes"""
 
         if record.name not in self.blobs or field.bits is None:
             return self.value(field.typ, expr)
@@ -440,7 +437,7 @@ class Printer(object):
         return [f'try w.print("{{d}}", .{{{value}}});']
 
     def part_of(self, record, field, expr: str) -> str:
-        """The expression of a field of bits, whose parts are printed"""
+        """Return the expression of a field of bits, for its parts"""
 
         if record.name in self.blobs and field.bits is not None:
             return f"({self.bits(field)})"

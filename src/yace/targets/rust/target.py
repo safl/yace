@@ -3,20 +3,19 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-The Rust target: a crate binding the API, in the manner of a ``-sys`` crate,
-with pretty-printers for every struct and union, and a check of what it
-generated
+The Rust target emits a crate that binds the API as a ``-sys`` crate does, with
+pretty-printers for every struct and union, and a program that checks it.
 
-Emits, into ``<output>/rust``:
+The target writes into ``<output>/rust``:
 
-* ``Cargo.toml`` and ``build.rs``, the crate, linking the library
-* ``lib.rs``, the crate of the bindings, which includes ``bindings.rs``
+* ``Cargo.toml`` and ``build.rs``, which define the crate and link the library
+* ``lib.rs``, the crate root, which includes ``bindings.rs``
 * ``bindings.rs``, the bindings, which another crate may ``include!()``
 * ``check.rs``, the check program, an example of the crate
 
 Functions, constants and enum members keep their C names, so the documentation
-of the C API applies; types become CamelCase, as Rust names types:
-``struct foo_point`` is ``FooPoint``.
+of the C API applies. Types get CamelCase names: ``struct foo_point`` is
+``FooPoint``.
 """
 
 import json
@@ -38,7 +37,7 @@ from . import idiomatic, rgen
 
 
 def rustdoc(doc) -> str:
-    """'doc' as a Rust doc comment, on lines of its own, or nothing"""
+    """Return 'doc' as a Rust doc comment after a newline, or ''"""
 
     lines = rgen.doc_lines(doc)
     if not lines:
@@ -96,8 +95,7 @@ class Rust(Target):
         ]
         printable = [r for r in cgen.ordered_records(model) if r.fields]
 
-        # Resolve every type now, so the stubs of those the IR does not define
-        # are known before the crate is laid out
+        # namer.rtype() records the stubs, which the context reads below
         for entity in typedefs:
             namer.rtype(entity.typ)
         for record in printable:
@@ -158,8 +156,7 @@ class Rust(Target):
             path = self.output / filename
             path.write_text(env.get_template(template).render(**context))
             paths.append(path)
-        # rustfmt reads the style from here, so that running it on the crate
-        # again gives the layout yace formatted it with
+        # So that rustfmt on the crate keeps the layout yace formatted it with
         path = self.output / "rustfmt.toml"
         path.write_text(RUSTFMT)
         paths.append(path)
@@ -167,7 +164,7 @@ class Rust(Target):
         return paths
 
     def check(self, model: Model) -> list:
-        """Build and run the check program; returns what failed, if anything"""
+        """Build and run the check program, and return the failures"""
 
         failures = toolchain.missing(self.TOOLCHAINS)
         if failures:
