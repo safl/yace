@@ -2,9 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
-# Header-only / vendored / non-packaged C libraries
-# These are downloaded as single files and only measure parse coverage.
-# They cannot go through yace's full compile+link pipeline.
+# Libraries of a single header, which survey.py downloads from the URL
 # Format: name<TAB>url
 #
 # Data Structures / Collections
@@ -104,5 +102,4 @@ tlsf	https://raw.githubusercontent.com/mattconte/tlsf/master/tlsf.h
 tinyexpr	https://raw.githubusercontent.com/codeplea/tinyexpr/master/tinyexpr.h
 pocketfft	https://raw.githubusercontent.com/mreineck/pocketfft/master/pocketfft.h
 #
-# Storage / NVMe (non-packaged, need repo clone)
-# These are in repos.txt for multi-header clone-and-test
+# The storage libraries that Debian does not package are in repos.txt

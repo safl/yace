@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
-"""Traverse Makefile and print all help instructions"""
+"""Print the description of every target of a Makefile"""
 
 import argparse
 import os
@@ -17,7 +17,8 @@ SEP = ";"
 
 
 def expand_path(path):
-    """Expands variables from the given path and turns it into absolute path"""
+    """Expand the variables and the home directory in the path, and make it
+    absolute"""
 
     return os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
 
@@ -26,7 +27,7 @@ def setup():
     """Parse command-line arguments"""
 
     prsr = argparse.ArgumentParser(
-        description="Traverse Makefile and print all help instructions",
+        description="Print the description of every target of a Makefile",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     prsr.add_argument(
@@ -35,14 +36,14 @@ def setup():
     prsr.add_argument(
         "--verbose",
         action="store_true",
-        help="If set, print verbose descriptions",
+        help="Print every line of each description, not only the first",
         required=False,
     )
     prsr.add_argument(
         "--no-colorize",
         action="store_true",
         default=False,
-        help="If set, does not colorize the output",
+        help="Print the names of the targets without bold",
         required=False,
     )
     args = prsr.parse_args()
@@ -52,7 +53,8 @@ def setup():
 
 
 def gen_help(args):
-    """Generate dict from help instructions in Makefile"""
+    """Read the description of each target, the lines between 'define
+    <target>-help' and 'endef' in the Makefile, into args.help"""
 
     define_regex = re.compile("define (?P<target>.+)-help")
     endef_regex = re.compile("endef")
@@ -75,16 +77,15 @@ def gen_help(args):
 
 
 def print_help(args):
-    """Print the help instructions"""
+    """Print the usage and the description of every target"""
 
     print(
         "\n".join(
             [
                 "Usage:",
                 " ",
-                f"  make help          {SEP} Brief target description",
-                f"  make help-verbose  {SEP} Verbose target descriptions",
-                f"  make [target]      {SEP} Invoke the given 'target'",
+                f"  make help      {SEP} Print the description of every target",
+                f"  make [target]  {SEP} Run the given target",
                 " ",
                 "Targets:",
                 " ",

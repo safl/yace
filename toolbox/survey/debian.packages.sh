@@ -4,9 +4,8 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
-# Install -dev packages for the yace parser coverage survey.
-# These are the C libraries listed in toolbox/survey/packaged.txt,
-# all available on Debian Trixie.
+# Install the Debian Trixie packages of the libraries listed in
+# toolbox/survey/packaged.txt
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get -qy update

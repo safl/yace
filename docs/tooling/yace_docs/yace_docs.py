@@ -12,7 +12,8 @@ from pathlib import Path
 
 
 def find_docs_root():
-    """Search upward from cwd for a directory containing src/conf.py."""
+    """Return the first directory, from the cwd upward, that holds src/conf.py
+    or docs/src/conf.py"""
 
     cur = Path.cwd()
     while True:
@@ -29,13 +30,13 @@ def find_docs_root():
 
 
 def _ensure_stubs(docs_root):
-    """Create placeholder files for generated content that may not exist yet."""
+    """Write a placeholder for each generated file that the documentation
+    includes and that does not exist, so Sphinx builds without them"""
 
     srcdir = docs_root / "src"
     repodir = docs_root.parent
-    stub = "Not generated yet. Run the full docs pipeline to populate.\n"
+    stub = "Not generated yet. Run 'make docs' to generate it.\n"
 
-    # kmdo-generated .out files
     for out_file in [
         srcdir / "codebase" / "900_make.out",
         srcdir / "install" / "100_help.out",
@@ -46,7 +47,6 @@ def _ensure_stubs(docs_root):
         if not out_file.exists():
             out_file.write_text(stub)
 
-    # example-generated output files
     for out_file in [
         repodir / "output" / "capi" / "libfoo.h",
         repodir / "output" / "capi" / "libfoo_core.h",
@@ -61,7 +61,7 @@ def _ensure_stubs(docs_root):
 
 
 def build_html():
-    """Build HTML documentation using sphinx-build."""
+    """Build the HTML documentation with Sphinx"""
 
     docs_root = find_docs_root()
     srcdir = docs_root / "src"
@@ -82,7 +82,8 @@ def build_html():
 
 
 def serve():
-    """Serve documentation with live-reload using sphinx-autobuild."""
+    """Serve the HTML documentation with sphinx-autobuild, which rebuilds it
+    when a source file changes"""
 
     docs_root = find_docs_root()
     srcdir = docs_root / "src"
@@ -164,7 +165,7 @@ def gen_entities():
 
 
 def clean():
-    """Remove the documentation build directory."""
+    """Remove the build directory of the documentation"""
 
     docs_root = find_docs_root()
     builddir = docs_root / "builddir"
