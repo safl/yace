@@ -17,6 +17,7 @@ import subprocess
 import sys
 import sysconfig
 import weakref
+from pathlib import Path
 
 import pytest
 import yaml
@@ -161,6 +162,15 @@ def test_the_check_needs_cython(parse, tmp_path, monkeypatch):
 
     failures = process(model, ["cython"], tmp_path)
     assert len(failures) == 1 and failures[0].startswith("cython: no Cython in ")
+
+
+def test_a_relative_include_directory_reaches_the_check(parse, tmp_path, monkeypatch):
+    (tmp_path / "inc").mkdir()
+    (tmp_path / "inc" / "api_types.h").write_text("#define API_TYPES 1\n")
+    model, _ = parse('#include "api_types.h"\nint f(void);\n')
+    monkeypatch.chdir(tmp_path)
+
+    assert process(model, ["cython"], tmp_path / "out", include=[Path("inc")]) == []
 
 
 def test_the_check_of_the_pxd_takes_no_address_of_a_packed_field(parse, tmp_path):
