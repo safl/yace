@@ -113,7 +113,9 @@ def build(
 
     cython = [sys.executable, "-m", "cython", "-3"]
     cc = toolchain.CC.command()
-    includes = [sysconfig.get_paths()["include"], str(out), *(include or [])]
+    # The compiler runs in 'out', so a relative directory is resolved here
+    includes = [sysconfig.get_paths()["include"], str(out)]
+    includes += [str(Path(path).resolve()) for path in include or []]
     flags = [f"-I{path}" for path in includes] + check_cflags(cc)
 
     proc = run([*cython, f"{prefix}_check.pyx", "-o", "pxd_check.c"], log, out)
