@@ -2,10 +2,10 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
-# Non-packaged repos to clone and survey (multi-header libraries)
-# Format: name<TAB>git_url<TAB>include_glob<TAB>exclude_glob (optional)
-# Globs are relative to the cloned repo root.
-# exclude_glob removes matches from include_glob (comma-separated basenames).
+# Libraries that Debian does not package, which survey.py clones
+# Format: name<TAB>git_url<TAB>include_glob<TAB>excludes (optional)
+# include_glob is relative to the root of the clone. excludes is a
+# comma-separated list of basenames that are left out of the matches.
 #
 # Storage / NVMe (not in Debian)
 xnvme	https://github.com/xnvme/xnvme.git	include/libxnvme*.h

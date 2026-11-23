@@ -5,15 +5,15 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-Survey C libraries with yace: that it parses any header without failing, and
-which rules of the C subset the headers break
+Survey C libraries with yace: check that yace parses every header without
+failing, and count which rules of the C subset the headers break
 
-Headers written for other purposes are expected to step outside the subset;
-that is reported, by rule, not counted against yace. What counts against yace
-is failing: a traceback, a timeout, or an 'internal-error' diagnostic. With
-'--with-capi', the C API is also generated and checked; the C API of a header
-outside the subset may not build, which is reported but is not a failure of
-yace.
+The headers were not written for yace, so they break rules of the subset. The
+report counts the broken rules; a broken rule is not a failure of yace. A
+failure of yace is a traceback, a timeout, or an 'internal-error' diagnostic.
+With '--with-capi', the C API is also generated and checked. The C API of a
+header outside the subset may not build; the report says so, and that is not a
+failure of yace either.
 
 Three sources of libraries:
   packaged.txt  Debian packages, parsing the installed headers

@@ -32,19 +32,19 @@ PLATFORM = $$( \
 
 
 define default-help
-# invoke: 'make uninstall', 'make install'
+# print the description of every target, as 'make help' does
 endef
 .PHONY: default
 default: help
 
 define all-help
-# Do all: uninstall clean deps build install test
+# run uninstall, clean, deps, build, install and test
 endef
 .PHONY: all
 all: uninstall clean deps build install test
 
 define deps-help
-# Tools for building yace and uploading it to PyPI
+# install the tools that build yace and upload it to PyPI, using pipx
 endef
 .PHONY: deps
 deps:
@@ -52,7 +52,7 @@ deps:
 	pipx install twine || true
 
 define build-help
-# Build the package (sdist and wheel)
+# build the package (sdist and wheel)
 endef
 .PHONY: build
 build:
@@ -156,14 +156,14 @@ clean:
 	rm -r output || true
 
 define example-help
-# Parse the example library's header, failing on any diagnostic, then generate and check every target
+# parse the example library's header, failing on any diagnostic, then generate and check every target
 endef
 .PHONY: example
 example:
 	yace examples/libfoo/include/foo.h --meta examples/libfoo/meta.yaml --output output --emit capi python cython rust cpp zig go
 
 define docs-build-prep-help
-# Install docs tooling and dependencies
+# install the docs tooling and its dependencies, using pipx
 endef
 .PHONY: docs-build-prep
 docs-build-prep: install-source
@@ -171,7 +171,7 @@ docs-build-prep: install-source
 	pipx inject yace-docs --editable . --force
 
 define docs-kmdo-help
-# Generate command output using kmdo
+# regenerate the command output that the documentation shows, using kmdo
 endef
 .PHONY: docs-kmdo-help
 docs-kmdo: example
@@ -188,14 +188,14 @@ docs-kmdo: example
 	kmdo docs/src/usage
 
 define docs-gen-entities-help
-# Generate documentation of IR entities
+# generate the listings of the IR entities and of the rules of the C subset
 endef
 .PHONY: docs-gen-entities
 docs-gen-entities:
 	yace-docs-gen-entities
 
 define docs-build-help
-# generate documentation
+# build the HTML documentation
 endef
 .PHONY: docs-build
 docs-build:
@@ -203,20 +203,20 @@ docs-build:
 	yace-docs-build-html
 
 define docs-view-help
-# open the HTML version documentation
+# serve the HTML documentation and open it in a browser
 endef
 .PHONY: docs-view
 docs-view:
 	yace-docs-serve --open-browser
 
 define docs-help
-# generate documentation (command-output, section-gen, HTML) and open the HTML
+# install the docs tooling, regenerate the command output and the listings, and build the HTML
 endef
 .PHONY: docs
 docs: docs-build-prep docs-kmdo docs-gen-entities docs-build
 
 define format-help
-# run code format (style, code-conventions and language-integrity) on staged changes
+# run the pre-commit hooks on staged changes
 endef
 .PHONY: format
 format:
@@ -225,7 +225,7 @@ format:
 	@echo "## ${PROJECT}: format [DONE]"
 
 define format-all-help
-# run code format (style, code-conventions and language-integrity) on all files
+# run the pre-commit hooks on all files
 endef
 .PHONY: format-all
 format-all:
@@ -243,7 +243,7 @@ bump:
 	@echo "## ${PROJECT}: bump [DONE]"
 
 define survey-help
-# Run yace parser survey across ~90 popular C libraries
+# run toolbox/survey/survey.py: parse the headers of the C libraries it lists
 endef
 .PHONY: survey
 survey:
@@ -252,7 +252,7 @@ survey:
 	@echo "## ${PROJECT}: survey [DONE]"
 
 define help-help
-# Print the description of every target
+# print the description of every target
 endef
 .PHONY: help
 help:
