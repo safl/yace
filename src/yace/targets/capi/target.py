@@ -42,9 +42,8 @@ from yace.targets.target import Target
 
 from . import cgen
 
-# The check program is compiled as strict ISO C, with what glibc declares by
-# default, as the parser saw it, and optimized, as some warnings need it, among
-# them those on format arguments
+# _DEFAULT_SOURCE declares what the parser saw. GCC gives some warnings, such
+# as those on format arguments, only when it optimizes.
 CFLAGS = [
     "-std=c11",
     "-D_DEFAULT_SOURCE",
@@ -63,8 +62,8 @@ def comment(text: str) -> str:
 
 
 def docblock(doc, indent: str = "", params: Sequence[decls.Param] = ()) -> str:
-    """'doc' as a Doxygen comment, wrapped, or nothing when it is empty; of a
-    function, 'params' are its parameters"""
+    """'doc' as a wrapped Doxygen comment, or '' when 'doc' is empty; 'params'
+    are the parameters of the function documented"""
 
     if doc.is_empty():
         return ""
@@ -108,7 +107,7 @@ def docblock(doc, indent: str = "", params: Sequence[decls.Param] = ()) -> str:
         found = dict(doc.references.get(name, {}))
         param = next((p for p in params if p.name == name), None)
         if param and cgen.param_name(name) != name:
-            # Renamed, the parameter's name no longer gives the conventional one
+            # A renamed parameter no longer matches the suffix convention
             named = {"nbytes_at": param.size, "len_at": param.length}
             named["nwritten_at"] = param.count
             found.update({cmd: to for cmd, to in named.items() if to})
@@ -220,8 +219,7 @@ class CAPI(Target):
             "functions": [e for e in entities if isinstance(e, decls.Function)],
             "printer": printer,
             "helpers": printer.helpers(cgen.ordered_records(model)),
-            # The printers as library functions; the header form of capi_pp
-            # makes them static inline
+            # The header form of capi_pp makes the printers static inline
             "header_form": False,
             "storage": "",
             "static": "static",
@@ -268,7 +266,7 @@ class CAPI(Target):
         return paths
 
     def check(self, model: Model) -> list:
-        """Build and run the check program; returns what failed, if anything"""
+        """Build and run the check program, and return the list of failures"""
 
         failures = toolchain.missing(self.TOOLCHAINS)
         if failures:
@@ -322,9 +320,8 @@ class CAPI(Target):
 
     def signatures(self, model: Model, cc: str) -> list:
         """Compile the check of the signatures with the headers the IR was
-        parsed from, found in the include directories, so that a function whose
-        type in the IR is not the header's fails; where a header is not found,
-        it warns that the signatures are not checked, and fails nothing"""
+        parsed from. Where a header is not found, the signatures are not
+        checked, and a warning says so."""
 
         log_path = self.output / "signatures.log"
         note = self.headers_unchecked(model)
@@ -353,15 +350,13 @@ class CAPIPP(CAPI):
     default, declares them in the header and defines them in ``<prefix>_pp.c``,
     for an API to compile into its own library. ``header`` defines the
     printers in the header, static inline, and the helpers they call, static,
-    and emits no ``<prefix>_pp.c``: a program includes the header of what it
-    prints, and a file that calls no printer gets no code of them. The helpers
-    are under one include guard, so that the headers of several runs can be
-    included together; each run needs a prefix of its own"""
+    and emits no ``<prefix>_pp.c``. The helpers are under one include guard,
+    so that the headers of several runs can be included together; each run
+    needs a prefix of its own."""
 
     NAME = "capi_pp"
     OPTIONS = {"form": ("library", "header")}
-    # GNU C11, as lib<prefix>_pp.h includes the API's own headers, which the
-    # check program is then compiled with
+    # GNU C11: the check program is compiled with the API's own headers
     CFLAGS = ["-std=gnu11", "-O2", "-Wall", "-Wextra", "-Werror"]
 
     @staticmethod

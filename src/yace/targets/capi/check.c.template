@@ -2,8 +2,8 @@
  * {{ meta.name }}: check of the generated C API
  *
  * Asserts, at compile time, that the records with fields have the layout
- * recorded in the IR, then prints a zeroed instance of each, as YAML documents with
- * argument "yaml" or JSON lines with argument "json", for the caller to parse.
+ * recorded in the IR, then prints a zeroed instance of each, as YAML documents
+ * with argument "yaml" or JSON lines with argument "json".
  *
  * @file {{ meta.prefix }}_check.c
  *

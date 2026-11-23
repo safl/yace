@@ -94,12 +94,11 @@ def signature(function: decls.Function) -> str:
 
 
 def unsized(function: decls.Function) -> Optional[decls.Function]:
-    """The static inline function that C calls in place of 'function', which
-    takes @recparam records: of the name without '_sized', and without the
-    sizes of the records; None where 'function' takes none, or is variadic,
-    as C cannot pass on the arguments of its ellipsis. A parameter without a
-    name is named 'arg' and its index, as a definition must name what it
-    passes on"""
+    """The static inline function that C calls in place of 'function': named
+    without '_sized', and without the sizes of the @recparam records. None
+    where 'function' takes no such record, or is variadic, as C cannot pass on
+    the arguments of an ellipsis. A parameter without a name is named 'arg'
+    and its index."""
 
     sizes = {p.size for p in function.params if p.size}
     if not sizes or function.variadic:
@@ -208,8 +207,7 @@ def tag(record) -> str:
     return "union" if isinstance(record, decls.Union) else "struct"
 
 
-# Every helper of the printers, which the header form of capi_pp defines in
-# full, as the first printer header included defines them for the others
+# Every helper; the header form of capi_pp defines all of them
 HELPERS = frozenset(
     "key eol null bool int uint float ptr strn str nest list list_end bits part"
     " bits_end".split()
@@ -288,9 +286,8 @@ class Printer(object):
         if isinstance(typ, types.Pointer):
             if types.is_string(typ):
                 return call("str", expr)
-            # Cast directly to an integer, as a cast through 'void *' is not
-            # allowed for a function pointer, which a pointer to an external
-            # typedef may be
+            # No cast through 'void *': a pointer to an external typedef may be
+            # a function pointer
             return call("ptr", f"(uintptr_t){expr}")
 
         if isinstance(typ, types.Array):

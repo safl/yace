@@ -52,8 +52,7 @@ from yace.targets.target import Target
 
 from . import cygen, pyigen, pyxgen
 
-# Warnings made errors when compiling the C that Cython generates, so that a
-# declaration that disagrees with the header, or a wrong cast, fails the check
+# A declaration that disagrees with the header, or a wrong cast, fails the check
 CHECK_CFLAGS = [
     "-Werror=incompatible-pointer-types",
     "-Werror=int-conversion",
@@ -61,11 +60,9 @@ CHECK_CFLAGS = [
     "-Werror=implicit-function-declaration",
 ]
 
-# GCC reports a discarded const only under this option. clang reports it as an
-# incompatible pointer type and does not know the option.
+# GCC only: clang reports a discarded const as an incompatible pointer type
 DISCARDED_QUALIFIERS = "-Werror=discarded-qualifiers"
 
-# The file suffix of an extension module of the Python running yace
 SUFFIX = sysconfig.get_config_var("EXT_SUFFIX")
 
 
@@ -163,8 +160,8 @@ class Cython(Target):
         prefix = cgen.c_ident(model.meta.prefix)
         namer = pygen.Namer(model)
         pxd = cygen.Pxd(model)
-        # pxd.lines() names the types declared outside the headers, and the
-        # Renderer reads those names
+        # pxd.lines() names the types declared outside the headers, which the
+        # Renderer reads
         declarations = pxd.lines()
         renderer = pyxgen.Renderer(model, pxd, namer)
         rendered = renderer.render()
@@ -173,15 +170,12 @@ class Cython(Target):
         defines = [e for e in entities if isinstance(e, decls.Define)]
         enums = [e for e in entities if isinstance(e, decls.Enum)]
 
-        # Where the .pxd declares the name that the ctypes module gives a class,
-        # the class is defined under another name and also bound to that name
+        # A class whose ctypes name the .pxd declares is also bound to that name
         aliases = [
             (namer(name), renderer.class_of(name))
             for name in renderer.records
             if namer(name) != renderer.class_of(name)
         ]
-        # The name of a typedef of a record or an enum is bound to the class of
-        # that record or enum
         for typedef in model.typedefs().values():
             if typedef.name in namer.aliases:
                 continue
@@ -194,7 +188,6 @@ class Cython(Target):
             if cls and namer(typedef.name) != cls:
                 aliases.append((namer(typedef.name), cls))
 
-        # The names the module defines besides the rendered functions and classes
         names = [pygen.ident(e.name) for e in defines] + [name for name, _ in aliases]
         for enum in enums:
             names.append(namer(enum.name))
@@ -238,7 +231,6 @@ class Cython(Target):
             path.write_text(env.get_template(template).render(**context))
             paths.append(path)
 
-        # The header that the .pxd declares, as the C target emits it
         path = self.output / f"lib{model.meta.prefix}.h"
         path.write_text(header(model))
         paths.append(path)

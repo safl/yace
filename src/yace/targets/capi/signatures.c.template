@@ -1,11 +1,10 @@
 /**
  * {{ meta.name }}: check of the signatures of the IR against the headers
  *
- * Includes the headers the IR was parsed from, after the standard and prelude
- * headers yace parsed them after, rather than the generated C API, and
- * asserts, at compile time, that each function they declare has the type the
- * IR gives it, from which every target declares it. The compiler, not yace,
- * says whether the two agree.
+ * Includes the headers the IR was parsed from, not the generated C API, after
+ * the standard and prelude headers that yace parsed them after. Asserts, at
+ * compile time, that each function the headers declare has the type the IR
+ * gives it. Every target declares the function from that type.
  *
  * @file {{ meta.prefix }}_signatures.c
  *

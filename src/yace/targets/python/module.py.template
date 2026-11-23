@@ -202,9 +202,8 @@ def _cuda_array(obj):
 
 
 class _Device(object):
-    """The memory of a DLPack tensor or a CUDA array, which may be a device's,
-    through the buffer protocol: for passing its address to C, not for
-    reading"""
+    """A buffer over the memory of a DLPack tensor or a CUDA array. The memory
+    may be a device's: pass its address to C, do not read it."""
 
     def __init__(self, address, nbytes, readonly, keep):
         self._array = (ctypes.c_ubyte * nbytes).from_address(address)
@@ -336,8 +335,8 @@ class {{ Prefix }}Pr(enum.IntFlag):
 
 
 class _Record(object):
-    """The pretty-printers of a struct or union; called through _Record, as a
-    field of the same name hides one"""
+    """The pretty-printers of a struct or union. They are called through
+    _Record, as a field of the same name hides one."""
 
     _yace_name = ""
     _yace_masks = {}  # the parts of each field of bits: name, mask and shift
@@ -390,8 +389,8 @@ class _Record(object):
         return f"{self._yace_name}:\n{_yaml(_Record.to_dict(self), 2)}"
 
     def __repr__(self):
-        """As the constructor is called: each field by name, every one of a
-        union, as which member is meant is not known"""
+        """A call of the constructor with each field by name. A union shows
+        every member, as the one in use is not known."""
 
         cls = _builtins.type(self)
         fields = []
@@ -439,8 +438,8 @@ class {{ namer(record.name) }}(ctypes.{{ "Union" if record | is_union else "Stru
 {%- if record in blobs %}
     """{{ summary }}
 
-    Its bit-fields have no counterpart in ctypes that C would lay out alike:
-    only its size and alignment are kept.
+    ctypes cannot lay out its bit-fields as C does: only its size and
+    alignment are kept.
     """
 {%- elif record.fields %}
     """{{ summary }}
@@ -456,8 +455,7 @@ class {{ namer(record.name) }}(ctypes.{{ "Union" if record | is_union else "Stru
 {%- if record.fields and record not in blobs %}
 {%- if record.packed %}
 
-    # Packed, as in C: ctypes packs only as MSVC lays out, which is as GCC
-    # does but for bit-fields
+    # ctypes packs only in the MSVC layout, which is GCC's but for bit-fields
     _layout_ = "ms"
     _pack_ = 1
 {%- endif %}
@@ -546,7 +544,6 @@ _SIGNATURES = {
 {%- endfor %}
 }
 
-# The functions the ctypes functions themselves replace, by C and Python name
 _DIRECT = [
 {%- for function in functions if direct(function) %}
     ("{{ function.name }}", "{{ function.name | ident }}"),

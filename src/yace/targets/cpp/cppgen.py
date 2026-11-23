@@ -106,8 +106,7 @@ put_hex(std::string &out, std::uintmax_t value)
 	out.append(buf, static_cast<std::size_t>(len));
 }
 
-/// 'value' as printf() prints it with "%g", through C's snprintf(), so that the
-/// C and C++ printers agree
+/// Formats with C's snprintf() and "%g", as the C printers do
 inline void
 put_g(std::string &out, double value)
 {
@@ -165,12 +164,11 @@ def copied(expr: str, local: str, call: str) -> List[str]:
     return ["{", f"\tconst auto {local} = {expr};", f"\t{call.format(local)};", "}"]
 
 
-# The span of the layer for C++17: the members of std::span that have no
-# equivalent in a pointer and a length, and the conversions from a container
-# that std::span has, so that a call compiles alike for C++17 and for C++20
+# The span of the layer for C++17, with the members and conversions of
+# std::span that make a call compile alike for C++17 and for C++20
 SPAN = r"""/**
- * The elements of an array that another object owns, as std::span of C++20,
- * of which this has the members below: the layer is generated for C++17
+ * The elements of an array that another object owns, with the members of
+ * C++20's std::span declared below. The layer is generated for C++17.
  */
 template <class T> class span {
 public:
@@ -190,9 +188,8 @@ public:
 	{
 	}
 
-	/// The elements of a container that has data() and size(), such as a
-	/// std::vector, a std::array or another span; of a temporary container
-	/// only where T is const
+	/// A container that has data() and size(), such as a std::vector; a
+	/// temporary container only where T is const
 	template <
 		class C,
 		class = std::enable_if_t<
@@ -217,16 +214,14 @@ public:
 	constexpr T *begin() const noexcept { return data_; }
 	constexpr T *end() const noexcept { return data_ + size_; }
 
-	/// The first 'count' elements
 	constexpr span first(std::size_t count) const { return {data_, count}; }
 
-	/// The last 'count' elements
 	constexpr span last(std::size_t count) const
 	{
 		return {data_ + (size_ - count), count};
 	}
 
-	/// 'count' elements from 'offset' on; without 'count', those that remain
+	/// Without 'count', the elements from 'offset' to the end
 	constexpr span
 	subspan(std::size_t offset, std::size_t count = static_cast<std::size_t>(-1)) const
 	{
@@ -243,8 +238,7 @@ private:
 BUFFER = r"""/**
  * Memory the library allocated, freed when destroyed with the arguments it was
  * allocated with, which must outlive it. The memory may be a device's, such as
- * a GPU's, which the CPU cannot read, and nothing in the API says which; so
- * bytes() is for memory of the host only.
+ * a GPU's, which the CPU cannot read; bytes() is for memory of the host only.
  */
 class buffer {
 public:
@@ -278,10 +272,8 @@ public:
 
 	~buffer() { release(); }
 
-	/// The address of the memory
 	void *data() const noexcept { return ptr_; }
 
-	/// The size of the memory in bytes
 	std::size_t size() const noexcept { return size_; }
 
 	/// The memory as bytes; for memory of the host only
@@ -352,7 +344,6 @@ public:
 
 	~registration() { release(); }
 
-	/// The memory registered
 	{span}<std::byte> memory() const noexcept { return memory_; }
 
 	/// Unregister the memory; std::system_error where unregistering fails
@@ -379,11 +370,9 @@ private:
 
 def failure(errmsg: str) -> List[str]:
     """detail::failure, the exception of a failed call where the meta names
-    'errmsg', the function of the library that returns its message. It is a
-    std::system_error, so its code() is the errno and a handler of
-    std::system_error catches it, and it overrides what(), since
-    std::system_error appends the text of the errno to what it is given, and
-    the message of a library often ends in that text already"""
+    'errmsg', the function of the library that returns its message. It
+    overrides what(), since std::system_error appends the text of the errno,
+    which the message of a library may end in already."""
 
     return [
         "/**",
@@ -429,8 +418,8 @@ PARTIAL = [
 
 
 class Printer(object):
-    """The C++ statements printing a value of a type into the std::string
-    'out', as the pretty-printers of the C API print it"""
+    """The C++ statements that print a value into the std::string 'out', as
+    the pretty-printers of the C API print the value"""
 
     def __init__(self, model):
         self.typedefs = model.typedefs()
@@ -566,8 +555,8 @@ class Renderer(object):
         self.idioms = Idioms(model)
         self.prefix = model.meta.prefix
         self.typedefs = model.typedefs()
-        # The C API header defines the static inline functions of the functions
-        # taking @recparam records, so their names are taken too
+        # The C header also defines an inline function for each function that
+        # takes @recparam records
         inlines = [
             cgen.unsized(e) for e in model.entities if isinstance(e, decls.Function)
         ]
@@ -1041,12 +1030,10 @@ class Renderer(object):
         }
 
     def fn_name(self, call: Call) -> str:
-        """The name of a function of the namespace, other than a C name the
-        generated code uses and than the classes it defines; where an alias of
-        a record would have the same name, render() emits no alias. The name of a
-        constructor is that of its function without the name of the handle,
-        open(); where that is a keyword, the name of the handle stays, since
-        req_new() says what new_() does not"""
+        """The name of a function of the namespace, which is no C name the
+        generated code uses and no class it defines. A constructor is named
+        as its function without the name of the handle, such as open(); where
+        that is a keyword, the name of the handle stays, as in req_new()."""
 
         name = call.name
         if call.kind == "constructor" and name in KEYWORDS:
@@ -1358,13 +1345,12 @@ class Renderer(object):
             "public:",
             f"\texplicit {cls}({raw} *ptr) noexcept : ptr_(ptr) {{}}",
             "",
-            "\t/// The raw pointer, still owned by this",
+            "\t/// The raw pointer, which this object still owns",
             f"\t{raw} *native_handle() const noexcept {{ return ptr_.get(); }}",
         ]
         if self.keeps(record):
-            # The handle is destroyed before its closures, which C may call
-            # until then; where the handle is not destroyed, or destroying it
-            # fails, the closures are leaked
+            # C may call the closures until the handle is destroyed; where it
+            # is not destroyed, or destroying it fails, they are leaked
             leak: List[str] = []
             if not destructor or destructor.errno:
                 test = (

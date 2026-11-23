@@ -38,8 +38,7 @@ from yace.targets.python import pygen
 
 from . import cygen
 
-# The names a generated function body binds or calls. A parameter of one of
-# these names is renamed.
+# A parameter named as one of these, which a generated body uses, is renamed
 BOUND = {
     "self",
     "ret",
@@ -56,8 +55,7 @@ BOUND = {
     "PyObject_Length",
 }
 
-# The struct format character of an array element, by C type, as the buffer
-# protocol reports it
+# The struct format character of an array element, by C type
 FORMATS = {
     "bool": "?",
     "char": "b",
@@ -115,8 +113,6 @@ class Renderer(object):
         self.records = {
             r.name: r for r in cgen.ordered_records(model) if self.has_class(r)
         }
-
-    # Names
 
     @cached_property
     def cnames(self) -> set:
@@ -178,8 +174,6 @@ class Renderer(object):
         if name in taken or name in self.cnames:
             name += "Handle"
         return pygen.ident(name)
-
-    # Types
 
     def decl(self, typ, inner: str = "") -> str:
         return self.names.decl(typ, inner)
@@ -253,8 +247,6 @@ class Renderer(object):
             return "e"
         return kind_of(fmt)
 
-    # Conversions
-
     def to_py(self, typ, expr: str, owner: str = "None", copy: bool = False) -> str:
         """Return the code that converts the C expression 'expr' of type 'typ'
         to a Python value. A pointer to a record becomes a view that keeps
@@ -316,8 +308,6 @@ class Renderer(object):
         if isinstance(resolved, types.EnumRef):
             return f"{self.cast(typ)}<long long>{expr}"
         return expr
-
-    # Functions
 
     def doc(self, call: Call, indent: str) -> str:
         func = self.idioms.decl(call.function)
@@ -495,8 +485,7 @@ class Renderer(object):
             elif arg.kind == "out":
                 args.append(self.out(call, arg, cdefs, pre, releases))
 
-        # A length is passed as the count of its sequence. Every other sequence
-        # that shares the length must have the same count.
+        # Every other sequence that shares a length must have the same count
         checks: List[str] = []
         for i, arg in enumerate(call.args):
             if arg.kind not in ("length", "capacity"):
@@ -504,8 +493,8 @@ class Renderer(object):
             own = self.pname(arg.param)
             if arg.kind == "length":
                 own = counts.get(arg.of) or "0"
-                # Converted through a Python int, which raises OverflowError
-                # where the type of the length cannot hold the count
+                # A Python int raises OverflowError where the C type cannot
+                # hold the count
                 made = self.local(call, arg.param, "n")
                 typ = self.mutable(func.params[arg.index].typ)
                 cdefs.append(f"cdef {self.decl(typ, made)}")
@@ -843,9 +832,9 @@ class Renderer(object):
         )
         if destructor:
             wraps = [
-                f"    Wraps a pointer to struct {record}, which it releases",
-                f"    with {destructor.name}(), also on leaving a with-block or when",
-                "    collected, when it owns it.",
+                f"    Wraps a pointer to struct {record}. An object that owns the",
+                f"    pointer releases it with {destructor.name}(), also on leaving a",
+                "    with-block or when collected.",
             ]
         else:
             wraps = [f"    Wraps a pointer to struct {record}, which nothing releases."]
@@ -943,8 +932,6 @@ class Renderer(object):
             return call.handle in self.classes
         return True
 
-    # Records
-
     def field(self, record, field: decls.Field) -> Optional[List[str]]:
         """Return the lines of the property of 'field', a getter and a setter,
         or None for a field the module does not bind"""
@@ -991,8 +978,7 @@ class Renderer(object):
                         f" for i in range({dims[0]})])",
                     ]
                 else:
-                    # The address of a packed field may be unaligned, so the
-                    # getter returns copies
+                    # Copies: the address of a packed field may be unaligned
                     get = [
                         "cdef Py_ssize_t i",
                         f"cdef {cls} made",
@@ -1285,8 +1271,6 @@ class Renderer(object):
         functions += [
             self.function(c) for c in self.idioms.functions() if self.bound(c)
         ]
-        # The message of an OSError comes from the library function that the
-        # meta names, else from os.strerror()
         errmsg = self.model.errmsg()
         message = f"_str_out({self.names.of(errmsg.name)}())" if errmsg else None
         return {
