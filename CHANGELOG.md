@@ -16,6 +16,14 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## 0.14.4
+
+The generated bindings carry only the comments a reader of the bindings needs;
+the comments that restated the code are removed. The line yace prints when
+diagnostics fail a run says that the headers break rules of the C subset. The
+docs, docstrings and help texts are shortened, and the generated Rust crate and
+Go package headers no longer say that a record of bit-fields has no printers.
+
 ## 0.14.3
 
 The printers of Rust, Zig and Go print a record of bit-fields, which those
