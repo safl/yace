@@ -3,18 +3,16 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-Diagnostics: where a header steps outside the C subset that **yace** describes an
-FFI boundary with
+Diagnostics: the places where a header breaks a rule of the C subset
 
-A header outside the subset is still parsed, and everything that can be
-represented is; every place it steps outside is reported as a
-:class:`.Diagnostic`, naming the rule it breaks. Nothing is dropped or changed
-without one. A diagnostic fails the run, unless ``--lenient``.
+A header that breaks a rule is still parsed, and every such place is reported
+as a :class:`.Diagnostic` that names the rule. The parser drops or changes
+nothing without a diagnostic. A diagnostic fails the run, unless ``--lenient``
+is given.
 
-The rules, by name, with why each exists, are :data:`.RULES`. A note, by a name
-in :data:`.NOTES`, reports what is skipped without the header breaking a rule:
-what only the C compiler uses, with no symbol for other languages to bind.
-A note does not fail the run.
+:data:`.RULES` holds the rules by name. A note, named in :data:`.NOTES`,
+reports a declaration that is skipped without breaking a rule, and does not
+fail the run.
 """
 
 from pydantic import BaseModel, ConfigDict
@@ -191,7 +189,7 @@ class Diagnostic(BaseModel):
 
     @property
     def note(self) -> bool:
-        """Whether this reports what is skipped without breaking a rule"""
+        """Whether the diagnostic is a note, see :data:`.NOTES`"""
 
         return self.rule in NOTES
 

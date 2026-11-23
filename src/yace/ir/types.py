@@ -66,7 +66,7 @@ class Node(BaseModel):
 
     @model_serializer(mode="wrap")
     def _key_first(self, handler):
-        """Keep 'key', first, when defaults are excluded; it tells the kinds apart"""
+        """Serialize 'key' first, also when defaults are excluded"""
 
         data = handler(self)
         if "key" in type(self).model_fields and isinstance(data, dict):

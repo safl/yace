@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-Documentation attached to an entity in the **yace** IR, parsed from the Doxygen
-style comment above, or trailing ('///<'), the declaration in the header
+The documentation of an entity in the **yace** IR, parsed from the Doxygen-style
+comment above the declaration in the header, or trailing it ('///<')
 """
 
 import re
@@ -14,21 +14,17 @@ from pydantic import BaseModel, ConfigDict
 
 TAG = re.compile(r"^[@\\](\w+)(?:\[([^\]]*)\])?\s*(.*)$")
 
-# Tags whose first word is a name; @recparam and @arrparam document a parameter
-# as @param does, as a record of arguments and an array
+# Tags whose first word is a name
 NAMED_TAGS = ("param", "recparam", "arrparam", "tparam", "retval")
 PARAM_TAGS = ("param", "recparam", "arrparam")
 
-# The commands, inline in the text of a parameter, naming the parameter that is
-# its size, its length or the count written, as ``@len_at{n}``; Doxygen
-# renders them by an alias taking an argument
+# Inline commands naming the parameter of a size, length or count: @len_at{n}
 REFERENCES = ("nbytes_at", "len_at", "nwritten_at")
 REFERENCE = re.compile(r"\s*[@\\](%s)\{([^}]*)\}" % "|".join(REFERENCES))
 # A command of REFERENCES, also one without the parameter in braces
 MARKER = re.compile(r"[@\\](%s)\b(?:\{([^}]*)\})?" % "|".join(REFERENCES))
 
-# The start of an item of a Doxygen list, which starts a line of its own in the
-# description; the text of a tag is one line, as the bindings show it in one
+# The start of a Doxygen list item, which the description keeps on its own line
 LIST_ITEM = re.compile(r"^(?:[-*+]|-#|\d+\.)\s")
 
 Direction = Literal["in", "out", "inout"]
@@ -43,23 +39,21 @@ DIRECTIONS: Dict[str, Direction] = {
 # Doxygen's commands naming what is documented; the declaration says that itself
 STRUCTURAL_TAGS = ("enum", "struct", "union", "typedef", "fn", "def", "var", "file")
 
-# Doxygen's commands telling whoever uses what is documented something, carried
-# to every binding, by the label each is shown with
+# Doxygen's commands whose text every binding shows, by the label shown with it
 PROSE_TAGS = {"note": "Note", "see": "See also", "deprecated": "Deprecated"}
 
 
 class Doc(BaseModel):
     """
-    The brief, the description after it, as paragraphs separated by a blank
-    line, with each item of a list on a line of its own, the parameters by
-    name, the direction of those documented with one, as ``@param[out]``, those
-    documented with ``@recparam`` and ``@arrparam``, the parameters that their
-    ``@nbytes_at``, ``@len_at`` and ``@nwritten_at`` name, what is returned,
-    and any other tag, by tag name, with its text. The commands of those three
-    that are not in the text of a parameter, or name no parameter in braces,
-    are stray, and a command given twice for one parameter is repeated. A
-    parameter documented by two tags, one of them ``@arrparam`` or
-    ``@recparam``, is documented twice
+    The documentation of a declaration: the brief; the description, as
+    paragraphs separated by a blank line, with each item of a list on a line of
+    its own; the text and the direction of each parameter, by name; what is
+    returned; and every other tag, by name.
+
+    'stray' holds the ``@nbytes_at``, ``@len_at`` and ``@nwritten_at`` that are
+    not in the text of a parameter or name none in braces, 'repeated' those
+    given twice for one parameter, and 'twice' the parameters documented by two
+    tags, one of them ``@arrparam`` or ``@recparam``.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -74,7 +68,7 @@ class Doc(BaseModel):
     references: Dict[str, Dict[str, str]] = {}  # by parameter, by command
     stray: List[str] = []  # as written, such as '@len_at{n}'
     repeated: List[Tuple[str, str]] = []  # (parameter, command)
-    twice: List[str] = []  # parameters of two tags, @arrparam or @recparam one
+    twice: List[str] = []
     tags: Dict[str, str] = {}
 
     def prose(self) -> List[str]:
@@ -108,9 +102,9 @@ def strip_markers(raw: str) -> str:
 
 
 def joint(tag: str, text: str) -> str:
-    """What joins another of the repeated prose 'tag' to its 'text': references
-    are listed, and the rest are sentences. parse() joins yace's own tags by a
-    space instead, as their text is read word by word"""
+    """The separator between the texts of a repeated prose 'tag': ', ' for @see, and the
+    end of a sentence otherwise. parse() joins yace's own tags by a space, as their text
+    is read word by word"""
 
     if tag == "see":
         return ", "
@@ -130,7 +124,7 @@ def parse(raw) -> Doc:
     if not raw:
         return Doc()
 
-    paragraphs: List[str] = []  # untagged text, as paragraphs
+    paragraphs: List[str] = []
     tagged: List[List[str]] = []  # [tag, name, text]
     in_tag = False
     directions = {}

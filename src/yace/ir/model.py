@@ -25,7 +25,7 @@ U = TypeVar("U")
 
 
 class Meta(Node):
-    """What the API is called, its prefix, and who it is by and under what license"""
+    """The name of the API, its prefix, its author and its license"""
 
     name: str
     prefix: str
@@ -38,8 +38,7 @@ class Meta(Node):
     prelude: List[str] = []  # system headers included ahead of them, as 'stdio.h'
     pkg: str = ""  # its pkg-config name, if any
     crate: str = ""  # the name of its Rust crate, as 'foo-sys'; else the prefix
-    # the function that returns the message of the call that failed last on the
-    # calling thread, a 'const char *f(void)', as 'foo_errmsg'; else none
+    # the 'const char *f(void)' giving the message of the thread's last failed call
     errmsg: str = ""
     abi: str = ""  # the platform whose layout the 'size', 'align' and 'offset' are
 
@@ -55,7 +54,7 @@ class Meta(Node):
 
 
 def host_abi() -> str:
-    """The platform layout recorded in the IR is valid for, such as 'Linux-x86_64'"""
+    """The platform whose layout the IR records, such as 'Linux-x86_64'"""
 
     return f"{platform.system()}-{platform.machine()}"
 
@@ -121,8 +120,8 @@ class Model(Node):
     def find(self, name: str, kind: None = None) -> Optional[Any]: ...
 
     def find(self, name: str, kind: Any = None) -> Optional[Any]:
-        """The entity named 'name', of 'kind' where given, as C has records and
-        functions of the same name"""
+        """The entity named 'name'. 'kind' restricts the search to entities of
+        that class, because C allows a record and a function of the same name"""
 
         for entity in self.entities:
             if kind is not None and not isinstance(entity, kind):

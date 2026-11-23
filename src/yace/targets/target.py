@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-The interface of a **yace** target: what generates the bindings of an API for
-one language from its IR. Targets are found through the ``yace.targets`` entry
-point group, so a package can provide one without changes to **yace**.
+The interface of a **yace** target. A target generates the bindings of an API
+for one language from the IR. **yace** finds targets through the
+``yace.targets`` entry point group.
 """
 
 from abc import ABC, abstractmethod
@@ -15,15 +15,14 @@ from typing import Dict, List, Optional, Tuple, Type
 
 
 class Target(ABC):
-    """Emit code for the IR into '<output>/<NAME>', and check what it emitted"""
+    """Emits code for the IR into '<output>/<NAME>', and checks the emitted code"""
 
     NAME = ""
     # What check() builds and runs with, see yace.toolchain
     TOOLCHAINS: tuple = ()
     # What formats the code emit() writes, see yace.formatter
     FORMATTERS: tuple = ()
-    # The options the target takes, each with the values it accepts, the first
-    # of them its default
+    # Each option with the values it accepts; the first value is the default
     OPTIONS: Dict[str, Tuple[str, ...]] = {}
 
     def __init__(
@@ -39,8 +38,8 @@ class Target(ABC):
 
     @classmethod
     def options_of(cls, given: Dict[str, str]) -> Dict[str, str]:
-        """Every option of the target, those not given at their default; raises
-        ValueError for a key it does not take, or a value it does not accept"""
+        """The value of every option, the default where 'given' has none; raises
+        ValueError for a key the target does not take, or a value it does not accept"""
 
         for key, value in given.items():
             if key not in cls.OPTIONS:
@@ -83,7 +82,7 @@ class Target(ABC):
 
 
 def targets() -> Dict[str, EntryPoint]:
-    """The installed targets by name, loaded when asked for"""
+    """The entry point of each installed target, by name"""
 
     return {ep.name: ep for ep in entry_points(group="yace.targets")}
 

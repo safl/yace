@@ -3,16 +3,14 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-The interface of a **yace** generator: what writes C headers, and the C
-sources implementing what they declare, from something other than C, as the
-model of a specification, for **yace** to take as it takes any header.
+The interface of a **yace** generator. A generator writes C headers, and the C
+sources that implement them, from a source other than C, such as the data model
+of a specification.
 
-Generators are found through the ``yace.generators`` entry point group, so a
-project provides one without changes to **yace**, or are named by their file
-or module and class, so a project that is no Python package needs nothing
-installed. What a generator writes is parsed, emitted and checked as headers
-written by hand are: it is held to the C subset, its diagnostics are reported,
-and the targets emit its bindings and printers.
+**yace** finds a generator through the ``yace.generators`` entry point group,
+or by its file or module and its class, so that a project that is not a Python
+package installs nothing. The generated headers are parsed, emitted and checked
+as headers written by hand are.
 """
 
 import importlib
@@ -34,7 +32,7 @@ class Generated:
 
 
 class Generator(ABC):
-    """Write into '<output>/<NAME>', by the 'options' given it"""
+    """Writes headers and sources into '<output>/<NAME>', as 'options' say"""
 
     NAME = ""
 
@@ -45,22 +43,20 @@ class Generator(ABC):
 
     @abstractmethod
     def generate(self) -> Generated:
-        """Write the headers and sources; returns what it wrote"""
+        """Write the headers and sources, and return their paths"""
 
 
 def generators() -> Dict[str, EntryPoint]:
-    """The installed generators by name, loaded when asked for"""
+    """The entry point of each installed generator, by name"""
 
     return {ep.name: ep for ep in entry_points(group="yace.generators")}
 
 
 def load(name: str) -> Any:
     """
-    The generator 'name': one installed by that name, else, as "<where>:<class>",
-    the class of a module, by its dotted name or the path of its file
-
-    A project that is no Python package, as a C library, so keeps its generator
-    in its tree, as ``toolbox/spec.py:SpecHeaders``, and installs nothing.
+    The class of the generator 'name': an installed generator of that name, or
+    else "<where>:<class>", where '<where>' is the dotted name of a module or
+    the path of a '.py' file, such as ``toolbox/spec.py:SpecHeaders``
     """
 
     found = generators()
@@ -92,8 +88,8 @@ def load(name: str) -> Any:
 
 
 def options_of(given: List[str], kind: str = "generator") -> Dict[str, Dict[str, str]]:
-    """The options by name, from '<name>.<key>=<value>' each; 'kind' names what
-    they are options of, a generator or a target, in the error"""
+    """The options in 'given', each '<name>.<key>=<value>', by name; the error names
+    'kind', a generator or a target"""
 
     options: Dict[str, Dict[str, str]] = {}
     for option in given:
@@ -106,11 +102,11 @@ def options_of(given: List[str], kind: str = "generator") -> Dict[str, Dict[str,
 
 
 def generate(names: List[str], output: Path, given: List[str]) -> Generated:
-    """Run the named generators, with their options; returns all they wrote"""
+    """Run the generators in 'names' with the options in 'given'; returns what they
+    wrote"""
 
     options = options_of(given)
-    # Options are keyed by the NAME of a generator, as a generator given by its
-    # file has no other name
+    # A generator given by its file has no name but its NAME
     classes = [load(name) for name in names]
     unknown = sorted(set(options) - {cls.NAME for cls in classes})
     if unknown:

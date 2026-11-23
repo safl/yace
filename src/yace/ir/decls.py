@@ -67,8 +67,7 @@ class Enum(Node):
     name: str
     members: List[EnumMember]
     underlying: Optional[Builtin] = None
-    # How the headers spell the type, where not by its tag and name: the
-    # typedef naming an anonymous one
+    # The typedef that names the type, when it is anonymous
     spelled: str = ""
     doc: Doc = Doc()
 
@@ -114,8 +113,7 @@ class Struct(Node):
     size: Optional[int] = None  # bytes
     align: Optional[int] = None  # bytes
     packed: bool = False
-    # How the headers spell the type, where not by its tag and name: the
-    # typedef naming an anonymous one
+    # The typedef that names the type, when it is anonymous
     spelled: str = ""
     doc: Doc = Doc()
 
@@ -127,8 +125,7 @@ class Union(Node):
     size: Optional[int] = None
     align: Optional[int] = None
     packed: bool = False
-    # How the headers spell the type, where not by its tag and name: the
-    # typedef naming an anonymous one
+    # The typedef that names the type, when it is anonymous
     spelled: str = ""
     doc: Doc = Doc()
 
