@@ -20,9 +20,9 @@ the target also emits the C API into ``<output>/capi``, as the C target does:
   prints a zeroed instance of every record, through the layer, as YAML or JSON.
 
 The check is built with ``$CXX``, by default ``c++``, as the standard the layer
-is generated for, with all warnings as errors, and run; **yace** then parses what it printed, as YAML and
-as JSON. The check asserts the layout of the C API's records, which the layer
-uses, as the C check does.
+is generated for, with all warnings as errors, and run; **yace** then parses
+what it printed, as YAML and as JSON. The check asserts the layout of the C
+API's records, which the layer uses, as the C check does.
 
 .. _sec-targets-cpp-std:
 
@@ -103,9 +103,9 @@ Errors
   ``std::generic_category()``, when it returns a negative errno. One returning
   ``int`` returns nothing otherwise; one returning another integer, such as a
   count, or an ``int`` documented ``@errno count``, a ``std::size_t``. Where
-  the meta names the function of the library
-  that returns the message of the call that failed last, as ``errmsg:
-  foo_errmsg``, the layer calls it when a function has failed, and throws
+  the meta names the function of the library that returns the message of the
+  call that failed last, as ``errmsg: foo_errmsg``, the layer calls that
+  function when a function has failed, and throws
   ``detail::failure``, a ``std::system_error`` whose ``what()`` is the name of
   the function and the message: ``foo_point_add: the handle 'points' holds 8
   points, as many as it can``. ``code()`` is the errno either way, and a
@@ -124,8 +124,8 @@ Results
   ``std::string_view``, a ``std::optional`` of one where ``@nullable``, borrowed
   from the handle or the library. A string written through an ``[out]``
   pointer is a ``std::optional`` of a ``std::string_view``, empty where C wrote
-  NULL. A returned pointer to a record is a copy of
-  it, a ``std::optional`` where ``@nullable``.
+  NULL. A returned pointer to a record is a copy of it, a ``std::optional``
+  where ``@nullable``.
 
 Arguments
   A string is a ``const std::string &``, or a ``const char *`` where

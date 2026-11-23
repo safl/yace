@@ -15,13 +15,13 @@ Python Package Index and thus installable by:
    :language: bash
    :lines: 1-
 
-Once installed, you should be able to run **yace** via the command-line, e.g.:
+Once installed, **yace** runs from the command line:
 
 .. literalinclude:: 100_help.cmd
    :language: bash
    :lines: 1-
 
-The above should produce the output below:
+The command prints:
 
 .. literalinclude:: 100_help.out
    :lines: 1-1
@@ -38,25 +38,25 @@ environment. If the cause is an error in **yace**, please submit an issue on
 
      pipx ensurepath
 
-     # Re-login, source your shell-config, or start a new shell, eg
+     # Log in again, source your shell configuration, or start a new shell:
      $SHELL
 
    These commands are for a bash-like shell; adjust them to your environment.
-
-Installing **yace** is all that its code emission needs. Beyond that, **yace**
-uses other tools: compilers, build systems and documentation generators.
 
 .. _sec-install-tools:
 
 Install: tools
 --------------
 
-Parsing headers needs nothing more; the libclang it uses is installed with
-**yace**. Checking generated code needs the compiler of the target language,
-for the C target a C compiler, ``cc`` or what ``$CC`` names.
+Parsing a header needs nothing more: the libclang that the parser uses is
+installed with **yace**. Emitting Rust, Zig or Go needs the formatter of that
+language, which comes with its toolchain. Checking the emitted code needs the
+compiler of the target language; for the C target that is a C compiler, ``cc``
+or what ``$CC`` names. ``yace --toolchains`` prints the toolchains and
+formatters that **yace** finds, see :ref:`sec-usage`.
 
-Dockerized Build
-----------------
+Development environment
+-----------------------
 
 The devenv image has every toolchain that the checks of the targets use, and
 CI runs the tests in it. The following command starts a shell in it, with the

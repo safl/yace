@@ -8,9 +8,10 @@ The C Subset
 ============
 
 The header describing an FFI boundary is written in a subset of C99: what can
-be described equivalently in C, C++, Python, Rust and Zig. Every place a header
-steps outside it is reported, by the rule it breaks, see :ref:`sec-ir-rules`.
-This page describes the subset, and why.
+be described equivalently in C, C++, Python, Rust and Zig. Every place where a
+header breaks a rule of the subset is reported, by the rule, see
+:ref:`sec-ir-rules`. This page describes the subset and the reason for each
+rule.
 
 What is in it
 -------------

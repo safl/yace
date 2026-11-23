@@ -8,8 +8,8 @@
  Generators
 ============
 
-A generator writes C headers, and the C sources implementing what they
-declare, from something other than C, as the model of a specification, for
+A generator writes C headers, and the C sources implementing what they declare,
+from something other than C, such as the data model of a specification, for
 **yace** to take as it takes a header written by hand. Generators are found
 through the ``yace.generators`` entry point group, so a project provides one
 without changes to **yace**; see :py:mod:`yace.generators`.

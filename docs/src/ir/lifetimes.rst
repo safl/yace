@@ -136,8 +136,8 @@ callback without a ``@lifetime``, and it is bound raw.
 In each target
 --------------
 
-The bindings of each target do the following with the promise, in brief; the
-page of each target says more.
+The bindings of each target do the following with the promise; the page of
+each target says more.
 
 C
   The C API declares the callback as the header does. A C caller keeps the

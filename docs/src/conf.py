@@ -2,23 +2,12 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
-# Configuration file for the Sphinx documentation builder.
-#
-# For the full list of built-in configuration values, see the documentation:
-# https://www.sphinx-doc.org/en/master/usage/configuration.html
-
-# -- Project information -----------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
-
 import yace
 
 project = "yace"
 copyright = "2022-2026, Simon A. F. Lund"
 author = "Simon A. F. Lund"
 release = yace.__version__
-
-# -- General configuration ---------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
     "myst_parser",
@@ -49,9 +38,6 @@ gtagjs_ids = [
 
 templates_path = ["_templates"]
 exclude_patterns = ["README.rst"]
-
-# -- Options for HTML output -------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_logo = "_static/yace-text.png"
 html_theme = "furo"

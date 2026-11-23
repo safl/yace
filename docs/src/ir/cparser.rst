@@ -8,9 +8,10 @@ C Parser
 ========
 
 Given a C header, ``yace`` parses it into the IR with libclang. Any header can
-be parsed; everything that can be represented is, and every place the header
-steps outside the C subset is reported as a diagnostic, naming the rule, see
-:ref:`sec-ir-rules`. Nothing is dropped or changed without one.
+be parsed. Everything that the IR can represent is recorded, and every place
+where the header breaks a rule of the C subset is reported as a diagnostic that
+names the rule, see :ref:`sec-ir-rules`. Nothing is dropped or changed without
+a diagnostic.
 
 Invoking it on the example library:
 

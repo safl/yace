@@ -35,9 +35,10 @@ library.
 The fixture
 ===========
 
-What a target's own check cannot show is that the bindings work with a library
-built from the original header. The example library, ``examples/libfoo``, uses
-every construct of the C subset, and is that library. Each target has a check
+A target's own check cannot show that the bindings work with a library built
+from the original header. The fixture shows that, with the example library,
+``examples/libfoo``, which uses every construct of the C subset. Each target
+has a check
 program in ``examples/libfoo/checks/<target>/``, written in the target's
 language against the bindings it generates. The program calls the library,
 exercising callbacks of each ``@lifetime`` (see :ref:`sec-ir-lifetimes`),
