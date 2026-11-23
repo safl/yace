@@ -4,8 +4,7 @@
 
 package {{ package }}
 
-// Links the library '{{ library }}'; with the build tag '{{ no_link }}', the
-// package links nothing, for what uses only its types.
+// Links the library '{{ library }}', unless built with the tag '{{ no_link }}'.
 
 // #cgo LDFLAGS: -l{{ library }}
 import "C"

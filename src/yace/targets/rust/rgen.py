@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-Rust code for the IR: names, the Rust type of each IR type, and the statements
-of the pretty-printers. The Rust target's templates lay out the crate; rgen
-produces what goes in it that depends on the types.
+rgen produces the Rust code that depends on the IR: names, the Rust type of
+each IR type, and the statements of the pretty-printers. The templates of the
+Rust target lay out the crate around that code.
 """
 
 import ctypes
@@ -58,7 +58,7 @@ NOT_RAW = {"crate", "self", "Self", "super"}  # keywords r# cannot escape
 
 
 def ident(name: str) -> str:
-    """'name', usable as a Rust identifier"""
+    """Return 'name', escaped for Rust"""
 
     if name in NOT_RAW:
         return f"{name}_"
@@ -66,9 +66,9 @@ def ident(name: str) -> str:
 
 
 def doc_lines(doc, errors: str = "", lead: Sequence[str] = ()) -> List[str]:
-    """'doc' as the lines of a Rust doc comment, without the '///'; 'lead' is a
-    paragraph before its sections, and 'errors' says when the function
-    documented returns an error"""
+    """Return 'doc' as the lines of a Rust doc comment, without the '///'.
+    'lead' is a paragraph before the sections; 'errors' says when the function
+    fails."""
 
     lines = []
     if doc.brief:
@@ -90,8 +90,8 @@ def doc_lines(doc, errors: str = "", lead: Sequence[str] = ()) -> List[str]:
 
 
 class Namer(object):
-    """The Rust names of the IR's types: CamelCase of the C name, or the C name
-    itself where two would get the same one"""
+    """Maps the C name of a type to its Rust name: CamelCase, or the C name
+    where two would share one"""
 
     def __init__(self, model: Model):
         self.records = model.records()
@@ -99,7 +99,6 @@ class Namer(object):
         self.enums = model.enums()
         self.stubs: Dict[str, str] = {}
 
-        # A typedef of the record or enum of its own name is that type
         self.aliases = {
             name
             for name, typedef in self.typedefs.items()
@@ -128,7 +127,7 @@ class Namer(object):
         return typ
 
     def rtype(self, typ, param: bool = False) -> str:
-        """The Rust type of 'typ'; a parameter's arrays are pointers, as in C"""
+        """Return the Rust type of 'typ'; with 'param', an array is a pointer"""
 
         if isinstance(typ, types.Builtin):
             return "c_void" if typ.name == "void" else RUST_TYPES[typ.name]
@@ -161,7 +160,7 @@ class Namer(object):
         raise ValueError(f"no Rust type for {typ!r}")
 
     def function(self, typ: types.FunctionType) -> str:
-        """A nullable pointer to a function of type 'typ', as Rust has them"""
+        """Return the nullable function pointer type of 'typ'"""
 
         params = [self.rtype(p.typ, True) for p in typ.params]
         if typ.variadic:
@@ -179,7 +178,7 @@ class Namer(object):
 
 
 def define_type(value) -> str:
-    """The type of the Rust constant for a #define"""
+    """Return the type of a #define's constant"""
 
     if isinstance(value, decls.StrLiteral):
         return "&CStr"
@@ -202,8 +201,8 @@ PRINTER_METHODS = {"yace_json", "yace_yaml"}
 
 
 def accessors(record, namer: Namer) -> List[str]:
-    """The methods reading and writing the parts of the fields of bits of
-    'record'; reading a field of a union is unsafe, writing one is not"""
+    """Return the methods that read and write the parts of the fields of bits
+    of 'record'; a union's field is read in unsafe"""
 
     union = isinstance(record, decls.Union)
     lines: List[str] = []
@@ -223,11 +222,8 @@ def accessors(record, namer: Namer) -> List[str]:
                 f"        ({read} & {mask.value:#x}) >> {mask.lo}",
                 "    }",
                 "",
-                f"    /// Set the part of '{field.name}' that {name}() reads",
-                "    ///",
-                "    /// # Panics",
-                "    ///",
-                f"    /// When 'value' does not fit in {bits}",
+                f"    /// Sets the part of '{field.name}' that {name}() reads;",
+                f"    /// panics when 'value' does not fit in {bits}",
                 f"    pub fn set_{name}(&mut self, value: {typ}) {{",
                 f'        assert!(value <= {mask.largest:#x}, "{name} is {bits}");',
                 f"        {place} = ({read} & !{mask.value:#x})"
@@ -238,10 +234,9 @@ def accessors(record, namer: Namer) -> List[str]:
 
 
 def debug(record, namer: Namer, blob: bool) -> List[str]:
-    """A hand-written Debug of 'record', or none where derive(Debug) names its
-    fields as C does. Of a union, or of a blob, no field is shown: which member
-    of a union is meant is not known, and reading the wrong one may be unsound;
-    a blob has no field to read."""
+    """Return an impl of Debug for 'record', or nothing where derive(Debug)
+    names the fields as C does. It shows no field of a union, as reading the
+    wrong member may be unsound, nor of a blob, which has none to read."""
 
     name = namer(record.name)
     union = isinstance(record, decls.Union)
@@ -265,31 +260,30 @@ def debug(record, namer: Namer, blob: bool) -> List[str]:
 
 
 def place(record, field) -> str:
-    """The expression of 'field' of 'self'; of a packed record, a copy, as a
-    reference to the field may not be aligned"""
+    """Return the expression of 'field' of 'self'; a copy for a packed record,
+    whose fields may be unaligned"""
 
     expr = f"self.{ident(field.name)}"
     return f"{{ {expr} }}" if record.packed else expr
 
 
 def receiver(expr: str) -> str:
-    """'expr' as the receiver of a method called as a statement, which a block
-    would end"""
+    """Return 'expr' as a method receiver in a statement, in parentheses if a block"""
 
     return f"({expr})" if expr.startswith("{") else expr
 
 
 class Printer(object):
-    """The Rust statements printing a value of a type as JSON"""
+    """Produces the Rust statements that print a record"""
 
     def __init__(self, model: Model, namer: Namer):
         self.namer = namer
         self.records = {name: r for name, r in model.records().items() if r.fields}
         self.enums = model.enums()
-        self.blobs: set = set()  # the records kept as their bytes, by name
+        self.blobs: set = set()  # names of the records declared as their bytes
 
     def value(self, typ, expr: str, depth: int = 0) -> List[str]:
-        """Statements printing the place 'expr' to 'w'"""
+        """Return the statements printing 'expr'"""
 
         typ = self.namer.resolve(typ)
 
@@ -305,9 +299,7 @@ class Printer(object):
 
         if isinstance(typ, types.Pointer):
             if types.is_string(typ):
-                # yace_pp::str() takes the pointer by value, which copies the
-                # field, so the braces copying a field of a packed record are
-                # not needed
+                # Passing by value copies the field, so the copying braces go
                 bare = expr[2:-2] if expr.startswith("{ ") else expr
                 return [f"yace_pp::str(w, {bare})?;"]
             if self.namer.rtype(typ).startswith("Option<"):
@@ -347,8 +339,8 @@ class Printer(object):
         return None
 
     def parts(self, field, expr: str, fmt: str, quote: str) -> List[str]:
-        """The value of a field of bits and of each of its parts, as a mapping
-        on one line, with the keys quoted by 'quote', the values by 'fmt'"""
+        """Return the statements printing a field of bits and its parts as a
+        mapping on one line; 'quote' is for the keys, 'fmt' for the values"""
 
         lines = [f'write!(w, "{{{{{quote}{VALUE_KEY}{quote}: {fmt}", {expr})?;']
         for mask in field.masks:
@@ -358,8 +350,8 @@ class Printer(object):
         return lines
 
     def bits(self, field) -> str:
-        """The expression reading the bit-field 'field' from 'bytes', the
-        bytes of its record, as an integer of the type C prints it as"""
+        """Return the expression that reads the bit-field 'field' from 'bytes',
+        as the integer type C prints"""
 
         typ = self.namer.resolve(field.typ)
         at = bitfield(field, typ, self.enums)
@@ -371,7 +363,7 @@ class Printer(object):
         if at.kind == "signed":
             return f"yace_pp::sbits({args})"
         if at.kind == "char":
-            # As signed as C's char is on the platform, as C prints it
+            # C prints a char with the signedness char has on the platform
             return (
                 f"if c_char::MIN != 0 {{ yace_pp::sbits({args}) }}"
                 f" else {{ yace_pp::bits({args}) as i64 }}"
@@ -379,12 +371,12 @@ class Printer(object):
         return f"yace_pp::bits({args})"
 
     def fields(self, record) -> list:
-        """The fields printed: those with a name, not padding bit-fields"""
+        """Return the named fields, which leaves out padding bit-fields"""
 
         return [f for f in record.fields if f.name]
 
     def head(self, record) -> List[str]:
-        """Of a record kept as its bytes, the statement binding 'bytes' to them"""
+        """Return the statement binding 'bytes' to the bytes of a blob"""
 
         if record.name not in self.blobs:
             return []
@@ -396,8 +388,8 @@ class Printer(object):
         ]
 
     def expr_of(self, record, field) -> str:
-        """The expression of 'field', other than a bit-field; of a blob, a copy
-        read from its bytes"""
+        """Return the expression of 'field', not a bit-field; a copy from the
+        bytes of a blob"""
 
         if record.name not in self.blobs:
             return place(record, field)
@@ -408,7 +400,7 @@ class Printer(object):
         )
 
     def field_value(self, record, field) -> List[str]:
-        """Statements printing the value of 'field', of a blob from its bytes"""
+        """Return the statements printing 'field', read from a blob's bytes"""
 
         if record.name in self.blobs and field.bits is not None:
             return [f'write!(w, "{{}}", {self.bits(field)})?;']
@@ -427,7 +419,7 @@ class Printer(object):
         return lines
 
     def part_of(self, record, field) -> str:
-        """The expression of a field of bits, whose parts are printed"""
+        """Return the expression of a field of bits, for its parts"""
 
         if record.name in self.blobs and field.bits is not None:
             return f"({self.bits(field)})"
@@ -451,21 +443,19 @@ class Printer(object):
         return lines
 
 
-# Methods a record has, or inherits from a trait it derives, that a getter of a
-# union's member must not shadow
 SIZE_OF = "std::mem::size_of::"
 
+# Methods of a record that a getter of a union's member must not shadow
 RECORD_METHODS = {"clone", "clone_from", "default", "fmt", "fpr", "pr", "to_string"}
 
 
 class Unions:
-    """Which members of a union safe code may read. Reading a union's member is
-    unsafe in Rust because the bytes may not be a value of the member's type.
-    Where every member of a union is as large as the union and has no padding,
-    a value of the union written through any member, by C or by Rust, has every
-    byte initialised; a member of a type for which every bit pattern is a value
-    then reads soundly. The sizes are the host's, and the crate asserts them
-    when compiled, so a target where they differ fails to build."""
+    """Decides which members of a union safe code may read. Reading a member is
+    unsafe in Rust because the bytes may not be a value of its type. Where
+    every member is as large as the union and has no padding, a union written
+    through any member has every byte initialised, and a member whose type has
+    a value for every bit pattern reads soundly. The sizes are the host's; the
+    crate asserts them at compile time."""
 
     def __init__(self, model: Model, namer: Namer, blobs):
         self.namer = namer
@@ -476,7 +466,7 @@ class Unions:
         self.blobs = {r.name for r in blobs}
 
     def size(self, typ) -> Optional[int]:
-        """The size in bytes of a value of 'typ', None where not known"""
+        """Return the size in bytes of 'typ', None when not known"""
 
         typ = self.namer.resolve(typ)
         if isinstance(typ, types.Builtin):
@@ -499,7 +489,7 @@ class Unions:
         return None
 
     def dense(self, typ) -> bool:
-        """Whether every byte of a value of 'typ' belongs to a field"""
+        """Return whether a value of 'typ' has no padding"""
 
         typ = self.namer.resolve(typ)
         if isinstance(typ, (types.Builtin, types.Pointer, types.EnumRef)):
@@ -524,9 +514,8 @@ class Unions:
         return end == record.size
 
     def any_bits(self, typ) -> bool:
-        """Whether every bit pattern of the size of 'typ' is a value of it in
-        Rust: not of a bool, nor of a function pointer, which may not be null
-        once Some"""
+        """Return whether every bit pattern is a value of the Rust type of
+        'typ', which it is not for a bool or a function pointer"""
 
         typ = self.namer.resolve(typ)
         if isinstance(typ, types.Builtin):
@@ -547,14 +536,14 @@ class Unions:
         return False
 
     def covered(self, union) -> bool:
-        """Whether every member of 'union' spans all of it, without padding"""
+        """Return whether every member of 'union' spans it, without padding"""
 
         return bool(union.fields) and all(
             self.size(f.typ) == union.size and self.dense(f.typ) for f in union.fields
         )
 
     def readable(self, record) -> List[decls.Field]:
-        """The members of 'record' that safe code may read, if it is a union"""
+        """Return the members of the union 'record' that safe code may read"""
 
         if (
             not isinstance(record, decls.Union)
@@ -565,7 +554,7 @@ class Unions:
         return [f for f in record.fields if self.any_bits(f.typ)]
 
     def getters(self, record) -> List[str]:
-        """The methods reading the members of 'readable(record)'"""
+        """Return the methods that read readable(record)"""
 
         taken = {
             f"{field.name}_{mask.name}"
@@ -579,8 +568,6 @@ class Unions:
                 continue
             lines += [""] if lines else []
             lines += [
-                f"    /// '{field.name}', read without unsafe: every member spans the",
-                "    /// whole union, and every bit pattern is a value of its type",
                 f"    pub fn {ident(name)}(&self) -> {self.namer.rtype(field.typ)} {{",
                 f"        unsafe {{ self.{ident(field.name)} }}",
                 "    }",
@@ -588,9 +575,9 @@ class Unions:
         return lines
 
     def asserts(self, record) -> List[str]:
-        """The assertions, at compile time, of the sizes 'readable(record)'
-        relies on: each member as large as the union, and each record within
-        as large as its fields"""
+        """Return the compile-time assertions of the sizes readable(record)
+        relies on: each member as large as the union, each record within as
+        large as its fields"""
 
         name = self.namer(record.name)
         sizes = [

@@ -3,13 +3,13 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-The idiomatic Zig layer of the bindings, over the raw externs: handles as
-structs with their methods and a ``deinit``, errors as Zig errors named for the
-errno, what is written through ``[out]`` pointers returned, slices for arrays,
-a caller's buffer for those written, ``[*:0]const u8`` and ``[:0]const u8`` for
-strings, optionals where NULL is allowed, and a context pointer with a comptime
-function for callbacks. See :py:mod:`yace.targets.idiom` for what is derived
-from where. Names are camelCase for functions, without the prefix.
+The idiomatic Zig layer of the bindings wraps the raw externs. A handle is a
+struct with methods and a ``deinit``, an errno is the Zig error of the same
+name, a value written through an ``[out]`` pointer is returned, an array is a
+slice, a string is a ``[*:0]const u8`` or a ``[:0]const u8``, a pointer that
+may be NULL is an optional, and a callback is a comptime function with a
+context pointer. :py:mod:`yace.targets.idiom` documents what each idiom is
+derived from. Functions have camelCase names, without the prefix.
 """
 
 import re
@@ -38,11 +38,10 @@ INTERNAL = set(
 )
 
 
-# The captures and locals of the idiomatic functions, and the function of a
-# trampoline, which a parameter may not shadow either
+# Captures and locals of the generated functions, which no parameter may shadow
 CAPTURES = {"s", "h", "p", "context", "call"}
 
-# A parameter's name as renamed, which no other parameter may keep
+# The suffix base() appends; a parameter that already has it is renamed too
 RENAMED = re.compile(r"_arg_*$")
 
 # The primitive types, which no name may shadow
@@ -53,13 +52,12 @@ PRIMITIVE = re.compile(
 )
 
 
-# The structs of the buffer pattern. They bind no name but those Locals renames,
-# and fields, which it does not, as Zig forbids a local to shadow a declaration
+# The functions bind only names that Locals renames, as no local may shadow a
+# declaration of the module
 BUFFER = """\
-/// Memory the library allocated, freed by deinit() with what it was allocated
-/// with, which must outlive it. The memory may be a device's, such as a GPU's,
-/// which the CPU cannot read, and nothing in the API says which; slice() is for
-/// memory of the host only.
+/// Memory the library allocated; deinit() frees it. The arguments the memory
+/// was allocated with must outlive the Buffer. The memory may belong to a
+/// device that the CPU cannot read, so use slice() only on memory of the host.
 pub const Buffer = struct {
     ptr: *anyopaque,
     len: usize,
@@ -72,34 +70,34 @@ pub const Buffer = struct {
         return @as([*]u8, @ptrCast(self.ptr))[0..self.len];
     }
 
-    /// Resize the memory to 's' bytes, keeping its bytes up to the smaller
-    /// size; error.OutOfMemory where it cannot, leaving the memory unchanged
+    /// Resizes the memory to 's' bytes, keeping the bytes up to the smaller
+    /// size. On error.OutOfMemory the memory is unchanged.
     pub fn realloc(self: *Buffer, s: usize) anyerror!void {
         const h = self.realloc_fn orelse return error.Unsupported;
         self.ptr = h(self.ctx, self.ptr, s) orelse return error.OutOfMemory;
         self.len = s;
     }
 
-    /// Free the memory
+    /// Frees the memory
     pub fn deinit(self: Buffer) void {
         self.free_fn(self.ctx, self.ptr);
     }
 };"""
 
 REGISTRATION = """\
-/// Memory of the caller's that the library uses until unregister(). The
-/// memory, and what it was registered with, must outlive it.
+/// Memory of the caller that the library uses until unregister(). The memory
+/// and the arguments it was registered with must outlive the Registration.
 pub const Registration = struct {
     memory: []u8,
     ctx: ?*anyopaque,
     unregister_fn: *const fn (?*anyopaque, *anyopaque) anyerror!void,
 
-    /// Unregister the memory
+    /// Unregisters the memory
     pub fn unregister(self: Registration) anyerror!void {
         return self.unregister_fn(self.ctx, @ptrCast(self.memory.ptr));
     }
 
-    /// As unregister(), without its error, for `defer registration.deinit()`
+    /// Calls unregister() and discards its error, for `defer`
     pub fn deinit(self: Registration) void {
         self.unregister() catch {};
     }
@@ -116,9 +114,7 @@ class Renderer(object):
         self.declared |= {e.name for e in self.model.entities if hasattr(e, "name")}
         self.declared |= {m.name for e in enums for m in e.members}
         self.declared |= set(namer.names.values()) | set(namer.stubs.values())
-        # The names of the functions, each other than those before it in the
-        # same struct, as two C names that differ by a trailing '_' have the
-        # same camelCase name
+        # Two C names that differ by a trailing '_' have the same camelCase name
         self.fn_names: Dict[str, str] = {}
         handed: Dict[Optional[str], set] = {}
         for call in idioms.calls:
@@ -128,18 +124,17 @@ class Renderer(object):
                 name += "_"
             handed[scope].add(name)
             self.fn_names[call.function] = name
-        # What the module declares, which Zig forbids any local to shadow
         module = self.declared | set(self.fn_names.values())
         module |= {self.struct_name(h) for h in idioms.handles}
         self.locals = zgen.Locals(module)
-        # Zig forbids a parameter to shadow a declaration: these are taken
+        # Zig does not allow a local or a parameter to shadow a declaration
         self.taken = module | {"self", "ret", "deinit"} | self.locals.renamed()
 
     def base(self, name: str) -> str:
-        """A parameter's name, unescaped and not taken by a declaration: a name
-        that is taken, a capture or a primitive type gets '_arg' appended, then
-        '_' until it is not taken. A name already ending in '_arg', or in '_arg'
-        and '_', gets '_arg' appended too, so no two parameters share a name"""
+        """Return a parameter's name, unescaped. A name that a declaration has,
+        a capture or a primitive type gets '_arg' appended, then '_' until it
+        is free. A name already ending in '_arg', or in '_arg' and '_', gets
+        '_arg' too, so that no two parameters share a name."""
 
         captured = name in CAPTURES or name == "_" or re.fullmatch(r"a\d+", name)
         primitive = PRIMITIVE.fullmatch(name)
@@ -151,19 +146,19 @@ class Renderer(object):
         return name
 
     def pname(self, name: str) -> str:
-        """A parameter's name, one not taken by a declaration"""
+        """Return a parameter's name, one no declaration has"""
 
         return zgen.ident(self.base(name))
 
     def local(self, call: Call, param: str, suffix: str) -> str:
-        """The name made for 'param', other than that of a parameter or of a
-        declaration, which Zig does not let it shadow"""
+        """Return the name made for 'param', which no parameter or declaration
+        has, as Zig does not allow shadowing"""
 
         taken = {self.base(a.param) for a in call.args} | self.taken
         return zgen.ident(local(self.base(param), suffix, taken))
 
     def struct_name(self, handle: str) -> str:
-        """The name of a handle's struct, other than that of any raw type"""
+        """Return the name of a handle's struct, which no raw type has"""
 
         name = camel(self.idioms.handle_name(handle))
         if name in self.namer.names.values() or name in self.namer.stubs.values():
@@ -171,15 +166,15 @@ class Renderer(object):
         return zgen.ident(name)
 
     def fn_name(self, call: Call) -> str:
-        """The name of a function, other than the parameters and locals of the
-        module's own functions, which Zig does not let shadow it, and than a
-        primitive type, which it does not let shadow either"""
+        """Return the name of the function of 'call', which is not a parameter
+        or a local of the module's own functions, nor a primitive type, as Zig
+        lets none of those shadow it"""
 
         return self.fn_names[call.function]
 
     def unusable(self, name: str) -> bool:
-        """Whether a function may not be named 'name': as a parameter or local of
-        the module's own functions, a declaration, or a primitive type"""
+        """Return whether 'name' is taken: by a parameter or local of the
+        module's own functions, a declaration, or a primitive type"""
 
         internal = name in INTERNAL or re.fullmatch(r"(a|idx|item)\d+", name)
         return bool(internal or name in self.declared or PRIMITIVE.fullmatch(name))
@@ -188,8 +183,7 @@ class Renderer(object):
         return self.local(call, param, "out")
 
     def partial_name(self, call: Call) -> str:
-        """The parameter through which a partial call that fails returns what
-        it wrote"""
+        """Return the parameter that takes the outputs of a failed partial call"""
 
         taken = {self.pname(a.param) for a in call.args}
         name = "partial"
@@ -198,7 +192,7 @@ class Renderer(object):
         return name
 
     def value(self, call: Call):
-        """The type and expression of what 'call' returns when it succeeds"""
+        """Return the type and expression of what 'call' returns"""
 
         results = self.results(call)
         if not results:
@@ -218,7 +212,7 @@ class Renderer(object):
         return None
 
     def is_ref(self, typ) -> bool:
-        """Whether a pointer is given as a Zig pointer to one value"""
+        """Return whether 'typ' is given as a pointer to one value"""
 
         return (
             isinstance(typ, types.Pointer)
@@ -277,7 +271,7 @@ class Renderer(object):
         return found
 
     def size(self, call: Call, param: str) -> str:
-        """The number of elements of the slice given as 'param'"""
+        """Return the number of elements of the slice 'param'"""
 
         arg = next(a for a in call.args if a.param == param)
         name = self.pname(param)
@@ -292,14 +286,14 @@ class Renderer(object):
         return self.z(typ, True)
 
     def elem(self, typ) -> str:
-        """The Zig type of an element of an array, a byte for void"""
+        """Return the Zig type of an array element; u8 for void"""
 
         if isinstance(typ, types.Builtin) and typ.name == "void":
             return "u8"
         return self.z(typ)
 
     def given_handle(self, typ) -> Optional[str]:
-        """The handle a parameter takes, other than the one a method is of"""
+        """Return the handle 'typ' points to, if it has functions"""
 
         handle = is_opaque_ptr(typ, self.idioms.handles)
         return handle if handle and any(self.idioms.of(handle).values()) else None
@@ -488,8 +482,8 @@ class Renderer(object):
             call,
             func.doc,
             self.pname,
-            f"On failure, it writes to `{self.partial_name(call)}`, when given, what"
-            " it returns when it succeeds, with what was written before it failed.",
+            "On failure, what was written before the call failed is stored in"
+            f" `{self.partial_name(call)}`, if given.",
             buffers=True,
         )
         if self.makes(call) == "register":
@@ -518,10 +512,10 @@ class Renderer(object):
         return [f"{indent}{line}".rstrip() for line in lines]
 
     def context(self, call: Call, partner: Optional[Call]) -> Optional[str]:
-        """The context a release function of 'partner' is given, from the
-        arguments of 'call': the pointer of the one handle 'partner' takes
-        besides the address and the size, or null where it takes none; None
-        where it takes more, or what is not a handle of 'call'"""
+        """Return the context a release function of 'partner' is given, from
+        the arguments of 'call': the pointer of the one handle 'partner' takes
+        besides the address and the size, or null when it takes none; None when
+        it takes more, or what is not a handle"""
 
         if partner is None or partner.memory is None:
             return None
@@ -544,8 +538,8 @@ class Renderer(object):
         return found[0] if found else "null"
 
     def makes(self, call: Call) -> Optional[str]:
-        """'alloc' where 'call' returns a Buffer, 'register' where it returns a
-        Registration: where the struct can release what 'call' made"""
+        """Return 'alloc' when 'call' returns a Buffer, 'register' when a
+        Registration, and None when no struct can release it"""
 
         if call.memory is None or call.memory.role not in ("alloc", "register"):
             return None
@@ -555,8 +549,8 @@ class Renderer(object):
         return call.memory.role
 
     def bound(self, call: Call) -> bool:
-        """Whether 'call' is bound by a name of its own, not only through the
-        struct of the buffer pattern that calls it"""
+        """Return whether 'call' gets a function of its own, which a release
+        function called by a struct does not"""
 
         if call.memory is None or call.memory.role not in RELEASES:
             return True
@@ -564,7 +558,7 @@ class Renderer(object):
         return owner is None or not self.makes(owner)
 
     def release(self, call: Call, role: str, name: str) -> List[str]:
-        """A struct 'name' whose function 'call' calls the partner of the role
+        """Return a struct whose function calls the partner of 'call' in
         'role', given the context, the address and, to resize, the size"""
 
         partner = self.idioms.partner(call, role)
@@ -601,7 +595,7 @@ class Renderer(object):
         )
 
     def releases(self, call: Call) -> List[str]:
-        """The structs of the functions that release what 'call' made"""
+        """Return the structs that release what 'call' made"""
 
         if self.makes(call) == "register":
             return self.release(call, "unregister", "a0")
@@ -617,7 +611,7 @@ class Renderer(object):
         return f"?{self.buffer_struct}" if call.nullable else self.buffer_struct
 
     def made(self, call: Call) -> str:
-        """The expression of the Buffer or the Registration 'call' made"""
+        """Return the expression of the struct that 'call' returns"""
 
         if self.makes(call) == "register":
             ctx = self.context(call, self.idioms.partner(call, "unregister"))
@@ -677,7 +671,7 @@ class Renderer(object):
             if name != "deinit" and "deinit" not in methods:
                 lines += [
                     "",
-                    f"    /// As {name}(), for `defer handle.deinit()`",
+                    f"    /// An alias of {name}(), for `defer handle.deinit()`",
                     f"    pub const deinit = {name};",
                 ]
         lines.append("};")
@@ -685,7 +679,7 @@ class Renderer(object):
 
     def render(self) -> str:
         lines = [
-            "/// The error of a negative errno: the Zig error of the same name",
+            "/// The Zig error named as the negative errno 'ret'",
             "pub fn errnoError(ret: c_int) anyerror {",
             "    return switch (@as(std.posix.E, @enumFromInt(-ret))) {",
             "        inline else => |tag| @field(anyerror, @tagName(tag)),",
@@ -693,7 +687,7 @@ class Renderer(object):
             "    };",
             "}",
             "",
-            "/// The errno of an error of errnoError(), 0 for any other",
+            "/// The errno of an error from errnoError(), 0 for any other error",
             "pub fn errnoOf(err: anyerror) c_int {",
             '    inline for (@typeInfo(std.posix.E).@"enum".fields) |field| {',
             "        if (err == @field(anyerror, field.name))",

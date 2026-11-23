@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-Go code for the IR: names, the Go type of each IR type and the type cgo gives
-it, the conversions between the two, and the methods of the records. The raw
-layer declares the records as Go structs of the C layout, with exported fields,
-as cgo's own types are of no use outside the package; a union is its bytes,
-read and written through a method per member. Pointers are Go pointers, which
-may point to C memory; ``void *`` and function pointers are ``unsafe.Pointer``.
+ggen produces the Go code that depends on the IR: names, the Go type of each IR
+type and the type cgo gives it, the conversions between the two, and the
+methods of the records. A record is a Go struct with the C layout and exported
+fields, because another package cannot use cgo's types. A union is its bytes,
+with a method per member. A pointer is a Go pointer; ``void *`` and a function
+pointer are ``unsafe.Pointer``.
 """
 
 import re
@@ -32,7 +32,7 @@ GO_TYPES = {
     "unsigned short": "uint16",
     "int": "int32",
     "unsigned int": "uint32",
-    # Its width is the platform's, as in C
+    # The width of C's long depends on the platform
     "long": "CLong",
     "unsigned long": "CULong",
     "long long": "int64",
@@ -54,7 +54,6 @@ GO_TYPES = {
     "ptrdiff_t": "int",
 }
 
-# The names cgo gives the C types
 C_TYPES = {
     "bool": "C.bool",
     "char": "C.char",
@@ -78,8 +77,7 @@ KEYWORDS = set(
     " type var".split()
 )
 
-# Go's predeclared identifiers, which a parameter or local must not shadow, as
-# the generated code may use them
+# Go's predeclared identifiers, which the generated code may use
 PREDECLARED = set(
     "any append bool byte cap clear close comparable complex complex128 complex64"
     " copy delete error false float32 float64 imag int int16 int32 int64 int8"
@@ -101,15 +99,15 @@ IMPORTS = {
     "unsafe",
 }
 
-# What the package declares of its own, before any name of the C API
+# Declared by the package itself, so taken before any name of the C API
 OWN = {"CLong", "CULong"}
 
-# The alignment of a Go type of that many bytes, for a record kept as bytes
+# The type that gives a record declared as its bytes each alignment
 ALIGNED = {1: "uint8", 2: "uint16", 4: "uint32", 8: "uint64"}
 
 
 def export(name: str) -> str:
-    """'name', exported, as Go exports what begins with an upper-case letter"""
+    """Return 'name' with an upper-case first letter, which exports it"""
 
     if name[:1].islower():
         return name[:1].upper() + name[1:]
@@ -119,16 +117,15 @@ def export(name: str) -> str:
 
 
 def ident(name: str) -> str:
-    """'name', usable as a local Go identifier"""
+    """Return 'name', escaped for a Go local"""
 
     return f"{name}_" if name in KEYWORDS or name in PREDECLARED else name
 
 
 def doc_lines(doc, errors: str = "") -> List[str]:
-    """The lines of a doc comment, unindented, which Go would read as code, and
-    a paragraph of one line ending in a full stop, which Go would read as a
-    heading otherwise; 'errors' says when the function documented returns an
-    error"""
+    """Return the lines of a Go doc comment. The lines are not indented, which
+    Go reads as code, and a paragraph of one line ends in a full stop, or Go
+    reads it as a heading. 'errors' says when the function fails."""
 
     def para(lines: List[str]) -> List[str]:
         if len(lines) == 1 and not lines[0].endswith((".", "!", "?", ":", ";")):
@@ -141,7 +138,9 @@ def doc_lines(doc, errors: str = "") -> List[str]:
     for text in [p for p in doc.description.split("\n\n") if p]:
         found = [line.strip() for line in text.splitlines()]
         if all(LIST_ITEM.match(line) for line in found):
-            lines += [""] + [f"  {line}" for line in found]  # a list, as Go reads it
+            lines += [""] + [
+                f"  {line}" for line in found
+            ]  # Go reads indented items as a list
         else:
             lines += [""] + para(found)
     for line in doc.prose():
@@ -169,9 +168,9 @@ def define_value(value) -> str:
 
 
 def align(rows: List[Tuple[List[str], List[str]]], indent: str = "\t") -> List[str]:
-    """The lines of 'rows', each its comment lines and its cells, with the cells
-    padded as gofmt pads them: across the rows that follow each other with no
-    comment line between them"""
+    """Return the lines of 'rows', each its comment lines and its cells. The
+    cells are padded as gofmt pads them, across rows with no comment line
+    between them."""
 
     lines: List[str] = []
     section: List[List[str]] = []
@@ -196,7 +195,7 @@ def align(rows: List[Tuple[List[str], List[str]]], indent: str = "\t") -> List[s
 
 
 class Registry(object):
-    """Names, each other than those before it, by a trailing '_'"""
+    """Appends '_' to a name until it is not taken"""
 
     def __init__(self, taken=()):
         self.taken = set(taken)
@@ -209,10 +208,9 @@ class Registry(object):
 
 
 class Namer(object):
-    """The Go names of the package: of the types, CamelCase of the C name, or the
-    C name itself, exported, where two would get the same one; of the constants
-    and raw functions, the C name exported. Each is other than those named
-    before it, by a trailing '_'."""
+    """Maps C names to Go names. A type gets the C name in CamelCase, or the
+    exported C name where two types would share one; a constant or a raw
+    function gets the exported C name. A taken name gets '_' appended."""
 
     def __init__(self, model: Model):
         self.records = model.records()
@@ -221,7 +219,6 @@ class Namer(object):
         self.registry = Registry(OWN)
         self.stubs: Dict[str, str] = {}
 
-        # A typedef of the record or enum of its own name is that type
         self.aliases = {
             name
             for name, typedef in self.typedefs.items()
@@ -241,7 +238,7 @@ class Namer(object):
             )
 
     def type_name(self, typ) -> str:
-        """The name of the record, enum or typedef 'typ' names"""
+        """Return the Go name of the type 'typ' names"""
 
         if isinstance(typ, types.TypedefRef) and typ.name not in self.aliases:
             key = ("typedef", typ.name)
@@ -267,7 +264,7 @@ class Namer(object):
         return isinstance(self.resolve(typ.to), types.FunctionType)
 
     def is_opaque(self, typ) -> bool:
-        """Whether 'typ' is one Go knows nothing of but its name"""
+        """Return whether Go knows only the name of 'typ'"""
 
         typ = self.resolve(typ)
         if isinstance(typ, types.Record):
@@ -276,7 +273,7 @@ class Namer(object):
         return isinstance(typ, types.TypedefRef)
 
     def gotype(self, typ, param: bool = False) -> str:
-        """The Go type of 'typ'; a parameter's arrays are pointers, as in C"""
+        """Return the Go type of 'typ'; with 'param', an array is a pointer"""
 
         if param and isinstance(self.resolve(typ), types.Array):
             typ = self.resolve(typ)
@@ -330,8 +327,8 @@ class Namer(object):
         raise ValueError(f"no cgo type for {typ!r}")
 
     def kind(self, typ) -> str:
-        """How a value of 'typ' crosses to C: as a 'scalar', a 'pointer', a
-        'record' by value, or 'none', void"""
+        """Return how 'typ' is passed to C: 'scalar', 'pointer', 'record' by
+        value, or 'none' for void"""
 
         resolved = self.resolve(typ)
         if isinstance(resolved, types.Builtin):
@@ -343,8 +340,8 @@ class Namer(object):
         return "record"
 
     def by_value(self, typ) -> bool:
-        """Whether Go can hold a 'typ' by value: not one it only knows the name
-        of, such as a va_list, declared outside the headers"""
+        """Return whether Go can hold a 'typ' by value, which it cannot for a
+        type it knows only by name, such as va_list"""
 
         resolved = self.resolve(typ)
         if isinstance(resolved, types.Array) and resolved.length is not None:
@@ -352,7 +349,7 @@ class Namer(object):
         return self.kind(typ) != "record" or not self.is_opaque(resolved)
 
     def to_c(self, typ, expr: str, param: bool = True) -> str:
-        """'expr', of the Go type of 'typ', as cgo takes it"""
+        """Return the Go expression 'expr' as cgo takes it"""
 
         kind = self.kind(typ)
         ctype = self.ctype(typ, param)
@@ -365,7 +362,7 @@ class Namer(object):
         return f"*(*{ctype})(unsafe.Pointer(&{expr}))"
 
     def from_c(self, typ, expr: str) -> str:
-        """'expr', as cgo gives a 'typ', as its Go type; a record, addressable"""
+        """Return 'expr' from cgo as its Go type; a record, addressable"""
 
         kind = self.kind(typ)
         gotype = self.gotype(typ)
@@ -379,8 +376,8 @@ class Namer(object):
 
 
 class Records(object):
-    """The Go declarations of the records, and their methods: the members of a
-    union, the printers and the parts of the fields of bits"""
+    """Produces the Go declarations of the records and their methods: union
+    members, printers, and the parts of the fields of bits"""
 
     def __init__(self, namer: Namer, complete: List):
         self.namer = namer
@@ -393,14 +390,14 @@ class Records(object):
         return bool(record.size) and any(f.bits is not None for f in record.fields)
 
     def is_bytes(self, record) -> bool:
-        """Whether 'record' is declared as its bytes: a blob, or packed, as Go
-        aligns every field"""
+        """Return whether 'record' is declared as its bytes: a blob or a packed
+        record"""
 
         return self.is_blob(record) or (record.packed and bool(record.fields))
 
     def is_flexible(self, record, field) -> bool:
-        """Whether 'field' is a flexible array, which Go cannot declare: a
-        zero-sized last field would pad the struct"""
+        """Return whether 'field' is a flexible array, which Go cannot declare
+        without padding the struct"""
 
         typ = self.namer.resolve(field.typ)
         return (
@@ -410,8 +407,8 @@ class Records(object):
         )
 
     def field_names(self, record) -> Dict[str, str]:
-        """The Go names of the fields of a struct, or of the methods of the
-        members of a union, by C name"""
+        """Return the Go names of the fields of a struct, or of the member
+        methods of a union, by C name"""
 
         if record.name not in self.fields:
             registry = Registry()
@@ -421,7 +418,7 @@ class Records(object):
         return self.fields[record.name]
 
     def method_names(self, record) -> Dict[str, str]:
-        """The names of the methods of 'record', other than its fields'"""
+        """Return the method names of 'record', none of them a field's"""
 
         if record.name not in self.methods:
             names = self.field_names(record)
@@ -446,7 +443,7 @@ class Records(object):
         return self.methods[record.name]
 
     def bytes(self, record) -> List[str]:
-        """The fields of a record kept as its bytes, aligned as the record"""
+        """Return the fields of a record kept as its bytes, aligned as it"""
 
         aligned = ALIGNED.get(record.align or 1, "uint64")
         return align(
@@ -462,21 +459,17 @@ class Records(object):
                 lines.append("//")
             if self.is_blob(record):
                 lines += [
-                    "// Its bit-fields have no counterpart in Go: only its size and",
-                    "// alignment are kept, and its printers read the bit-fields",
-                    "// from its bytes.",
+                    "// Go has no bit-fields, so the record is kept as its bytes.",
                 ]
             elif record.packed:
                 lines += [
-                    "// Packed, which Go cannot declare, as it aligns every field:",
-                    "// each field is read and written by a copy, through its methods.",
-                    "// The garbage collector does not see a pointer set in a field,",
-                    "// so what it points to must be kept alive by other means.",
+                    "// Go has no packed structs, so the record is kept as its bytes,",
+                    "// and its methods read and write the fields. The garbage",
+                    "// collector does not see a pointer stored in a field.",
                 ]
             else:
                 lines += [
-                    "// A union, its members read and written through the method of",
-                    "// each, as Go has no unions.",
+                    "// Go has no unions, so each member is read through its method.",
                 ]
             return lines + [f"type {name} struct {{"] + self.bytes(record) + ["}"]
 
@@ -492,8 +485,7 @@ class Records(object):
                 notes.append(
                     "// not declared, as a zero-sized last field would pad the struct."
                 )
-                # The zero-sized first field has the record's alignment, so that
-                # Go pads the struct as C does
+                # A zero-sized first field makes Go align the struct as C does
                 aligned = ALIGNED.get(record.align or 1, "uint64")
                 rows.insert(0, ([], ["_", f"[0]{aligned}"]))
                 continue
@@ -504,9 +496,9 @@ class Records(object):
         return lines + [f"type {name} struct {{"] + align(rows) + ["}"]
 
     def packed_fields(self, record, name: str) -> List[str]:
-        """The methods reading and writing each field of a packed record, in its
-        bytes at its offset, which may not be aligned for it; a getter has a
-        value receiver, so that it reads what another getter returns"""
+        """Return the methods that read and write each field of a packed record
+        in its bytes, where the field may be unaligned. A getter has a value
+        receiver, so that it reads what another getter returns."""
 
         names = self.field_names(record)
         setters = self.method_names(record)
@@ -541,7 +533,7 @@ class Records(object):
         return lines
 
     def members(self, record, name: str) -> List[str]:
-        """The method of each member of a union, the member in its bytes"""
+        """Return the method of each member of a union"""
 
         lines: List[str] = []
         for field in record.fields:
@@ -562,9 +554,9 @@ class Records(object):
         return lines
 
     def accessors(self, record, name: str) -> List[str]:
-        """The methods reading and writing the parts of the fields of bits of
-        'record'; a value that does not fit its part panics. Of a packed record,
-        a getter has a value receiver, as those of its fields do"""
+        """Return the methods that read and write the parts of the fields of
+        bits of 'record'. A setter panics on a value that does not fit. A
+        getter of a packed record has a value receiver."""
 
         if self.is_blob(record):
             return []
@@ -605,8 +597,7 @@ class Records(object):
         return lines
 
     def printers(self, record, name: str, prefix: str) -> List[str]:
-        """Fpr() and String(), printing what the C API's pretty-printers
-        print, without calling them"""
+        """Return Fpr() and String(), which print as the C API's pretty-printers do"""
 
         if record.name not in self.printable:
             return []
@@ -623,8 +614,8 @@ class Records(object):
             *["\t" + line for line in printer.yaml_body(record)],
             "}",
             "",
-            f"// {fpr} prints r, or null when nil, to w, as {record.name}_fpr() does:",
-            f"// as YAML, or as JSON on one line, by flags, one of {prefix}_PR_*",
+            f"// {fpr} prints r, or null for nil, to w as {record.name}_fpr() does;",
+            f"// flags is one of {prefix}_PR_*",
             f"func (r *{name}) {fpr}(w io.Writer, flags int) error {{",
             "\tvar out []byte",
             "\tswitch {",
@@ -644,7 +635,7 @@ class Records(object):
         if string == "String":
             lines += [
                 "",
-                "// String is the YAML of r, as Fpr prints it",
+                "// String returns the YAML that Fpr prints",
                 f"func (r {name}) String() string {{",
                 f'\treturn string(r.yaceYAML([]byte("{record.name}:\\n"), 2))',
                 "}",
@@ -653,8 +644,8 @@ class Records(object):
 
 
 class Printer(object):
-    """The Go statements appending to the []byte 'out' a value of a type, as
-    the pretty-printers of the C API print it"""
+    """Produces the Go statements that append a value to the []byte 'out' as
+    the C API's pretty-printers print it"""
 
     def __init__(self, namer: Namer, records: "Records"):
         self.namer = namer
@@ -662,7 +653,7 @@ class Printer(object):
         self.enums = namer.enums
 
     def printable(self, typ):
-        """The record 'typ' is, if it is one with printers"""
+        """Return the record of 'typ' if it has printers"""
 
         typ = self.namer.resolve(typ)
         if isinstance(typ, types.Record):
@@ -686,7 +677,7 @@ class Printer(object):
             if name == "void":
                 return null
             if name == "char":
-                # As signed as C's char is on the platform, as C prints it
+                # C prints a char with the signedness char has on the platform
                 return [f"out = strconv.AppendInt(out, int64(C.char({expr})), 10)"]
             return [f"out = strconv.AppendInt(out, int64({expr}), 10)"]
 
@@ -705,8 +696,7 @@ class Printer(object):
             if isinstance(elem, types.Builtin) and elem.name == "char":
                 return [f"out = yaceStrn(out, {expr}[:])"]
             idx = f"i{depth}"
-            # A member of a union is ranged over by its pointer, as gofmt drops
-            # the parentheses of '(*r.Member())' there
+            # Range over the pointer: gofmt drops the parentheses of '(*r.M())'
             ranged = (
                 expr[2:-1] if expr.startswith("(*") and expr.endswith(")") else expr
             )
@@ -729,8 +719,8 @@ class Printer(object):
         return null
 
     def place(self, record, field) -> str:
-        """The expression of 'field' of the record 'r'; of a packed record or a
-        blob, the local 'v', see bound()"""
+        """Return the expression of 'field' of 'r'; for a packed record or a
+        blob, the local 'v' of bound()"""
 
         name = self.records.field_names(record)[field.name]
         if record.packed or self.records.is_blob(record):
@@ -738,9 +728,9 @@ class Printer(object):
         return f"(*r.{name}())" if isinstance(record, decls.Union) else f"r.{name}"
 
     def bound(self, record, field, lines: List[str]) -> List[str]:
-        """'lines', in a block binding the local 'v' to a copy of 'field' of a
-        packed record, or of a blob, read from its bytes, if they use it, for
-        them to take its address"""
+        """Return 'lines' in a block that binds 'v' to a copy of 'field' of a
+        packed record or a blob, if 'lines' use 'v', so that they can take its
+        address"""
 
         blob = self.records.is_blob(record)
         if not (record.packed or blob):
@@ -755,8 +745,8 @@ class Printer(object):
         return ["{", f"\tv := {copy}", *["\t" + ln for ln in lines], "}"]
 
     def parts(self, field, expr: str, base: int, quote: str) -> List[str]:
-        """The value of a field of bits and of each of its parts, as a mapping
-        on one line, with the keys quoted by 'quote', the values in 'base'"""
+        """Return the statements printing a field of bits and each of its parts
+        as a mapping on one line; 'quote' quotes the keys"""
 
         prefix = "0x" if base == 16 else ""
         value = f"uint64({expr})"
@@ -776,13 +766,13 @@ class Printer(object):
         return lines + ["out = append(out, '}')"]
 
     def named(self, record) -> list:
-        """The fields printed: those with a name, not padding bit-fields"""
+        """Return the named fields, which leaves out padding bit-fields"""
 
         return [f for f in record.fields if f.name]
 
     def bits(self, field) -> str:
-        """The expression reading the bit-field 'field' from the bytes of its
-        record, as an integer of the type C prints it as"""
+        """Return the expression that reads the bit-field 'field' from the
+        bytes of its record, as the integer type C prints"""
 
         at = bitfield(field, self.namer.resolve(field.typ), self.enums)
         if at is None:
@@ -792,7 +782,7 @@ class Printer(object):
         return f"{reader}({args})"
 
     def field_value(self, record, field) -> List[str]:
-        """Statements printing the value of 'field', of a blob from its bytes"""
+        """Return the statements printing 'field', read from a blob's bytes"""
 
         if not self.records.is_blob(record) or field.bits is None:
             return self.value(field.typ, self.place(record, field))
@@ -805,7 +795,7 @@ class Printer(object):
         return [f"out = strconv.AppendInt(out, {value}, 10)"]
 
     def field_of_bits(self, record, field) -> str:
-        """The expression of a field of bits, whose parts are printed"""
+        """Return the expression of a field of bits, for its parts"""
 
         if self.records.is_blob(record) and field.bits is not None:
             return self.bits(field)
@@ -853,6 +843,4 @@ class Printer(object):
 
 
 def go_quote(text: str) -> str:
-    """'text' as a Go string literal"""
-
     return string_literal(text, "\\x{:02x}")

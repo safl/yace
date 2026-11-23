@@ -3,11 +3,10 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-The raw layer of the Go package: the constants, enums, types and functions of
-the C API, by their C names, exported. Each C function is bound as a Go
-function that calls it through cgo, converting its arguments; a C function cgo
-cannot call, such as a variadic one, is not bound, and a comment in its place
-in the package says why.
+The raw layer of the Go package declares the constants, enums, types and
+functions of the C API under their C names, exported. Each C function is bound
+as a Go function that calls it through cgo. A function cgo cannot call, such as
+a variadic one, is not bound; a comment in its place says why.
 """
 
 from typing import List, Optional
@@ -35,8 +34,8 @@ from .ggen import (
 
 
 def param_names(names, reserved) -> List[str]:
-    """The Go names of parameters, by their C names, none of them 'reserved'
-    nor shared; the unnamed and '_' are 'arg<n>'"""
+    """Return the Go names of parameters by their C names, none 'reserved' or
+    shared; one unnamed or '_' is 'arg<n>'"""
 
     registry = Registry(reserved)
     return [
@@ -46,7 +45,7 @@ def param_names(names, reserved) -> List[str]:
 
 
 def doc(lines: List[str], *more: str) -> List[str]:
-    """A doc comment of 'lines', then of 'more', a paragraph of its own"""
+    """Return a doc comment of 'lines', with 'more' as a paragraph"""
 
     found = comment(lines)
     if found and more:
@@ -55,7 +54,7 @@ def doc(lines: List[str], *more: str) -> List[str]:
 
 
 class Raw(object):
-    """The raw layer, and the names it declares, before any other"""
+    """Renders the raw layer, whose names are registered first"""
 
     def __init__(self, model: Model, namer: Namer, records: Records):
         self.model = model
@@ -71,7 +70,7 @@ class Raw(object):
             if isinstance(e, decls.Typedef) and e.name not in namer.aliases
         ]
         self.declared = [e for e in entities if isinstance(e, decls.RECORDS)]
-        # Every type is resolved now, so the stubs are named before the rest
+        # namer.gotype() names the stubs, ahead of the constants and functions
         for entity in self.typedefs:
             namer.gotype(entity.typ)
         for record in self.declared:
@@ -93,12 +92,12 @@ class Raw(object):
         self.fn_names = {f.name: registry.add(export(f.name)) for f in self.functions}
 
     def reserved(self) -> set:
-        """What a parameter must not be named: what a body may use"""
+        """Return the names a body may use, which no parameter has"""
 
         return KEYWORDS | PREDECLARED | IMPORTS | self.namer.registry.taken
 
     def unbindable(self, function) -> Optional[str]:
-        """Why cgo cannot call 'function', if it cannot"""
+        """Return why cgo cannot call 'function', if so"""
 
         if function.variadic:
             return "is variadic, which cgo cannot call"
@@ -124,7 +123,7 @@ class Raw(object):
         return None
 
     def unsized_pointee(self, typ) -> bool:
-        """Whether 'typ' holds a pointer to an array of no length, 'int (*)[]'"""
+        """Return whether 'typ' holds a pointer to an unsized array"""
 
         typ = self.namer.resolve(typ)
         if isinstance(typ, types.Pointer):
@@ -152,8 +151,8 @@ class Raw(object):
         under = GO_TYPES[entity.underlying.name] if entity.underlying else "int32"
         lines = [""] + doc(
             doc_lines(entity.doc),
-            "An integer, not a closed set: C does not restrict an enum to the",
-            "values it names.",
+            f"{name} is an integer, because C does not restrict a value to the",
+            "named ones.",
         )
         lines.append(f"type {name} {under}")
         rows = []
@@ -166,7 +165,7 @@ class Raw(object):
             lines += ["", "const ("] + align(rows) + [")"]
         lines += [
             "",
-            "// Name is the C name of the value, and whether it has one",
+            "// Name returns the C name of the value, and false when it has none",
             f"func (v {name}) Name() (string, bool) {{",
         ]
         cases = []
@@ -190,8 +189,7 @@ class Raw(object):
             '\treturn "", false',
             "}",
             "",
-            f"// String is the C name of the value, or {name}(<value>) for one",
-            "// not named",
+            f"// String returns the C name of the value, or {name}(<value>)",
             f"func (v {name}) String() string {{",
             "\tif name, ok := v.Name(); ok {",
             "\t\treturn name",
@@ -273,7 +271,7 @@ class Raw(object):
         return lines
 
     def render(self) -> List[str]:
-        """The raw layer, after the declarations of the package's own"""
+        """Return the lines of the raw layer"""
 
         lines: List[str] = []
         for entity in self.model.entities:
