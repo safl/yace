@@ -600,7 +600,6 @@ def headers(tmp_path, **sources):
     return paths
 
 
-# An API of two headers: 'api_b.h' includes 'api_a.h' and uses what it declares
 API_A = (
     "#ifndef API_A_H\n#define API_A_H\n#include <stdint.h>\n"
     "/** Length */\n#define API_LEN 4\n"
@@ -637,8 +636,7 @@ def test_a_header_included_but_not_given_is_external(parser, tmp_path):
     assert "external-type" in rules(diagnostics)
 
 
-# An API of two headers that include nothing. 'api_n.h' uses what 'api_m.h'
-# declares, and both headers use standard types that yace includes before them.
+# Neither header includes what it uses
 API_M = (
     "/** M */\nstruct api_m {\n\tuint32_t v; ///< V\n};\n"
     "/** M */\ntypedef struct api_m api_m;\n"
@@ -785,8 +783,7 @@ def test_a_missing_prelude_header_stops_the_parse(parser, tmp_path):
         parser.parse(paths, prelude=["yace_nowhere.h"])
 
 
-# Printers that an API declares itself, named as xNVMe's libxnvme_pp.h names
-# its printers
+# Printers named as xNVMe's libxnvme_pp.h names its printers
 OWN_PRINTERS = (
     "/** Formats */\nenum api_pr {\n\tAPI_PR_DEF = 0, ///< D\n"
     "\tAPI_PR_YAML = 1, ///< Y\n\tAPI_PR_TERSE = 2, ///< T\n};\n"
@@ -829,8 +826,7 @@ def test_what_has_the_name_of_a_generated_printer_or_format_is_skipped(parse):
     assert [e.name for e in model.entities] == ["api_s", "api_k", "api_q"]
 
 
-# Printers that an API declares itself, all tagged @nobind, among them
-# api_a_dump, which is not named as a printer
+# api_a_dump is not named as a printer
 NOBIND = (
     "#include <stdio.h>\n"
     "/** A */\nstruct api_a {\n\tint x; ///< X\n};\n"

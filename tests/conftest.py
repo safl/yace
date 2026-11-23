@@ -29,10 +29,7 @@ def flat(code: str) -> str:
 ESCAPED = '/** S */\n#define API_S "a\\n\\"b\\"\\x41\\t\\\\" "c\\xc3\\xa9"\n'
 ESCAPED_VALUE = 'a\n"b"A\t\\cé'
 
-# Records with a flexible array member, and records that hold such a record,
-# which ISO C allows neither in an array nor in a struct. The parser leaves out
-# an array field of such records where leaving it out keeps the alignment of the
-# struct, and skips the other structs that hold one and the functions using them
+# ISO C allows a record with a flexible array member in neither an array nor a struct
 FLEXIBLE = (
     "#include <stdint.h>\n"
     "struct api_fin { uint32_t n; uint8_t d[]; };\n"
@@ -45,9 +42,7 @@ FLEXIBLE = (
     "int api_fuse(struct api_fout *o, struct api_fmember *m);\n"
 )
 
-# Records that the bindings cannot represent, which the parser skips together
-# with what uses them, among records that the parser keeps, such as records
-# with padding bits
+# Records that the parser skips, among records that the parser keeps
 SKIPPED = (
     "#include <sys/time.h>\n"
     "struct api_r;\nint api_before(struct api_r *v);\n"
@@ -84,8 +79,6 @@ SKIPPED = (
 ) + FLEXIBLE
 
 
-# A record of two integer fields, and the defines that mask bit ranges of those
-# fields
 BITS = (
     "#include <stdint.h>\n"
     "/** A status */\nstruct api_status {\n"
@@ -99,8 +92,6 @@ BITS = (
 )
 
 
-# A packed record, in which no field after the first is aligned and the field
-# 'type' has a mask, and a packed union
 PACKED = (
     "#include <stdint.h>\n"
     "/** P */\nstruct api_p {\n\tint32_t x; ///< X\n\tint32_t y; ///< Y\n};\n"
@@ -113,9 +104,7 @@ PACKED = (
     "\tuint64_t n; ///< N\n\tstruct api_p p; ///< P\n};\n"
 )
 
-# PACKED_C is a C initializer of an api_k with a value in every field, the
-# values that the test of each target fills in. PACKED_PRINTED is what the
-# printers print for that api_k, as YAML and then as JSON.
+# PACKED_PRINTED is what the printers print for the api_k of PACKED_C: YAML, then JSON
 PACKED_C = (
     "{.tag = 1, .value = 0xdeadbeef, .at = {-2, 3}, .path = {{4, 5}, {6, 7}},"
     " .pair = {8, 9}, .type = 0x1a}"
@@ -130,10 +119,7 @@ PACKED_PRINTED = (
 )
 
 
-# A library that keeps a message of the call that failed last, which
-# api_errmsg() returns; a meta names api_errmsg() with 'errmsg'. ERRMSG_C defines
-# the functions: api_open() fails for a name that starts with '/', api_quiet()
-# fails with no message, and api_reap() fails after it wrote one element.
+# A meta names api_errmsg() with 'errmsg'
 ERRMSG = (
     "#include <stdint.h>\nstruct api_h;\n"
     "/** The message of the call that failed last */\n"
@@ -179,10 +165,6 @@ int api_reap(int32_t *done, uint32_t max, uint32_t *n)
 """
 
 
-# BIT_FIELDS declares a record of bit-fields of each kind C prints, among them
-# one of 40 bits across five bytes, one of char, and one of padding, and of
-# fields that are not bit-fields, and a packed record holding it at an offset
-# of one byte
 BIT_FIELDS = """#include <stdbool.h>
 #include <stdint.h>
 /** E */
@@ -213,10 +195,7 @@ struct __attribute__((packed)) api_pk {
 };
 """
 
-# BIT_FIELDS_C fills in an api_bits and an api_pk, and prints the bytes of
-# each to stderr, a line of decimal bytes each, and what the C printers print
-# for them to stdout, as YAML and then as JSON. The field 'c' of the api_pk is
-# 100, which is -28 in 7 bits where char is signed.
+# The field 'c' of the api_pk is 100, which is -28 in 7 bits where char is signed
 BIT_FIELDS_C = """#include <stdio.h>
 #include <string.h>
 #include "libapi.h"

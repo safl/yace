@@ -65,7 +65,7 @@ def compiled(tmp_path, library=None, name="api"):
     if library is None:
         sys.setdlopenflags(os.RTLD_LAZY)
     try:
-        made = importlib.util.module_from_spec(spec)  # loads the shared object
+        made = importlib.util.module_from_spec(spec)  # Loads the shared object
         spec.loader.exec_module(made)
     finally:
         sys.setdlopenflags(flags)
@@ -84,8 +84,7 @@ def bind(request, tmp_path, monkeypatch):
 
     def bind(model, source):
         built = library(tmp_path, source)
-        # compiled() builds the Cython module linking the library, so process()
-        # skips the check of the Cython target
+        # compiled() builds the Cython module itself, so process() skips its check
         assert process(model, [target], tmp_path, check=target == "python") == []
         if target == "python":
             monkeypatch.setenv("API_LIBRARY", str(built))
@@ -148,7 +147,7 @@ def test_headers_outside_the_subset_still_bind(parse, tmp_path):
 
     ns = module(tmp_path)
     assert "FILE" in ns  # FILE, declared outside the headers, is a stub
-    assert "log_it" not in ns  # the Python target binds no variadic function
+    assert "log_it" not in ns  # No variadic function is bound
     assert ns["Outer"]._fields_[1] == ("bits", ns["ctypes"].c_uint, 3)
     assert ns["Flex"]().to_dict() == {"n": 0, "data": None}
 
@@ -645,8 +644,8 @@ def test_a_callback_gets_a_non_null_context_and_an_in_out_bytearray_is_written(
 
 @needs_cc
 def test_a_void_pointer_array_has_the_length_of_its_bytes(parse, bind):
-    """A buffer of elements wider than a byte is passed whole, its length in
-    bytes, not in elements"""
+    """A buffer of elements wider than a byte is passed whole, and its length
+    is counted in bytes, not in elements"""
 
     header = (
         "#include <stddef.h>\n"
@@ -1152,8 +1151,7 @@ BUFFERS_C = (
     "int api_freed(void) { return freed; }\n"
 )
 
-# A buffer pattern whose alloc and realloc also write an [out], as
-# xnvme_buf_phys_alloc() writes the physical address
+# The alloc and the realloc also write an [out], as xnvme_buf_phys_alloc() does
 PHYS = (
     "#include <stddef.h>\n#include <stdint.h>\n"
     "/** D */\nstruct api_dev;\n"
@@ -1348,7 +1346,7 @@ def test_registered_memory_is_held_until_unregistered(parse, bind):
         assert (reg.address, reg.nbytes) == (at, 16)
         assert (api["registered"](), api["registered_nbytes"]()) == (at, 16)
         with pytest.raises(BufferError):
-            memory.extend(b"x")  # the registration holds a view
+            memory.extend(b"x")  # The registration holds a view
         with pytest.raises(OSError) as failed:
             dev.buf_register(bytearray(8))
         assert failed.value.errno == errno.EBUSY
@@ -1369,8 +1367,7 @@ def test_registered_memory_is_held_until_unregistered(parse, bind):
     assert api["registered"]() == 0
 
 
-# A handle whose class is named Registration, so the registration is
-# Registration_
+# The handle's class is named Registration, so the registration is Registration_
 SHADOWED_REGISTRATION = (
     "#include <stddef.h>\n/** R */\nstruct api_registration;\n"
     "/**\n * Open\n * @param[out] r R\n * @errno\n */\n"
@@ -1427,7 +1424,7 @@ class DLTensor(ctypes.Structure):
         ("data", ctypes.c_void_p),
         ("device", ctypes.c_int32 * 2),
         ("ndim", ctypes.c_int32),
-        ("dtype", ctypes.c_uint32),  # code, bits and lanes, packed
+        ("dtype", ctypes.c_uint32),  # Code, bits and lanes, packed
         ("shape", ctypes.POINTER(ctypes.c_int64)),
         ("strides", ctypes.POINTER(ctypes.c_int64)),
         ("byte_offset", ctypes.c_uint64),
@@ -1478,7 +1475,7 @@ class Tensor:
             name = b"dltensor"
             managed = type("M", (ctypes.Structure,), {"_fields_": fields})()
         managed.dl_tensor = tensor
-        self.managed = managed  # the memory of the struct the capsule points to
+        self.managed = managed  # The capsule points to this struct
         new = ctypes.pythonapi.PyCapsule_New
         new.restype = ctypes.py_object
         new.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_void_p]

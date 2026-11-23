@@ -39,9 +39,9 @@ def formattable():
 
 
 def emitted(root, seed):
-    """The files that 'yace --emit' of every target writes in a process of its
-    own with hash seed 'seed', from a copy of valid.h under 'root', by path
-    relative to the output directory"""
+    """Run 'yace --emit' of every target in a process of its own with the hash
+    seed 'seed', on a copy of valid.h under 'root'. Return the files written,
+    by their path relative to the output directory."""
 
     include, output = root / "include", root / "out"
     include.mkdir(parents=True)
@@ -130,10 +130,7 @@ DOCUMENTED = (
     "size_t api_count(const struct api_h *h);\n"
 )
 
-# The text that the idiomatic layer of each target writes in the docs of
-# api_open() and api_count(): the parameter that the caller passes, the error
-# with what the C doc says api_open() returns, and the @note, @see and
-# @deprecated tags
+# The docs that each idiomatic layer writes for api_open() and api_count()
 DOCUMENTED_AS = {
     "cpp": [
         " * @note Not thread-safe\n * @see api_close()\n * @param name The name\n"
@@ -214,8 +211,7 @@ def test_every_target_but_capi_pp_builds_an_api_that_declares_its_own_printers(
     from tests.test_cparser import OWN_PRINTERS
 
     model, _ = parse(OWN_PRINTERS)
-    # lib<prefix>_pp.h of capi_pp includes the parsed headers, whose printers
-    # have the names of the printers that capi_pp generates
+    # capi_pp would generate printers with the names of the printers that it includes
     names = [name for name in sorted(targets.targets()) if name != "capi_pp"]
     failures = process(model, names, tmp_path)
     assert [
@@ -242,8 +238,8 @@ def test_every_target_builds_an_api_whose_own_printers_are_tagged_nobind(
 
 
 def test_every_target_builds_an_out_array_of_handles(parse, tmp_path):
-    """An @arrparam[out] of handle pointers is an array of the pointers, as one
-    of any other pointer is, not one handle"""
+    """An @arrparam[out] of handle pointers is an array of the pointers, as an
+    @arrparam[out] of any other pointer is, and not one handle"""
     from tests.test_idiom import HANDLES
 
     model, _ = parse(HANDLES)

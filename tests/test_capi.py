@@ -276,9 +276,7 @@ def test_the_generated_header_is_in_the_subset(parser, tmp_path):
     model, _ = parser.parse(HEADERS / "valid.h")
     emit(model, tmp_path)
 
-    # The printers take a FILE of stdio.h, which the subset does not define.
-    # The printers also have the names of the printers that yace generates, so
-    # yace skips them when it reads its own C API and generates them again.
+    # The printers take a FILE, and have the names of the printers that yace generates
     _, diagnostics = parser.parse(tmp_path / "capi" / "libvalid.h")
     allowed = ("external-type", "printer-name")
     assert [d.message for d in diagnostics if d.rule not in allowed] == []
@@ -425,9 +423,6 @@ def test_an_ir_recording_no_headers_is_said_not_checked(parse, tmp_path, caplog)
     assert "the signatures are not checked: the IR records no headers" in caplog.text
 
 
-# KINDS declares a record with a field of every kind that the printers print,
-# a record of signed and unsigned bit-fields, and a packed record that holds
-# api_in and the record of bit-fields at offsets not aligned for them
 KINDS = (
     "#include <stdbool.h>\n"
     "#include <stddef.h>\n"
@@ -634,9 +629,7 @@ def test_the_printers_print_the_value_of_every_kind_of_field(parse, tmp_path):
     ]
 
 
-# OWN_HEADER uses bool without including stdbool.h, as the xNVMe headers do.
-# The parser includes stdbool.h ahead of the headers, so lib<prefix>_pp.h must
-# include it too.
+# OWN_HEADER uses bool without including stdbool.h, as the xNVMe headers do
 OWN_HEADER = (
     "/** S */\nstruct api_s {\n\tint v; ///< V\n\tbool on; ///< On\n};\n"
     "/** K */\nenum api_k {\n\tAPI_K_A = 0, ///< A\n};\n"
@@ -659,15 +652,13 @@ def test_capi_pp_declares_the_printers_over_the_apis_own_headers(parse, tmp_path
     assert "api_k_str(int value);" in header
     assert "struct api_s {" not in header
 
-    # capi_pp emits the printers of capi, with libapi_pp.h in place of libapi.h
     capi = (out / "capi" / "api_pp.c").read_text()
     pp = (out / "capi_pp" / "api_pp.c").read_text()
     assert pp == capi.replace("#include <libapi.h>", "#include <libapi_pp.h>")
 
 
-# api_a is used only as an array element, so every call of yace_pp_nest() for
-# api_a passes the NULL key of an element, and gcc at -O2 sees that NULL reach a
-# '%s' of the YAML branch
+# api_a is only an array element, so every yace_pp_nest() for api_a passes a NULL
+# key, which gcc at -O2 sees reach a '%s'
 ELEMENTS = (
     "/** A */\nstruct api_a {\n\tint x; ///< X\n};\n"
     "/** B */\nstruct api_b {\n\tstruct api_a e[2]; ///< E\n};\n"
@@ -725,7 +716,6 @@ def test_capi_pp_header_form_defines_the_printers_static_inline(parse, tmp_path)
     assert "static inline const char *\napi_k_str(int value)\n{" in header
     assert "#ifndef YACE_PP_HELPERS\n#define YACE_PP_HELPERS\n" in header
 
-    # The header form prints what the library form prints
     for fmt in ("yaml", "json"):
         printed = (form / "capi_pp" / f"check.{fmt}").read_text()
         assert printed == (out / "capi_pp" / f"check.{fmt}").read_text()

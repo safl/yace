@@ -101,8 +101,6 @@ def test_the_subset_prints_as_the_c_api_does(parser, tmp_path):
         assert (tmp_path / "go" / f"check.{fmt}").read_text() == c_out
 
 
-# VALUES declares a record with a field of every kind the printers print, a
-# union, a record of arrays of floats, and the record of bit-fields of BITS
 VALUES = (
     "#include <stdbool.h>\n#include <stddef.h>\n#include <stdint.h>\n"
     "/** E */\nenum api_e { API_E_A = -1, API_E_B = 2, API_E_C = 2 };\n"
@@ -119,7 +117,6 @@ VALUES = (
     "/** G */\nstruct api_g { double d[11]; float f[3]; };\n"
 ) + BITS
 
-# VALUES_C calls the C printers on the records that VALUES_GO fills in
 VALUES_C = r"""#include <stdio.h>
 #include <libapi.h>
 void cb(void *arg) { (void)arg; }
@@ -246,11 +243,9 @@ def test_values_print_as_the_c_printers_print_them(parse, tmp_path):
     assert go_out == c_out
     v_yaml = c_out[c_out.index("api_v:") : c_out.index("api_u:")]
     s_yaml = c_out[c_out.index("api_status:") : c_out.index("api_g:")]
-    assert strings == v_yaml + s_yaml  # String() returns the YAML form
+    assert strings == v_yaml + s_yaml
 
 
-# UNION adds to BITS the union api_u, which has a field of bits, and the union
-# api_w, whose members are an array and a string
 UNION = (
     BITS + BITS_UNION + "/** W */\nunion api_w { uint32_t words[2]; char name[8]; };\n"
 )
@@ -364,8 +359,7 @@ def test_no_toolchain_is_a_failure_not_a_crash(parser, tmp_path, monkeypatch):
 
 
 def test_string_defines_keep_their_value(parse, tmp_path):
-    # API_P names strconv and cgo only in a string, so the package must not
-    # import them
+    # API_P names strconv and cgo only in a string; the package must not import them
     model, _ = parse(ESCAPED + '/** P */\n#define API_P "strconv.Itoa cgo.Handle"\n')
     assert process(model, ["go"], tmp_path) == []
 
