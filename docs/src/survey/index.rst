@@ -8,11 +8,10 @@
  C Library Survey
 ================================
 
-yace includes a survey of popular C libraries, most of them packaged in
-Debian. Their headers were not written for yace, so they are expected to step
-outside the C subset, and the survey checks two things: that yace parses every
-one of them without failing, and which rules of the subset they break, and how
-often.
+yace includes a survey of C libraries, most of them packaged in Debian. Their
+headers were not written for yace, so they break rules of the C subset. The
+survey checks that yace parses every header without failing, and counts which
+rules of the subset the headers break.
 
 Failing means a traceback, a timeout or an ``internal-error`` diagnostic, and
 is a bug in yace. A broken rule is not a bug in yace; it is what a header
@@ -22,13 +21,11 @@ are common in practice.
 The pipeline
 ------------
 
-For each header the survey:
-
-1. **Parses** it with ``yace``, which writes the IR and the diagnostics
-2. With ``--with-capi``, **generates and checks** the C API from the IR. For a
-   header outside the subset the C API may not build, for example when it
-   depends on macros of the original header; that is reported, not counted as
-   a failure of yace
+The survey parses each header with ``yace``, which writes the IR and the
+diagnostics. With ``--with-capi``, the survey also generates and checks the C
+API from the IR. The C API of a header outside the subset may not build, for
+example when it depends on macros of the original header. The report says
+where the C API does not build, and that is not a failure of yace.
 
 Running the survey
 ------------------
@@ -38,7 +35,7 @@ The packaged libraries must be installed, with
 
     python3 toolbox/survey/survey.py --packaged-only --with-capi
 
-These flags are useful:
+The other flags:
 
 ``--skip-download``
     Reuse the downloaded headers and cloned repositories.
@@ -55,7 +52,7 @@ Surveyed libraries
 ------------------
 
 The libraries span 13 domains. The table below lists each library, the domain
-it belongs to, and whether it is known to have bindings in other languages.
+it belongs to, and the bindings it is known to have in Python, Rust and Go.
 
 .. list-table::
    :header-rows: 1
@@ -414,9 +411,6 @@ it belongs to, and whether it is known to have bindings in other languages.
      -
      -
      -
-
-The **Python**, **Rust**, and **Go** columns indicate whether the library
-has well-known bindings or wrappers for those languages.
 
 C idioms catalog
 ----------------

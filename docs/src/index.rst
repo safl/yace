@@ -25,9 +25,9 @@ Welcome to yace
 
 **yace** generates the bindings of a C API for other languages. You describe the
 FFI boundary of the API as a C header, in a subset of C99 that can be described
-equivalently in C, C++, Python, Rust and Zig, and **yace** generates, for each,
-code that is idiomatic for that language: for C, a C API with pretty-printers
-for every struct, union and enum.
+equivalently in C, C++, Python, Rust and Zig. From that header, **yace**
+generates code that is idiomatic for each language. For C, **yace** generates a
+C API with pretty-printers for every struct, union and enum.
 
 The project is hosted on `GitHub`_, and its documentation is at
 `safl.dk/yace`_.

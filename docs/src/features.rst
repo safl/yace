@@ -31,11 +31,12 @@ Documentation
   bindings are documented too: in Doxygen format for C code, in PyDoc for
   Python, and so on.
 
-Syntactic sugar
-  The :ref:`sec-ir` is close to C, but has higher-level constructs, from which
-  **yace** emits code that is more Pythonic, idiomatic Go and Rust, and modern
-  C++. The generated bindings thus have a thin layer of syntactic sugar over
-  the raw FFI of each language.
+Idiomatic layer
+  The :ref:`sec-ir` is close to C, and also records what the doc comments of
+  the header say beyond C: which records are handles, which functions return
+  an errno, which pointers a function writes, and how long a callback is
+  called. From those, **yace** emits an idiomatic layer over the raw FFI of
+  each language, see :ref:`sec-targets`.
 
 Pretty-printers
   The :ref:`sec-ir` describes the data structures, so **yace** emits functions

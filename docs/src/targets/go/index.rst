@@ -51,12 +51,12 @@ The raw layer
 -------------
 
 The raw layer is the C API as C has it, by its C names, which Go exports only
-from an upper-case letter: ``foo_open()`` is ``Foo_open()``, ``FOO_MAGIC``
-stays ``FOO_MAGIC``.
-Each function converts what it is given and calls the C function through cgo.
-cgo's own types are of no use outside the package, so the records are Go structs
-of the C layout, named in CamelCase, ``struct foo_point`` as ``FooPoint``, with
-their fields exported, ``Ncorners``; the layout is what the check asserts.
+from an upper-case letter: ``foo_open()`` is ``Foo_open()``, ``FOO_MAGIC`` stays
+``FOO_MAGIC``. Each function converts what it is given and calls the C function
+through cgo. cgo's own types are of no use outside the package, so the records
+are Go structs of the C layout, named in CamelCase, ``struct foo_point`` as
+``FooPoint``, with their fields exported, ``Ncorners``; the layout is what the
+check asserts.
 
 A union is its bytes, aligned as the union, and a method per member returning a
 pointer to the member in them, ``*value.I() = -1``, as Go has no unions. A
@@ -88,11 +88,11 @@ Every struct and union has printers of its own, not calling the C API's:
 ``<name>_fpr()`` does, and ``String()``, the ``fmt.Stringer`` of the record, is
 its YAML. They print what the C API's pretty-printers print, floats as C's
 ``%g`` prints them. Go keeps a record with bit-fields as its bytes, and its
-printers read each bit-field from them, see :ref:`sec-ir-background`. Each part of a field of bits, see
-:ref:`sec-ir-csubset`, has a getter and a setter, ``CodeType()`` and
-``SetCodeType(value)``, of the field's type, the setter panicking on a value
-that does not fit the part's bits. A name the struct has already, as a field
-or a printer, gets a trailing underscore.
+printers read each bit-field from them, see :ref:`sec-ir-background`. Each part
+of a field of bits, see :ref:`sec-ir-csubset`, has a getter and a setter,
+``CodeType()`` and ``SetCodeType(value)``, of the field's type, the setter
+panicking on a value that does not fit the part's bits. A name the struct has
+already, as a field or a printer, gets a trailing underscore.
 
 Memory given to C must hold no Go pointers, as cgo requires: a record given by
 a pointer may point to C memory, not to Go memory. cgo checks it as it passes
@@ -152,8 +152,7 @@ Results
   ``io.Reader`` does, and the part written is returned. A returned string is a
   Go ``string``, copied, and so is a string written through an ``[out]``
   pointer, empty where C wrote NULL. A returned pointer to a record is a copy
-  of it, with
-  whether there was one where ``@nullable``,
+  of it, with whether there was one where ``@nullable``,
   ``point, ok := handle.PointGet(1)``.
 
 Arguments

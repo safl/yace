@@ -27,17 +27,18 @@ Command-Line Interface
 Given C headers, **yace** parses them as one API, see
 :ref:`sec-ir-csubset`, writes the IR to ``<prefix>.yaml`` and the diagnostics to
 ``<prefix>.status``, and prints the diagnostics. The prefix is the one that
-``--meta`` gives, or else the name of the first header. A diagnostic is a
-place where the header steps outside the C subset. The header is still parsed
-and the IR written, but a diagnostic fails the run before any code is
-generated. With ``--lenient``, the code is generated anyway, and what the
-diagnostics point at will likely not bind well, or at all. A note reports what
-is skipped without the header breaking a rule, such as a static inline function;
-notes are written to ``<prefix>.status``, and do not fail the run, see
-:ref:`sec-ir-rules`.
+``--meta`` gives, or else the name of the first header. A diagnostic names a
+rule of the C subset and the place where the header breaks it. The header is
+still parsed and the IR written, but a diagnostic fails the run before any
+code is generated. With ``--lenient``, the code is generated anyway; a
+declaration that a diagnostic points at may be bound only in part, or not at
+all. A note reports what is skipped without the header breaking a rule, such as
+a static inline function; notes are written to ``<prefix>.status``, and do not
+fail the run, see :ref:`sec-ir-rules`.
 
 Given IR files, ``.yaml``, **yace** reads them instead. Either way, ``--emit``
-generates the code of the given targets, and checks it, unless ``--no-check``.
+generates the code of the given targets, and checks it, unless ``--no-check``
+is given.
 A check builds with the toolchain of its target, named by a variable of the
 environment where set: ``CC``, ``CXX``, ``CARGO``, ``ZIG`` and ``GO``. A
 missing toolchain fails the check, naming the variable.
@@ -52,8 +53,9 @@ language, named by ``GOFMT``, ``RUSTFMT``, ``GO`` and ``ZIG`` where set.
 Cython has no formatter, so the ``.pyx`` and ``.pxd`` files of the Cython
 target keep the layout **yace** writes. The Rust target also writes the
 ``rustfmt.toml`` it is formatted with. The same headers then give the same
-bytes for the same versions of **yace** and of those toolchains. A target whose formatter is missing is not
-emitted, also with ``--no-check``, and the run fails naming the formatter.
+bytes for the same versions of **yace** and of those toolchains. A target whose
+formatter is missing is not emitted, also with ``--no-check``, and the run
+fails naming the formatter.
 
 ``--toolchains`` prints, as JSON, the toolchains and the formatters of the
 ``--emit`` targets, or of every target: each one's command, where it is found,

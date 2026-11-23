@@ -9,10 +9,9 @@ Benchmark
 
 The benchmark measures what a call of the C API costs through the bindings of
 each target, against plain C. ``examples/libfoo/bench`` holds a program per
-target, each
-doing the same work through the bindings **yace** generates for it, and a
-:cijoe:`cijoe <>` workflow that builds and runs them all and records the
-machine it ran on.
+target, each doing the same work through the bindings **yace** generates for
+it, and a :cijoe:`cijoe <>` workflow that builds and runs them all and records
+the machine it ran on.
 
 The work
 --------
@@ -31,8 +30,8 @@ callback
 
 Each way is run ``repeat`` times, and the best time is kept. The program
 prints its time per point and its sum, which every program must get:
-``rounds`` times 28.
-The library is a shared library, so no compiler sees through a call into it.
+``rounds`` times 28. The library is a shared library, so no compiler inlines
+a call into it.
 
 The programs, in ``examples/libfoo/bench/programs/``, by what the report names
 them:
@@ -95,8 +94,8 @@ each toolchain. The steps of the workflow are:
   or gets another sum than the one expected.
 
 ``report``
-  The results as ``results.csv``, and ``report.txt``,
-  the time per point of each, its ratio to C's, and the machine.
+  The results as ``results.csv``, and ``report.txt``, the time per point of
+  each, its ratio to C's, and the machine.
 
 From ``examples/libfoo/bench``:
 
@@ -114,9 +113,10 @@ A recorded run
 --------------
 
 One run, with the defaults of ``bench.toml``, on the machine the report names.
-It is recorded rather than rerun with the docs, so the figures do not move with
-the machine that builds them. To record another, run the workflow and replace
-``docs/src/bench/report.txt`` with its ``artifacts/report.txt``.
+The run is recorded, not rerun when the docs are built, so the figures do not
+change with the machine that builds the docs. To record another, run the
+workflow and replace ``docs/src/bench/report.txt`` with its
+``artifacts/report.txt``.
 
 .. literalinclude:: report.txt
    :language: text

@@ -58,8 +58,8 @@ Enumerations
 Records
   Each struct and union is a :py:class:`ctypes.Structure` or
   :py:class:`ctypes.Union`, a packed one with ``_pack_ = 1``. Each that has
-  fields has the pretty-printers:
-  ``to_dict()``, its fields as plain values, ``fpr(stream, obj, flags)`` and
+  fields has the pretty-printers: ``to_dict()``, its fields as plain values,
+  ``fpr(stream, obj, flags)`` and
   ``pr(obj, flags)``, printing ``obj``, an instance, a pointer to one, or
   ``None``, as the C API's ``<name>_fpr()`` and ``<name>_pr()`` do. ``str()`` of
   a record is its YAML, and ``repr()`` is as its constructor is called,
@@ -79,16 +79,15 @@ Functions
   Each function is a Python function of the same name and parameters. A
   ``const char *`` parameter takes a :py:class:`str`, or :py:class:`bytes`, and
   a ``const char *`` returned, or written through an ``[out]`` pointer, is a
-  :py:class:`str`. A pointer returned is
-  ``None`` when NULL. Out-parameters are passed with :py:func:`ctypes.byref`, as
-  in C; a record passed where a pointer to it is expected is passed by
-  reference. A function without a ``const char *`` parameter is the ctypes
-  function itself, once the library is loaded, so a call through the module
-  reaches ctypes directly. It keeps the docstring, and
-  :py:func:`inspect.signature` still gives its parameters. It takes its
-  arguments by position only, as C does. A name imported with ``from ...
-  import`` before the library is loaded stays a Python wrapper, which is
-  slower.
+  :py:class:`str`. A pointer returned is ``None`` when NULL. Out-parameters are
+  passed with :py:func:`ctypes.byref`, as in C; a record passed where a pointer
+  to it is expected is passed by reference. A function without a
+  ``const char *`` parameter is the ctypes function itself, once the library is
+  loaded, so a call through the module reaches ctypes directly. It keeps the
+  docstring, and :py:func:`inspect.signature` still gives its parameters. It
+  takes its arguments by position only, as C does. A name imported with
+  ``from ... import`` before the library is loaded stays a Python wrapper, which
+  is slower.
 
 The idiomatic layer
 -------------------
@@ -142,8 +141,8 @@ Errors
   A function documented ``@errno`` raises :py:class:`OSError`, with the errno,
   when it returns a negative value. One returning ``int`` returns nothing
   otherwise; one returning another integer, such as a count, or an ``int``
-  documented ``@errno count``, returns it. Where
-  the meta names the function of the library that returns the message of the
+  documented ``@errno count``, returns it. Where the meta names the function
+  of the library that returns the message of the
   call that failed last, as ``errmsg: foo_errmsg``, the ``strerror`` of the
   :py:class:`OSError` is that message, and the text of the errno where the
   function returns none.
@@ -166,8 +165,8 @@ Arguments
   given; sequences sharing one length must be as long, or ``ValueError`` is
   raised. One that is ``[in,out]`` is a list, written back. A ``void *``
   ``@arrparam`` is any object that gives its memory: a buffer, such as bytes,
-  an :py:class:`array.array` or a NumPy array, a DLPack tensor,
-  by ``__dlpack__``, such as a PyTorch tensor, or a CUDA array, by
+  an :py:class:`array.array` or a NumPy array, a DLPack tensor, by
+  ``__dlpack__``, such as a PyTorch tensor, or a CUDA array, by
   ``__cuda_array_interface__``. C is given the memory itself, not a copy, and
   its length is its size in bytes. The memory must be one contiguous range,
   and may be a device's, such as GPU memory, which the layer does not read;

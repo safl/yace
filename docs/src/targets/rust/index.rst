@@ -67,8 +67,8 @@ Records
   ``None``, as the C API's ``<name>_fpr()`` and ``<name>_pr()`` do, and
   ``Display``, printing YAML; those of a record of bit-fields kept as bytes
   read each bit-field from the bytes, see :ref:`sec-ir-background`. ``Debug``
-  shows a struct by its C fields; a
-  union, or a record of bit-fields kept as bytes, shows none,
+  shows a struct by its C fields; a union, or a record of bit-fields kept as
+  bytes, shows none,
   ``FooValue { .. }``, as which member of a union is meant is not known. An
   opaque record is a zero-sized type that cannot be constructed, used through
   pointers. Each part of a field of bits, see :ref:`sec-ir-csubset`, has a
@@ -158,8 +158,8 @@ Results
   handle, from the one reference given, or ``'static`` when none is; with more
   than one, the function is ``unsafe``. A string written through an ``[out]``
   pointer is borrowed the same way, an ``Option`` of a ``&CStr``, ``None``
-  where C wrote NULL. A buffer given for an ``[out]`` array
-  is not counted as a reference. A returned pointer to a record is a copy of
+  where C wrote NULL. A buffer given for an ``[out]`` array is not counted as a
+  reference. A returned pointer to a record is a copy of
   it, an ``Option`` where ``@nullable``.
 
 Arguments
@@ -186,11 +186,11 @@ Rust can make those point anywhere. A panic in a closure aborts, as unwinding
 cannot cross C.
 
 A record with bit-fields, which Rust has none of, keeps only its size and
-alignment, as an array of integers as wide as its alignment, and is not
-printed. Its alignment is that of the integers, not ``repr(align)``, which a
-packed record may not hold. Types declared outside the header, such as
-``FILE``, are opaque types, usable through pointers. These are outside the C
-subset; the diagnostics of the header say so.
+alignment, as an array of integers as wide as its alignment, and its printers
+read each bit-field from that array. Its alignment is that of the integers, not
+``repr(align)``, which a packed record may not hold. Types declared outside the
+header, such as ``FILE``, are opaque types, usable through pointers. These are
+outside the C subset; the diagnostics of the header say so.
 
 Example
 -------
