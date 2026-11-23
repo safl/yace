@@ -3,30 +3,24 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 """
-What the steps of the benchmark share: the targets, how each is built and run,
-and where, on the target cijoe runs the steps on.
+The targets of the benchmark, and the commands that build and run the program
+of each on the machine that cijoe runs the steps on.
 
-Everything is built in 'bench.workdir', by default 'work' in the run's output,
-which holds a copy of libfoo, 'libfoo/', the library built from it, 'lib/', the
-bindings yace generated, 'gen/', and each target's program, 'build/<target>/'.
-Its path goes into the commands as it is, so it must hold no spaces.
+'bench.workdir' holds a copy of libfoo in 'libfoo/', the library in 'lib/', the
+generated bindings in 'gen/', and the programs in 'build/<target>/'. The
+commands hold its path unquoted, so the path must hold no spaces.
 """
 
 import logging as log
 from pathlib import Path
 
-# examples/libfoo, as this is examples/libfoo/bench/scripts/benchlib.py
 LIBFOO = Path(__file__).resolve().parents[2]
 
-# FOO_POINTS_MAX, the points each program adds, with x from 0 up; so each sums
-# rounds * SUM_OF_X
+# FOO_POINTS_MAX points with x from 0 up, so each way sums rounds * SUM_OF_X
 POINTS = 8
 SUM_OF_X = sum(range(POINTS))
 
-# The targets, in the order they are reported, what yace emits for each, the
-# results each prints, and the toolchains it is built with; a toolchain is
-# named by the config key of its command and the arguments that print its
-# version
+# toolchains: the config key of a command, and the arguments that print its version
 TARGETS = {
     "c": {
         "emit": ["capi"],
@@ -70,13 +64,10 @@ TARGETS = {
 
 WAYS = ["calls", "callback"]
 
-# Every program, and libfoo, is built at optimisation level 3, which is what
-# Zig's ReleaseFast and Rust's release profile are, for the baseline CPU of the
-# architecture, which is what gcc, g++ and rustc build for by default and Zig
-# builds for with '-mcpu baseline'. Go's compiler has no level.
+# Level 3 is what Zig's ReleaseFast and Rust's release profile use; Go has no level
 OPT = "-O3"
 
-# The commands of the toolchains, by the key of their config, 'bench.<key>'
+# The defaults of 'bench.<key>'
 COMMANDS = {
     "cc": "cc",
     "cxx": "c++",
@@ -90,8 +81,8 @@ COMMANDS = {
 
 
 def command(cijoe, key: str) -> str:
-    """The command of a toolchain, 'bench.<key>' or its default; Cython is
-    asked of the Python"""
+    """Return the command of a toolchain, 'bench.<key>' or its default. Cython
+    has no command of its own; the Python imports it."""
 
     key = "python" if key == "cython" else key
     return str(cijoe.getconf(f"bench.{key}", COMMANDS[key]))
@@ -112,7 +103,7 @@ def targets(cijoe) -> list:
 
 
 def workdir(cijoe) -> str:
-    """Where the target builds and runs, 'bench.workdir'"""
+    """Return 'bench.workdir', the directory that the target builds and runs in"""
 
     return str(cijoe.getconf("bench.workdir", Path(cijoe.output_path) / "work"))
 
@@ -126,9 +117,7 @@ def timing(cijoe) -> tuple:
     return rounds, seconds, int(cijoe.getconf("bench.repeat", 1))
 
 
-# A probe whose slowest way sums for less than this, in seconds, is too short
-# to calibrate the rounds from: a few ticks of the clock, and the program's
-# start-up, would be most of it
+# Seconds; in a shorter run, the ticks of the clock and the start-up are most of it
 PROBE = 0.2
 
 
@@ -145,8 +134,7 @@ def rounds_for(rows: list, rounds: int, seconds: float):
 def paths(cijoe) -> dict:
     """The paths in the workdir, and the library as the target's OS names it"""
 
-    # cijoe is imported here, where it runs the step, so that the tests can
-    # import the rest without it
+    # Imported here so that the tests can import benchlib without cijoe
     from cijoe.core.tools import family
 
     work = workdir(cijoe)
@@ -163,8 +151,8 @@ def paths(cijoe) -> dict:
 
 
 def build_commands(cijoe, target: str) -> list:
-    """The commands, with the directory each runs in, building the program of
-    'target' in build/<target>"""
+    """Return the commands that build the program of 'target' in
+    build/<target>, each with the directory it runs in"""
 
     p = paths(cijoe)
     out = f"{p['build']}/{target}"
@@ -236,8 +224,7 @@ def build_commands(cijoe, target: str) -> list:
         return []
     if target == "cython":
         python = command(cijoe, "python")
-        # meson finds meson, ninja and cython on the PATH, so those of the Python
-        # come first
+        # meson looks up meson, ninja and cython on the PATH
         scripts = (
             f"$({python} -c 'import sysconfig; print(sysconfig.get_path(\"scripts\"))')"
         )
@@ -263,8 +250,8 @@ def cpu(cijoe):
 
 
 def run_command(cijoe, target: str, rounds: int, repeat: int) -> tuple:
-    """The command running the program of 'target', pinned to the core of
-    'bench.cpu' where given, and the directory it runs in"""
+    """Return the command that runs the program of 'target' and the directory
+    it runs in. With 'bench.cpu', taskset pins the program to that core."""
 
     p = paths(cijoe)
     out = f"{p['build']}/{target}"
@@ -283,8 +270,7 @@ def run_command(cijoe, target: str, rounds: int, repeat: int) -> tuple:
     return f"{pin}{out}/bench {args}", out
 
 
-# The first line of /proc/stat per CPU: user, nice, system, idle, iowait, irq,
-# softirq and steal, in ticks; idle and iowait are the time not busy
+# user nice system idle iowait irq softirq steal, in ticks; idle and iowait are not busy
 STAT = "grep '^cpu[0-9]' /proc/stat"
 
 
@@ -296,8 +282,8 @@ def stat(cijoe):
 
 
 def ticks(text: str) -> dict:
-    """The busy and the total ticks of each CPU, by its number, of 'text', the
-    lines of STAT"""
+    """Return the busy and the total ticks of each CPU, by the number of the
+    CPU, from 'text', which is what STAT printed"""
 
     found = {}
     for line in text.splitlines():
@@ -324,7 +310,6 @@ def cpufreq(core: int) -> str:
 
 BOOST = "/sys/devices/system/cpu/cpufreq/boost"
 
-# What clock() reads of a core's cpufreq
 CLOCK = (
     "scaling_driver",
     "scaling_governor",
@@ -336,15 +321,15 @@ CLOCK = (
 
 
 def read(cijoe, path: str):
-    """The text of 'path' on the target, or None where it cannot be read"""
+    """Return the text of 'path' on the target, or None when reading it fails"""
 
     err, state = cijoe.run(f"cat {path}")
     return None if err else state.output().strip()
 
 
 def clock(cijoe, core: int) -> dict:
-    """The frequency settings of 'core', and boost, as the target has them;
-    empty where it has no cpufreq"""
+    """Return the cpufreq settings of 'core' and the boost setting of the
+    target, each left out when it cannot be read"""
 
     found = {}
     for name in CLOCK:

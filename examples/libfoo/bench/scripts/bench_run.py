@@ -6,32 +6,23 @@
 Run the program of each target, and check that they agree
 =========================================================
 
-Runs the program of each target in 'bench.targets', one after the other, each
-summing the x of the points of a handle a number of rounds over, in each way,
-the best of 'bench.repeat' runs. Each prints a JSON line per layer and way,
-{"target", "way", "ns", "sum"}, 'ns' the time per point. Fails when a program
-fails, when one leaves out a layer or way, or when a sum is not the one every
-program must get. Writes what they printed to 'artifacts/results.json' in the
-run's output, with the rounds of each program and the repeat.
+Runs the program of each target in 'bench.targets', one after the other. Each
+program prints a JSON line per layer and way, {"target", "way", "ns", "sum"},
+where 'ns' is the time per point of the best of 'bench.repeat' runs. The step
+fails when a program fails, leaves out a layer or a way, or prints a sum other
+than rounds * benchlib.SUM_OF_X. The lines go to 'artifacts/results.json'.
 
-The rounds are 'bench.rounds' where given. Otherwise each program is first run
-with 1000 rounds, ten times more until its slowest way sums for at least 0.2 s,
-and its rounds are then set so that one run of its slowest way takes
-'bench.seconds'. A fixed number of rounds would give the programs durations
-as far apart as their costs per call, the C program's a run about 300 times
-shorter than the Python one's.
+Without 'bench.rounds', the step calibrates the rounds of each program so that
+one run of its slowest way takes 'bench.seconds'. With the same rounds for
+every program, a run of the C program would be about 300 times shorter than a
+run of the Python program.
 
-With 'bench.cpu', every program runs pinned to that core by taskset. With
-'bench.khz' too, the core's clock is pinned for the run: the governor set to
-performance, its minimum and maximum frequency to 'bench.khz', and boost
-disabled, through cpufreq with 'bench.sudo'; the settings found are restored
-after the run, also when a program fails. A 'bench.khz' on a target without
-cpufreq for the core fails the run rather than running it unpinned.
+With 'bench.cpu', taskset pins every program to that core. With 'bench.khz'
+too, the step pins the clock of the core through cpufreq for the run, and
+fails on a target without cpufreq for the core.
 
-For each program, the step records how busy each CPU was while it ran, from
-/proc/stat, and the frequency of the pinned core before and after, so that a
-run with other work on the machine, or a clock that moved, shows in the
-results, as 'runs' and 'clock' in results.json.
+results.json also holds how busy each CPU was while each program ran, as
+'runs', and the clock settings, as 'clock'.
 
 Config Arguments
 ----------------
@@ -95,7 +86,7 @@ def main(args, cijoe):
 
 
 def printed(state) -> list:
-    """The JSON lines a program printed"""
+    """Return the JSON lines that a program printed, parsed"""
 
     return [
         json.loads(line) for line in state.output().splitlines() if line.startswith("{")

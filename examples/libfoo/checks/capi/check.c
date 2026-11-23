@@ -5,9 +5,9 @@
  */
 
 /**
- * The check of the C API of libfoo: calls the library through the generated
- * header and prints what it got back, as YAML documents, or with argument
- * "json" as JSON objects, each holding what 'expected.yaml' says
+ * The check of the C API of libfoo. It calls the library through the generated
+ * header and prints the results as YAML documents, or as JSON objects given
+ * the argument "json". 'expected.yaml' holds what it must print.
  */
 #include <inttypes.h>
 #include <stdio.h>

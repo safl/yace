@@ -4,9 +4,9 @@
 
 # cython: language_level=3
 """
-The benchmark in Cython through the generated foo.pxd, as the C one: by
-foo_point_get() and by foo_point_visit() with a callback of Cython, both in
-loops without the GIL
+The benchmark written in Cython against the generated foo.pxd. It sums as the C
+benchmark does, by foo_point_get() and by foo_point_visit() with a callback
+written in Cython, in loops that do not hold the GIL.
 """
 
 import json

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
-# check, cimporting foo.pxd, linked to the library
+# Builds the module 'check', which cimports foo.pxd and links the library
 project('foo-check', 'c', 'cython', meson_version: '>= 1.12')
 
 fs = import('fs')

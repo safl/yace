@@ -1,9 +1,8 @@
-// The check of the Go bindings of libfoo: calls the library through the
-// idiomatic layer, its handle, errors and returned values, and prints what it
-// got back, as YAML documents, or with argument "json" as JSON objects, each
-// holding what 'expected.yaml' says. An error is printed as the negative errno
-// the C function returned; what the layer does not take, a NULL where none is
-// allowed or a callback of C, is called raw.
+// The check of the Go bindings of libfoo. It calls the library through the
+// idiomatic layer and prints the results as YAML documents, or as JSON objects
+// given the argument "json". 'expected.yaml' holds what it must print. An error
+// is printed as the negative errno that the C function returned. A NULL where
+// the layer allows none, and a callback of C, go through the raw layer.
 package main
 
 /*
@@ -73,7 +72,7 @@ func record(name string, fpr func(w io.Writer, flags int) error) {
 	}
 }
 
-// errno is the negative errno of err, 0 for none
+// errno returns the negative errno of err, or 0 when err is nil
 func errno(err error) int64 {
 	var found syscall.Errno
 	if errors.As(err, &found) {
@@ -85,7 +84,7 @@ func errno(err error) int64 {
 	return 0
 }
 
-// value is 'value', or the negative errno of err
+// value returns 'value', or the negative errno of err when err is not nil
 func value[T ~int | ~uintptr](value T, err error) int64 {
 	if err != nil {
 		return errno(err)

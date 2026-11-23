@@ -1,10 +1,9 @@
 /**
- * The check of the C++ layer of libfoo: calls the library through foo.hpp, its
- * handle, exceptions and returned values, and prints what it got back, as YAML
- * documents, or with argument "json" as JSON objects, each holding what
- * 'expected.yaml' says. An error is printed as the negative errno the C
- * function returned. The raw layer of C++ is the C API, checked by the C check;
- * what the layer does not take, a NULL where none is allowed, is called raw.
+ * The check of the C++ layer of libfoo. It calls the library through foo.hpp
+ * and prints the results as YAML documents, or as JSON objects given the
+ * argument "json". 'expected.yaml' holds what it must print. An error is
+ * printed as the negative errno that the C function returned. A NULL where the
+ * layer allows none goes through the C API.
  */
 #include <cstdint>
 #include <cstring>

@@ -1,8 +1,7 @@
 """
-The check of the idiomatic Python layer of libfoo: as check.py, through handles,
-exceptions and returned values rather than raw calls. An OSError is printed as
-the negative errno the C function returned, so the documents printed are those
-of 'expected.yaml', as for the raw layer.
+The check of the idiomatic Python layer of libfoo: the calls of check.py through
+handles, exceptions and returned values. An OSError is printed as the negative
+errno that the C function returned, as 'expected.yaml' has it.
 """
 
 import ctypes
@@ -119,7 +118,7 @@ def main():
             as_json,
         )
         statuses(handle.status_get(), flags, as_json)
-    handle.close()  # closing again does nothing
+    handle.close()  # Closing again does nothing
 
     record(foo.FooScalars, foo.scalars_fill(), flags)
     for shape in (foo.FOO_SHAPE_POINT, foo.FOO_SHAPE_LINE, foo.FOO_SHAPE_POLYGON):

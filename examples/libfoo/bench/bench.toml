@@ -2,17 +2,14 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
-# What bench.yaml runs: each program's rounds are calibrated so that a run of
-# its slowest way takes 'seconds', and each way is run 'repeat' times, the best
-# kept, for each of 'targets'; at most 18 ways x 5 x 2 s, 3 minutes of runs.
-# Give 'rounds' to fix the rounds instead
+# One run of a program's slowest way takes 'seconds': at most 18 ways x 5 x 2 s,
+# 3 minutes. Set 'rounds' to skip the calibration.
 [bench]
 seconds = 2
 repeat = 5
 targets = ["c", "cpp", "rust", "zig", "go", "python", "cython"]
 
-# The commands, on the machine benchmarked, of yace and the toolchains; the
-# Python must have Cython, meson-python, meson and ninja for the cython target
+# The cython target needs Cython, meson-python, meson and ninja in the Python
 yace = "yace"
 cc = "cc"
 cxx = "c++"
@@ -22,15 +19,12 @@ zig = "zig"
 go = "go"
 python = "python3"
 
-# The core every program is pinned to, and its clock in kHz, which bench_run
-# pins through cpufreq for the run, with 'sudo' writing to it; leave them out
-# where the machine is not set aside for the benchmark, and the results say the
-# clock was not pinned
+# The core that every program is pinned to, and the kHz that its clock is pinned
+# at through cpufreq; only for a machine set aside for the benchmark
 # cpu = 2
 # khz = 2000000
 # sudo = "sudo -n"
 
-# A step that fails ends the run, rather than the next one running on what it
-# did not make
+# Each step uses what the step before it made
 [cijoe.task]
 fail_fast = true

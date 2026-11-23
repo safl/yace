@@ -1,9 +1,8 @@
-//! The check of the Zig bindings of libfoo: calls the library through the
-//! idiomatic layer, its handle, errors and returned values, and prints what it
-//! got back, as YAML documents, or with argument "json" as JSON objects, each
-//! holding what 'expected.yaml' says. An error is printed as the negative errno
-//! the C function returned; what the layer does not take, a NULL where none is
-//! allowed, is called raw.
+//! The check of the Zig bindings of libfoo. It calls the library through the
+//! idiomatic layer and prints the results as YAML documents, or as JSON objects
+//! given the argument "json". 'expected.yaml' holds what it must print. An error
+//! is printed as the negative errno that the C function returned. A NULL where
+//! the layer allows none goes through the raw layer.
 
 const std = @import("std");
 const foo = @import("foo");

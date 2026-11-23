@@ -1,9 +1,9 @@
 /**
  * An example library, using every construct of the C subset of yace
  *
- * It is the fixture the targets are checked against: each target's check calls
- * it through the bindings generated from this header and prints what it got
- * back, which must be what 'expected.yaml' says.
+ * The tests check every target against this library. The check of each target
+ * calls the library through the bindings generated from this header and prints
+ * what the calls returned, which must be what 'expected.yaml' holds.
  */
 #ifndef FOO_H
 #define FOO_H
@@ -145,8 +145,8 @@ union foo_value {
 };
 
 /**
- * A record laid out without padding, as a wire format is: no field after the
- * first is aligned
+ * A record laid out without padding, as a wire format is. No field after the
+ * first is aligned.
  */
 struct __attribute__((packed)) foo_wire {
 	uint8_t kind;        ///< One of enum foo_shape
@@ -181,9 +181,9 @@ foo_version(void);
 /**
  * Why the call that failed last on the calling thread failed
  *
- * A function that returns a negative errno keeps a message saying what the
- * errno does not, such as the name of the handle that is full. The meta names
- * this function as 'errmsg', so that the error of a binding holds the message.
+ * A function that returns a negative errno also stores a message with what
+ * the errno does not say, such as the name of the handle that is full. The
+ * meta names this function as 'errmsg', so the error of a binding holds it.
  *
  * @return The message, owned by the library and valid until the next call
  *   fails on the calling thread; "" when no call has failed

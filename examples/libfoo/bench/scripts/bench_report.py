@@ -6,14 +6,12 @@
 Write the report of the benchmark
 =================================
 
-Writes, from 'artifacts/results.json' and the facts of the target, to the
-artifacts of the run's output: 'results.csv', a row per layer and way, its time
-per point, its sum and the ratio of its time to C's, and 'report.txt', a table
-of the time per point of each layer, in each way, and its ratio to C's, with
-the machine and the toolchains it ran on, the optimisation level, whether the
-programs were pinned to a core and its clock pinned, and how busy the pinned
-core and the busiest other CPU were while each program ran. A ratio is left out
-where C was not benchmarked, or ran in less than a tick of the clock.
+Writes 'results.csv' and 'report.txt' to the artifacts of the run's output,
+from 'artifacts/results.json' and the facts of the target. Both give the time
+per point of each layer and way, and its ratio to the time of C. The report
+adds the machine, the toolchains, the optimisation level, the pinning, and how
+busy the CPUs were. A ratio is empty where C was not benchmarked or ran in
+less than one tick of the clock.
 
 Retargetable: True
 ------------------
@@ -29,7 +27,7 @@ import benchlib
 
 
 def machine(facts) -> list:
-    """Lines saying what the facts say the target is"""
+    """Return the lines of the report that describe the target, from its facts"""
 
     memory = facts.get("system.memory_kib")
     lines = [
@@ -93,7 +91,7 @@ def conditions(results) -> list:
 
 
 def durations(results) -> list:
-    """Lines giving each program's rounds, and how long its runs took"""
+    """Return a line per program with its rounds and how long its runs took"""
 
     rounds = results["rounds"]
     if not isinstance(rounds, dict):
@@ -124,8 +122,7 @@ def main(args, cijoe):
     }
 
     def ratio(row):
-        # A time of 0 is a run shorter than a tick of the clock, as few rounds
-        # can be on macOS, and no time to compare to
+        # A run shorter than one tick of the clock, as on macOS, gives C a time of 0
         c = baseline.get(row["way"])
         return row["ns"] / c if c else None
 

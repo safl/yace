@@ -2,8 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
-# fast, the loops in Cython calling C through foo.pxd, and foo, the module of
-# the bindings, both linked to the library
+# 'fast' calls C through foo.pxd; 'foo' is the module of the bindings
 project('foo-bench', 'c', 'cython', meson_version: '>= 1.12')
 
 fs = import('fs')

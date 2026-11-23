@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 
-//! The benchmark through the idiomatic layer of the Zig bindings, as the C
-//! one: by handle.pointGet() and by handle.pointVisit() with a method.
+//! The benchmark of the idiomatic layer of the Zig bindings: the sums of the C
+//! benchmark by handle.pointGet() and by handle.pointVisit() with a method.
 //!
 //! Usage: bench ROUNDS REPEAT
 

@@ -6,10 +6,9 @@
 Record the machine the benchmark runs on
 ========================================
 
-Adds to the facts core.facts_gather records of the target what the benchmark's
-numbers also depend on: its CPU, as 'cpu.model', and, as 'toolchains.<name>',
-the first line of what each toolchain of the targets in 'bench.targets' says
-its version is, and yace's. Fails, naming them, when a toolchain is missing.
+Records, with the facts of core.facts_gather, the model of the CPU as
+'cpu.model' and the version line of yace and of each toolchain as
+'toolchains.<name>'. The step fails when a toolchain is missing.
 
 Config Arguments
 ----------------

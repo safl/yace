@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 
-// The benchmark through the idiomatic layer of the Go bindings, as the C one:
-// by handle.PointGet() and by handle.PointVisit() with a closure.
+// The benchmark of the idiomatic layer of the Go bindings: the sums of the C
+// benchmark by handle.PointGet() and by handle.PointVisit() with a closure.
 //
 // Usage: bench ROUNDS REPEAT
 package main
