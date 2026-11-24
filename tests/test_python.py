@@ -192,6 +192,21 @@ def test_a_field_named_as_a_keyword_is_reached_by_its_escaped_name(parse, tmp_pa
     assert "async_: A" in ns["ApiR"].__doc__
 
 
+@pytest.mark.parametrize(
+    "target", ["python", pytest.param("cython", marks=needs_cython)]
+)
+def test_a_field_named_as_a_keyword_reprs_by_its_escaped_name(parse, tmp_path, target):
+    model, _ = parse(
+        "/** R */\nstruct api_r {\n\tint async; ///< A\n\tint in; ///< I\n};\n"
+    )
+    assert process(model, [target], tmp_path) == []
+
+    ns = module(tmp_path) if target == "python" else compiled(tmp_path)
+    record = ns["ApiR"](async_=1, in_=2)
+    assert repr(record) == "ApiR(async_=1, in_=2)"
+    assert eval(repr(record), ns).to_dict() == {"async": 1, "in": 2}
+
+
 def test_records_repr_as_their_constructor_is_called(parse, tmp_path):
     model, _ = parse(
         "#include <stdbool.h>\n#include <stdint.h>\n"

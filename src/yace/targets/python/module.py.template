@@ -341,6 +341,7 @@ class _Record(object):
     _yace_name = ""
     _yace_masks = {}  # the parts of each field of bits: name, mask and shift
     _yace_enums = {}  # the enum of each field typed as one
+    _yace_attrs = {}  # the attribute of each field that Python cannot spell
 
     def to_dict(self):
         """The fields, by name, as plain values: pointers as hex strings, a
@@ -396,7 +397,8 @@ class _Record(object):
         fields = []
         for name, *_ in cls._fields_:
             value = _builtins.getattr(self, name)
-            fields.append(f"{name}={_repr(value, cls._yace_enums.get(name))}")
+            attr = cls._yace_attrs.get(name, name)
+            fields.append(f"{attr}={_repr(value, cls._yace_enums.get(name))}")
         return f"{cls.__name__}({', '.join(fields)})"
 
 
@@ -479,6 +481,16 @@ class {{ namer(record.name) }}(ctypes.{{ "Union" if record | is_union else "Stru
 {%- endfor %}
     }
 {%- endif %}
+{%- set names = record.fields | map(attribute="name") | list %}
+{%- for field in record.fields if field.name | ident != field.name and field.name | ident not in names %}
+{%- if loop.first %}
+    _yace_attrs = {
+{%- endif %}
+        "{{ field.name }}": "{{ field.name | ident }}",
+{%- if loop.last %}
+    }
+{%- endif %}
+{%- endfor %}
 {%- if record.fields | selectattr("masks") | list %}
 {%- for field in record.fields %}
 {%- for mask in field.masks %}
@@ -498,7 +510,6 @@ class {{ namer(record.name) }}(ctypes.{{ "Union" if record | is_union else "Stru
 {%- endfor %}
 {%- endfor %}
 {%- endif %}
-{%- set names = record.fields | map(attribute="name") | list %}
 {%- for field in record.fields if field.name | ident != field.name and field.name | ident not in names %}
 
     @property
