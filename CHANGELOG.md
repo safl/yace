@@ -16,6 +16,12 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## 0.14.5
+
+The check of the Cython target finds the headers of an include directory given
+as a relative path, such as `yace -I include`; it failed for every API whose
+header includes a header from that directory.
+
 ## 0.14.4
 
 The generated bindings carry only the comments a reader of the bindings needs;
