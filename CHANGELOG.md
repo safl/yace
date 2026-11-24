@@ -16,6 +16,13 @@ and adds the `## X.Y.Z` section to this file. When it lands on `main`,
 request's checks tested, publishes it to PyPI, tags it, and creates the GitHub
 release. Release tags are not pushed by hand.
 
+## 0.14.6
+
+The ctypes module of the Python target shows a record as the Cython module
+does: a pointer or callback field as the address in the field, or None for
+NULL, and a field named as a keyword, such as the `async` of xNVMe's options,
+by its escaped name, `async_`.
+
 ## 0.14.5
 
 The check of the Cython target finds the headers of an include directory given
