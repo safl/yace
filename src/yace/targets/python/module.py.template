@@ -401,9 +401,12 @@ class _Record(object):
 
 
 def _repr(value, enum=None):
-    """A field's value, as __repr__() shows it: an array as a list, and a value
-    of 'enum' by the name of its member, if it is one"""
+    """A field's value, as __repr__() shows it: an array as a list, a pointer
+    as its address or None, and a value of 'enum' by the name of its member,
+    if it is one"""
 
+    if _builtins.isinstance(value, (ctypes._Pointer, ctypes._CFuncPtr)):
+        return _builtins.repr(ctypes.cast(value, ctypes.c_void_p).value)
     if _builtins.isinstance(value, ctypes.Array) and value._type_ is ctypes.c_char:
         return _builtins.repr(value.value)
     if _builtins.isinstance(value, ctypes.Array):

@@ -222,6 +222,26 @@ def test_records_repr_as_their_constructor_is_called(parse, tmp_path):
     assert repr(status) == "ApiStatus(code=36613, wide=0)"
 
 
+@needs_cc
+def test_pointer_and_callback_fields_repr_as_their_address(parse, bind):
+    header = (
+        "#include <stdint.h>\ntypedef int (*api_cb)(void *ctx);\n"
+        "/** R */\nstruct api_r {\n\tint32_t *p; ///< P\n\tapi_cb cb; ///< C\n"
+        "\tvoid *v; ///< V\n\tstruct api_r *next; ///< N\n};\n"
+        "/**\n * Fill\n * @param[out] r R\n */\nvoid api_fill(struct api_r *r);\n"
+    )
+    model, _ = parse(header)
+    api = bind(
+        model,
+        header + "void api_fill(struct api_r *r)\n"
+        "{ r->p = (int32_t *)0x2000; r->cb = (api_cb)0x3000; r->v = 0;"
+        " r->next = (struct api_r *)0x4000; }\n",
+    )
+
+    assert repr(api["ApiR"]()) == "ApiR(p=None, cb=None, v=None, next=None)"
+    assert repr(api["fill"]()) == "ApiR(p=8192, cb=12288, v=None, next=16384)"
+
+
 def test_a_header_named_as_a_standard_library_module_gets_an_underscore(
     parse, tmp_path
 ):
